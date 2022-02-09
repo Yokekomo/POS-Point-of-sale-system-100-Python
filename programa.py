@@ -470,13 +470,13 @@ class Aplicacion(Frame):
 
         self.frame_dos = Frame(self.frame_principal, bg='#424242', width=100, height=340,
                                highlightbackground='grey', highlightthickness=2)
-        self.frame_dos.grid(padx=2, pady=2, column=1, columnspan=4, row=0, sticky='nsew')
+        self.frame_dos.grid(padx=2, pady=2, column=1, columnspan=4, row=0, sticky='nswe')
 
         # -------------------------------------------------------------------------------------------------- Frame Tres
 
         frame_tres = Frame(self.frame_principal, bg='#424242', width=100, height=340,
                            highlightbackground='grey', highlightthickness=2)
-        frame_tres.grid(padx=2, pady=2, column=5, row=0, columnspan=1, sticky='nsew')
+        frame_tres.grid(padx=2, pady=2, column=5, row=0, columnspan=2, sticky='nsew')
 
         Grid.rowconfigure(frame_tres, 0, weight=1)
         Grid.columnconfigure(frame_tres, 0, weight=1)
@@ -577,9 +577,72 @@ class Aplicacion(Frame):
 
         # ------------------------------------------------------------------------------------------------ Frame Cuatro
 
-        frame_cuatro = Frame(self.frame_principal, bg='#424242', width=900, height=40,
+        self.frame_cuatro = Frame(self.frame_principal, bg='#424242', width=900, height=40,
                              highlightbackground='grey', highlightthickness=2)
-        frame_cuatro.grid(padx=2, pady=2, column=0, row=1, columnspan=6, sticky='nsew')
+        self.frame_cuatro.grid(padx=2, pady=2, column=0, row=1, columnspan=6, sticky='nsew')
+
+    # -----------------------------------------------------------------------------------Cargar ordenes en frame cuatro
+
+    def cargar_ordenes(self, dato):
+
+        Grid.rowconfigure(self.frame_cuatro, 0, weight=1)
+        Grid.columnconfigure(self.frame_cuatro, 0, weight=1)
+
+        ventana = Frame(self.frame_cuatro, background='#424242')
+        ventana.grid(row=0, column=0, sticky='nsew')
+
+        def action(numero):
+            if numero == lista_ordenada[0]:
+                dato = lista_ordenada[0]
+                self.enviar_producto_cuenta(dato)
+            elif numero == lista_ordenada[1]:
+                dato = lista_ordenada[1]
+                self.enviar_producto_cuenta(dato)
+            elif numero == lista_ordenada[2]:
+                dato = lista_ordenada[2]
+                self.enviar_producto_cuenta(dato)
+            elif numero == lista_ordenada[3]:
+                dato = lista_ordenada[3]
+                self.enviar_producto_cuenta(dato)
+            elif numero == lista_ordenada[4]:
+                dato = lista_ordenada[4]
+                self.enviar_producto_cuenta(dato)
+            elif numero == lista_ordenada[5]:
+                dato = lista_ordenada[5]
+                self.enviar_producto_cuenta(dato)
+            elif numero == lista_ordenada[6]:
+                dato = lista_ordenada[6]
+                self.enviar_producto_cuenta(dato)
+            elif numero == lista_ordenada[7]:
+                dato = lista_ordenada[7]
+                self.enviar_producto_cuenta(dato)
+
+        lista_ordenada = []
+        numero = 0
+        numero_columna = 0
+
+        with open(f'{dato}', 'rb') as archivo:
+            lista = pickle.load(archivo)
+            lista_ordenada.append(lista)
+            print(lista)
+
+
+        try:
+            for row_index in range(20):
+                Grid.rowconfigure(ventana, row_index, weight=0)
+                for col_index in range(1):
+                    Grid.columnconfigure(ventana, col_index, weight=1)
+                    boton = Button(ventana, text=lista[numero], height=0, width=1, bg='#424242',
+                                   fg='white', activebackground='grey')
+                    boton.configure(command=partial(action, lista_ordenada[numero]))
+                    boton.grid(column=numero_columna, padx=0, pady=0, ipadx=10, ipady=10, sticky='news')
+
+                    numero += 1
+                    numero_columna += 1
+
+
+        except IndexError:
+            pass
 
     # ----------------------------------------------------------------------------------- Cargar productos en frame dos
 
@@ -588,7 +651,7 @@ class Aplicacion(Frame):
         Grid.rowconfigure(self.frame_dos, 0, weight=1)
         Grid.columnconfigure(self.frame_dos, 0, weight=1)
 
-        ventana = Frame(self.frame_dos)
+        ventana = Frame(self.frame_dos, background='#424242')
         ventana.grid(row=0, column=0, sticky='nsew')
 
         def action(numero):
@@ -643,25 +706,25 @@ class Aplicacion(Frame):
 
         numero = 0
         lista_ordenada = sorted(lista_unicos)
-
-        calculo = len(lista_ordenada) / 2
-
-        if calculo < 1:
-            calculo = 1
-        else:
-            calculo = int(calculo)
+        numero_columna = 0
+        numero_fila = 0
 
         try:
             for row_index in range(len(lista_ordenada)):
-                Grid.rowconfigure(ventana, row_index, weight=1)
-                for col_index in range(calculo):
+                Grid.rowconfigure(ventana, row_index, weight=0)
+                for col_index in range(len(lista_ordenada)):
                     Grid.columnconfigure(ventana, col_index, weight=1)
-                    boton = Button(ventana, text=lista_ordenada[numero], height=1, width=1, bg='#424242',
+                    boton = Button(ventana, text=lista_ordenada[numero], height=0, width=1, bg='#424242',
                                    fg='white', activebackground='grey')
                     boton.configure(command=partial(action, lista_ordenada[numero]))
-                    boton.pack(padx=1, pady=1, ipadx=40, ipady=10, anchor='nw')
-                    boton.rowconfigure(col_index, weight=0)
+                    boton.grid(row=numero_fila, column=numero_columna, padx=0, pady=0, ipadx=35, ipady=10, sticky='news')
+
                     numero += 1
+                    numero_columna += 1
+                    if numero_columna == 7:
+                        numero_fila += 1
+                        numero_columna = 0
+
         except IndexError:
             pass
 
@@ -709,6 +772,7 @@ class Aplicacion(Frame):
                 total_productos.append(celda)
 
             print('Esta parte esta en construcción')
+            self.guardado_automatico_ticket(total_productos)
 
     def guardar_ticket(self):
 
@@ -726,7 +790,9 @@ class Aplicacion(Frame):
                 celda = self.grid.set(item, 'col1')
                 total_productos.append(celda)
 
-            print(total_productos)
+            self.guardado_automatico_ticket(total_productos)
+
+    def guardado_automatico_ticket(self, dato):
 
         # --------------------------------------------------------------------------- Archivo contador número de ticket
 
@@ -756,13 +822,11 @@ class Aplicacion(Frame):
             try:
                 if f'tickets/lista.pickle{ticket_numero}' != os.pardir:
                     with open(f'tickets/lista.pickle{ticket_numero}', 'wb') as archivo:
-                        pickle.dump(total_productos, archivo, pickle.HIGHEST_PROTOCOL)
+                        pickle.dump(dato, archivo, pickle.HIGHEST_PROTOCOL)
                         self.ventana_advertencia(f'Orden número {ticket_numero} guardada')
+                        self.cargar_ordenes(f'tickets/lista.pickle{ticket_numero}')
             except:
                 self.ventana_advertencia(f'Ticket no guardado {ticket_numero}')
-
-                with open(f'tickets/lista.pickle{ticket_numero}', 'rb') as archivo:
-                    lista = pickle.load(archivo)
 
     # ------------------------------------------------------------------------------------- Abrir ventana Cobrar ticket
 
