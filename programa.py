@@ -5,6 +5,8 @@ from functools import partial
 from tkinter import *
 from tkinter import ttk
 
+# ------------------------------------------ Creamos una ventana principal transparente y sobre ella montamos las otras
+
 
 class Aplicacion(Frame):
     db_productos = 'BBDD.db'
@@ -75,6 +77,11 @@ class Aplicacion(Frame):
         self.ventana.destroy()
         self.ventana.quit()
 
+    def salir2(self):
+        self.ventana_productos.destroy()
+
+    # ----------------------------------------------------------------------------------------- Mover Ventana principal
+
     def start(self, event):
         self.x = event.x
         self.y = event.y
@@ -103,6 +110,8 @@ class Aplicacion(Frame):
                                                        (self.x1 - self.y1)))
                 self.ventana.geometry("+%s+%s" % (self.ventana.winfo_x() + deltax, self.ventana.winfo_y() + deltay))
                 self.ventana.update()
+
+    # ----------------------------------------------------------------------------------- Dimensionar ventana principal
 
     def pantalla_completa(self):
         self.ventana.geometry("{0}x{1}+0+0".format(self.ventana.winfo_screenwidth(),
@@ -215,6 +224,9 @@ class Aplicacion(Frame):
         campos = self.grid.get_children()
         for productos in campos:
             self.grid.delete(productos)
+        campos2 = self.total.get_children()
+        for productos in campos2:
+            self.total.delete(productos)
 
     def limpiar_formulario(self):
 
@@ -225,7 +237,7 @@ class Aplicacion(Frame):
         self.stock.set('')
         self.familia.set('')
 
-    # -------------------------------------------------------------- Ventana Insertar Buscar Modificar Borrar Productos
+    # ---------------------------------------------------------------------- Función para seleccionar desde el Treeview
 
     def datos_tabla(self, event):
         los_datos = self.tabla.focus()
@@ -242,13 +254,39 @@ class Aplicacion(Frame):
         self.stock.set(stock)
         self.familia.set(familia)
 
+    # -------------------------------------------------------------------------------------- Ventana Opciones productos
+
     def funcion_opciones(self):
 
         self.ventana_productos = Tk()
         self.ventana_productos.wm_title('Productos')
 
+    # ---------------------------------------------------------------------------------------------------- Barra titulo
+
+        self.frame_top2 = Frame(self.ventana_productos, bg='grey', height=30)
+        self.frame_top2.grid_propagate(0)
+        self.frame_top2.grid(row=0, column=0, sticky='nsew')
+
+    # ------------------------------------------------------------------------------------------------- Frame contenido
+
+        self.frame_ventana_productos = Frame(self.ventana_productos, bg='#4b4b4b')
+        self.frame_ventana_productos.grid(row=1, column=0, sticky='nsew')
+
+        self.ventana_productos.columnconfigure(0, weight=1)
+        self.ventana_productos.rowconfigure(1, weight=1)
+
+        self.frame_ventana_productos.columnconfigure(0, weight=1)
+        self.frame_ventana_productos.columnconfigure(1, weight=1)
+        self.frame_ventana_productos.columnconfigure(2, weight=1)
+        self.frame_ventana_productos.rowconfigure(0, weight=1)
+        self.frame_ventana_productos.rowconfigure(1, weight=1)
+
+        self.cerrar = Button(self.frame_top2, text='Cerrar',
+                             bg='grey', activebackground='grey', bd=0, command=self.salir2)
+        self.cerrar.pack(ipadx=5, padx=5, side='right', ipady=2)
+
         ancho_ventana = 632
-        alto_ventana = 278
+        alto_ventana = 308
 
         x_ventana = self.ventana_productos.winfo_screenwidth() // 2 - ancho_ventana // 2
         y_ventana = self.ventana_productos.winfo_screenheight() // 2 - alto_ventana // 2
@@ -257,13 +295,16 @@ class Aplicacion(Frame):
         self.ventana_productos.geometry(posicion)
 
         self.ventana_productos.resizable(0, 0)
+        self.ventana_productos.overrideredirect(1)
         self.ventana_productos.config(bg='#4b4b4b')
 
+    # ------------------------------------------------------------------------ Label y Entry ventana opciones productos
+
         cuadro = Frame(self.ventana_productos, bg='grey')
-        cuadro.place(x=2, y=2, width=226, height=200)
+        cuadro.place(x=2, y=32, width=226, height=200)
 
         cuadro_interno = Frame(self.ventana_productos, bg='#424242')
-        cuadro_interno.place(x=8, y=8, width=215, height=189)
+        cuadro_interno.place(x=8, y=38, width=215, height=189)
 
         self.id_producto = StringVar(self.ventana_productos)
         self.producto = StringVar(self.ventana_productos)
@@ -308,8 +349,10 @@ class Aplicacion(Frame):
         self.label_familia = Label(cuadro_interno, text='Familia:', background='#424242', fg='white')
         self.label_familia.grid(row=5, column=0, sticky='w', padx=8, pady=5)
 
+    # ------------------------------------------------------------------------------ Botones ventana opciones productos
+
         cuadro2 = Frame(self.ventana_productos, bg='grey')
-        cuadro2.place(x=2, y=205, width=226, height=70)
+        cuadro2.place(x=2, y=235, width=226, height=70)
 
         btn_guardar_producto = Button(cuadro2, text='Guardar',
                                       command=lambda: self.crear_producto(self.producto.get(),
@@ -350,10 +393,10 @@ class Aplicacion(Frame):
                                     fg='red')
         btn_limpiar_campos.place(x=114, y=34, width=106, height=30)
 
-        # ------------------------------------------------------------------------------------------- Tabla Información
+    # ------------------------------------------------------------------------------------- Tabla Información productos
 
         cuadro3 = Frame(self.ventana_productos, bg='grey', highlightbackground='grey', highlightthickness=2)
-        cuadro3.place(x=230, y=2, width=400, height=273)
+        cuadro3.place(x=230, y=32, width=400, height=273)
 
         self.tabla = ttk.Treeview(cuadro3, columns=('col1', 'col2', 'col3', 'col4', 'col5'))
 
@@ -377,13 +420,13 @@ class Aplicacion(Frame):
         self.tabla.heading('col4', text='Stock', anchor=CENTER)
         self.tabla.heading('col5', text='Familia', anchor=CENTER)
 
-        # ---------------------------------------------------------------------------- Cargar Tabla con datos Productos
+    # ------------------------------------------------------------ Cargar Tabla en ventana opciones con datos Productos
 
         self.actualizar_datos()
 
         self.tabla.bind("<<TreeviewSelect>>", self.datos_tabla)
 
-    # ---------------------------------------------------------------------------------------------- Botones Barra Menu
+    # ---------------------------------------------------------------------------- Botones Barra ventana principal Menu
 
     def widgets(self):
 
@@ -408,11 +451,13 @@ class Aplicacion(Frame):
         self.titulo.bind("<B1-Motion>", self.mover)
         self.titulo.bind("<ButtonPress-1>", self.start)
 
-        # --------------------------------------------------------------------------------------------------- Frame Uno
+    # ------------------------------------------------------------------------------------------------------- Frame Uno
 
         frame_uno = Frame(self.frame_principal, bg='#424242', width=100, height=300,
                           highlightbackground='grey', highlightthickness=2)
         frame_uno.grid(padx=2, pady=2, column=0, columnspan=1, row=0, sticky='nsew')
+
+    # --------------------------------------------------------------------------- Treeview para productos seleccionados
 
         self.grid = ttk.Treeview(frame_uno, columns=('col1', 'col2', 'col3', 'col4'))
         self.grid.pack(side=TOP, fill=BOTH, expand=TRUE)
@@ -454,8 +499,12 @@ class Aplicacion(Frame):
         style.map('Treeview',
                   background=[('selected', '#4b4b4b')])
 
+    # -------------------------------------------------------------------------------------- Treeview para total precio
+
         self.total.column('#0', width=25)
         self.total.heading('#0', text='Total', anchor=CENTER)
+
+    # --------------------------------------------------------------------------------- Botones Imprimir Guardar Cobrar
 
         btn_imprimir = Button(frame_uno, text='Imprimir', bg='#424242', fg='white', command=self.imprimir_ticket)
         btn_imprimir.pack(side=LEFT, fill=BOTH, expand=TRUE)
@@ -466,13 +515,13 @@ class Aplicacion(Frame):
         btn_Cobrar = Button(frame_uno, text='Cobrar', bg='#424242', fg='white', command=self.ticket_en_pantalla)
         btn_Cobrar.pack(side=LEFT, fill=BOTH, expand=TRUE)
 
-        # --------------------------------------------------------------------------------------------------- Frame Dos
+    # ------------------------------------------------------------------------------------------------------- Frame Dos
 
         self.frame_dos = Frame(self.frame_principal, bg='#424242', width=100, height=340,
                                highlightbackground='grey', highlightthickness=2)
         self.frame_dos.grid(padx=2, pady=2, column=1, columnspan=4, row=0, sticky='nswe')
 
-        # -------------------------------------------------------------------------------------------------- Frame Tres
+    # ------------------------------------------------------------------------------------------------------ Frame Tres
 
         frame_tres = Frame(self.frame_principal, bg='#424242', width=100, height=340,
                            highlightbackground='grey', highlightthickness=2)
@@ -484,55 +533,7 @@ class Aplicacion(Frame):
         ventana = Frame(frame_tres)
         ventana.grid(row=0, column=0, sticky=N)
 
-        def action(numero):
-            if numero == lista_ordenada[0]:
-                dato = lista_ordenada[0]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[1]:
-                dato = lista_ordenada[1]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[2]:
-                dato = lista_ordenada[2]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[3]:
-                dato = lista_ordenada[3]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[4]:
-                dato = lista_ordenada[4]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[5]:
-                dato = lista_ordenada[5]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[6]:
-                dato = lista_ordenada[6]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[7]:
-                dato = lista_ordenada[7]
-                self.menu_productos(dato)
-            if numero == lista_ordenada[8]:
-                dato = lista_ordenada[8]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[9]:
-                dato = lista_ordenada[9]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[10]:
-                dato = lista_ordenada[10]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[11]:
-                dato = lista_ordenada[11]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[12]:
-                dato = lista_ordenada[12]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[13]:
-                dato = lista_ordenada[13]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[14]:
-                dato = lista_ordenada[14]
-                self.menu_productos(dato)
-            elif numero == lista_ordenada[15]:
-                dato = lista_ordenada[15]
-                self.menu_productos(dato)
+    # ------------------------------------------------------------------------ Busca las familias existentes en la BBDD
 
         try:
             query = (f"SELECT FAMILIA FROM DATOSPRODUCTOS WHERE FAMILIA=" + 'FAMILIA')
@@ -540,6 +541,8 @@ class Aplicacion(Frame):
             fila = mi_cursor.fetchall()
         except IndexError:
             pass
+
+    # ----------------------------------------------------------------- Ordena y elimina los items repetidos en familia
 
         lista_limpia = []
         lista_unicos = []
@@ -561,6 +564,8 @@ class Aplicacion(Frame):
         numero = 0
         lista_ordenada = sorted(lista_unicos)
 
+    # -------------------------------------------------------- Crea botones para cada familia y los carga en frame tres
+
         try:
             for row_index in range(len(lista_ordenada)):
                 Grid.rowconfigure(ventana, row_index, weight=1)
@@ -569,82 +574,27 @@ class Aplicacion(Frame):
                     boton = Button(ventana, text=lista_ordenada[numero], height=1, width=10, bg='#424242',
                                    fg='white', activebackground='grey')
 
-                    boton.configure(command=partial(action, lista_ordenada[numero]))
+                    boton.configure(command=partial(self.efecto_boton, lista_ordenada[numero], lista_ordenada, 1))
                     boton.grid(row=row_index, column=col_index, sticky=N + S + E + W)
                     numero += 1
         except IndexError:
             pass
 
-        # ------------------------------------------------------------------------------------------------ Frame Cuatro
+    # ---------------------------------------------------------------------------------------------------- Frame Cuatro
 
         self.frame_cuatro = Frame(self.frame_principal, bg='#424242', width=900, height=40,
-                             highlightbackground='grey', highlightthickness=2)
+                                  highlightbackground='grey', highlightthickness=2)
         self.frame_cuatro.grid(padx=2, pady=2, column=0, row=1, columnspan=6, sticky='nsew')
 
-    # -----------------------------------------------------------------------------------Cargar ordenes en frame cuatro
+    # ---------------------------------------------------------------------------------- Cargar ordenes en frame cuatro
 
     def cargar_ordenes(self, dato):
 
-        Grid.rowconfigure(self.frame_cuatro, 0, weight=1)
-        Grid.columnconfigure(self.frame_cuatro, 0, weight=1)
+        print('En construcción')
 
-        ventana = Frame(self.frame_cuatro, background='#424242')
-        ventana.grid(row=0, column=0, sticky='nsew')
+        self.limpiar_campos()
 
-        def action(numero):
-            if numero == lista_ordenada[0]:
-                dato = lista_ordenada[0]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[1]:
-                dato = lista_ordenada[1]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[2]:
-                dato = lista_ordenada[2]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[3]:
-                dato = lista_ordenada[3]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[4]:
-                dato = lista_ordenada[4]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[5]:
-                dato = lista_ordenada[5]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[6]:
-                dato = lista_ordenada[6]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[7]:
-                dato = lista_ordenada[7]
-                self.enviar_producto_cuenta(dato)
-
-        lista_ordenada = []
-        numero = 0
-        numero_columna = 0
-
-        with open(f'{dato}', 'rb') as archivo:
-            lista = pickle.load(archivo)
-            lista_ordenada.append(lista)
-            print(lista)
-
-
-        try:
-            for row_index in range(20):
-                Grid.rowconfigure(ventana, row_index, weight=0)
-                for col_index in range(1):
-                    Grid.columnconfigure(ventana, col_index, weight=1)
-                    boton = Button(ventana, text=lista[numero], height=0, width=1, bg='#424242',
-                                   fg='white', activebackground='grey')
-                    boton.configure(command=partial(action, lista_ordenada[numero]))
-                    boton.grid(column=numero_columna, padx=0, pady=0, ipadx=10, ipady=10, sticky='news')
-
-                    numero += 1
-                    numero_columna += 1
-
-
-        except IndexError:
-            pass
-
-    # ----------------------------------------------------------------------------------- Cargar productos en frame dos
+    # --------------------------------------- Busca los items de la familia elegida y Cargar los productos en frame dos
 
     def menu_productos(self, dato):
 
@@ -654,38 +604,14 @@ class Aplicacion(Frame):
         ventana = Frame(self.frame_dos, background='#424242')
         ventana.grid(row=0, column=0, sticky='nsew')
 
-        def action(numero):
-            if numero == lista_ordenada[0]:
-                dato = lista_ordenada[0]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[1]:
-                dato = lista_ordenada[1]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[2]:
-                dato = lista_ordenada[2]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[3]:
-                dato = lista_ordenada[3]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[4]:
-                dato = lista_ordenada[4]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[5]:
-                dato = lista_ordenada[5]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[6]:
-                dato = lista_ordenada[6]
-                self.enviar_producto_cuenta(dato)
-            elif numero == lista_ordenada[7]:
-                dato = lista_ordenada[7]
-                self.enviar_producto_cuenta(dato)
-
         try:
             query = f'SELECT PRODUCTO FROM DATOSPRODUCTOS WHERE FAMILIA=?'
             mi_cursor = self.mi_conexion(query, (dato,))
             fila = mi_cursor.fetchall()
         except IndexError:
             pass
+
+    # ------------------------------------------------------------------------------------- Elimina productos repetidos
 
         lista_limpia = []
         lista_unicos = []
@@ -709,15 +635,18 @@ class Aplicacion(Frame):
         numero_columna = 0
         numero_fila = 0
 
+    # ------------------------------------------------------------------------ Crea botone por cada producto encontrado
+
         try:
-            for row_index in range(len(lista_ordenada)):
-                Grid.rowconfigure(ventana, row_index, weight=0)
-                for col_index in range(len(lista_ordenada)):
-                    Grid.columnconfigure(ventana, col_index, weight=1)
+            for fila in range(len(lista_ordenada)):
+                Grid.rowconfigure(ventana, fila, weight=0)
+                for columna in range(len(lista_ordenada)):
+                    Grid.columnconfigure(ventana, columna, weight=1)
                     boton = Button(ventana, text=lista_ordenada[numero], height=0, width=1, bg='#424242',
                                    fg='white', activebackground='grey')
-                    boton.configure(command=partial(action, lista_ordenada[numero]))
-                    boton.grid(row=numero_fila, column=numero_columna, padx=0, pady=0, ipadx=35, ipady=10, sticky='news')
+                    boton.configure(command=partial(self.efecto_boton, lista_ordenada[numero], lista_ordenada, 2))
+                    boton.grid(row=numero_fila, column=numero_columna, padx=0, pady=0, ipadx=35, ipady=10,
+                               sticky='news')
 
                     numero += 1
                     numero_columna += 1
@@ -727,6 +656,8 @@ class Aplicacion(Frame):
 
         except IndexError:
             pass
+
+    # ------------------------------------------------------------- Busca en la BBDD el producto para sacar información
 
     def enviar_producto_cuenta(self, dato):
 
@@ -743,6 +674,8 @@ class Aplicacion(Frame):
         except IndexError:
             pass
 
+    # ----------------------------------------------------- Envía la suma del precio de los productos al Treeview Total
+
         total_suma = 0
         for item in self.grid.get_children():
             celda = float(self.grid.set(item, 'col4'))
@@ -754,6 +687,8 @@ class Aplicacion(Frame):
             self.total.insert('', 0, text=total_suma_print[0])
         except IndexError:
             pass
+
+    # ----------------------------------------------------------------------------------- Función botón imprimir ticket
 
     def imprimir_ticket(self):
 
@@ -774,6 +709,8 @@ class Aplicacion(Frame):
             print('Esta parte esta en construcción')
             self.guardado_automatico_ticket(total_productos)
 
+    # ------------------------------------------------------------------------------------ Función botón guardar ticket
+
     def guardar_ticket(self):
 
         total_productos = []
@@ -792,43 +729,45 @@ class Aplicacion(Frame):
 
             self.guardado_automatico_ticket(total_productos)
 
+    # --------------------------------------------------------------------------------------- Sistema enumerador ticket
+
     def guardado_automatico_ticket(self, dato):
 
-        # --------------------------------------------------------------------------- Archivo contador número de ticket
-
-            archivo = open("ticket_numero.txt", "a+")
-            archivo.seek(0)
-            numero = archivo.readline()
-            if len(numero) == 0:
-                numero = "1"
-                archivo.write(numero)
+        archivo = open("ticket_numero.txt", "a+")
+        archivo.seek(0)
+        numero = archivo.readline()
+        if len(numero) == 0:
+            numero = "1"
+            archivo.write(numero)
+        archivo.close()
+        try:
+            ticket = int(numero)
+            ticket += 1
+            archivo = open("ticket_numero.txt", "w")
+            archivo.write(str(ticket))
             archivo.close()
-            try:
-                ticket = int(numero)
-                ticket += 1
-                archivo = open("ticket_numero.txt", "w")
-                archivo.write(str(ticket))
-                archivo.close()
-            except:
-                self.ventana_advertencia('Error en contador ticket')
+        except:
+            self.ventana_advertencia('Error en contador ticket')
 
-        # ----------------------------------------------------------------------------------- Guardar ticket en archivo
+    # ---------------------------------------------------------------------------------------- Guarda ticket en archivo
 
-            archivo = open("ticket_numero.txt", "a+")
-            archivo.seek(0)
-            ticket_numero = archivo.readline()
-            archivo.close()
+        archivo = open("ticket_numero.txt", "a+")
+        archivo.seek(0)
+        ticket_numero = archivo.readline()
+        archivo.close()
 
-            try:
-                if f'tickets/lista.pickle{ticket_numero}' != os.pardir:
-                    with open(f'tickets/lista.pickle{ticket_numero}', 'wb') as archivo:
-                        pickle.dump(dato, archivo, pickle.HIGHEST_PROTOCOL)
-                        self.ventana_advertencia(f'Orden número {ticket_numero} guardada')
-                        self.cargar_ordenes(f'tickets/lista.pickle{ticket_numero}')
-            except:
-                self.ventana_advertencia(f'Ticket no guardado {ticket_numero}')
+        try:
+            if f'tickets/lista.pickle{ticket_numero}' != os.pardir:
+                with open(f'tickets/lista.pickle{ticket_numero}', 'wb') as archivo:
+                    pickle.dump(dato, archivo, pickle.HIGHEST_PROTOCOL)
+                    dato = 'f\'' + f'tickets/lista.pickle{ticket_numero}' + '\''
+                    self.cargar_ordenes(dato)
+                    self.ventana_advertencia(f'Orden número {ticket_numero} guardada')
 
-    # ------------------------------------------------------------------------------------- Abrir ventana Cobrar ticket
+        except:
+            self.ventana_advertencia(f'Ticket no guardado {ticket_numero}')
+
+    # -------------------------------------------------------------------------------------- Abre ventana Cobrar ticket
 
     def cobrar_ticket(self, info_productos, info_precios, total_suma_print):
 
@@ -871,10 +810,12 @@ class Aplicacion(Frame):
             aviso_texto = Label(cuadro_interno, text='PRODUCTOS\t\tPRECIOS', fg='white', background='#4b4b4b')
             aviso_texto.pack(side=TOP)
 
-            aviso_texto1 = Label(cuadro_interno_productos, text=info_productos, fg='white', background='#4b4b4b')
+            aviso_texto1 = Label(cuadro_interno_productos, text=info_productos, fg='white',
+                                 background='#4b4b4b', justify=LEFT)
             aviso_texto1.pack(side=LEFT)
 
-            aviso_texto2 = Label(cuadro_interno_precios, text=info_precios, fg='white', background='#4b4b4b')
+            aviso_texto2 = Label(cuadro_interno_precios, text=info_precios, fg='white',
+                                 background='#4b4b4b', justify=RIGHT)
             aviso_texto2.pack(side=RIGHT)
 
             aviso_texto3 = Label(cuadro_interno, text=f'TOTAL = {total_suma_print}€', fg='white',
@@ -974,15 +915,15 @@ class Aplicacion(Frame):
 
         btn_aceptar = Button(cuadro, activebackground='grey', background='#424242', text='Borrar', fg='red',
                              command=lambda: [ventana_confirmar.destroy(), self.borrar_producto(id_producto)])
-        btn_aceptar.place(x=10, y=60, width=80, height=25)
+        btn_aceptar.place(x=18, y=60, width=80, height=25)
 
         btn_cancelar = Button(cuadro, activebackground='grey', background='#424242', text='Cancelar', fg='white',
                               command=lambda: ventana_confirmar.destroy())
-        btn_cancelar.place(x=100, y=60, width=80, height=25)
+        btn_cancelar.place(x=102, y=60, width=80, height=25)
 
         ventana_confirmar.mainloop()
 
-    # --------------------------------------------------------------------------------- Impresión de Ticket en Pantalla
+    # --------------------------------------------------------------------------  Impresión del Ticket en Ventana Cobro
 
     def ticket_en_pantalla(self):
 
@@ -1021,6 +962,197 @@ class Aplicacion(Frame):
         total_suma_print = [str('{0:.2f}'.format(total_suma))]
 
         self.cobrar_ticket(ver_ticket, ver_ticket2, total_suma_print[0])
+
+    # --------------------------------------------------------------------------- Devuelve acción al presionar un botón
+
+    def efecto_boton(self, numero, lista_ordenada, num):
+
+        if numero == lista_ordenada[0]:
+            dato = lista_ordenada[0]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[1]:
+            dato = lista_ordenada[1]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[2]:
+            dato = lista_ordenada[2]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[3]:
+            dato = lista_ordenada[3]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[4]:
+            dato = lista_ordenada[4]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[5]:
+            dato = lista_ordenada[5]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[6]:
+            dato = lista_ordenada[6]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[7]:
+            dato = lista_ordenada[7]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[8]:
+            dato = lista_ordenada[8]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[9]:
+            dato = lista_ordenada[9]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[10]:
+            dato = lista_ordenada[10]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[11]:
+            dato = lista_ordenada[11]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[12]:
+            dato = lista_ordenada[12]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[13]:
+            dato = lista_ordenada[13]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[14]:
+            dato = lista_ordenada[14]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[15]:
+            dato = lista_ordenada[15]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[16]:
+            dato = lista_ordenada[16]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[17]:
+            dato = lista_ordenada[17]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[18]:
+            dato = lista_ordenada[18]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[19]:
+            dato = lista_ordenada[19]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[20]:
+            dato = lista_ordenada[20]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[21]:
+            dato = lista_ordenada[21]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[22]:
+            dato = lista_ordenada[22]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[23]:
+            dato = lista_ordenada[23]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[24]:
+            dato = lista_ordenada[24]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[25]:
+            dato = lista_ordenada[25]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[26]:
+            dato = lista_ordenada[26]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[27]:
+            dato = lista_ordenada[27]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[28]:
+            dato = lista_ordenada[28]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[29]:
+            dato = lista_ordenada[29]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
+        elif numero == lista_ordenada[30]:
+            dato = lista_ordenada[30]
+            if num == 1:
+                return self.menu_productos(dato)
+            elif num == 2:
+                return self.enviar_producto_cuenta(dato)
 
 
 if __name__ == '__main__':
