@@ -1,9 +1,11 @@
 import os
 import pickle
+import re
 import sqlite3
 from functools import partial
 from tkinter import *
 from tkinter import ttk
+
 
 # ------------------------------------------ Creamos una ventana principal transparente y sobre ella montamos las otras
 
@@ -261,13 +263,13 @@ class Aplicacion(Frame):
         self.ventana_productos = Tk()
         self.ventana_productos.wm_title('Productos')
 
-    # ---------------------------------------------------------------------------------------------------- Barra titulo
+        # ---------------------------------------------------------------------------------------------------- Barra titulo
 
         self.frame_top2 = Frame(self.ventana_productos, bg='grey', height=30)
         self.frame_top2.grid_propagate(0)
         self.frame_top2.grid(row=0, column=0, sticky='nsew')
 
-    # ------------------------------------------------------------------------------------------------- Frame contenido
+        # ------------------------------------------------------------------------------------------------- Frame contenido
 
         self.frame_ventana_productos = Frame(self.ventana_productos, bg='#4b4b4b')
         self.frame_ventana_productos.grid(row=1, column=0, sticky='nsew')
@@ -298,7 +300,7 @@ class Aplicacion(Frame):
         self.ventana_productos.overrideredirect(1)
         self.ventana_productos.config(bg='#4b4b4b')
 
-    # ------------------------------------------------------------------------ Label y Entry ventana opciones productos
+        # ------------------------------------------------------------------------ Label y Entry ventana opciones productos
 
         cuadro = Frame(self.ventana_productos, bg='grey')
         cuadro.place(x=2, y=32, width=226, height=200)
@@ -349,7 +351,7 @@ class Aplicacion(Frame):
         self.label_familia = Label(cuadro_interno, text='Familia:', background='#424242', fg='white')
         self.label_familia.grid(row=5, column=0, sticky='w', padx=8, pady=5)
 
-    # ------------------------------------------------------------------------------ Botones ventana opciones productos
+        # ------------------------------------------------------------------------------ Botones ventana opciones productos
 
         cuadro2 = Frame(self.ventana_productos, bg='grey')
         cuadro2.place(x=2, y=235, width=226, height=70)
@@ -393,7 +395,7 @@ class Aplicacion(Frame):
                                     fg='red')
         btn_limpiar_campos.place(x=114, y=34, width=106, height=30)
 
-    # ------------------------------------------------------------------------------------- Tabla Información productos
+        # ------------------------------------------------------------------------------------- Tabla Información productos
 
         cuadro3 = Frame(self.ventana_productos, bg='grey', highlightbackground='grey', highlightthickness=2)
         cuadro3.place(x=230, y=32, width=400, height=273)
@@ -420,7 +422,7 @@ class Aplicacion(Frame):
         self.tabla.heading('col4', text='Stock', anchor=CENTER)
         self.tabla.heading('col5', text='Familia', anchor=CENTER)
 
-    # ------------------------------------------------------------ Cargar Tabla en ventana opciones con datos Productos
+        # ------------------------------------------------------------ Cargar Tabla en ventana opciones con datos Productos
 
         self.actualizar_datos()
 
@@ -451,13 +453,13 @@ class Aplicacion(Frame):
         self.titulo.bind("<B1-Motion>", self.mover)
         self.titulo.bind("<ButtonPress-1>", self.start)
 
-    # ------------------------------------------------------------------------------------------------------- Frame Uno
+        # ------------------------------------------------------------------------------------------------------- Frame Uno
 
         frame_uno = Frame(self.frame_principal, bg='#424242', width=100, height=300,
                           highlightbackground='grey', highlightthickness=2)
         frame_uno.grid(padx=2, pady=2, column=0, columnspan=1, row=0, sticky='nsew')
 
-    # --------------------------------------------------------------------------- Treeview para productos seleccionados
+        # --------------------------------------------------------------------------- Treeview para productos seleccionados
 
         self.grid = ttk.Treeview(frame_uno, columns=('col1', 'col2', 'col3', 'col4'))
         self.grid.pack(side=TOP, fill=BOTH, expand=TRUE)
@@ -499,12 +501,12 @@ class Aplicacion(Frame):
         style.map('Treeview',
                   background=[('selected', '#4b4b4b')])
 
-    # -------------------------------------------------------------------------------------- Treeview para total precio
+        # -------------------------------------------------------------------------------------- Treeview para total precio
 
         self.total.column('#0', width=25)
         self.total.heading('#0', text='Total', anchor=CENTER)
 
-    # --------------------------------------------------------------------------------- Botones Imprimir Guardar Cobrar
+        # --------------------------------------------------------------------------------- Botones Imprimir Guardar Cobrar
 
         btn_imprimir = Button(frame_uno, text='Imprimir', bg='#424242', fg='white', command=self.imprimir_ticket)
         btn_imprimir.pack(side=LEFT, fill=BOTH, expand=TRUE)
@@ -515,13 +517,13 @@ class Aplicacion(Frame):
         btn_Cobrar = Button(frame_uno, text='Cobrar', bg='#424242', fg='white', command=self.ticket_en_pantalla)
         btn_Cobrar.pack(side=LEFT, fill=BOTH, expand=TRUE)
 
-    # ------------------------------------------------------------------------------------------------------- Frame Dos
+        # ------------------------------------------------------------------------------------------------------- Frame Dos
 
         self.frame_dos = Frame(self.frame_principal, bg='#424242', width=100, height=340,
                                highlightbackground='grey', highlightthickness=2)
         self.frame_dos.grid(padx=2, pady=2, column=1, columnspan=4, row=0, sticky='nswe')
 
-    # ------------------------------------------------------------------------------------------------------ Frame Tres
+        # ------------------------------------------------------------------------------------------------------ Frame Tres
 
         frame_tres = Frame(self.frame_principal, bg='#424242', width=100, height=340,
                            highlightbackground='grey', highlightthickness=2)
@@ -533,7 +535,7 @@ class Aplicacion(Frame):
         ventana = Frame(frame_tres)
         ventana.grid(row=0, column=0, sticky=N)
 
-    # ------------------------------------------------------------------------ Busca las familias existentes en la BBDD
+        # ------------------------------------------------------------------------ Busca las familias existentes en la BBDD
 
         try:
             query = (f"SELECT FAMILIA FROM DATOSPRODUCTOS WHERE FAMILIA=" + 'FAMILIA')
@@ -542,7 +544,7 @@ class Aplicacion(Frame):
         except IndexError:
             pass
 
-    # ----------------------------------------------------------------- Ordena y elimina los items repetidos en familia
+        # ----------------------------------------------------------------- Ordena y elimina los items repetidos en familia
 
         lista_limpia = []
         lista_unicos = []
@@ -564,7 +566,7 @@ class Aplicacion(Frame):
         numero = 0
         lista_ordenada = sorted(lista_unicos)
 
-    # -------------------------------------------------------- Crea botones para cada familia y los carga en frame tres
+        # -------------------------------------------------------- Crea botones para cada familia y los carga en frame tres
 
         try:
             for row_index in range(len(lista_ordenada)):
@@ -580,29 +582,51 @@ class Aplicacion(Frame):
         except IndexError:
             pass
 
-    # ---------------------------------------------------------------------------------------------------- Frame Cuatro
+        # ---------------------------------------------------------------------------------------------------- Frame Cuatro
 
-        self.frame_cuatro = Frame(self.frame_principal, bg='#424242', width=900, height=40,
+        self.frame_cuatro = Frame(self.frame_principal, bg='#424242', width=900, height=10,
                                   highlightbackground='grey', highlightthickness=2)
-        self.frame_cuatro.grid(padx=2, pady=2, column=0, row=1, columnspan=6, sticky='nsew')
+        self.frame_cuatro.grid(padx=2, pady=2, column=0, row=1, columnspan=7, sticky='nsew')
 
     # ---------------------------------------------------------------------------------- Cargar ordenes en frame cuatro
 
     def cargar_ordenes(self, dato):
 
-        print('En construcción')
+        Grid.rowconfigure(self.frame_cuatro, 0, weight=1)
+        Grid.columnconfigure(self.frame_cuatro, 0, weight=1)
+
+        self.enumerador_columnas_ordenes(dato)
+        archivo = open("columnas.txt", "a+")
+        archivo.seek(0)
+        numero_columna = archivo.readline()
+        extraer_numero = [int(s) for s in re.findall(r'-?\d+\.?\d*', dato)]
+        numero = "".join(map(str, extraer_numero))
+
+        ventana = Frame(self.frame_cuatro, background='#424242')
+        ventana.grid(row=0, column=int(numero_columna), sticky='nsew')
+        lista = []
+        lista.append(numero)
+
+        try:
+
+            Grid.rowconfigure(ventana, 1, weight=1)
+            Grid.columnconfigure(ventana, 1, weight=0)
+            boton = Button(ventana, text=f' Ticket nº {numero} \n\nPresione\npara\nCobrar', height=0, width=0,
+                           bg='#424242', fg='white', activebackground='grey',
+                           command=lambda: [self.efecto_boton(numero, lista, 3), boton.destroy()])
+            boton.grid(row=1, column=int(numero_columna), sticky=N + S + E + W)
+
+        except:
+            print('Error al cargar la orden al frame cuatro')
+
+        print(numero)
+        print(lista)
 
         self.limpiar_campos()
 
     # --------------------------------------- Busca los items de la familia elegida y Cargar los productos en frame dos
 
     def menu_productos(self, dato):
-
-        Grid.rowconfigure(self.frame_dos, 0, weight=1)
-        Grid.columnconfigure(self.frame_dos, 0, weight=1)
-
-        ventana = Frame(self.frame_dos, background='#424242')
-        ventana.grid(row=0, column=0, sticky='nsew')
 
         try:
             query = f'SELECT PRODUCTO FROM DATOSPRODUCTOS WHERE FAMILIA=?'
@@ -635,22 +659,24 @@ class Aplicacion(Frame):
         numero_columna = 0
         numero_fila = 0
 
-    # ------------------------------------------------------------------------ Crea botone por cada producto encontrado
+    # ------------------------------------------------------------------------- Crea boton por cada producto encontrado
 
+        Grid.rowconfigure(self.frame_dos, 0, weight=1)
+        Grid.columnconfigure(self.frame_dos, 0, weight=1)
+        ventana = Frame(self.frame_dos, background='#424242')
+        ventana.grid(row=numero_fila, column=numero_columna, sticky='nsew')
         try:
-            for fila in range(len(lista_ordenada)):
-                Grid.rowconfigure(ventana, fila, weight=0)
-                for columna in range(len(lista_ordenada)):
-                    Grid.columnconfigure(ventana, columna, weight=1)
+            for fila in range(10):
+                Grid.rowconfigure(ventana, int(numero_fila), weight=0)
+                for columna in range(10):
+                    Grid.columnconfigure(ventana, int(numero_columna), weight=1)
                     boton = Button(ventana, text=lista_ordenada[numero], height=0, width=1, bg='#424242',
                                    fg='white', activebackground='grey')
                     boton.configure(command=partial(self.efecto_boton, lista_ordenada[numero], lista_ordenada, 2))
-                    boton.grid(row=numero_fila, column=numero_columna, padx=0, pady=0, ipadx=35, ipady=10,
-                               sticky='news')
-
+                    boton.grid(row=numero_fila, column=numero_columna, ipadx=35, ipady=10, sticky=N + S + E + W)
                     numero += 1
                     numero_columna += 1
-                    if numero_columna == 7:
+                    if numero_columna == 8:
                         numero_fila += 1
                         numero_columna = 0
 
@@ -729,6 +755,33 @@ class Aplicacion(Frame):
 
             self.guardado_automatico_ticket(total_productos)
 
+    # ----------------------------------------------------------------------------- Sistema enumerador columnas ordenes
+
+    def enumerador_columnas_ordenes(self, dato):
+
+        archivo = open("columnas.txt", "a+")
+        archivo.seek(0)
+        numero = archivo.readline()
+        if len(numero) == 0:
+            numero = "0"
+            archivo.write(numero)
+        elif len(numero) == 2:
+            archivo = open("columnas.txt", "w+")
+            archivo.seek(0)
+            numero = "0"
+            archivo.write(numero)
+            archivo.close()
+            self.ventana_advertencia('Ventana Ordenes llena\nCobre una orden')
+        archivo.close()
+        try:
+            columna_orden = int(numero)
+            columna_orden += 1
+            archivo = open("columnas.txt", "w")
+            archivo.write(str(columna_orden))
+            archivo.close()
+        except:
+            self.ventana_advertencia('Error en contador columnas ordenes')
+
     # --------------------------------------------------------------------------------------- Sistema enumerador ticket
 
     def guardado_automatico_ticket(self, dato):
@@ -758,9 +811,10 @@ class Aplicacion(Frame):
 
         try:
             if f'tickets/lista.pickle{ticket_numero}' != os.pardir:
-                with open(f'tickets/lista.pickle{ticket_numero}', 'wb') as archivo:
-                    pickle.dump(dato, archivo, pickle.HIGHEST_PROTOCOL)
+                with open(f'tickets/lista{ticket_numero}.pickle', 'wb') as archivo:
+                    pickle.dump(dato, archivo)
                     dato = 'f\'' + f'tickets/lista.pickle{ticket_numero}' + '\''
+                    archivo.close()
                     self.cargar_ordenes(dato)
                     self.ventana_advertencia(f'Orden número {ticket_numero} guardada')
 
@@ -963,6 +1017,40 @@ class Aplicacion(Frame):
 
         self.cobrar_ticket(ver_ticket, ver_ticket2, total_suma_print[0])
 
+    # -------------------------------------------------------------------------------- Cargar ticket en Treeview Cuenta
+
+    def abrir_ticket_guardado(self, dato):
+        valor = 1
+
+        total_productos = []
+        for item in self.grid.get_children():
+            celda = self.grid.set(item, 'col1')
+            total_productos.append(celda)
+
+        if len(total_productos) == 0:
+
+            try:
+                with open(f'tickets/lista{dato}.pickle', 'rb') as archivo:
+                    lista_productos = pickle.load(archivo)
+                    for elemento in lista_productos:
+                        query = f"SELECT * FROM DATOSPRODUCTOS WHERE PRODUCTO=?"
+                        el_producto = self.mi_conexion(query, (elemento,))
+                        el_producto = el_producto.fetchall()
+
+                        try:
+
+                            for productos in el_producto:
+                                self.grid.insert('', 0, text=productos[0],
+                                                 values=(productos[1], valor, productos[3], productos[2]))
+                        except IndexError:
+                            pass
+            except:
+                print('error al abrir archivo guardado')
+        else:
+            self.guardar_ticket()
+            self.ventana_advertencia('El ticket actual\n se ha guardado')
+            self.abrir_ticket_guardado(dato)
+
     # --------------------------------------------------------------------------- Devuelve acción al presionar un botón
 
     def efecto_boton(self, numero, lista_ordenada, num):
@@ -970,189 +1058,251 @@ class Aplicacion(Frame):
         if numero == lista_ordenada[0]:
             dato = lista_ordenada[0]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[1]:
             dato = lista_ordenada[1]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[2]:
             dato = lista_ordenada[2]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[3]:
             dato = lista_ordenada[3]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[4]:
             dato = lista_ordenada[4]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[5]:
             dato = lista_ordenada[5]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[6]:
             dato = lista_ordenada[6]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[7]:
             dato = lista_ordenada[7]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[8]:
             dato = lista_ordenada[8]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[9]:
             dato = lista_ordenada[9]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[10]:
             dato = lista_ordenada[10]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[11]:
             dato = lista_ordenada[11]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[12]:
             dato = lista_ordenada[12]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[13]:
             dato = lista_ordenada[13]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[14]:
             dato = lista_ordenada[14]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[15]:
             dato = lista_ordenada[15]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[16]:
             dato = lista_ordenada[16]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[17]:
             dato = lista_ordenada[17]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[18]:
             dato = lista_ordenada[18]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[19]:
             dato = lista_ordenada[19]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[20]:
             dato = lista_ordenada[20]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[21]:
             dato = lista_ordenada[21]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[22]:
             dato = lista_ordenada[22]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[23]:
             dato = lista_ordenada[23]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[24]:
             dato = lista_ordenada[24]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[25]:
             dato = lista_ordenada[25]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[26]:
             dato = lista_ordenada[26]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[27]:
             dato = lista_ordenada[27]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[28]:
             dato = lista_ordenada[28]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[29]:
             dato = lista_ordenada[29]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
         elif numero == lista_ordenada[30]:
             dato = lista_ordenada[30]
             if num == 1:
-                return self.menu_productos(dato)
+                self.menu_productos(dato)
             elif num == 2:
-                return self.enviar_producto_cuenta(dato)
+                self.enviar_producto_cuenta(dato)
+            elif num == 3:
+                self.abrir_ticket_guardado(dato)
 
 
 if __name__ == '__main__':
