@@ -2,6 +2,10 @@ import os
 import pickle
 import re
 import sqlite3
+import win32ui
+import win32print
+import win32con
+from datetime import datetime
 from functools import partial
 from tkinter import *
 from tkinter import ttk
@@ -220,6 +224,48 @@ class Aplicacion(Frame):
         for caja in respuesta_consulta:
             self.tabla.insert('', 0, text=caja[0], values=(caja[1], caja[2], caja[3], caja[4], caja[5]))
 
+    # --------------------------------------------------------------------- Borrar item seleccionado Treeview frame uno
+
+    def borrar_item_grid(self):
+
+        selected_item = self.grid.selection()[0]
+        self.grid.delete(selected_item)
+
+    # -------------------------------------------------------------------- Limpiar y añadir cantidad Treeview frame uno
+
+    def add_cantidad_x1(self):
+
+        total_suma_item = 1
+        los_datos = self.grid.focus()
+        if not los_datos:
+            return
+        datos = self.grid.item(los_datos)
+        id_producto = datos["text"]
+        producto, cantidad, tax, precio = datos["values"]
+        total_suma_item += cantidad
+
+        query = f"SELECT * FROM DATOSPRODUCTOS WHERE ID= '{id_producto}'"
+        el_producto = self.mi_conexion(query)
+        for elemento in el_producto:
+            precio_base = elemento[2]
+
+        precio = float(precio)
+        precio_base = float(precio_base)
+        precio += precio_base
+
+        total_suma_print = [str('{0:.2f}'.format(precio))]
+
+        selected_item = self.grid.selection()[0]
+        self.grid.delete(selected_item)
+
+        try:
+            self.grid.insert('', 0, text=id_producto, values=(producto, total_suma_item, tax, total_suma_print))
+
+        except IndexError:
+            pass
+
+        self.dame_total()
+
     # ----------------------------------------------------------------------------------- Limpiar Treeview Cuenta Orden
 
     def limpiar_campos(self):
@@ -239,9 +285,63 @@ class Aplicacion(Frame):
         self.stock.set('')
         self.familia.set('')
 
-    # ---------------------------------------------------------------------- Función para seleccionar desde el Treeview
+    # ------------------------------------------------------------ Función para seleccionar desde el Treeview Frame uno
+
+    def datos_grid(self, event):
+
+        los_datos = self.grid.focus()
+        if not los_datos:
+            return
+        datos = self.grid.item(los_datos)
+        id_producto = datos["text"]
+        producto, cantidad, tax, precio = datos["values"]
+
+        texto = f'{producto} - {cantidad} unidad - Precio: {precio}€'
+
+        # ----------------------------------------------------- Ventana modificar Borrar producto de Treeview Frame uno
+
+        ventana_modificar_ticket = Tk()
+        ventana_modificar_ticket.configure(background='#424242')
+        ventana_modificar_ticket.overrideredirect(1)
+
+        ancho_ventana = 300
+        alto_ventana = 100
+
+        x_ventana = ventana_modificar_ticket.winfo_screenwidth() // 2 - ancho_ventana // 2
+        y_ventana = ventana_modificar_ticket.winfo_screenheight() // 2 - alto_ventana // 2
+
+        posicion = str(ancho_ventana) + "x" + str(alto_ventana) + "+" + str(x_ventana) + "+" + str(y_ventana)
+        ventana_modificar_ticket.geometry(posicion)
+
+        ventana_modificar_ticket.resizable(0, 0)
+
+        cuadro = Frame(ventana_modificar_ticket, background='grey')
+        cuadro.place(x=0, y=0, width=300, height=100)
+
+        cuadro_interno = Frame(cuadro, background='#4b4b4b')
+        cuadro_interno.place(x=2, y=2, width=296, height=96)
+
+        aviso_texto = Label(cuadro_interno, text=texto, fg='white', background='#4b4b4b', font=('Arial', 10))
+        aviso_texto.pack(ipady=15, side=TOP)
+
+        btn_borrar = Button(cuadro, activebackground='grey', background='#424242', text='Borrar', fg='red',
+                            command=lambda: [ventana_modificar_ticket.destroy(), self.borrar_item_grid()])
+        btn_borrar.place(x=20, y=60, width=80, height=25)
+
+        btn_cancelar = Button(cuadro, activebackground='grey', background='#424242', text='Cancelar', fg='white',
+                              command=lambda: ventana_modificar_ticket.destroy())
+        btn_cancelar.place(x=110, y=60, width=80, height=25)
+
+        btn_itemx1 = Button(cuadro, activebackground='grey', background='#424242', text='x1', fg='white',
+                            command=lambda: [ventana_modificar_ticket.destroy(), self.add_cantidad_x1()])
+        btn_itemx1.place(x=200, y=60, width=80, height=25)
+
+        ventana_modificar_ticket.mainloop()
+
+    # ------------------------------------------------------------ Función para seleccionar desde el Treeview productos
 
     def datos_tabla(self, event):
+
         los_datos = self.tabla.focus()
         if not los_datos:
             return
@@ -263,13 +363,13 @@ class Aplicacion(Frame):
         self.ventana_productos = Tk()
         self.ventana_productos.wm_title('Productos')
 
-        # ---------------------------------------------------------------------------------------------------- Barra titulo
+        # ------------------------------------------------------------------------------------------------ Barra titulo
 
         self.frame_top2 = Frame(self.ventana_productos, bg='grey', height=30)
         self.frame_top2.grid_propagate(0)
         self.frame_top2.grid(row=0, column=0, sticky='nsew')
 
-        # ------------------------------------------------------------------------------------------------- Frame contenido
+        # --------------------------------------------------------------------------------------------- Frame contenido
 
         self.frame_ventana_productos = Frame(self.ventana_productos, bg='#4b4b4b')
         self.frame_ventana_productos.grid(row=1, column=0, sticky='nsew')
@@ -300,7 +400,7 @@ class Aplicacion(Frame):
         self.ventana_productos.overrideredirect(1)
         self.ventana_productos.config(bg='#4b4b4b')
 
-        # ------------------------------------------------------------------------ Label y Entry ventana opciones productos
+        # -------------------------------------------------------------------- Label y Entry ventana opciones productos
 
         cuadro = Frame(self.ventana_productos, bg='grey')
         cuadro.place(x=2, y=32, width=226, height=200)
@@ -351,7 +451,7 @@ class Aplicacion(Frame):
         self.label_familia = Label(cuadro_interno, text='Familia:', background='#424242', fg='white')
         self.label_familia.grid(row=5, column=0, sticky='w', padx=8, pady=5)
 
-        # ------------------------------------------------------------------------------ Botones ventana opciones productos
+        # -------------------------------------------------------------------------- Botones ventana opciones productos
 
         cuadro2 = Frame(self.ventana_productos, bg='grey')
         cuadro2.place(x=2, y=235, width=226, height=70)
@@ -395,7 +495,7 @@ class Aplicacion(Frame):
                                     fg='red')
         btn_limpiar_campos.place(x=114, y=34, width=106, height=30)
 
-        # ------------------------------------------------------------------------------------- Tabla Información productos
+        # --------------------------------------------------------------------------------- Tabla Información productos
 
         cuadro3 = Frame(self.ventana_productos, bg='grey', highlightbackground='grey', highlightthickness=2)
         cuadro3.place(x=230, y=32, width=400, height=273)
@@ -422,7 +522,7 @@ class Aplicacion(Frame):
         self.tabla.heading('col4', text='Stock', anchor=CENTER)
         self.tabla.heading('col5', text='Familia', anchor=CENTER)
 
-        # ------------------------------------------------------------ Cargar Tabla en ventana opciones con datos Productos
+        # -------------------------------------------------------- Cargar Tabla en ventana opciones con datos Productos
 
         self.actualizar_datos()
 
@@ -453,13 +553,13 @@ class Aplicacion(Frame):
         self.titulo.bind("<B1-Motion>", self.mover)
         self.titulo.bind("<ButtonPress-1>", self.start)
 
-        # ------------------------------------------------------------------------------------------------------- Frame Uno
+        # --------------------------------------------------------------------------------------------------- Frame Uno
 
         frame_uno = Frame(self.frame_principal, bg='#424242', width=100, height=300,
                           highlightbackground='grey', highlightthickness=2)
         frame_uno.grid(padx=2, pady=2, column=0, columnspan=1, row=0, sticky='nsew')
 
-        # --------------------------------------------------------------------------- Treeview para productos seleccionados
+        # ----------------------------------------------------------------------- Treeview para productos seleccionados
 
         self.grid = ttk.Treeview(frame_uno, columns=('col1', 'col2', 'col3', 'col4'))
         self.grid.pack(side=TOP, fill=BOTH, expand=TRUE)
@@ -487,6 +587,8 @@ class Aplicacion(Frame):
         self.grid.heading('col3', text='tax', anchor=CENTER)
         self.grid.heading('col4', text='Precio', anchor=CENTER)
 
+        self.grid.bind("<<TreeviewSelect>>", self.datos_grid)
+
         self.total = ttk.Treeview(frame_uno, height=1)
         self.total.pack(side=RIGHT, fill=BOTH, expand=TRUE)
 
@@ -501,12 +603,12 @@ class Aplicacion(Frame):
         style.map('Treeview',
                   background=[('selected', '#4b4b4b')])
 
-        # -------------------------------------------------------------------------------------- Treeview para total precio
+        # ---------------------------------------------------------------------------------- Treeview para total precio
 
         self.total.column('#0', width=25)
         self.total.heading('#0', text='Total', anchor=CENTER)
 
-        # --------------------------------------------------------------------------------- Botones Imprimir Guardar Cobrar
+        # ----------------------------------------------------------------------------- Botones Imprimir Guardar Cobrar
 
         btn_imprimir = Button(frame_uno, text='Imprimir', bg='#424242', fg='white', command=self.imprimir_ticket)
         btn_imprimir.pack(side=LEFT, fill=BOTH, expand=TRUE)
@@ -517,13 +619,13 @@ class Aplicacion(Frame):
         btn_Cobrar = Button(frame_uno, text='Cobrar', bg='#424242', fg='white', command=self.ticket_en_pantalla)
         btn_Cobrar.pack(side=LEFT, fill=BOTH, expand=TRUE)
 
-        # ------------------------------------------------------------------------------------------------------- Frame Dos
+        # --------------------------------------------------------------------------------------------------- Frame Dos
 
         self.frame_dos = Frame(self.frame_principal, bg='#424242', width=100, height=340,
                                highlightbackground='grey', highlightthickness=2)
         self.frame_dos.grid(padx=2, pady=2, column=1, columnspan=4, row=0, sticky='nswe')
 
-        # ------------------------------------------------------------------------------------------------------ Frame Tres
+        # -------------------------------------------------------------------------------------------------- Frame Tres
 
         frame_tres = Frame(self.frame_principal, bg='#424242', width=100, height=340,
                            highlightbackground='grey', highlightthickness=2)
@@ -535,7 +637,7 @@ class Aplicacion(Frame):
         ventana = Frame(frame_tres)
         ventana.grid(row=0, column=0, sticky=N)
 
-        # ------------------------------------------------------------------------ Busca las familias existentes en la BBDD
+        # -------------------------------------------------------------------- Busca las familias existentes en la BBDD
 
         try:
             query = (f"SELECT FAMILIA FROM DATOSPRODUCTOS WHERE FAMILIA=" + 'FAMILIA')
@@ -544,7 +646,7 @@ class Aplicacion(Frame):
         except IndexError:
             pass
 
-        # ----------------------------------------------------------------- Ordena y elimina los items repetidos en familia
+        # ------------------------------------------------------------- Ordena y elimina los items repetidos en familia
 
         lista_limpia = []
         lista_unicos = []
@@ -566,7 +668,7 @@ class Aplicacion(Frame):
         numero = 0
         lista_ordenada = sorted(lista_unicos)
 
-        # -------------------------------------------------------- Crea botones para cada familia y los carga en frame tres
+        # ---------------------------------------------------- Crea botones para cada familia y los carga en frame tres
 
         try:
             for row_index in range(len(lista_ordenada)):
@@ -582,7 +684,7 @@ class Aplicacion(Frame):
         except IndexError:
             pass
 
-        # ---------------------------------------------------------------------------------------------------- Frame Cuatro
+        # ------------------------------------------------------------------------------------------------ Frame Cuatro
 
         self.frame_cuatro = Frame(self.frame_principal, bg='#424242', width=900, height=10,
                                   highlightbackground='grey', highlightthickness=2)
@@ -596,6 +698,7 @@ class Aplicacion(Frame):
         Grid.columnconfigure(self.frame_cuatro, 0, weight=1)
 
         self.enumerador_columnas_ordenes(dato)
+
         archivo = open("columnas.txt", "a+")
         archivo.seek(0)
         numero_columna = archivo.readline()
@@ -608,19 +711,14 @@ class Aplicacion(Frame):
         lista.append(numero)
 
         try:
-
             Grid.rowconfigure(ventana, 1, weight=1)
             Grid.columnconfigure(ventana, 1, weight=0)
             boton = Button(ventana, text=f' Ticket nº {numero} \n\nPresione\npara\nCobrar', height=0, width=0,
                            bg='#424242', fg='white', activebackground='grey',
                            command=lambda: [self.efecto_boton(numero, lista, 3), boton.destroy()])
             boton.grid(row=1, column=int(numero_columna), sticky=N + S + E + W)
-
         except:
             print('Error al cargar la orden al frame cuatro')
-
-        print(numero)
-        print(lista)
 
         self.limpiar_campos()
 
@@ -635,7 +733,7 @@ class Aplicacion(Frame):
         except IndexError:
             pass
 
-    # ------------------------------------------------------------------------------------- Elimina productos repetidos
+        # --------------------------------------------------------------------------------- Elimina productos repetidos
 
         lista_limpia = []
         lista_unicos = []
@@ -659,12 +757,14 @@ class Aplicacion(Frame):
         numero_columna = 0
         numero_fila = 0
 
-    # ------------------------------------------------------------------------- Crea boton por cada producto encontrado
+        # --------------------------------------------------------------------- Crea boton por cada producto encontrado
 
         Grid.rowconfigure(self.frame_dos, 0, weight=1)
         Grid.columnconfigure(self.frame_dos, 0, weight=1)
+
         ventana = Frame(self.frame_dos, background='#424242')
         ventana.grid(row=numero_fila, column=numero_columna, sticky='nsew')
+
         try:
             for fila in range(10):
                 Grid.rowconfigure(ventana, int(numero_fila), weight=0)
@@ -700,9 +800,14 @@ class Aplicacion(Frame):
         except IndexError:
             pass
 
-    # ----------------------------------------------------- Envía la suma del precio de los productos al Treeview Total
+        self.dame_total()
+
+        # ------------------------------------------------- Envía la suma del precio de los productos al Treeview Total
+
+    def dame_total(self):
 
         total_suma = 0
+
         for item in self.grid.get_children():
             celda = float(self.grid.set(item, 'col4'))
             total_suma += celda
@@ -716,7 +821,7 @@ class Aplicacion(Frame):
 
     # ----------------------------------------------------------------------------------- Función botón imprimir ticket
 
-    def imprimir_ticket(self):
+    def imprimir_ticket(self, accion):
 
         total_productos = []
         for item in self.grid.get_children():
@@ -728,12 +833,104 @@ class Aplicacion(Frame):
 
         else:
             total_productos = []
-            for item in self.grid.get_children():
-                celda = self.grid.set(item, 'col1')
-                total_productos.append(celda)
+            total_cantidad = []
+            total_tax = []
+            total_precio = []
 
-            print('Esta parte esta en construcción')
-            self.guardado_automatico_ticket(total_productos)
+            for item in self.grid.get_children():
+                celda1 = self.grid.set(item, 'col1')
+                celda2 = self.grid.set(item, 'col2')
+                celda3 = self.grid.set(item, 'col3')
+                celda4 = self.grid.set(item, 'col4')
+                total_productos.append(celda1)
+                total_cantidad.append(celda2)
+                total_tax.append(celda3)
+                total_precio.append(celda4)
+
+            total_productos_tupla = []
+
+            for index in range(max((len(total_productos),
+                                    len(total_cantidad),
+                                    len(total_tax),
+                                    len(total_precio)))):
+
+                try:
+                    tuplita = (total_productos[index],
+                               total_cantidad[index],
+                               total_tax[index],
+                               total_precio[index])
+                    total_productos_tupla.append(tuplita)
+                except IndexError:
+                    print('Algo salio mal en guardar ticket unir tupla')
+
+                numero_posicion = 0
+                contador_numerico = 0
+
+                ver_ticket1 = ''
+
+                try:
+                    while len(total_productos) != contador_numerico:
+                        ver_ticket1 += f"{total_productos[numero_posicion]}" \
+                                       f" x{total_cantidad[numero_posicion]}\t" \
+                                       f" {total_precio[numero_posicion]}\n"
+                        numero_posicion += 1
+                        contador_numerico += 1
+                except:
+                    print('Error ticket en pantalla')
+
+            total_suma = 0
+            for item in self.grid.get_children():
+                celda = float(self.grid.set(item, 'col4'))
+                total_suma += celda
+
+            total_suma_print = str('{0:.2f}'.format(total_suma))
+
+            ahora = datetime.now()
+            fecha_y_hora = ahora.strftime('%m/%d/%Y, %H:%M')
+
+            ticket_imprimible = f"""
+            TPV FREE
+            ------------------------------------
+            Punto de venta SL
+            00000000-B
+            Tlf. 9600000000
+            Calle Sin Nombre S/N
+            Un Lugar de Valencia
+            ------------------------------------
+            Numero 00000 
+            Fecha: {fecha_y_hora}
+            
+            {ver_ticket1}
+            
+            A pagar {total_suma_print} Euros
+            -------------------------------------
+            No se admiten cambios\nen estos momentos.
+            Gracias por su visita\nNos vemos pronto
+            IVA INCLUIDO
+                        
+            """
+
+            try:
+                INCH = 9000
+
+                hDC = win32ui.CreateDC()
+                hDC.CreatePrinterDC(win32print.GetDefaultPrinter())
+                hDC.StartDoc("TPV GRATIS")
+                hDC.StartPage()
+                hDC.SetMapMode(win32con.MM_TWIPS)
+                hDC.DrawText(ticket_imprimible,
+                             (0, INCH * -1, INCH * 1, INCH * -2),
+                             win32con.DT_CENTER)
+                hDC.EndPage()
+                hDC.EndDoc()
+            except:
+                self.ventana_advertencia('No se pudo imprimir\nel ticket')
+
+
+        if accion == 1:
+            self.guardar_ticket()
+        elif accion == 2:
+            print('')
 
     # ------------------------------------------------------------------------------------ Función botón guardar ticket
 
@@ -748,12 +945,48 @@ class Aplicacion(Frame):
             self.ventana_advertencia('El ticket no contiene productos')
 
         else:
+            total_id = []
             total_productos = []
-            for item in self.grid.get_children():
-                celda = self.grid.set(item, 'col1')
-                total_productos.append(celda)
+            total_cantidad = []
+            total_tax = []
+            total_precio = []
 
-            self.guardado_automatico_ticket(total_productos)
+            for item in self.grid.get_children():
+                celda1 = self.grid.set(item, 'col1')
+                celda2 = self.grid.set(item, 'col2')
+                celda3 = self.grid.set(item, 'col3')
+                celda4 = self.grid.set(item, 'col4')
+                total_productos.append(celda1)
+                total_cantidad.append(celda2)
+                total_tax.append(celda3)
+                total_precio.append(celda4)
+
+            for item in total_productos:
+                query = f'SELECT * FROM DATOSPRODUCTOS WHERE PRODUCTO=?'
+                mi_cursor = self.mi_conexion(query, (item,))
+                el_producto = mi_cursor.fetchall()
+                id_numero = el_producto[0][0]
+                total_id.append(id_numero)
+
+            total_productos_tupla = []
+
+            for index in range(max((len(total_id),
+                                    len(total_productos),
+                                    len(total_cantidad),
+                                    len(total_tax),
+                                    len(total_precio)))):
+
+                try:
+                    tuplita = (total_id[index],
+                               total_productos[index],
+                               total_cantidad[index],
+                               total_tax[index],
+                               total_precio[index])
+                    total_productos_tupla.append(tuplita)
+                except IndexError:
+                    print('Algo salio mal en guardar ticket unir tupla')
+
+            self.guardado_automatico_ticket(total_productos_tupla)
 
     # ----------------------------------------------------------------------------- Sistema enumerador columnas ordenes
 
@@ -762,6 +995,7 @@ class Aplicacion(Frame):
         archivo = open("columnas.txt", "a+")
         archivo.seek(0)
         numero = archivo.readline()
+
         if len(numero) == 0:
             numero = "0"
             archivo.write(numero)
@@ -773,6 +1007,7 @@ class Aplicacion(Frame):
             archivo.close()
             self.ventana_advertencia('Ventana Ordenes llena\nCobre una orden')
         archivo.close()
+
         try:
             columna_orden = int(numero)
             columna_orden += 1
@@ -789,10 +1024,12 @@ class Aplicacion(Frame):
         archivo = open("ticket_numero.txt", "a+")
         archivo.seek(0)
         numero = archivo.readline()
+
         if len(numero) == 0:
             numero = "1"
             archivo.write(numero)
         archivo.close()
+
         try:
             ticket = int(numero)
             ticket += 1
@@ -802,7 +1039,7 @@ class Aplicacion(Frame):
         except:
             self.ventana_advertencia('Error en contador ticket')
 
-    # ---------------------------------------------------------------------------------------- Guarda ticket en archivo
+        # ------------------------------------------------------------------------------------ Guarda ticket en archivo
 
         archivo = open("ticket_numero.txt", "a+")
         archivo.seek(0)
@@ -823,7 +1060,7 @@ class Aplicacion(Frame):
 
     # -------------------------------------------------------------------------------------- Abre ventana Cobrar ticket
 
-    def cobrar_ticket(self, info_productos, info_precios, total_suma_print):
+    def cobrar_ticket(self, info_productos, info_cantidad, info_precios, total_suma_print):
 
         total_productos = []
         for item in self.grid.get_children():
@@ -861,12 +1098,16 @@ class Aplicacion(Frame):
             cuadro_interno_precios = Frame(cuadro, background='#4b4b4b')
             cuadro_interno_precios.place(x=160, y=20, width=60, height=252)
 
-            aviso_texto = Label(cuadro_interno, text='PRODUCTOS\t\tPRECIOS', fg='white', background='#4b4b4b')
+            aviso_texto = Label(cuadro_interno, text='PRODUCTO     CANTIDAD     PRECIO', fg='white', background='#4b4b4b')
             aviso_texto.pack(side=TOP)
 
             aviso_texto1 = Label(cuadro_interno_productos, text=info_productos, fg='white',
                                  background='#4b4b4b', justify=LEFT)
             aviso_texto1.pack(side=LEFT)
+
+            aviso_texto1 = Label(cuadro_interno_productos, text=info_cantidad, fg='white',
+                                 background='#4b4b4b', justify=LEFT)
+            aviso_texto1.pack(side=RIGHT)
 
             aviso_texto2 = Label(cuadro_interno_precios, text=info_precios, fg='white',
                                  background='#4b4b4b', justify=RIGHT)
@@ -897,13 +1138,16 @@ class Aplicacion(Frame):
             self.ventana_pago.mainloop()
 
     def pago_efectivo(self):
+        self.imprimir_ticket(2)
+        self.limpiar_campos()
         self.ventana_pago.destroy()
 
     def pago_tarjeta(self):
+        self.imprimir_ticket(2)
+        self.limpiar_campos()
         self.ventana_pago.destroy()
 
-    def pago_cancelar(self):
-        self.ventana_pago.destroy()
+    def pago_cancelar(self):        self.ventana_pago.destroy()
 
     # --------------------------------------------------------------------------------------------- Ventana Advertencia
 
@@ -982,31 +1226,33 @@ class Aplicacion(Frame):
     def ticket_en_pantalla(self):
 
         total_productos = []
+        total_cantidad = []
+        total_precio = []
         for item in self.grid.get_children():
-            celda = self.grid.set(item, 'col1')
-            total_productos.append(celda)
+            celda1 = self.grid.set(item, 'col1')
+            celda2 = self.grid.set(item, 'col2')
+            celda3 = self.grid.set(item, 'col4')
 
-        lista_items_precios = []
-        for elemento in total_productos:
-            query = f"SELECT * FROM DATOSPRODUCTOS WHERE PRODUCTO=?"
-            el_producto = self.mi_conexion(query, (elemento,))
-            el_producto = el_producto.fetchall()
-            lista_items_precios.append(el_producto[0][2])
+            total_productos.append(celda1)
+            total_cantidad.append(celda2)
+            total_precio.append(celda3)
 
         numero_posicion = 0
         contador_numerico = 0
 
-        ver_ticket = ''
+        ver_ticket1 = ''
         ver_ticket2 = ''
+        ver_ticket3 = ''
 
         try:
-            while len(lista_items_precios) != contador_numerico:
-                ver_ticket += f"{total_productos[numero_posicion]}\n"
-                ver_ticket2 += f"{lista_items_precios[numero_posicion]}€\n"
+            while len(total_productos) != contador_numerico:
+                ver_ticket1 += f"{total_productos[numero_posicion]}\n"
+                ver_ticket2 += f"{total_cantidad[numero_posicion]}\n"
+                ver_ticket3 += f"{total_precio[numero_posicion]}€\n"
                 numero_posicion += 1
                 contador_numerico += 1
         except:
-            print('error')
+            print('Error ticket en pantalla')
 
         total_suma = 0
         for item in self.grid.get_children():
@@ -1015,12 +1261,11 @@ class Aplicacion(Frame):
 
         total_suma_print = [str('{0:.2f}'.format(total_suma))]
 
-        self.cobrar_ticket(ver_ticket, ver_ticket2, total_suma_print[0])
+        self.cobrar_ticket(ver_ticket1, ver_ticket2, ver_ticket3, total_suma_print[0])
 
     # -------------------------------------------------------------------------------- Cargar ticket en Treeview Cuenta
 
     def abrir_ticket_guardado(self, dato):
-        valor = 1
 
         total_productos = []
         for item in self.grid.get_children():
@@ -1032,18 +1277,16 @@ class Aplicacion(Frame):
             try:
                 with open(f'tickets/lista{dato}.pickle', 'rb') as archivo:
                     lista_productos = pickle.load(archivo)
-                    for elemento in lista_productos:
-                        query = f"SELECT * FROM DATOSPRODUCTOS WHERE PRODUCTO=?"
-                        el_producto = self.mi_conexion(query, (elemento,))
-                        el_producto = el_producto.fetchall()
 
-                        try:
-
-                            for productos in el_producto:
-                                self.grid.insert('', 0, text=productos[0],
-                                                 values=(productos[1], valor, productos[3], productos[2]))
-                        except IndexError:
-                            pass
+                    try:
+                        for productos in lista_productos:
+                            self.grid.insert('', 0, text=productos[0],
+                                             values=(productos[1],
+                                                     productos[2],
+                                                     productos[3],
+                                                     productos[4]))
+                    except IndexError:
+                        pass
             except:
                 print('error al abrir archivo guardado')
         else:
