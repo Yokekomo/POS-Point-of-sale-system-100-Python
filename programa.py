@@ -13,7 +13,6 @@ from tkinter import ttk
 
 # ------------------------------------------ Creamos una ventana principal transparente y sobre ella montamos las otras
 
-
 class Aplicacion(Frame):
     db_productos = 'BBDD.db'
 
@@ -71,11 +70,9 @@ class Aplicacion(Frame):
         self.y1 = self.ventana.winfo_pointery()
         self.x0 = self.ventana.winfo_rootx()
         self.y0 = self.ventana.winfo_rooty()
-        print(self.x0, self.y0, self.x1, self.y1)
-        try:
-            self.ventana.geometry("%sx%s" % ((self.x1 - self.x0), (self.y1 - self.y0)))
-        except:
-            pass
+        # print(self.x0, self.y0, self.x1, self.y1) para ver don esta la ventana
+
+        self.ventana.geometry("%sx%s" % ((self.x1 - self.x0), (self.y1 - self.y0)))
 
     # ----------------------------------------------------------------------------------------------------------- Salir
 
@@ -156,7 +153,8 @@ class Aplicacion(Frame):
 
     # ----------------------------------------------------------------------------------------- Crear BBDD si no existe
 
-    def conexionBBDD(self):
+    @property
+    def conexion_bbdd(self):
         mi_conexion = sqlite3.connect('BBDD.db')
         mi_cursor = mi_conexion.cursor()
 
@@ -172,7 +170,7 @@ class Aplicacion(Frame):
                 ''')
             self.ventana_advertencia('BBDD creada con éxito')
         except:
-            pass
+            print('Problema al crear tabla de BBDD')
 
     # ------------------------------------------------------------------------------------------ Función Crear Producto
 
@@ -293,7 +291,6 @@ class Aplicacion(Frame):
         if not los_datos:
             return
         datos = self.grid.item(los_datos)
-        id_producto = datos["text"]
         producto, cantidad, tax, precio = datos["values"]
 
         texto = f'{producto} - {cantidad} unidad - Precio: {precio}€'
@@ -329,7 +326,7 @@ class Aplicacion(Frame):
         btn_borrar.place(x=20, y=60, width=80, height=25)
 
         btn_cancelar = Button(cuadro, activebackground='grey', background='#424242', text='Cancelar', fg='white',
-                              command=lambda: ventana_modificar_ticket.destroy())
+                              command=lambda: ventana_modificar_ticket.quit())
         btn_cancelar.place(x=110, y=60, width=80, height=25)
 
         btn_itemx1 = Button(cuadro, activebackground='grey', background='#424242', text='x1', fg='white',
@@ -610,7 +607,8 @@ class Aplicacion(Frame):
 
         # ----------------------------------------------------------------------------- Botones Imprimir Guardar Cobrar
 
-        btn_imprimir = Button(frame_uno, text='Imprimir', bg='#424242', fg='white', command=self.imprimir_ticket)
+        btn_imprimir = Button(frame_uno, text='Imprimir', bg='#424242', fg='white',
+                              command=lambda: self.imprimir_ticket(1))
         btn_imprimir.pack(side=LEFT, fill=BOTH, expand=TRUE)
 
         btn_Guardar = Button(frame_uno, text='Guardar', bg='#424242', fg='white', command=self.guardar_ticket)
@@ -638,6 +636,7 @@ class Aplicacion(Frame):
         ventana.grid(row=0, column=0, sticky=N)
 
         # -------------------------------------------------------------------- Busca las familias existentes en la BBDD
+        fila = []
 
         try:
             query = (f"SELECT FAMILIA FROM DATOSPRODUCTOS WHERE FAMILIA=" + 'FAMILIA')
@@ -725,6 +724,8 @@ class Aplicacion(Frame):
     # --------------------------------------- Busca los items de la familia elegida y Cargar los productos en frame dos
 
     def menu_productos(self, dato):
+
+        fila = []
 
         try:
             query = f'SELECT PRODUCTO FROM DATOSPRODUCTOS WHERE FAMILIA=?'
@@ -848,6 +849,7 @@ class Aplicacion(Frame):
                 total_precio.append(celda4)
 
             total_productos_tupla = []
+            ver_ticket1 = ''
 
             for index in range(max((len(total_productos),
                                     len(total_cantidad),
@@ -865,8 +867,6 @@ class Aplicacion(Frame):
 
                 numero_posicion = 0
                 contador_numerico = 0
-
-                ver_ticket1 = ''
 
                 try:
                     while len(total_productos) != contador_numerico:
@@ -925,7 +925,6 @@ class Aplicacion(Frame):
                 hDC.EndDoc()
             except:
                 self.ventana_advertencia('No se pudo imprimir\nel ticket')
-
 
         if accion == 1:
             self.guardar_ticket()
@@ -1098,7 +1097,8 @@ class Aplicacion(Frame):
             cuadro_interno_precios = Frame(cuadro, background='#4b4b4b')
             cuadro_interno_precios.place(x=160, y=20, width=60, height=252)
 
-            aviso_texto = Label(cuadro_interno, text='PRODUCTO     CANTIDAD     PRECIO', fg='white', background='#4b4b4b')
+            aviso_texto = Label(cuadro_interno, text='PRODUCTO     CANTIDAD     PRECIO', fg='white',
+                                background='#4b4b4b')
             aviso_texto.pack(side=TOP)
 
             aviso_texto1 = Label(cuadro_interno_productos, text=info_productos, fg='white',
@@ -1147,7 +1147,8 @@ class Aplicacion(Frame):
         self.limpiar_campos()
         self.ventana_pago.destroy()
 
-    def pago_cancelar(self):        self.ventana_pago.destroy()
+    def pago_cancelar(self):
+        self.ventana_pago.destroy()
 
     # --------------------------------------------------------------------------------------------- Ventana Advertencia
 
