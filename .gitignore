@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+thegrill.db
+backups/
+reports_out/
+.wa_session.lock

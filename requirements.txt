@@ -1,0 +1,9 @@
+# The Grill — Kitchen & Meat Management (Fase 1)
+sqlalchemy>=2.0
+pytest>=8
+# Fases posteriores (importadores / informes), aún no usadas por el código:
+# pdfplumber
+# openpyxl
+# weasyprint
+# fastapi
+# uvicorn
