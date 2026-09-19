@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block title %}Unirme{% endblock %}
+{% block body %}
+<h1>Unirme a un restaurante</h1>
+<p class="sub">Pide el código a tu manager. Entrarás como empleado, para registrar datos y fotos.</p>
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+<div class="card">
+<form method="post" action="/join">
+  <label for="join_code">Código del restaurante</label>
+  <input id="join_code" name="join_code" value="{{ code }}" style="text-transform:uppercase;letter-spacing:.12em"
+         required autofocus>
+  <label for="name">Tu nombre</label>
+  <input id="name" name="name" required>
+  <label for="email">Tu email</label>
+  <input id="email" name="email" type="email" required>
+  <label for="password">Contraseña <span class="muted">(mínimo 8 caracteres)</span></label>
+  <input id="password" name="password" type="password" minlength="8" required>
+  <button class="wide" type="submit">Unirme</button>
+</form>
+</div>
+<p class="muted"><a href="/login">Ya tengo cuenta</a></p>
+{% endblock %}

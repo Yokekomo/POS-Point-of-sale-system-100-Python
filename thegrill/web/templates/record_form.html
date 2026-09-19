@@ -1,0 +1,63 @@
+{% extends "base.html" %}{% block title %}{{ tpl.name }}{% endblock %}
+{% block body %}
+<h1>{{ tpl.name }}</h1>
+<p class="sub">{{ tpl.description or "" }}</p>
+
+{% if sent %}
+  {% if result.alerts %}
+    <div class="banner bad"><b>Registro guardado con alerta.</b>
+      <ul style="margin:8px 0 0;padding-left:18px">
+      {% for a in result.alerts %}<li>{{ a.message }}</li>{% endfor %}
+      </ul>
+      Avisa a tu responsable y anota la acción correctiva.
+    </div>
+  {% else %}
+    <div class="banner ok">Registro guardado. Gracias.</div>
+  {% endif %}
+  {% for pe in photo_errors %}<div class="banner warn">{{ pe }}</div>{% endfor %}
+  <div class="rowflex">
+    <a class="btn" href="/app/registro/{{ tpl.code }}">Registrar otro</a>
+    <a class="btn ghost" href="/app">Volver</a>
+  </div>
+{% else %}
+  {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+  <div class="card">
+  <form method="post" action="/app/registro/{{ tpl.code }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="business_date">Fecha</label>
+    <input id="business_date" type="date" name="business_date" value="{{ today }}">
+
+    {% for f in tpl.fields %}
+      <label for="f_{{ f.key }}">{{ f.label }}{% if f.required %} <span class="req">*</span>{% endif %}
+        {% if f.unit %}<span class="muted">({{ f.unit }})</span>{% endif %}</label>
+      {% if f.type == FieldType.SELECT %}
+        <select id="f_{{ f.key }}" name="{{ f.key }}">
+          <option value=""></option>
+          {% for o in (f.options or "").split("|") if o.strip() %}<option>{{ o.strip() }}</option>{% endfor %}
+        </select>
+      {% elif f.type == FieldType.NUMBER %}
+        <input id="f_{{ f.key }}" name="{{ f.key }}" type="number" step="any" inputmode="decimal">
+      {% elif f.type == FieldType.DATE %}
+        <input id="f_{{ f.key }}" name="{{ f.key }}" type="date">
+      {% elif f.type == FieldType.BOOL %}
+        <input id="f_{{ f.key }}" name="{{ f.key }}" type="checkbox" value="1">
+      {% else %}
+        <input id="f_{{ f.key }}" name="{{ f.key }}" type="text">
+      {% endif %}
+      {% if f.help_text %}<div class="help">{{ f.help_text }}</div>{% endif %}
+      {% if errors.get(f.key) %}<div class="err">{{ errors[f.key] }}</div>{% endif %}
+    {% endfor %}
+
+    <label for="photos">Fotos {% if tpl.requires_photo %}<span class="req">*</span>{% endif %}</label>
+    <input id="photos" name="photos" type="file" accept="image/*,application/pdf" capture="environment" multiple>
+    <div class="help">Puedes hacer la foto directamente con el móvil.</div>
+
+    <label for="note">Nota</label>
+    <textarea id="note" name="note" rows="2"></textarea>
+
+    <button class="wide" type="submit">Guardar registro</button>
+  </form>
+  </div>
+  <p class="muted">La hora la pone el sistema. Un registro enviado no se borra: si te equivocas, avisa a tu manager.</p>
+{% endif %}
+{% endblock %}

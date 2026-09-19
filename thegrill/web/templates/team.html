@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% block title %}Equipo{% endblock %}
+{% block body %}
+<h1>Equipo</h1>
+<p class="sub">Comparte este código para que tu gente cree su cuenta: <span class="code">{{ restaurant.join_code }}</span></p>
+<div class="card scroll">
+<table>
+<tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr>
+{% for u in rows %}
+<tr>
+  <td>{{ u.name }}</td>
+  <td class="muted">{{ u.email }}</td>
+  <td>
+    {% if u.id == user.id %}<span class="tag ok">Tú, manager</span>
+    {% else %}
+    <form method="post" action="/manager/equipo/{{ u.id }}/rol" class="rowflex" style="margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <select name="role" style="width:auto">
+        <option value="EMPLOYEE" {% if u.role.value == "EMPLOYEE" %}selected{% endif %}>Empleado</option>
+        <option value="MANAGER" {% if u.role.value == "MANAGER" %}selected{% endif %}>Manager</option>
+      </select>
+      <button class="ghost" style="padding:6px 12px">Guardar</button>
+    </form>
+    {% endif %}
+  </td>
+  <td>{% if u.active %}<span class="tag ok">Activo</span>{% else %}<span class="tag warn">Desactivado</span>{% endif %}</td>
+  <td class="muted">{{ u.last_login.strftime("%d/%m/%Y %H:%M") if u.last_login else "nunca" }}</td>
+  <td>{% if u.id != user.id %}
+    <form method="post" action="/manager/equipo/{{ u.id }}/activar" style="margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="ghost" style="padding:6px 12px">{{ "Desactivar" if u.active else "Reactivar" }}</button>
+    </form>{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+<p class="muted">Un empleado solo puede registrar datos y ver lo que él mismo envió. Un manager ve y configura todo.</p>
+{% endblock %}

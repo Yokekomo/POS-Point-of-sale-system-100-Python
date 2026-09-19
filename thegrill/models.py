@@ -1,19 +1,53 @@
-"""Modelo de datos (§5 de la especificación). Cada workbook Excel pasa a ser una tabla.
+"""Modelo de datos de la plataforma.
 
-Principios: fuente única de verdad, trazabilidad (quién/qué/cuándo) y nunca
-inventar datos. Los seriales consumidos por un TG viven SOLO en `despiece_primals`.
+Dos capas:
+
+1. **Plataforma genérica** (sirve a cualquier restaurante): restaurantes
+   (inquilinos), usuarios con rol manager/empleado, plantillas de registro
+   configurables, registros con valores y fotos, alertas.
+2. **Módulos especializados** (opcionales, del proyecto The Grill): primales,
+   despieces, ventas POS, FEFO, fichaje. Todas llevan `restaurant_id`.
+
+Invariantes: cada fila pertenece a un restaurante; los registros son
+append-only (una corrección es un registro nuevo que apunta al anterior);
+la hora la pone el servidor, nunca el cliente.
 """
 import enum
 from datetime import date, datetime
 
 from sqlalchemy import (Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer,
                         String, Text, UniqueConstraint)
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from thegrill.db import Base
 
 
-# ------------------------------------------------------------------- Enums
+# =============================================================== Enums
+class Role(str, enum.Enum):
+    MANAGER = "MANAGER"      # acceso total: estadísticas, configuración, usuarios
+    EMPLOYEE = "EMPLOYEE"    # solo meter datos y fotos, y ver lo que él mismo metió
+
+
+class FieldType(str, enum.Enum):
+    NUMBER = "NUMBER"
+    TEXT = "TEXT"
+    SELECT = "SELECT"
+    DATE = "DATE"
+    BOOL = "BOOL"
+
+
+class RecordStatus(str, enum.Enum):
+    OK = "OK"
+    ALERT = "ALERT"          # algún valor fuera de límites
+    CORRECTED = "CORRECTED"  # sustituido por un registro posterior
+
+
+class AlertSeverity(str, enum.Enum):
+    INFO = "INFO"
+    WARNING = "WARNING"
+    CRITICAL = "CRITICAL"
+
+
 class PrimalStatus(str, enum.Enum):
     IN_STOCK = "IN_STOCK"
     CUT = "CUT"
@@ -30,9 +64,9 @@ class MovementType(str, enum.Enum):
 
 class SourceStatus(str, enum.Enum):
     """Regla 12: tres estados, nunca colapsar (c) en "0/done"."""
-    DONE = "DONE"                      # (a) escaneado, resultado (aunque sea 0)
-    NOT_POSTED_YET = "NOT_POSTED_YET"  # (b) la fuente no está publicada -> arrastre
-    BLOCKED = "BLOCKED"                # (c) existe pero no se pudo leer -> INCOMPLETE
+    DONE = "DONE"
+    NOT_POSTED_YET = "NOT_POSTED_YET"
+    BLOCKED = "BLOCKED"
 
 
 class ClarificationStatus(str, enum.Enum):
@@ -49,27 +83,190 @@ class HaccpKind(str, enum.Enum):
 
 
 class FefoStage(str, enum.Enum):
-    MASTER = "MASTER"    # maestro FEFO: nunca lo edita un script
-    TO_ADD = "TO_ADD"    # staging que el script sí puede escribir
+    MASTER = "MASTER"
+    TO_ADD = "TO_ADD"
 
 
-# ------------------------------------------------------------ 1. primals
-class Primal(Base):
+# ====================================================== Mixin de inquilino
+class TenantMixin:
+    """Toda tabla operativa pertenece a un restaurante."""
+
+    @declared_attr
+    def restaurant_id(cls) -> Mapped[int]:
+        return mapped_column(ForeignKey("restaurants.id"), index=True, nullable=False)
+
+
+# ====================================================== Plataforma genérica
+class Restaurant(Base):
+    __tablename__ = "restaurants"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128))
+    slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    join_code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
+    timezone: Mapped[str] = mapped_column(String(64), default="UTC")
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class User(TenantMixin, Base):
+    __tablename__ = "users"
+    __table_args__ = (UniqueConstraint("restaurant_id", "email", name="uq_user_restaurant_email"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(190), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    role: Mapped[Role] = mapped_column(Enum(Role), default=Role.EMPLOYEE)
+    password_hash: Mapped[str] = mapped_column(String(256))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_login: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token_hash: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    csrf: Mapped[str] = mapped_column(String(64))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class RecordTemplate(TenantMixin, Base):
+    """Plantilla de registro: lo que un restaurante concreto quiere capturar."""
+    __tablename__ = "record_templates"
+    __table_args__ = (UniqueConstraint("restaurant_id", "code", name="uq_template_restaurant_code"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(48), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    category: Mapped[str] = mapped_column(String(32))     # haccp / waste / production / reception / cleaning / count / other
+    description: Mapped[str | None] = mapped_column(Text)
+    requires_photo: Mapped[bool] = mapped_column(Boolean, default=False)
+    frequency: Mapped[str] = mapped_column(String(16), default="daily")   # daily / shift / weekly / adhoc
+    expected_per_day: Mapped[int] = mapped_column(Integer, default=1)     # para % de cumplimiento
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    fields: Mapped[list["TemplateField"]] = relationship(
+        back_populates="template", cascade="all, delete-orphan",
+        order_by="TemplateField.sort_order")
+
+
+class TemplateField(Base):
+    __tablename__ = "template_fields"
+    __table_args__ = (UniqueConstraint("template_id", "key", name="uq_field_template_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    template_id: Mapped[int] = mapped_column(ForeignKey("record_templates.id"), index=True)
+    key: Mapped[str] = mapped_column(String(48))
+    label: Mapped[str] = mapped_column(String(128))
+    type: Mapped[FieldType] = mapped_column(Enum(FieldType), default=FieldType.TEXT)
+    unit: Mapped[str | None] = mapped_column(String(16))
+    required: Mapped[bool] = mapped_column(Boolean, default=True)
+    min_value: Mapped[float | None] = mapped_column(Float)   # fuera de rango => alerta automática
+    max_value: Mapped[float | None] = mapped_column(Float)
+    options: Mapped[str | None] = mapped_column(Text)        # SELECT: opciones separadas por |
+    expiry_alert_days: Mapped[int | None] = mapped_column(Integer)   # DATE: avisa si caduca en <= N días
+    help_text: Mapped[str | None] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    template: Mapped["RecordTemplate"] = relationship(back_populates="fields")
+
+
+class Record(TenantMixin, Base):
+    """Un registro enviado por un empleado. Append-only."""
+    __tablename__ = "records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    template_id: Mapped[int] = mapped_column(ForeignKey("record_templates.id"), index=True)
+    business_date: Mapped[date] = mapped_column(Date, index=True)
+    shift: Mapped[str | None] = mapped_column(String(16))
+    status: Mapped[RecordStatus] = mapped_column(Enum(RecordStatus), default=RecordStatus.OK)
+    note: Mapped[str | None] = mapped_column(Text)
+    corrects_id: Mapped[int | None] = mapped_column(ForeignKey("records.id"))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+    values: Mapped[list["RecordValue"]] = relationship(back_populates="record", cascade="all, delete-orphan")
+    attachments: Mapped[list["Attachment"]] = relationship(back_populates="record", cascade="all, delete-orphan")
+    template: Mapped["RecordTemplate"] = relationship()
+
+
+class RecordValue(Base):
+    __tablename__ = "record_values"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    record_id: Mapped[int] = mapped_column(ForeignKey("records.id"), index=True)
+    field_key: Mapped[str] = mapped_column(String(48), index=True)
+    value_text: Mapped[str | None] = mapped_column(Text)
+    value_number: Mapped[float | None] = mapped_column(Float)
+    value_date: Mapped[date | None] = mapped_column(Date)
+    value_bool: Mapped[bool | None] = mapped_column(Boolean)
+    out_of_range: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    record: Mapped["Record"] = relationship(back_populates="values")
+
+    @property
+    def display(self) -> str:
+        for v in (self.value_text, self.value_number, self.value_date, self.value_bool):
+            if v is not None:
+                return str(v)
+        return ""
+
+
+class Attachment(Base):
+    __tablename__ = "attachments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    record_id: Mapped[int] = mapped_column(ForeignKey("records.id"), index=True)
+    filename: Mapped[str] = mapped_column(String(256))
+    content_type: Mapped[str] = mapped_column(String(64))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    stored_path: Mapped[str] = mapped_column(String(512))
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    record: Mapped["Record"] = relationship(back_populates="attachments")
+
+
+class Alert(TenantMixin, Base):
+    __tablename__ = "alerts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(48), index=True)
+    message: Mapped[str] = mapped_column(Text)
+    severity: Mapped[AlertSeverity] = mapped_column(Enum(AlertSeverity), default=AlertSeverity.WARNING)
+    record_id: Mapped[int | None] = mapped_column(ForeignKey("records.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    acknowledged_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime)
+    resolution: Mapped[str | None] = mapped_column(Text)
+
+
+# ================================================= Módulos especializados
+class Primal(TenantMixin, Base):
     __tablename__ = "primals"
+    __table_args__ = (UniqueConstraint("restaurant_id", "serial", name="uq_primal_restaurant_serial"),)
 
-    serial: Mapped[str] = mapped_column(String(16), primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    serial: Mapped[str] = mapped_column(String(16), index=True)
     sku: Mapped[str] = mapped_column(String(64), index=True)
     grade: Mapped[str | None] = mapped_column(String(32))
     origin: Mapped[str | None] = mapped_column(String(32))
     weight_kg: Mapped[float] = mapped_column(Float)
-    lot: Mapped[str | None] = mapped_column(String(16), index=True)      # DXB{AAAAMMDD}
+    lot: Mapped[str | None] = mapped_column(String(16), index=True)
     received_date: Mapped[date | None] = mapped_column(Date)
     landed_usd_per_kg: Mapped[float | None] = mapped_column(Float)
     piece_cost_usd: Mapped[float | None] = mapped_column(Float)
     status: Mapped[PrimalStatus] = mapped_column(Enum(PrimalStatus), default=PrimalStatus.IN_STOCK)
-    status_ref: Mapped[str | None] = mapped_column(String(16))           # TG-####
+    status_ref: Mapped[str | None] = mapped_column(String(16))
     status_date: Mapped[date | None] = mapped_column(Date)
-    label_product: Mapped[str | None] = mapped_column(String(128))       # lo que dice la etiqueta física
+    label_product: Mapped[str | None] = mapped_column(String(128))
     producer_plant: Mapped[str | None] = mapped_column(String(128))
     est_code: Mapped[str | None] = mapped_column(String(32))
     slaughter_date: Mapped[date | None] = mapped_column(Date)
@@ -82,11 +279,12 @@ class Primal(Base):
     notes: Mapped[str | None] = mapped_column(Text)
 
 
-# ---------------------------------------------------------- 2. despieces
-class Despiece(Base):
+class Despiece(TenantMixin, Base):
     __tablename__ = "despieces"
+    __table_args__ = (UniqueConstraint("restaurant_id", "tg", name="uq_despiece_restaurant_tg"),)
 
-    tg: Mapped[str] = mapped_column(String(16), primary_key=True)         # TG-####
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tg: Mapped[str] = mapped_column(String(16), index=True)
     date: Mapped[date] = mapped_column(Date, index=True)
     staff: Mapped[str | None] = mapped_column(String(64))
     animal: Mapped[str | None] = mapped_column(String(32))
@@ -105,27 +303,25 @@ class Despiece(Base):
     cuts: Mapped[list["DespieceCut"]] = relationship(back_populates="despiece", cascade="all, delete-orphan")
 
 
-# ---------------------------------------------- 3. despiece_primals (N:M)
 class DespiecePrimal(Base):
-    """ÚNICA fuente de verdad de qué seriales consume cada TG."""
+    """ÚNICA fuente de verdad de qué seriales consume cada despiece."""
     __tablename__ = "despiece_primals"
-    __table_args__ = (UniqueConstraint("tg", "serial", name="uq_tg_serial"),)
+    __table_args__ = (UniqueConstraint("despiece_id", "serial", name="uq_despiece_serial"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    tg: Mapped[str] = mapped_column(ForeignKey("despieces.tg"), index=True)
-    serial: Mapped[str | None] = mapped_column(ForeignKey("primals.serial"), index=True)  # None = local sin etiqueta
+    despiece_id: Mapped[int] = mapped_column(ForeignKey("despieces.id"), index=True)
+    serial: Mapped[str | None] = mapped_column(String(16), index=True)   # None = local sin etiqueta
     local_no_label: Mapped[bool] = mapped_column(Boolean, default=False)
     label_kg: Mapped[float | None] = mapped_column(Float)
 
     despiece: Mapped["Despiece"] = relationship(back_populates="primals")
 
 
-# ------------------------------------------------------- 4. despiece_cuts
 class DespieceCut(Base):
     __tablename__ = "despiece_cuts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    tg: Mapped[str] = mapped_column(ForeignKey("despieces.tg"), index=True)
+    despiece_id: Mapped[int] = mapped_column(ForeignKey("despieces.id"), index=True)
     cut_name: Mapped[str] = mapped_column(String(64))
     pieces: Mapped[int] = mapped_column(Integer)
     weight_per_piece_g: Mapped[float] = mapped_column(Float)
@@ -134,8 +330,7 @@ class DespieceCut(Base):
     despiece: Mapped["Despiece"] = relationship(back_populates="cuts")
 
 
-# ------------------------------------------------------ 5. stock_movements
-class StockMovement(Base):
+class StockMovement(TenantMixin, Base):
     __tablename__ = "stock_movements"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -144,27 +339,25 @@ class StockMovement(Base):
     type: Mapped[MovementType] = mapped_column(Enum(MovementType))
     kg: Mapped[float] = mapped_column(Float, default=0.0)
     pieces: Mapped[int | None] = mapped_column(Integer)
-    source: Mapped[str] = mapped_column(String(32))          # TG / POS / count / bill / waste
+    source: Mapped[str] = mapped_column(String(32))
     source_ref: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     created_by: Mapped[str] = mapped_column(String(64), default="chain")
 
 
-# --------------------------------------------------------- 6. daily_counts
-class DailyCount(Base):
+class DailyCount(TenantMixin, Base):
     __tablename__ = "daily_counts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     date: Mapped[date] = mapped_column(Date, index=True)
-    kind: Mapped[str] = mapped_column(String(16))            # display / defrost
+    kind: Mapped[str] = mapped_column(String(16))
     sku: Mapped[str] = mapped_column(String(64), index=True)
     kg: Mapped[float] = mapped_column(Float)
     pieces: Mapped[int | None] = mapped_column(Integer)
     g_per_piece_flag: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
-# ------------------------------------------------ 7. weekly_physical_count
-class WeeklyPhysicalCount(Base):
+class WeeklyPhysicalCount(TenantMixin, Base):
     __tablename__ = "weekly_physical_count"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -175,11 +368,12 @@ class WeeklyPhysicalCount(Base):
     counted_by: Mapped[str | None] = mapped_column(String(64))
 
 
-# ---------------------------------------------------------- 8. sales_daily
-class SalesDaily(Base):
+class SalesDaily(TenantMixin, Base):
     __tablename__ = "sales_daily"
+    __table_args__ = (UniqueConstraint("restaurant_id", "op_date", name="uq_sales_restaurant_date"),)
 
-    op_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    op_date: Mapped[date] = mapped_column(Date, index=True)
     status: Mapped[SourceStatus] = mapped_column(Enum(SourceStatus), default=SourceStatus.DONE)
     gross: Mapped[float | None] = mapped_column(Float)
     net_tax: Mapped[float | None] = mapped_column(Float)
@@ -194,8 +388,7 @@ class SalesDaily(Base):
     refunds: Mapped[float | None] = mapped_column(Float)
 
 
-# ----------------------------------------------------- 9. sales_by_product
-class SalesByProduct(Base):
+class SalesByProduct(TenantMixin, Base):
     __tablename__ = "sales_by_product"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -206,40 +399,41 @@ class SalesByProduct(Base):
     unit_price: Mapped[float | None] = mapped_column(Float)
 
 
-# -------------------------------------------- 10. portion_map / product_master
-class PortionMap(Base):
+class PortionMap(TenantMixin, Base):
     __tablename__ = "portion_map"
+    __table_args__ = (UniqueConstraint("restaurant_id", "dish", name="uq_portion_restaurant_dish"),)
 
-    dish: Mapped[str] = mapped_column(String(128), primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dish: Mapped[str] = mapped_column(String(128), index=True)
     sku: Mapped[str] = mapped_column(String(64), index=True)
     kg_per_portion: Mapped[float] = mapped_column(Float)
 
 
-class ProductMaster(Base):
+class ProductMaster(TenantMixin, Base):
     __tablename__ = "product_master"
+    __table_args__ = (UniqueConstraint("restaurant_id", "pos_name", name="uq_product_restaurant_name"),)
 
-    pos_name: Mapped[str] = mapped_column(String(128), primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    pos_name: Mapped[str] = mapped_column(String(128), index=True)
     sku: Mapped[str] = mapped_column(String(64), index=True)
 
 
-# ---------------------------------------------------------------- 11. bills
-class Bill(Base):
+class Bill(TenantMixin, Base):
     __tablename__ = "bills"
-    __table_args__ = (UniqueConstraint("supplier", "number", name="uq_bill_supplier_number"),)
+    __table_args__ = (UniqueConstraint("restaurant_id", "supplier", "number", name="uq_bill_restaurant_supplier_number"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     supplier: Mapped[str] = mapped_column(String(128), index=True)
     number: Mapped[str] = mapped_column(String(64))
-    category: Mapped[str] = mapped_column(String(32))          # food / meat / beverage / ...
-    amount: Mapped[float | None] = mapped_column(Float)         # None = ilegible => CHECK
+    category: Mapped[str] = mapped_column(String(32))
+    amount: Mapped[float | None] = mapped_column(Float)
     currency: Mapped[str] = mapped_column(String(3))
     date: Mapped[date] = mapped_column(Date, index=True)
-    status: Mapped[str] = mapped_column(String(16), default="OK")   # OK / CHECK
+    status: Mapped[str] = mapped_column(String(16), default="OK")
     price_flag_pct: Mapped[float | None] = mapped_column(Float)
 
 
-# -------------------------------------------------- 12. meat_entry_register
-class MeatEntry(Base):
+class MeatEntry(TenantMixin, Base):
     __tablename__ = "meat_entry_register"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -252,15 +446,17 @@ class MeatEntry(Base):
     bill_id: Mapped[int | None] = mapped_column(ForeignKey("bills.id"))
 
 
-# --------------------------------------------------------------- 13. orders
-class Order(Base):
+class Order(TenantMixin, Base):
     __tablename__ = "orders"
+    __table_args__ = (UniqueConstraint("restaurant_id", "order_ref", name="uq_order_restaurant_ref"),)
 
-    order_id: Mapped[str] = mapped_column(String(16), primary_key=True)   # OR-####
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_ref: Mapped[str] = mapped_column(String(16), index=True)
     date: Mapped[date] = mapped_column(Date, index=True)
     outlet: Mapped[str] = mapped_column(String(128), index=True)
-    route: Mapped[str] = mapped_column(String(16))                        # on-route / off-route
+    route: Mapped[str] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(String(16), default="COMPILED")
+
     lines: Mapped[list["OrderLine"]] = relationship(back_populates="order", cascade="all, delete-orphan")
 
 
@@ -268,17 +464,17 @@ class OrderLine(Base):
     __tablename__ = "order_lines"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    order_id: Mapped[str] = mapped_column(ForeignKey("orders.order_id"), index=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), index=True)
     product: Mapped[str] = mapped_column(String(128))
     qty: Mapped[float] = mapped_column(Float)
     unit: Mapped[str | None] = mapped_column(String(16))
+
     order: Mapped["Order"] = relationship(back_populates="lines")
 
 
-# --------------------------------------------------------------- 14. roster
-class RosterEntry(Base):
+class RosterEntry(TenantMixin, Base):
     __tablename__ = "roster"
-    __table_args__ = (UniqueConstraint("person", "date", name="uq_roster_person_date"),)
+    __table_args__ = (UniqueConstraint("restaurant_id", "person", "date", name="uq_roster_restaurant_person_date"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     person: Mapped[str] = mapped_column(String(64), index=True)
@@ -287,11 +483,10 @@ class RosterEntry(Base):
     clock_out: Mapped[datetime | None] = mapped_column(DateTime)
     hours: Mapped[float | None] = mapped_column(Float)
     day_off: Mapped[bool] = mapped_column(Boolean, default=False)
-    flag: Mapped[str | None] = mapped_column(String(32))     # MISSING_OUT / MISSING_IN / None
+    flag: Mapped[str | None] = mapped_column(String(32))
 
 
-# --------------------------------------------------------- 15. haccp_checks
-class HaccpCheck(Base):
+class HaccpCheck(TenantMixin, Base):
     __tablename__ = "haccp_checks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -300,13 +495,12 @@ class HaccpCheck(Base):
     kind: Mapped[HaccpKind] = mapped_column(Enum(HaccpKind))
     limit_c: Mapped[float] = mapped_column(Float)
     reading_c: Mapped[float | None] = mapped_column(Float)
-    status: Mapped[str] = mapped_column(String(16))          # OK / OUT_OF_RANGE / MISSING
+    status: Mapped[str] = mapped_column(String(16))
     section_b_ok: Mapped[bool | None] = mapped_column(Boolean)
     corrective_action: Mapped[str | None] = mapped_column(Text)
 
 
-# ------------------------------------------------- 16. clarifications_queue
-class Clarification(Base):
+class Clarification(TenantMixin, Base):
     __tablename__ = "clarifications_queue"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -316,11 +510,10 @@ class Clarification(Base):
     topic: Mapped[str] = mapped_column(String(32), default="general")
     status: Mapped[ClarificationStatus] = mapped_column(Enum(ClarificationStatus), default=ClarificationStatus.ENCOLADA)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
-    history: Mapped[str | None] = mapped_column(Text)        # JSON con intentos/respuestas
+    history: Mapped[str | None] = mapped_column(Text)
 
 
-# ----------------------------------------------------------- 17. fefo_stock
-class FefoLot(Base):
+class FefoLot(TenantMixin, Base):
     __tablename__ = "fefo_stock"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -333,10 +526,10 @@ class FefoLot(Base):
     stage: Mapped[FefoStage] = mapped_column(Enum(FefoStage), default=FefoStage.TO_ADD)
 
 
-# ----------------------------------------- Orquestación y trazabilidad
-class ChainCheckpoint(Base):
+# ==================================== Orquestación y trazabilidad
+class ChainCheckpoint(TenantMixin, Base):
     __tablename__ = "chain_checkpoints"
-    __table_args__ = (UniqueConstraint("run_date", "step", name="uq_checkpoint_run_step"),)
+    __table_args__ = (UniqueConstraint("restaurant_id", "run_date", "step", name="uq_checkpoint_run_step"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     run_date: Mapped[date] = mapped_column(Date, index=True)
@@ -347,7 +540,7 @@ class ChainCheckpoint(Base):
     detail: Mapped[str | None] = mapped_column(Text)
 
 
-class AuditLog(Base):
+class AuditLog(TenantMixin, Base):
     __tablename__ = "audit_log"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -355,14 +548,13 @@ class AuditLog(Base):
     actor: Mapped[str] = mapped_column(String(64))
     table: Mapped[str] = mapped_column(String(64))
     key: Mapped[str] = mapped_column(String(64))
-    action: Mapped[str] = mapped_column(String(16))          # INSERT / UPDATE / FLAG
+    action: Mapped[str] = mapped_column(String(16))
     detail: Mapped[str | None] = mapped_column(Text)
 
 
-class SentMessage(Base):
-    """Registro anti-duplicado: qué se envió, a qué chat, qué día."""
+class SentMessage(TenantMixin, Base):
     __tablename__ = "sent_messages"
-    __table_args__ = (UniqueConstraint("chat", "template", "day", name="uq_sent_chat_template_day"),)
+    __table_args__ = (UniqueConstraint("restaurant_id", "chat", "template", "day", name="uq_sent_chat_template_day"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     chat: Mapped[str] = mapped_column(String(128))

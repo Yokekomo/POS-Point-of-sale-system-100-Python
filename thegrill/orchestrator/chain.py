@@ -42,23 +42,29 @@ class MemoryCheckpoints:
 
 
 class DbCheckpoints:
-    """Checkpoints persistidos en `chain_checkpoints`."""
+    """Checkpoints persistidos en `chain_checkpoints`, por restaurante."""
 
-    def __init__(self, session_scope):
+    def __init__(self, session_scope, restaurant_id: int):
         self.session_scope = session_scope
+        self.restaurant_id = restaurant_id
 
     def get(self, run_date, step):
         from thegrill.models import ChainCheckpoint
         with self.session_scope() as s:
-            row = s.query(ChainCheckpoint).filter_by(run_date=run_date, step=step).one_or_none()
+            row = (s.query(ChainCheckpoint)
+                   .filter_by(restaurant_id=self.restaurant_id, run_date=run_date, step=step)
+                   .one_or_none())
             return row.state if row else None
 
     def set(self, run_date, step, state, detail):
         from thegrill.models import ChainCheckpoint
         with self.session_scope() as s:
-            row = s.query(ChainCheckpoint).filter_by(run_date=run_date, step=step).one_or_none()
+            row = (s.query(ChainCheckpoint)
+                   .filter_by(restaurant_id=self.restaurant_id, run_date=run_date, step=step)
+                   .one_or_none())
             if row is None:
-                row = ChainCheckpoint(run_date=run_date, step=step, state=state, started_at=datetime.utcnow())
+                row = ChainCheckpoint(restaurant_id=self.restaurant_id, run_date=run_date,
+                                      step=step, state=state, started_at=datetime.utcnow())
                 s.add(row)
             row.state = state
             row.detail = detail

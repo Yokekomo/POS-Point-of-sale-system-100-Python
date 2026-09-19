@@ -1,9 +1,15 @@
-# The Grill — Kitchen & Meat Management (Fase 1)
-sqlalchemy>=2.0
+# Plataforma de gestión de cocina — dependencias
+sqlalchemy>=2.0          # base de datos (SQLite para empezar, PostgreSQL en producción)
+fastapi>=0.110           # API y páginas web
+uvicorn>=0.27            # servidor
+jinja2>=3.1              # plantillas HTML
+python-multipart>=0.0.9  # subida de fotos
+
+# desarrollo
 pytest>=8
-# Fases posteriores (importadores / informes), aún no usadas por el código:
-# pdfplumber
-# openpyxl
-# weasyprint
-# fastapi
-# uvicorn
+httpx>=0.27              # cliente de pruebas
+
+# fases posteriores (importadores e informes), aún no usadas por el código:
+# pdfplumber             # leer PDFs del POS
+# openpyxl               # export a Excel
+# weasyprint             # informe diario en PDF

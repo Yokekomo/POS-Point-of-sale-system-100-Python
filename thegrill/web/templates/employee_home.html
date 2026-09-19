@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% block title %}Registrar{% endblock %}
+{% block body %}
+<h1>¿Qué vas a registrar?</h1>
+<p class="sub">{{ restaurant.name }} · toca un registro para rellenarlo.</p>
+<div class="grid">
+{% for t in templates_list %}
+  <a class="tile" href="/app/registro/{{ t.code }}">
+    <b>{{ t.name }}</b>
+    <span>{{ t.description or "" }}</span>
+    {% if t.requires_photo %}<span class="tag warn" style="margin-top:8px">Pide foto</span>{% endif %}
+  </a>
+{% else %}
+  <div class="card"><p class="muted" style="margin:0">Tu manager todavía no ha creado registros.</p></div>
+{% endfor %}
+</div>
+
+{% if mine %}
+<h2>Lo último que has enviado</h2>
+<div class="card scroll">
+<table>
+<tr><th>Fecha</th><th>Registro</th><th>Estado</th></tr>
+{% for r in mine %}
+<tr>
+  <td class="when">{{ r.business_date }}<div class="muted">{{ r.created_at.strftime("%H:%M") }}</div></td>
+  <td>{{ r.template.name }}</td>
+  <td>{% if r.status.value == "ALERT" %}<span class="tag bad">Alerta</span>
+      {% elif r.status.value == "CORRECTED" %}<span class="tag warn">Corregido</span>
+      {% else %}<span class="tag ok">OK</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endif %}
+{% endblock %}

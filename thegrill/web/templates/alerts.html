@@ -1,0 +1,31 @@
+{% extends "base.html" %}{% block title %}Alertas{% endblock %}
+{% block body %}
+<h1>Alertas</h1>
+<p class="sub">Cerrar una alerta exige escribir la acción correctiva. Queda registrado quién y cuándo.</p>
+<div class="rowflex" style="margin-bottom:14px">
+  <a class="btn {{ 'ghost' if show != 'open' }}" href="/manager/alertas?show=open">Abiertas</a>
+  <a class="btn {{ 'ghost' if show == 'open' }}" href="/manager/alertas?show=all">Todas</a>
+</div>
+{% for a in rows %}
+<div class="card">
+  <div class="rowflex">
+    <span class="tag {{ 'bad' if a.severity.value == 'CRITICAL' else 'warn' }}">{{ a.severity.value }}</span>
+    <b style="flex:1">{{ a.message }}</b>
+    <span class="muted">{{ a.created_at.strftime("%d/%m/%Y %H:%M") }}</span>
+  </div>
+  {% if a.acknowledged_at %}
+    <p class="muted" style="margin:10px 0 0">Cerrada por {{ names.get(a.acknowledged_by, "?") }}
+      el {{ a.acknowledged_at.strftime("%d/%m/%Y %H:%M") }}: {{ a.resolution }}</p>
+  {% else %}
+    <form method="post" action="/manager/alertas/{{ a.id }}/cerrar">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label for="r{{ a.id }}">Acción correctiva</label>
+      <input id="r{{ a.id }}" name="resolution" required placeholder="Qué se hizo para corregirlo">
+      <button style="margin-top:10px">Cerrar alerta</button>
+    </form>
+  {% endif %}
+</div>
+{% else %}
+<div class="card"><p class="muted" style="margin:0">No hay alertas.</p></div>
+{% endfor %}
+{% endblock %}

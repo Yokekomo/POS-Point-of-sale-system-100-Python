@@ -5,3 +5,5 @@ thegrill.db
 backups/
 reports_out/
 .wa_session.lock
+uploads/
+*.db-journal

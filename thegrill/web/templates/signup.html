@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}Alta de restaurante{% endblock %}
+{% block body %}
+<h1>Dar de alta un restaurante</h1>
+<p class="sub">Creas el restaurante y tu cuenta de manager. Recibirás un código para que entre tu equipo.</p>
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+<div class="card">
+<form method="post" action="/signup">
+  <label for="restaurant">Nombre del restaurante</label>
+  <input id="restaurant" name="restaurant" required autofocus>
+  <label for="name">Tu nombre</label>
+  <input id="name" name="name" required>
+  <label for="email">Tu email</label>
+  <input id="email" name="email" type="email" required>
+  <label for="password">Contraseña <span class="muted">(mínimo 8 caracteres)</span></label>
+  <input id="password" name="password" type="password" minlength="8" required>
+  <button class="wide" type="submit">Crear restaurante</button>
+</form>
+</div>
+<p class="muted"><a href="/login">Ya tengo cuenta</a></p>
+{% endblock %}

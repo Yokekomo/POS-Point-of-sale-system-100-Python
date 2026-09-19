@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block title %}Error {{ code }}{% endblock %}
+{% block body %}
+<h1>Error {{ code }}</h1>
+<div class="banner bad">{{ detail }}</div>
+<a class="btn ghost" href="/">Volver</a>
+{% endblock %}

@@ -1,47 +1,98 @@
-# THE GRILL — Sistema de Gestión de Cocina & Carne
+# Plataforma de gestión de cocina
 
-Programa que reemplaza la cadena nocturna "Daily Morning Chain v2" (scripts
-Python sueltos + workbooks Excel) por una aplicación con base de datos como
-fuente única de verdad. Especificación de negocio: Albano, 2026-09-10.
+Aplicación web para cualquier restaurante. El equipo registra desde el móvil
+(temperaturas, mermas, recepciones, producción, limpieza, conteos, con fotos) y
+la dirección lo ve todo en un panel con estadísticas, alertas y export para
+auditoría.
 
-## Decisión de plataforma
+Incluye además los motores especializados de control de carne desarrollados
+para el proyecto The Grill (FEFO, stock por serial de primal, despieces, coste,
+fichaje) como módulos opcionales sobre la misma base de datos.
 
-**Backend Python + base de datos + panel web (PWA).** No un programa de
-escritorio Windows ni una app nativa de tienda.
+## Por qué web y no un programa de escritorio ni una app de tienda
 
-| Necesidad del negocio | Web + backend | Programa Windows | App nativa |
+| Necesidad | Web | Programa Windows | App nativa |
 |---|---|---|---|
-| Cadena nocturna automática (scheduler 00:07) | Sí, corre en servidor | Necesita el PC encendido | No aplica |
-| Registro a pie de cámara (tablet/móvil) | Sí | No | Sí, con doble coste |
-| Varios usuarios a la vez (Ahmed, Yuan, Ram, carnicero) | Sí | Un puesto | Sí |
-| Trazabilidad HACCP no editable, hora de servidor | Sí | Archivo local editable | Sí |
-| Director lo consulta desde fuera | Sí | No | Sí |
-| Impresión de etiquetas FEFO en térmica | Servicio local (reutiliza `win32print` del POS) | Directo | Difícil |
-| Coste de mantenimiento | Un solo código | Un solo código | Dos plataformas + tiendas |
+| Cualquiera entra y mete datos, sin instalar nada | Sí | No | Requiere descarga |
+| Registro a pie de cámara desde el móvil | Sí | No | Sí |
+| Varios usuarios a la vez | Sí | Un puesto | Sí |
+| Hora de servidor no manipulable, registros no editables | Sí | Archivo local editable | Sí |
+| La dirección lo consulta desde fuera | Sí | No | Sí |
+| Cadena de tareas automática nocturna | Sí, en servidor | El PC ha de estar encendido | No |
+| Coste de mantenimiento | Un solo código | Un solo código | Dos plataformas y tiendas |
 
-El código del POS existente (`programa.py`, tkinter + SQLite + win32print)
-sigue funcionando tal cual. Su parte de impresión sirve de base para el
-servicio de etiquetas.
+Se añade a la pantalla de inicio del móvil como una aplicación más. Para
+imprimir etiquetas en térmica se usa un pequeño servicio local, apoyado en el
+código de impresión del punto de venta que ya existe en este repositorio.
+
+## Los dos roles
+
+**Manager.** Ve el panel de estadísticas, el historial completo de todos,
+las fotos de cualquiera, y gestiona alertas, plantillas y equipo. Descarga el
+CSV de auditoría. Reparte el código de acceso del restaurante.
+
+**Empleado.** Ve la pantalla de captura y rellena registros con fotos. Consulta
+solo lo que él mismo ha enviado. No entra en ninguna pantalla de gestión: cada
+ruta del área de manager le responde 403.
+
+Un manager puede ascender a un empleado o desactivar una cuenta, pero no puede
+cambiar su propio rol ni desactivarse a sí mismo.
+
+## Cómo se adapta a cualquier restaurante
+
+No hay nada codificado sobre un negocio concreto. Cada restaurante define sus
+**plantillas de registro**: nombre, categoría, cuántas veces al día se espera,
+si pide foto, y sus campos (texto, número, lista, fecha, sí/no). Un campo
+numérico con mínimo y máximo genera alerta automática al salirse; un campo de
+fecha avisa cuando la caducidad se acerca, que es la base del control FEFO.
+
+Un restaurante nuevo arranca con siete plantillas listas, que el manager edita
+o desactiva: temperatura de refrigeración, temperatura de congelación,
+recepción de mercancía, merma, producción, limpieza y conteo de inventario.
+Refrigeración y congelación van separadas a propósito, porque cada una tiene su
+propio límite legal y un solo campo numérico no puede validar los dos.
+
+## Reglas que el programa no deja saltarse
+
+- Un campo obligatorio vacío rechaza el registro entero. No se guarda a medias.
+- Un valor fuera de límites **sí** se guarda, marcado con alerta. Una cámara a
+  9 °C tiene que quedar registrada, no rechazada.
+- La fecha y la hora las pone el servidor.
+- Los registros no se editan ni se borran. Una corrección es un registro nuevo
+  que apunta al anterior, y el original queda marcado como corregido.
+- Cerrar una alerta exige escribir la acción correctiva, y queda firmado con
+  quién y cuándo.
+- Ningún restaurante ve datos, fotos ni estadísticas de otro.
+- Las contraseñas se guardan con PBKDF2 y sal por usuario. La sesión viaja en
+  cookie httponly y en la base solo vive el hash del testigo. Cada formulario
+  lleva token CSRF.
+- Solo se aceptan imágenes y PDF, hasta 12 MB, y cada archivo guarda su SHA-256.
 
 ## Estructura
 
 ```
 thegrill/
-  config.py            FX 1.550 IQD/USD, límites HACCP, ventana 09-20h, supresiones, flags 8 %/15 %
-  db.py                SQLAlchemy; SQLite por defecto, PostgreSQL cambiando la URL
-  models.py            17 tablas de §5 + checkpoints, audit_log, sent_messages
-  rules.py             Reglas §8 como funciones puras (etiqueta manda, TG completo, 3 estados, ...)
+  config.py              FX, límites HACCP, ventana de envío, supresiones, umbrales de precio
+  db.py                  SQLAlchemy; SQLite por defecto, PostgreSQL cambiando la URL
+  models.py              31 tablas: plataforma, módulos de carne, auditoría
+  rules.py               Reglas del negocio de carne como funciones puras
+  web/
+    auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
+    seed.py              Las siete plantillas por defecto
+    service.py           Validación, alertas, fotos, estadísticas, export CSV
+    app.py               Rutas web de empleado y de manager
+    templates/           Doce pantallas, móvil primero, claro y oscuro
   engine/
-    fefo.py            Consumo por caducidad, valoración de merma/producción, alertas
-    stock.py           Motor v4: ledger, re-anclaje por conteo, floors con base física, genealogía por serial
-    roster.py          Fichaje con desfase de medianoche sin falsas alarmas
-    cost.py            Landed $/kg, coste por corte, food cost proxy y real
-  messaging/guards.py  Ventana horaria, supresiones, anti-duplicado, mutex de sesión, outbox
-  orchestrator/chain.py Pasos en orden, checkpoint por paso, idempotente, reintentos 30/60/120 s
-  importers/           Fase 1 pendiente: POS PDF, facturas, hojas manuscritas, CSV fichaje
-  reports/             Fase 4 pendiente: parte de carne, Daily Report PDF, Morning Brief
-  cli.py               `init-db` y `run-chain --date`
-tests/                 37 tests que fijan cada regla de negocio
+    fefo.py              Consumo por caducidad y valoración de merma
+    stock.py             Motor v4: ledger, re-anclaje por conteo, genealogía por serial
+    roster.py            Fichaje con desfase de medianoche
+    cost.py              Landed por kg, coste por corte, food cost
+  messaging/guards.py    Ventana horaria, supresiones, anti-duplicado, mutex de sesión
+  orchestrator/chain.py  Cadena diaria idempotente con checkpoints y reintentos
+  importers/             Pendiente: POS PDF, facturas, hojas manuscritas, CSV de fichaje
+  reports/               Pendiente: parte de carne, informe diario PDF
+  cli.py                 init-db, run-chain, serve
+tests/                   93 tests
 ```
 
 ## Uso
@@ -50,36 +101,38 @@ tests/                 37 tests que fijan cada regla de negocio
 pip install -r requirements.txt
 python -m pytest -q
 python -m thegrill.cli init-db
-python -m thegrill.cli run-chain --date 2026-09-10
+python -m thegrill.cli serve --host 0.0.0.0 --port 8000
 ```
 
-Un paso sin handler queda `BLOCKED`, nunca `DONE`: la cadena no puede
-"pasar" un paso que no ha hecho.
+Abre el navegador, pulsa **Dar de alta mi restaurante**, y comparte con tu
+equipo el código de ocho caracteres que aparece en el panel. Ellos entran por
+**Unirme con un código**.
 
-## Reglas codificadas (§8) y dónde viven
+En producción hay que servir por HTTPS, porque la cookie de sesión se marca
+como segura salvo que se defina `GRILL_INSECURE_COOKIE=1`, que es solo para
+desarrollo. Las fotos se guardan en la ruta de `GRILL_UPLOAD_DIR`.
+
+## Reglas del módulo de carne y dónde viven
 
 | Regla | Función | Test |
 |---|---|---|
-| 1 Etiqueta física manda | `rules.resolve_from_label` | `test_label_wins_over_sheet_and_flags` |
-| 2 TG con seriales + piezas y peso/pieza | `rules.validate_tg`, tabla `despiece_primals` (única fuente) | `test_tg_requires_serials_and_cut_detail` |
-| 3 Nunca CUT por inferencia | `rules.can_mark_cut`, `stock.drain_primals` (solo por serial) | `test_drain_primals_by_serial_only` |
-| 4 Conteo semanal completo | `rules.weekly_count_is_complete/stale` | `test_weekly_count_complete_and_stale` |
-| 5 FEFO, coste nunca en blanco | `fefo.consume` lanza `NoCostBasis` | `test_never_blank_cost` |
-| 6 Pescado fuera de entrada carne | `rules.is_meat_entry` | `test_fish_excluded_from_meat_entry` |
-| 7 Ventana 09:00–20:00 | `guards.Gate` (self-chat, fichaje nocturno y pedidos <08:00 exentos) | `test_outside_window_queues_then_flushes_once` |
-| 8 Supresiones Fadi / Olivier | `config.SUPPRESSIONS` | `test_suppressions_drop_not_queue` |
-| 9 Mutex sesión WhatsApp | `guards.SessionMutex` | `test_mutex_single_session` |
-| 10 Anti-duplicado | `guards.AntiDup` + tabla `sent_messages` | idem ventana |
-| 11 Idempotencia + checkpoints | `chain.Chain`, tabla `chain_checkpoints` | `test_sequential_idempotent_and_weekday_steps` |
-| 12 Tres estados | `models.SourceStatus`, `rules.classify_source` | `test_three_states_never_collapse` |
-| 13 Reconciliación por SKU | `stock.rebuild` (READJUST re-ancla), `stock.mass_balance` | `test_rebuild_in_out_and_readjust_reanchors` |
-| 14 Reintentos | `chain.TransientError`, backoff 30/60/120 | `test_transient_retry_with_backoff...` |
+| Etiqueta física manda sobre la hoja | `rules.resolve_from_label` | `test_label_wins_over_sheet_and_flags` |
+| Cada despiece guarda seriales, piezas y peso por pieza | `rules.validate_tg`, tabla `despiece_primals` | `test_tg_requires_serials_and_cut_detail` |
+| Nunca marcar cortado por inferencia | `rules.can_mark_cut`, `stock.drain_primals` | `test_drain_primals_by_serial_only` |
+| Conteo semanal completo | `rules.weekly_count_is_complete` | `test_weekly_count_complete_and_stale` |
+| FEFO, coste nunca en blanco | `fefo.consume` | `test_never_blank_cost` |
+| Pescado fuera del registro de carne | `rules.is_meat_entry` | `test_fish_excluded_from_meat_entry` |
+| Ventana de envío y excepciones | `messaging.guards.Gate` | `test_outside_window_queues_then_flushes_once` |
+| Supresiones de destinatario | `config.SUPPRESSIONS` | `test_suppressions_drop_not_queue` |
+| Una sola sesión de mensajería | `guards.SessionMutex` | `test_mutex_single_session` |
+| Idempotencia y checkpoints | `orchestrator.chain.Chain` | `test_sequential_idempotent_and_weekday_steps` |
+| Tres estados, nunca colapsar en cero | `models.SourceStatus` | `test_three_states_never_collapse` |
+| Reintentos solo en errores transitorios | `chain.TransientError` | `test_transient_retry_with_backoff...` |
 
-## Roadmap
+## Siguientes pasos
 
-1. **Fase 1 (esta entrega, parte A):** modelo de datos, reglas, motores base, orquestador, guardas. Pendiente parte B: importadores y migración de los .xlsx actuales.
-2. Motor de stock v4 conectado a la BD real y mapeo primal→corte completo.
-3. Ventas POS, FEFO maestro, coste, roster sobre datos reales.
-4. Informes: parte, Daily Report PDF (weasyprint), Morning Brief.
-5. Mensajería WhatsApp/Telegram con las guardas ya construidas.
-6. Scheduler 00:07 + panel web.
+1. Importadores: PDFs del punto de venta, facturas, hojas manuscritas, fichaje.
+2. Informe diario en PDF y parte de carne desde la base de datos.
+3. Mensajería a WhatsApp y Telegram sobre las guardas ya construidas.
+4. Funcionamiento sin cobertura: guardar en el móvil y sincronizar al recuperar señal.
+5. Programador nocturno que ejecute la cadena diaria por restaurante.

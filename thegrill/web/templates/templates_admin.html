@@ -1,0 +1,48 @@
+{% extends "base.html" %}{% block title %}Plantillas{% endblock %}
+{% block body %}
+<h1>Plantillas de registro</h1>
+<p class="sub">Define qué captura tu equipo. Un mínimo y un máximo en un campo numérico generan alerta automática.</p>
+
+<div class="card scroll">
+<table>
+<tr><th>Registro</th><th>Categoría</th><th>Campos</th><th>Esperados/día</th><th>Estado</th><th></th></tr>
+{% for t in rows %}
+<tr>
+  <td><b>{{ t.name }}</b><div class="muted">{{ t.code }}</div></td>
+  <td class="muted">{{ t.category }}</td>
+  <td class="muted">{% for f in t.fields %}{{ f.label }}{% if f.unit %} ({{ f.unit }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</td>
+  <td>{{ t.expected_per_day }}</td>
+  <td>{% if t.active %}<span class="tag ok">Activa</span>{% else %}<span class="tag warn">Inactiva</span>{% endif %}</td>
+  <td><form method="post" action="/manager/plantillas/{{ t.id }}/activar" style="margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="ghost" style="padding:6px 12px">{{ "Desactivar" if t.active else "Activar" }}</button></form></td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+<h2>Crear una plantilla</h2>
+<div class="card">
+<form method="post" action="/manager/plantillas/nueva">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="name">Nombre</label>
+  <input id="name" name="name" required placeholder="Control de aceite de freidora">
+  <label for="category">Categoría</label>
+  <select id="category" name="category">
+    <option value="haccp">HACCP</option><option value="waste">Merma</option>
+    <option value="production">Producción</option><option value="reception">Recepción</option>
+    <option value="cleaning">Limpieza</option><option value="count">Inventario</option>
+    <option value="other" selected>Otro</option>
+  </select>
+  <label for="expected_per_day">Veces esperadas al día</label>
+  <input id="expected_per_day" name="expected_per_day" type="number" min="0" value="1">
+  <label for="requires_photo"><input id="requires_photo" name="requires_photo" type="checkbox" value="1"> Pedir foto</label>
+  <label for="fields_spec">Campos, uno por línea</label>
+  <textarea id="fields_spec" name="fields_spec" rows="5"
+    placeholder="Freidora | SELECT&#10;Temperatura | NUMBER | °C | 150 | 180&#10;Aceite cambiado | BOOL"></textarea>
+  <div class="help">Formato: <b>etiqueta | tipo | unidad | mínimo | máximo</b>.
+    Tipos: TEXT, NUMBER, SELECT, DATE, BOOL. Solo la etiqueta es obligatoria.</div>
+  <button class="wide" type="submit">Crear plantilla</button>
+</form>
+</div>
+{% endblock %}

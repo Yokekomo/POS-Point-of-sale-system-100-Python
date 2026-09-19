@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% block title %}{{ title }}{% endblock %}
+{% block body %}
+<h1>{{ title }}</h1>
+{% if manager_view %}
+<form method="get" class="card rowflex" style="margin-bottom:14px">
+  <select name="code" style="max-width:260px">
+    <option value="">Todos los registros</option>
+    {% for t in templates_list %}<option value="{{ t.code }}" {% if t.code == code %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
+  </select>
+  <select name="days" style="max-width:150px">
+    {% for d in [7, 14, 30, 90] %}<option value="{{ d }}" {% if d == days %}selected{% endif %}>{{ d }} días</option>{% endfor %}
+  </select>
+  <button type="submit">Filtrar</button>
+  <a class="btn ghost" href="/manager/export.csv?days={{ days }}">Descargar CSV</a>
+</form>
+{% endif %}
+<div class="card scroll">
+<table>
+<tr><th>Fecha</th><th>Registro</th>{% if manager_view %}<th>Quién</th>{% endif %}<th>Datos</th><th>Estado</th></tr>
+{% for r in rows %}
+<tr>
+  <td class="when">{{ r.business_date }}<div class="muted">{{ r.created_at.strftime("%H:%M") }}</div></td>
+  <td>{{ r.template.name }}</td>
+  {% if manager_view %}<td>{{ authors.get(r.created_by, "?") }}</td>{% endif %}
+  <td>
+    {% for v in r.values %}{% if v.display %}
+      <span {% if v.out_of_range %}class="tag bad"{% endif %}>{{ v.field_key }}: {{ v.display }}</span>{% if not loop.last %} · {% endif %}
+    {% endif %}{% endfor %}
+    {% if r.note %}<div class="muted">{{ r.note }}</div>{% endif %}
+    {% for a in r.attachments %}<div><a href="/foto/{{ a.id }}">Foto {{ loop.index }}</a></div>{% endfor %}
+  </td>
+  <td>{% if r.status.value == "ALERT" %}<span class="tag bad">Alerta</span>
+      {% elif r.status.value == "CORRECTED" %}<span class="tag warn">Corregido</span>
+      {% else %}<span class="tag ok">OK</span>{% endif %}</td>
+</tr>
+{% else %}
+<tr><td colspan="5" class="muted">Todavía no hay registros en este periodo.</td></tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}

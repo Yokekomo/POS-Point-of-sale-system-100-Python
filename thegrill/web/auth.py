@@ -1,0 +1,177 @@
+"""Autenticación y autorización.
+
+- Contraseñas con PBKDF2-HMAC-SHA256 y sal por usuario (sin dependencias externas).
+- Sesiones por cookie: el token viaja al navegador, en la base solo vive su hash.
+- Dos roles: MANAGER (todo) y EMPLOYEE (solo registrar).
+- CSRF por sesión en cada formulario.
+"""
+import hashlib
+import hmac
+import re
+import secrets
+from datetime import datetime, timedelta
+
+from sqlalchemy.orm import Session
+
+from thegrill.models import AuthSession, Restaurant, Role, User
+
+PBKDF2_ROUNDS = 240_000
+SESSION_DAYS = 14
+COOKIE_NAME = "grill_session"
+MIN_PASSWORD_LEN = 8
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class AuthError(Exception):
+    """Credenciales inválidas, cuenta desactivada o código de acceso erróneo."""
+
+
+class PermissionDenied(Exception):
+    """El rol del usuario no permite esta acción."""
+
+
+# ------------------------------------------------------------- contraseñas
+def hash_password(password: str, *, rounds: int = PBKDF2_ROUNDS) -> str:
+    if len(password) < MIN_PASSWORD_LEN:
+        raise ValueError(f"La contraseña necesita al menos {MIN_PASSWORD_LEN} caracteres")
+    salt = secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), rounds)
+    return f"pbkdf2_sha256${rounds}${salt}${dk.hex()}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        algo, rounds, salt, digest = stored.split("$")
+        if algo != "pbkdf2_sha256":
+            return False
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), int(rounds))
+    except (ValueError, TypeError):
+        return False
+    return hmac.compare_digest(dk.hex(), digest)
+
+
+def normalize_email(email: str) -> str:
+    email = (email or "").strip().lower()
+    if not EMAIL_RE.match(email):
+        raise ValueError(f"Email inválido: {email!r}")
+    return email
+
+
+def new_join_code() -> str:
+    """Código que el manager reparte para que su equipo se registre."""
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # sin caracteres ambiguos
+    return "".join(secrets.choice(alphabet) for _ in range(8))
+
+
+def unique_slug(session: Session, name: str) -> str:
+    base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:48] or "restaurante"
+    slug, n = base, 1
+    while session.query(Restaurant).filter_by(slug=slug).first():
+        n += 1
+        slug = f"{base}-{n}"
+    return slug
+
+
+# --------------------------------------------------------------- registro
+def create_restaurant(session: Session, name: str, manager_email: str, manager_name: str,
+                      password: str, timezone: str = "UTC", currency: str = "USD") -> tuple[Restaurant, User]:
+    """Alta de un restaurante nuevo con su primer manager (el dueño de la cuenta)."""
+    email = normalize_email(manager_email)
+    code = new_join_code()
+    while session.query(Restaurant).filter_by(join_code=code).first():
+        code = new_join_code()
+    restaurant = Restaurant(name=name.strip(), slug=unique_slug(session, name),
+                            join_code=code, timezone=timezone, currency=currency)
+    session.add(restaurant)
+    session.flush()
+    manager = User(restaurant_id=restaurant.id, email=email, name=manager_name.strip(),
+                   role=Role.MANAGER, password_hash=hash_password(password))
+    session.add(manager)
+    session.flush()
+    return restaurant, manager
+
+
+def join_restaurant(session: Session, join_code: str, email: str, name: str, password: str,
+                    role: Role = Role.EMPLOYEE) -> User:
+    """Alta de empleado con el código del restaurante."""
+    restaurant = session.query(Restaurant).filter_by(join_code=(join_code or "").strip().upper()).first()
+    if restaurant is None or not restaurant.active:
+        raise AuthError("Código de restaurante no válido")
+    email = normalize_email(email)
+    if session.query(User).filter_by(restaurant_id=restaurant.id, email=email).first():
+        raise AuthError("Ya existe una cuenta con ese email en este restaurante")
+    user = User(restaurant_id=restaurant.id, email=email, name=name.strip(),
+                role=role, password_hash=hash_password(password))
+    session.add(user)
+    session.flush()
+    return user
+
+
+# ---------------------------------------------------------------- sesiones
+def _token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def authenticate(session: Session, email: str, password: str,
+                 restaurant_id: int | None = None) -> User:
+    try:
+        email = normalize_email(email)
+    except ValueError:
+        raise AuthError("Email o contraseña incorrectos") from None
+    q = session.query(User).filter_by(email=email)
+    if restaurant_id is not None:
+        q = q.filter_by(restaurant_id=restaurant_id)
+    candidates = q.all()
+    for user in candidates:
+        if verify_password(password, user.password_hash):
+            if not user.active:
+                raise AuthError("Cuenta desactivada. Habla con tu manager")
+            return user
+    raise AuthError("Email o contraseña incorrectos")
+
+
+def start_session(session: Session, user: User, days: int = SESSION_DAYS) -> tuple[str, AuthSession]:
+    token = secrets.token_urlsafe(32)
+    auth = AuthSession(token_hash=_token_hash(token), csrf=secrets.token_urlsafe(24),
+                       user_id=user.id, expires_at=datetime.utcnow() + timedelta(days=days))
+    session.add(auth)
+    user.last_login = datetime.utcnow()
+    session.flush()
+    return token, auth
+
+
+def resolve_session(session: Session, token: str | None) -> tuple[User, AuthSession] | None:
+    if not token:
+        return None
+    auth = session.query(AuthSession).filter_by(token_hash=_token_hash(token), revoked=False).first()
+    if auth is None or auth.expires_at < datetime.utcnow():
+        return None
+    user = session.get(User, auth.user_id)
+    if user is None or not user.active:
+        return None
+    return user, auth
+
+
+def end_session(session: Session, token: str | None) -> None:
+    if not token:
+        return
+    auth = session.query(AuthSession).filter_by(token_hash=_token_hash(token)).first()
+    if auth:
+        auth.revoked = True
+
+
+def check_csrf(auth: AuthSession, submitted: str | None) -> None:
+    if not submitted or not hmac.compare_digest(auth.csrf, submitted):
+        raise PermissionDenied("Token CSRF inválido; recarga la página")
+
+
+# ------------------------------------------------------------- permisos
+def require_manager(user: User) -> None:
+    if user.role != Role.MANAGER:
+        raise PermissionDenied("Solo un manager puede hacer esto")
+
+
+def same_restaurant(user: User, restaurant_id: int) -> None:
+    """Aislamiento entre restaurantes: nadie ve datos de otro."""
+    if user.restaurant_id != restaurant_id:
+        raise PermissionDenied("Ese dato pertenece a otro restaurante")
