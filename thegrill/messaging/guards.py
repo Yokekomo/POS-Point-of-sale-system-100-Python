@@ -24,7 +24,7 @@ class Blocked(Exception):
 class Outgoing:
     chat: str
     recipient: str
-    topic: str            # meat / haccp / roster / orders / brief / general
+    topic: str            # meat / haccp / orders / brief / general
     template: str         # identificador del mensaje (anti-dup por día)
     body: str
     day: date
@@ -90,7 +90,7 @@ class Gate:
         self.antidup = antidup
         self.now_fn = now_fn
 
-    def check(self, msg: Outgoing, step_is_night_clockout: bool = False) -> None:
+    def check(self, msg: Outgoing) -> None:
         """Lanza Blocked si el mensaje no puede salir. Orden: supresión > dup > ventana."""
         if is_suppressed(msg.recipient, msg.topic):
             raise Blocked(f"SUPPRESSED:{msg.recipient}:{msg.topic}", queue=False)
@@ -98,7 +98,6 @@ class Gate:
             raise Blocked("DUPLICATE_TODAY", queue=False)
         now = self.now_fn()
         exempt = (msg.recipient == config.SELF_CHAT
-                  or step_is_night_clockout
                   or (msg.early_order and now.time() < config.ORDERS_EARLY_CUTOFF))
         if not exempt and not in_send_window(now):
             raise Blocked("OUTSIDE_SEND_WINDOW", queue=True)
@@ -112,9 +111,9 @@ class Outbox:
         self.dropped: list[tuple[Outgoing, str]] = []
         self.sent: list[Outgoing] = []
 
-    def dispatch(self, msg: Outgoing, gate: Gate, send_fn, **check_kw) -> str:
+    def dispatch(self, msg: Outgoing, gate: Gate, send_fn) -> str:
         try:
-            gate.check(msg, **check_kw)
+            gate.check(msg)
         except Blocked as b:
             (self.queued if b.queue else self.dropped).append((msg, b.reason))
             return b.reason

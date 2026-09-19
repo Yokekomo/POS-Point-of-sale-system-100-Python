@@ -6,8 +6,8 @@ la dirección lo ve todo en un panel con estadísticas, alertas y export para
 auditoría.
 
 Incluye además los motores especializados de control de carne desarrollados
-para el proyecto The Grill (FEFO, stock por serial de primal, despieces, coste,
-fichaje) como módulos opcionales sobre la misma base de datos.
+para el proyecto The Grill (FEFO, stock por serial de primal, despieces y
+coste) como módulos opcionales sobre la misma base de datos.
 
 ## Por qué web y no un programa de escritorio ni una app de tienda
 
@@ -74,7 +74,7 @@ propio límite legal y un solo campo numérico no puede validar los dos.
 thegrill/
   config.py              FX, límites HACCP, ventana de envío, supresiones, umbrales de precio
   db.py                  SQLAlchemy; SQLite por defecto, PostgreSQL cambiando la URL
-  models.py              31 tablas: plataforma, módulos de carne, auditoría
+  models.py              30 tablas: plataforma, módulos de carne, auditoría
   rules.py               Reglas del negocio de carne como funciones puras
   web/
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
@@ -85,14 +85,13 @@ thegrill/
   engine/
     fefo.py              Consumo por caducidad y valoración de merma
     stock.py             Motor v4: ledger, re-anclaje por conteo, genealogía por serial
-    roster.py            Fichaje con desfase de medianoche
     cost.py              Landed por kg, coste por corte, food cost
   messaging/guards.py    Ventana horaria, supresiones, anti-duplicado, mutex de sesión
   orchestrator/chain.py  Cadena diaria idempotente con checkpoints y reintentos
-  importers/             Pendiente: POS PDF, facturas, hojas manuscritas, CSV de fichaje
+  importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   93 tests
+tests/                   91 tests
 ```
 
 ## Uso
@@ -131,7 +130,7 @@ desarrollo. Las fotos se guardan en la ruta de `GRILL_UPLOAD_DIR`.
 
 ## Siguientes pasos
 
-1. Importadores: PDFs del punto de venta, facturas, hojas manuscritas, fichaje.
+1. Importadores: PDFs del punto de venta, facturas y hojas manuscritas.
 2. Informe diario en PDF y parte de carne desde la base de datos.
 3. Mensajería a WhatsApp y Telegram sobre las guardas ya construidas.
 4. Funcionamiento sin cobertura: guardar en el móvil y sincronizar al recuperar señal.

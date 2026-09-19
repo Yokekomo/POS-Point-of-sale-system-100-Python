@@ -12,20 +12,20 @@ def test_sequential_idempotent_and_weekday_steps():
     calls = []
     ck = MemoryCheckpoints()
     handlers = {
-        "01_fichaje": lambda d: (calls.append("01"), StepResult(SourceStatus.DONE))[1],
+        "02_produccion_merma": lambda d: (calls.append("02"), StepResult(SourceStatus.DONE))[1],
         "06_ventas": lambda d: (calls.append("06"), StepResult(SourceStatus.NOT_POSTED_YET, "pdf no posteado"))[1],
         "08_inventario_semanal": lambda d: (calls.append("08"), StepResult(SourceStatus.DONE))[1],
         "08b_plan_pan": lambda d: (calls.append("08b"), StepResult(SourceStatus.DONE))[1],
     }
     chain = build_default_chain(ck, handlers)
     r = chain.run(MON)
-    assert calls == ["01", "06", "08"] and "08b_plan_pan" in r.skipped
+    assert calls == ["02", "06", "08"] and "08b_plan_pan" in r.skipped
     assert r.not_posted == ["06_ventas"]
     assert "03_despiece" in r.blocked                      # sin handler => BLOCKED, nunca "done"
     calls.clear()
     r2 = chain.run(MON)                                     # re-ejecutar: DONE no se repite, pendientes sí
     assert calls == ["06"]
-    assert r2.results["01_fichaje"].detail.startswith("checkpoint")
+    assert r2.results["02_produccion_merma"].detail.startswith("checkpoint")
     calls.clear()
     chain.run(TUE)
     assert "08b" in calls and "08" not in calls
@@ -58,7 +58,7 @@ def test_db_checkpoints_persist(tmp_path):
     with db.session_scope() as s:
         s.add(Restaurant(id=1, name="Demo", slug="demo", join_code="DEMO1234"))
     ck = DbCheckpoints(db.session_scope, restaurant_id=1)
-    ck.set(MON, "01_fichaje", SourceStatus.DONE, "ok")
-    ck.set(MON, "01_fichaje", SourceStatus.DONE, "ok again")
-    assert ck.get(MON, "01_fichaje") == SourceStatus.DONE
-    assert ck.get(TUE, "01_fichaje") is None
+    ck.set(MON, "02_produccion_merma", SourceStatus.DONE, "ok")
+    ck.set(MON, "02_produccion_merma", SourceStatus.DONE, "ok again")
+    assert ck.get(MON, "02_produccion_merma") == SourceStatus.DONE
+    assert ck.get(TUE, "02_produccion_merma") is None

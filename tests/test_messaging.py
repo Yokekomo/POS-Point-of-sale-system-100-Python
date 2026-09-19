@@ -22,18 +22,24 @@ def test_suppressions_drop_not_queue():
     assert len(ob.dropped) == 3 and ob.queued == []
 
 
+def test_night_message_to_staff_is_queued_not_sent():
+    """Sin fichaje ya no hay ningún paso que envíe de noche al personal."""
+    ob, gate = Outbox(), Gate(AntiDup(), now_fn=lambda: datetime(2026, 9, 10, 0, 30))
+    assert ob.dispatch(msg("Ram", "orders", "pedido"), gate, lambda m: None) == "OUTSIDE_SEND_WINDOW"
+    assert len(ob.queued) == 1
+
+
 def test_outside_window_queues_then_flushes_once():
     sent = []
     clock = {"now": datetime(2026, 9, 10, 0, 30)}
     ob, gate = Outbox(), Gate(AntiDup(), now_fn=lambda: clock["now"])
     assert ob.dispatch(msg(), gate, sent.append) == "OUTSIDE_SEND_WINDOW"
     assert ob.dispatch(msg("Albano", "brief", "brief"), gate, sent.append) == "SENT"     # self-chat sin ventana
-    assert ob.dispatch(msg("Ram", "roster", "clockout"), gate, sent.append, step_is_night_clockout=True) == "SENT"
     assert ob.dispatch(msg("BOH", "orders", "OR-0001", early=True), gate, sent.append) == "SENT"
     clock["now"] = datetime(2026, 9, 10, 9, 5)
     assert ob.flush(gate, sent.append) == 1
     assert ob.dispatch(msg(), gate, sent.append) == "DUPLICATE_TODAY"
-    assert len(sent) == 4
+    assert len(sent) == 3
 
 
 def test_mutex_single_session(tmp_path):

@@ -6,7 +6,7 @@ Dos capas:
    (inquilinos), usuarios con rol manager/empleado, plantillas de registro
    configurables, registros con valores y fotos, alertas.
 2. **Módulos especializados** (opcionales, del proyecto The Grill): primales,
-   despieces, ventas POS, FEFO, fichaje. Todas llevan `restaurant_id`.
+   despieces, ventas POS, FEFO. Todas llevan `restaurant_id`.
 
 Invariantes: cada fila pertenece a un restaurante; los registros son
 append-only (una corrección es un registro nuevo que apunta al anterior);
@@ -470,20 +470,6 @@ class OrderLine(Base):
     unit: Mapped[str | None] = mapped_column(String(16))
 
     order: Mapped["Order"] = relationship(back_populates="lines")
-
-
-class RosterEntry(TenantMixin, Base):
-    __tablename__ = "roster"
-    __table_args__ = (UniqueConstraint("restaurant_id", "person", "date", name="uq_roster_restaurant_person_date"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    person: Mapped[str] = mapped_column(String(64), index=True)
-    date: Mapped[date] = mapped_column(Date, index=True)
-    clock_in: Mapped[datetime | None] = mapped_column(DateTime)
-    clock_out: Mapped[datetime | None] = mapped_column(DateTime)
-    hours: Mapped[float | None] = mapped_column(Float)
-    day_off: Mapped[bool] = mapped_column(Boolean, default=False)
-    flag: Mapped[str | None] = mapped_column(String(32))
 
 
 class HaccpCheck(TenantMixin, Base):

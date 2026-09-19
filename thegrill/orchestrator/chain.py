@@ -76,7 +76,6 @@ class Step:
     name: str
     fn: Callable[[date], StepResult]
     only_weekday: int | None = None     # 0 = lunes ... 6 = domingo
-    sends_at_night: bool = False        # solo fichaje (paso 1)
 
 
 @dataclass
@@ -103,9 +102,9 @@ class Chain:
         self.sleep = sleep_fn
         self.backoff = backoff
 
-    def step(self, name: str, only_weekday: int | None = None, sends_at_night: bool = False):
+    def step(self, name: str, only_weekday: int | None = None):
         def deco(fn):
-            self.steps.append(Step(name, fn, only_weekday, sends_at_night))
+            self.steps.append(Step(name, fn, only_weekday))
             return fn
         return deco
 
@@ -142,20 +141,22 @@ class Chain:
         return StepResult(SourceStatus.BLOCKED, "sin resultado")
 
 
+# Los nombres conservan la numeración de la especificación de negocio (§6) para
+# que cada paso siga siendo rastreable en una auditoría. El paso 1 era el
+# fichaje de personal y se retiró: la cadena empieza en el 2.
 STEP_ORDER = [
-    ("01_fichaje", None, True),
-    ("02_produccion_merma", None, False),
-    ("03_despiece", None, False),
-    ("04_facturas", None, False),
-    ("05_entrada_carne", None, False),
-    ("06_ventas", None, False),
-    ("07_cierre_vitrina", None, False),
-    ("07b_descongelado", None, False),
-    ("07c_haccp_walkin", None, False),
-    ("08_inventario_semanal", 0, False),     # lunes
-    ("08b_plan_pan", 1, False),              # martes
-    ("09_pedidos_envios_brief", None, False),
-    ("10_daily_report", None, False),
+    ("02_produccion_merma", None),
+    ("03_despiece", None),
+    ("04_facturas", None),
+    ("05_entrada_carne", None),
+    ("06_ventas", None),
+    ("07_cierre_vitrina", None),
+    ("07b_descongelado", None),
+    ("07c_haccp_walkin", None),
+    ("08_inventario_semanal", 0),     # lunes
+    ("08b_plan_pan", 1),              # martes
+    ("09_pedidos_envios_brief", None),
+    ("10_daily_report", None),
 ]
 
 
@@ -164,9 +165,9 @@ def build_default_chain(checkpoints: CheckpointStore, handlers: dict[str, Callab
     """Monta la cadena en el orden canónico con los handlers disponibles.
     Un paso sin handler queda registrado como BLOCKED ('no implementado'), nunca como done."""
     chain = Chain(checkpoints, **kw)
-    for name, weekday, night in STEP_ORDER:
+    for name, weekday in STEP_ORDER:
         fn = handlers.get(name) or _not_implemented(name)
-        chain.steps.append(Step(name, fn, weekday, night))
+        chain.steps.append(Step(name, fn, weekday))
     return chain
 
 
