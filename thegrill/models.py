@@ -69,14 +69,6 @@ class SourceStatus(str, enum.Enum):
     BLOCKED = "BLOCKED"
 
 
-class ClarificationStatus(str, enum.Enum):
-    ENCOLADA = "ENCOLADA"
-    ENVIADA = "ENVIADA"
-    RESPONDIDA = "RESPONDIDA"
-    CANCELADA = "CANCELADA"
-    HELD = "HELD"
-
-
 class HaccpKind(str, enum.Enum):
     CHILLED = "CHILLED"
     FROZEN = "FROZEN"
@@ -486,19 +478,6 @@ class HaccpCheck(TenantMixin, Base):
     corrective_action: Mapped[str | None] = mapped_column(Text)
 
 
-class Clarification(TenantMixin, Base):
-    __tablename__ = "clarifications_queue"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    question: Mapped[str] = mapped_column(Text)
-    recipient: Mapped[str] = mapped_column(String(64), index=True)
-    topic: Mapped[str] = mapped_column(String(32), default="general")
-    status: Mapped[ClarificationStatus] = mapped_column(Enum(ClarificationStatus), default=ClarificationStatus.ENCOLADA)
-    attempts: Mapped[int] = mapped_column(Integer, default=0)
-    history: Mapped[str | None] = mapped_column(Text)
-
-
 class FefoLot(TenantMixin, Base):
     __tablename__ = "fefo_stock"
 
@@ -536,14 +515,3 @@ class AuditLog(TenantMixin, Base):
     key: Mapped[str] = mapped_column(String(64))
     action: Mapped[str] = mapped_column(String(16))
     detail: Mapped[str | None] = mapped_column(Text)
-
-
-class SentMessage(TenantMixin, Base):
-    __tablename__ = "sent_messages"
-    __table_args__ = (UniqueConstraint("restaurant_id", "chat", "template", "day", name="uq_sent_chat_template_day"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    chat: Mapped[str] = mapped_column(String(128))
-    template: Mapped[str] = mapped_column(String(64))
-    day: Mapped[date] = mapped_column(Date)
-    sent_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

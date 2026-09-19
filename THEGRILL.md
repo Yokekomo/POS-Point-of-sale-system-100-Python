@@ -5,6 +5,9 @@ Aplicación web para cualquier restaurante. El equipo registra desde el móvil
 la dirección lo ve todo en un panel con estadísticas, alertas y export para
 auditoría.
 
+El programa recoge datos de los trabajadores y los presenta. No envía mensajes
+a nadie: todo lo que hay que ver se consulta dentro de la plataforma.
+
 Incluye además los motores especializados de control de carne desarrollados
 para el proyecto The Grill (FEFO, stock por serial de primal, despieces y
 coste) como módulos opcionales sobre la misma base de datos.
@@ -72,9 +75,9 @@ propio límite legal y un solo campo numérico no puede validar los dos.
 
 ```
 thegrill/
-  config.py              FX, límites HACCP, ventana de envío, supresiones, umbrales de precio
+  config.py              FX, límites HACCP, umbrales de precio, tolerancias de despiece
   db.py                  SQLAlchemy; SQLite por defecto, PostgreSQL cambiando la URL
-  models.py              30 tablas: plataforma, módulos de carne, auditoría
+  models.py              28 tablas: plataforma, módulos de carne, auditoría
   rules.py               Reglas del negocio de carne como funciones puras
   web/
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
@@ -86,12 +89,11 @@ thegrill/
     fefo.py              Consumo por caducidad y valoración de merma
     stock.py             Motor v4: ledger, re-anclaje por conteo, genealogía por serial
     cost.py              Landed por kg, coste por corte, food cost
-  messaging/guards.py    Ventana horaria, supresiones, anti-duplicado, mutex de sesión
   orchestrator/chain.py  Cadena diaria idempotente con checkpoints y reintentos
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   91 tests
+tests/                   86 tests
 ```
 
 ## Uso
@@ -121,17 +123,13 @@ desarrollo. Las fotos se guardan en la ruta de `GRILL_UPLOAD_DIR`.
 | Conteo semanal completo | `rules.weekly_count_is_complete` | `test_weekly_count_complete_and_stale` |
 | FEFO, coste nunca en blanco | `fefo.consume` | `test_never_blank_cost` |
 | Pescado fuera del registro de carne | `rules.is_meat_entry` | `test_fish_excluded_from_meat_entry` |
-| Ventana de envío y excepciones | `messaging.guards.Gate` | `test_outside_window_queues_then_flushes_once` |
-| Supresiones de destinatario | `config.SUPPRESSIONS` | `test_suppressions_drop_not_queue` |
-| Una sola sesión de mensajería | `guards.SessionMutex` | `test_mutex_single_session` |
 | Idempotencia y checkpoints | `orchestrator.chain.Chain` | `test_sequential_idempotent_and_weekday_steps` |
 | Tres estados, nunca colapsar en cero | `models.SourceStatus` | `test_three_states_never_collapse` |
 | Reintentos solo en errores transitorios | `chain.TransientError` | `test_transient_retry_with_backoff...` |
 
 ## Siguientes pasos
 
-1. Importadores: PDFs del punto de venta, facturas y hojas manuscritas.
-2. Informe diario en PDF y parte de carne desde la base de datos.
-3. Mensajería a WhatsApp y Telegram sobre las guardas ya construidas.
-4. Funcionamiento sin cobertura: guardar en el móvil y sincronizar al recuperar señal.
-5. Programador nocturno que ejecute la cadena diaria por restaurante.
+1. Funcionamiento sin cobertura: guardar en el móvil y sincronizar al recuperar señal.
+2. Importadores: PDFs del punto de venta, facturas y hojas manuscritas.
+3. Informe diario en PDF y parte de carne, para consultar y descargar desde la plataforma.
+4. Programador nocturno que ejecute la cadena diaria por restaurante.
