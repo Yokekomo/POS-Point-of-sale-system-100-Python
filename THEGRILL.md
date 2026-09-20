@@ -107,6 +107,12 @@ absorben los cortes. Por eso un striploin comprado a veinte sale a veinticinco
 el kilo cuando el despiece rinde al ochenta por ciento, y a treinta y tres si
 rinde al sesenta. Eso es lo que hay que ver.
 
+**La etiqueta del corte.** Cada lote que sale del despiece guarda su peso por
+pieza, cuántas piezas salieron, la calidad y la procedencia, para poder leer
+«330 g · MB9+ · AUS» sin ir a buscar el despiece. Con eso, los kilos que quedan
+se traducen a piezas. Si dos calidades distintas entran en el mismo despiece no
+se afirma ninguna; el origen sí, si coincide.
+
 **Trazabilidad.** Cada corte y cada recorte recibe un serial nuevo al salir del
 despiece, atado a la pieza de la que salió y al envío en que llegó. Desde una
 venta se puede volver hacia atrás hasta el primal. Cuando un despiece consume
@@ -371,7 +377,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   298 tests
+tests/                   307 tests
 ```
 
 ## Uso

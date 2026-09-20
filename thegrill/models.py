@@ -591,6 +591,11 @@ class IngredientLot(TenantMixin, Base):
     qty_remaining: Mapped[float] = mapped_column(Float)        # lo que queda
     unit_cost: Mapped[float] = mapped_column(Float)            # precio por unidad base
     stage: Mapped[FefoStage] = mapped_column(Enum(FefoStage), default=FefoStage.MASTER)
+    # La etiqueta de la pieza: lo que hay que leer sin ir a buscar el despiece.
+    pieces: Mapped[int | None] = mapped_column(Integer)          # cuántas piezas salieron
+    piece_weight_g: Mapped[float | None] = mapped_column(Float)  # peso por pieza
+    grade: Mapped[str | None] = mapped_column(String(32))        # MB9+, Prime, Choice…
+    origin: Mapped[str | None] = mapped_column(String(32))       # AUS, USA, JPN…
 
     item: Mapped["IngredientItem"] = relationship(back_populates="lots")
     ingredient: Mapped["Ingredient"] = relationship()

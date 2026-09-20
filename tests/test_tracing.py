@@ -276,3 +276,57 @@ def test_you_cannot_read_another_restaurants_piece(ctx):
     with pytest.raises(NotFound):
         tracing.history(s, otro.id, "8017")
     assert tracing.search(s, otro.id, "8017") == []
+
+
+def test_the_history_shows_the_label_of_each_cut(ctx):
+    s, rest, ana, luis = ctx
+    filete_m = madre(s, rest, "Striploin steak")
+    p = primal(s, rest, "8017", kg=10.0)
+    p.grade, p.origin = "MB9+", "AUS"
+    s.flush()
+    despiezar(s, rest, ana, "TG-0020", ["8017"], 10.0,
+              [("Steak", articulo(s, rest, filete_m, "Filete"), 20, 330, 1.0, False)],
+              merma=3.4)
+    h = tracing.history(s, rest.id, "8017")
+    corte = h.butchery.cuts[0]
+    assert corte.label == "330 g · MB9+ · AUS"
+    assert corte.pieces == 20 and corte.piece_weight_g == 330
+
+
+def test_it_says_how_many_pieces_are_left(ctx):
+    s, rest, ana, luis = ctx
+    p, filete_m, burger_m = montar_burger(s, rest, ana)
+    h = tracing.history(s, rest.id, "8017")
+    filete = next(c for c in h.butchery.cuts if not c.is_trim)
+    assert filete.piece_weight_g == 250
+    assert filete.remaining_pieces == 20                 # 5 kg a 250 g
+    costing.consume_sales(s, luis, [("ENTRECOT", 4)], on=HOY)
+    h = tracing.history(s, rest.id, "8017")
+    filete = next(c for c in h.butchery.cuts if not c.is_trim)
+    assert filete.remaining_pieces == 16                 # se han ido cuatro
+
+
+def test_without_a_piece_weight_it_does_not_guess_the_count(ctx):
+    """La etiqueta dice lo que sabe: sin peso por pieza, no cuenta piezas."""
+    s, rest, ana, luis = ctx
+    from thegrill.models import IngredientLot
+    montar_burger(s, rest, ana)
+    lote = s.query(IngredientLot).filter_by(serial="8017-01").one()
+    lote.piece_weight_g = None
+    s.flush()
+    h = tracing.history(s, rest.id, "8017")
+    corte = next(c for c in h.butchery.cuts if c.serial == "8017-01")
+    assert corte.remaining_pieces is None
+    assert corte.label == "AUS"                  # sigue diciendo la procedencia
+
+
+def test_a_cut_with_nothing_on_its_label_says_nothing(ctx):
+    s, rest, ana, luis = ctx
+    from thegrill.models import IngredientLot
+    montar_burger(s, rest, ana)
+    lote = s.query(IngredientLot).filter_by(serial="8017-01").one()
+    lote.piece_weight_g = lote.grade = lote.origin = None
+    s.flush()
+    h = tracing.history(s, rest.id, "8017")
+    corte = next(c for c in h.butchery.cuts if c.serial == "8017-01")
+    assert corte.label == ""

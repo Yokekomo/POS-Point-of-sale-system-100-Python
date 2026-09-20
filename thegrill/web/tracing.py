@@ -51,10 +51,14 @@ class CutNode:
     serial: str
     name: str
     unit: str
-    produced_kg: float
-    cost: float
-    unit_cost: float
-    remaining_kg: float
+    pieces: int | None = None
+    piece_weight_g: float | None = None
+    grade: str | None = None
+    origin: str | None = None
+    produced_kg: float = 0.0
+    cost: float = 0.0
+    unit_cost: float = 0.0
+    remaining_kg: float = 0.0
     sold_kg: float = 0.0
     sold_cost: float = 0.0
     revenue: float = 0.0
@@ -62,6 +66,25 @@ class CutNode:
     adjust_kg: float = 0.0
     is_trim: bool = False
     sales: list[SaleLine] = field(default_factory=list)
+
+    @property
+    def label(self) -> str:
+        """Lo que pone la etiqueta: «330 g · MB9+ · AUS»."""
+        bits = []
+        if self.piece_weight_g:
+            bits.append(f"{self.piece_weight_g:.10g} g")
+        if self.grade:
+            bits.append(self.grade)
+        if self.origin:
+            bits.append(self.origin)
+        return " · ".join(bits)
+
+    @property
+    def remaining_pieces(self) -> int | None:
+        """Cuántas piezas quedan, al peso de la etiqueta."""
+        if not self.piece_weight_g:
+            return None
+        return int(round(self.remaining_kg * 1000 / self.piece_weight_g))
 
     @property
     def food_cost_pct(self) -> float | None:
@@ -234,6 +257,8 @@ def history(session: Session, restaurant_id: int, serial: str) -> PrimalHistory:
         node = CutNode(serial=lot.serial or cut.cut_name,
                        name=ingredient.name if ingredient else cut.cut_name,
                        unit=ingredient.unit.value if ingredient else "KG",
+                       pieces=lot.pieces, piece_weight_g=lot.piece_weight_g,
+                       grade=lot.grade, origin=lot.origin,
                        produced_kg=round(lot.qty, 4), cost=round(lot.qty * lot.unit_cost, 4),
                        unit_cost=lot.unit_cost, remaining_kg=round(lot.qty_remaining, 4),
                        is_trim=cut.is_trim)

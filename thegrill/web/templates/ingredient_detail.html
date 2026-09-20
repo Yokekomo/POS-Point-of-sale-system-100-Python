@@ -24,13 +24,19 @@
 <h2>{{ t("ing.lots") }}</h2>
 <div class="card scroll">
 <table>
-<tr><th>#</th><th>{{ t("ing.brand") }}</th><th>{{ t("ing.lot_code") }}</th><th>{{ t("ing.expiry") }}</th>
+<tr><th>#</th><th>{{ t("ing.brand") }}</th><th>Serial</th><th>{{ t("ing.expiry") }}</th>
     <th class="num">{{ t("ing.remaining") }}</th><th class="num">{{ t("ing.unit_cost") }}</th></tr>
 {% for lot in order %}
 <tr>
   <td>{{ loop.index }}</td>
-  <td>{{ lot.item.brand or lot.item.name }}</td>
-  <td class="muted">{{ lot.lot_code or "" }}</td>
+  <td>{{ lot.item.brand or lot.item.name }}
+      {% set label = [] %}
+      {% if lot.piece_weight_g %}{% set _ = label.append("%.10g g"|format(lot.piece_weight_g)) %}{% endif %}
+      {% if lot.grade %}{% set _ = label.append(lot.grade) %}{% endif %}
+      {% if lot.origin %}{% set _ = label.append(lot.origin) %}{% endif %}
+      {% if label %}<div class="muted">{{ label | join(" · ") }}</div>{% endif %}</td>
+  <td class="muted">{% if lot.serial %}<a href="/trazabilidad?serial={{ lot.parent_serial or lot.serial }}">{{ lot.serial }}</a>
+      {% else %}{{ lot.lot_code or "" }}{% endif %}</td>
   <td>{{ lot.expiry }}</td>
   <td class="num">{{ "%.3f"|format(lot.qty_remaining) }}</td>
   <td class="num">{{ "%.4f"|format(lot.unit_cost) }}</td>

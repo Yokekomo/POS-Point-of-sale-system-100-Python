@@ -181,6 +181,8 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
     single = primals[0] if len(primals) == 1 else None
     base_serial = single.serial if single else despiece.tg
     parent_lot = single.lot if single else None
+    grade = _shared(primals, "grade") or despiece.grade
+    origin = _shared(primals, "origin") or despiece.country
 
     if use_by is None:
         if not expiries:
@@ -205,7 +207,10 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
                             serial=serial, parent_serial=single.serial if single else None,
                             parent_lot=parent_lot,
                             expiry=use_by, received=despiece.date, qty=alloc.kg,
-                            qty_remaining=alloc.kg, unit_cost=alloc.unit_cost)
+                            qty_remaining=alloc.kg, unit_cost=alloc.unit_cost,
+                            pieces=alloc.cut.pieces,
+                            piece_weight_g=alloc.cut.weight_per_piece_g,
+                            grade=grade, origin=origin)
         session.add(lot)
         session.flush()
         alloc.cut.lot_id = lot.id
@@ -257,6 +262,12 @@ def trace(session: Session, restaurant_id: int, serial: str) -> dict:
     }
 
 
+def _shared(primals: list[Primal], field_name: str) -> str | None:
+    """El valor solo si todas las piezas coinciden: si no, no se afirma nada."""
+    values = {getattr(p, field_name) for p in primals if getattr(p, field_name)}
+    return values.pop() if len(values) == 1 else None
+
+
 def cut_summary(result: PostResult) -> list[tuple[str, float, float, float]]:
     """(corte, kg, coste, precio por kg) de mayor a menor coste."""
     rows = [(a.cut.cut_name, a.kg, a.cost, a.unit_cost) for a in result.allocations]
@@ -271,11 +282,12 @@ class CutStock:
     name: str
     unit: str
     kg: float
-    open_serials: int
-    thawed_pieces: int
-    thawed_kg: float
-    min_stock: float | None
-    days_to_expiry: int | None
+    labels: list[str] = field(default_factory=list)   # peso, calidad y procedencia
+    open_serials: int = 0
+    thawed_pieces: int = 0
+    thawed_kg: float = 0.0
+    min_stock: float | None = None
+    days_to_expiry: int | None = None
 
     @property
     def below_par(self) -> bool:
@@ -359,7 +371,8 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
         soonest = min(l.expiry for l in rows)
         result.cuts.append(CutStock(
             ingredient_id=ingredient_id, name=ing.name, unit=ing.unit.value,
-            kg=round(sum(l.qty_remaining for l in rows), 3), open_serials=len(rows),
+            kg=round(sum(l.qty_remaining for l in rows), 3),
+            labels=_labels(rows), open_serials=len(rows),
             thawed_pieces=thawed_pieces, thawed_kg=thawed_kg, min_stock=ing.min_stock,
             days_to_expiry=(soonest - on).days))
     result.cuts.sort(key=lambda c: c.name)
@@ -367,6 +380,27 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
                               if c.days_to_expiry is not None and c.days_to_expiry <= expiry_days),
                              key=lambda c: c.days_to_expiry)
     return result
+
+
+def lot_label(lot) -> str:
+    """«330 g · MB9+ · AUS», lo que hay que leer de un vistazo."""
+    bits = []
+    if lot.piece_weight_g:
+        bits.append(f"{lot.piece_weight_g:.10g} g")
+    if lot.grade:
+        bits.append(lot.grade)
+    if lot.origin:
+        bits.append(lot.origin)
+    return " · ".join(bits)
+
+
+def _labels(lots: list) -> list[str]:
+    seen: list[str] = []
+    for lot in lots:
+        label = lot_label(lot)
+        if label and label not in seen:
+            seen.append(label)
+    return seen
 
 
 def _thawed(session: Session, restaurant_id: int, serials: list[str],

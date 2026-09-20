@@ -401,3 +401,84 @@ def test_a_serial_that_is_not_in_the_register_stops_everything(ctx):
     with pytest.raises(ButcheryError, match="no está en el registro"):
         butchery.post(s, ana, d)
     assert s.query(IngredientLot).count() == 0
+
+
+# ============================== la etiqueta: peso por pieza, calidad y origen
+def test_each_cut_carries_its_weight_grade_and_origin(ctx):
+    """En cámara hay que poder leer «330 g · MB9+ · AUS» sin ir al despiece."""
+    s, rest, ana, _ = ctx
+    filete, tiras, recorte, grasa, *_ = striploin_setup(s, rest)
+    p = primal(s, rest, "8017", kg=10.0)
+    p.grade, p.origin = "MB9+", "AUS"
+    s.flush()
+    d = despiece(s, rest, "TG-0100", ["8017"], 10.0, [
+        ("Striploin steak", filete, 20, 330, 1.6, False),
+        ("Recorte", recorte, 10, 200, 0.45, True),
+    ], waste_kg=1.4)
+    butchery.post(s, ana, d)
+
+    lotes = {l.serial: l for l in s.query(IngredientLot)}
+    steak = lotes["8017-01"]
+    assert steak.piece_weight_g == 330 and steak.pieces == 20
+    assert steak.grade == "MB9+" and steak.origin == "AUS"
+    assert butchery.lot_label(steak) == "330 g · MB9+ · AUS"
+    assert butchery.lot_label(lotes["8017-02"]) == "200 g · MB9+ · AUS"
+
+
+def test_a_batch_of_mixed_grades_does_not_claim_one(ctx):
+    """Dos calidades distintas en el mismo despiece: no se afirma ninguna."""
+    s, rest, ana, _ = ctx
+    filete, *_ = striploin_setup(s, rest)
+    a = primal(s, rest, "8017", kg=10.0)
+    b = primal(s, rest, "8018", kg=10.0)
+    a.grade, a.origin = "MB9+", "AUS"
+    b.grade, b.origin = "MB5", "AUS"
+    s.flush()
+    d = despiece(s, rest, "TG-0101", ["8017", "8018"], 20.0,
+                 [("Steak", filete, 40, 350, 1.0, False)], waste_kg=6.0)
+    butchery.post(s, ana, d)
+    lot = s.query(IngredientLot).one()
+    assert lot.grade is None                 # no coinciden, no se inventa
+    assert lot.origin == "AUS"               # en el origen sí coinciden
+    assert butchery.lot_label(lot) == "350 g · AUS"
+
+
+def test_the_despiece_fills_in_what_the_pieces_do_not_say(ctx):
+    s, rest, ana, _ = ctx
+    filete, *_ = striploin_setup(s, rest)
+    p = primal(s, rest, "8017", kg=10.0)
+    p.grade = p.origin = None
+    s.flush()
+    d = despiece(s, rest, "TG-0102", ["8017"], 10.0,
+                 [("Steak", filete, 25, 320, 1.0, False)], waste_kg=2.0)
+    d.grade = "Prime"
+    s.flush()
+    butchery.post(s, ana, d)
+    lot = s.query(IngredientLot).one()
+    assert lot.grade == "Prime" and lot.origin == "AUS"   # country del despiece
+
+
+def test_the_meat_stock_shows_the_label(ctx):
+    s, rest, ana, _ = ctx
+    filete, *_ = striploin_setup(s, rest)
+    p = primal(s, rest, "8017", kg=10.0)
+    p.grade, p.origin = "MB9+", "AUS"
+    s.flush()
+    d = despiece(s, rest, "TG-0103", ["8017"], 10.0,
+                 [("Steak", filete, 20, 330, 1.0, False)], waste_kg=3.4)
+    butchery.post(s, ana, d)
+    cut = butchery.status(s, rest.id).cuts[0]
+    assert cut.labels == ["330 g · MB9+ · AUS"]
+
+
+def test_a_purchased_lot_has_no_label_and_that_is_fine(ctx):
+    """Un saco de harina no tiene peso por pieza ni calidad."""
+    s, rest, ana, _ = ctx
+    from thegrill.models import Ingredient, Unit
+    from thegrill.web import costing
+    harina = Ingredient(restaurant_id=rest.id, name="Harina", unit=Unit.KG)
+    s.add(harina); s.flush()
+    item = articulo(s, rest, harina, "Harina 25kg")
+    lot = costing.receive(s, ana, item, qty=25, unit_cost=1.2,
+                          expiry=HOY + timedelta(days=200), on=HOY)
+    assert butchery.lot_label(lot) == ""

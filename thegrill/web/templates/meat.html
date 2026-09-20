@@ -25,7 +25,8 @@
 {% for c in status.cuts %}
 <tr>
   <td><a href="/ingredientes/{{ c.ingredient_id }}">{{ c.name }}</a>
-      {% if c.below_par %} <span class="tag bad">{{ t("meat.min") }}</span>{% endif %}</td>
+      {% if c.below_par %} <span class="tag bad">{{ t("meat.min") }}</span>{% endif %}
+      {% for label in c.labels %}<div class="muted">{{ label }}</div>{% endfor %}</td>
   <td class="num">{{ "%.3f"|format(c.kg) }} {{ c.unit }}</td>
   <td class="num">{{ c.open_serials }}</td>
   <td class="num">{% if c.thawed_pieces %}{{ c.thawed_pieces }} · {{ "%.2f"|format(c.thawed_kg) }}{% endif %}</td>
