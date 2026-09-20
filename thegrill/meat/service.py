@@ -23,7 +23,8 @@ from thegrill.web import butchery, costing, defrost, inventory
 from thegrill.web.i18n import t
 
 MAX_CUTS = 10
-CATEGORY = "carne"
+CATEGORY = "carne"      # lo que se despieza, se cuenta y se descuenta
+EXTRA = "extra"         # lo que acompaña en el plato: solo interesa su coste
 
 
 class MeatError(ValueError):
@@ -96,8 +97,14 @@ def recent_primals(session: Session, restaurant_id: int, limit: int = 50) -> lis
 
 # ============================================================ cortes madre
 def create_cut(session: Session, user: User, name: str, min_stock: float | None = None,
-               rotation: Rotation = Rotation.FEFO) -> Ingredient:
-    """Un corte es un ingrediente madre de carne: lo que se cuenta y se vende."""
+               rotation: Rotation = Rotation.FEFO,
+               consumption: ConsumptionMode = ConsumptionMode.RECIPE) -> Ingredient:
+    """Un corte es un ingrediente madre de carne: lo que se cuenta y se vende.
+
+    `consumption` dice de dónde sale el consumo: de la venta en el POS, o del
+    recuento de descongelado al cerrar el turno. Las dos cosas a la vez
+    descontarían el doble.
+    """
     name = name.strip()
     if not name:
         raise MeatError("El corte necesita un nombre")
@@ -105,7 +112,7 @@ def create_cut(session: Session, user: User, name: str, min_stock: float | None 
             .filter_by(restaurant_id=user.restaurant_id, name=name).first()):
         raise MeatError(f"Ya hay un corte llamado {name}")
     cut = Ingredient(restaurant_id=user.restaurant_id, name=name, unit=Unit.KG,
-                     rotation=rotation, consumption=ConsumptionMode.RECIPE,
+                     rotation=rotation, consumption=consumption,
                      min_stock=min_stock, category=CATEGORY)
     session.add(cut)
     session.flush()
@@ -126,9 +133,79 @@ def add_article(session: Session, user: User, cut: Ingredient, name: str,
 
 
 def cuts(session: Session, restaurant_id: int) -> list[Ingredient]:
+    """Los cortes de carne. La guarnición no se cuenta ni se despieza."""
     return (session.query(Ingredient)
-            .filter_by(restaurant_id=restaurant_id, active=True)
+            .filter(Ingredient.restaurant_id == restaurant_id, Ingredient.active.is_(True),
+                    (Ingredient.category == CATEGORY) | (Ingredient.category.is_(None)))
             .order_by(Ingredient.name).all())
+
+
+# ================================================== otros ingredientes del plato
+def create_extra(session: Session, user: User, name: str, unit: Unit = Unit.KG,
+                 cost: float | None = None) -> Ingredient:
+    """Lo que acompaña a la carne: guarnición, salsa, pan.
+
+    De esto no se lleva stock —aquí no se cuentan patatas—, pero su coste sí
+    cuenta: sin él, el food cost del emplatado se queda corto. Por eso se marca
+    para que la venta no intente descontarlo del almacén.
+    """
+    name = name.strip()
+    if not name:
+        raise MeatError("El ingrediente necesita un nombre")
+    if (session.query(Ingredient)
+            .filter_by(restaurant_id=user.restaurant_id, name=name).first()):
+        raise MeatError(f"Ya hay un ingrediente llamado {name}")
+    if cost is not None and cost < 0:
+        raise MeatError("El coste no puede ser negativo")
+    extra = Ingredient(restaurant_id=user.restaurant_id, name=name, unit=unit,
+                       rotation=Rotation.FIFO, consumption=ConsumptionMode.COUNT,
+                       category=EXTRA)
+    session.add(extra)
+    session.flush()
+    session.add(IngredientItem(restaurant_id=user.restaurant_id, ingredient_id=extra.id,
+                               name=name, last_cost=cost))
+    session.flush()
+    return extra
+
+
+def set_extra_cost(session: Session, user: User, ingredient_id: int, cost: float) -> Ingredient:
+    """Cambia el coste configurado. Se aplica a los platos desde ya."""
+    extra = session.get(Ingredient, ingredient_id)
+    if extra is None or extra.restaurant_id != user.restaurant_id:
+        raise MeatError("Ese ingrediente no es de este restaurante")
+    if cost < 0:
+        raise MeatError("El coste no puede ser negativo")
+    item = extra.items[0] if extra.items else None
+    if item is None:
+        item = IngredientItem(restaurant_id=user.restaurant_id, ingredient_id=extra.id,
+                              name=extra.name)
+        session.add(item)
+    item.last_cost = cost
+    session.flush()
+    return extra
+
+
+def extras(session: Session, restaurant_id: int) -> list[Ingredient]:
+    return (session.query(Ingredient)
+            .filter_by(restaurant_id=restaurant_id, active=True, category=EXTRA)
+            .order_by(Ingredient.name).all())
+
+
+def extra_cost(extra: Ingredient) -> float | None:
+    return extra.items[0].last_cost if extra.items else None
+
+
+def extras_usage(session: Session, restaurant_id: int) -> dict[int, int]:
+    """En cuántos platos entra cada ingrediente. Cambiar su coste los mueve todos."""
+    counts: dict[int, int] = {}
+    for line in (session.query(RecipeLine)
+                 .join(Recipe, RecipeLine.recipe_id == Recipe.id)
+                 .filter(Recipe.restaurant_id == restaurant_id,
+                         Recipe.kind == RecipeKind.DISH,
+                         Recipe.active.is_(True),
+                         RecipeLine.ingredient_id.isnot(None))):
+        counts[line.ingredient_id] = counts.get(line.ingredient_id, 0) + 1
+    return counts
 
 
 def articles(session: Session, restaurant_id: int) -> list[IngredientItem]:
@@ -250,6 +327,7 @@ class MenuRow:
     dish: Recipe
     cut: str
     grams: float
+    extras: int            # cuántas cosas más van en el plato
     cost: float | None
     food_cost_pct: float | None
     pos_code: str | None
@@ -265,17 +343,132 @@ def menu(session: Session, restaurant_id: int) -> list[MenuRow]:
     for dish in (session.query(Recipe)
                  .filter_by(restaurant_id=restaurant_id, kind=RecipeKind.DISH, active=True)
                  .order_by(Recipe.name)):
-        line = dish.lines[0] if dish.lines else None
+        line = meat_line(dish, session)
         cut = session.get(Ingredient, line.ingredient_id) if line and line.ingredient_id else None
         cost = costing.cost_of(session, dish, costs)
         product = products.get(dish.id)
         rows.append(MenuRow(
             dish=dish, cut=cut.name if cut else "", grams=round((line.qty if line else 0) * 1000, 1),
+            extras=max(len(dish.lines) - (1 if line else 0), 0),
             cost=cost.cost_per_portion, food_cost_pct=cost.food_cost_pct,
             pos_code=product.pos_code if product else None,
             pos_name=product.pos_name if product else dish.name))
     rows.sort(key=lambda r: (r.food_cost_pct is None, -(r.food_cost_pct or 0)))
     return rows
+
+
+# =============================================================== emplatado
+def meat_line(dish: Recipe, session: Session) -> RecipeLine | None:
+    """La línea de carne del plato: la que manda y la que se descuenta."""
+    for line in dish.lines:
+        if not line.ingredient_id:
+            continue
+        ingredient = session.get(Ingredient, line.ingredient_id)
+        if ingredient is not None and ingredient.category != EXTRA:
+            return line
+    return None
+
+
+def add_plate_line(session: Session, user: User, dish: Recipe, ingredient_id: int,
+                   qty: float, waste_pct: float = 0.0, lang: str = "es") -> RecipeLine:
+    """Añade al plato algo que no es la carne."""
+    ingredient = session.get(Ingredient, ingredient_id)
+    if ingredient is None or ingredient.restaurant_id != user.restaurant_id:
+        raise MeatError("Ese ingrediente no es de este restaurante")
+    if qty <= 0:
+        raise MeatError(t(lang, "m.plate.qty"))
+    if not 0 <= waste_pct < 100:
+        raise MeatError("La merma de limpieza va entre 0 y 100")
+    # Detrás de lo que ya hay, para que la carne siga la primera y el orden del
+    # plato sea el orden en que se fue montando.
+    last = max((l.sort_order for l in dish.lines), default=0)
+    line = RecipeLine(recipe_id=dish.id, ingredient_id=ingredient.id, qty=qty,
+                      waste_pct=waste_pct, sort_order=last + 10)
+    session.add(line)
+    session.flush()
+    return line
+
+
+def remove_plate_line(session: Session, user: User, dish: Recipe, line_id: int,
+                      lang: str = "es") -> None:
+    """Quita del plato una línea. La de carne no se quita: el plato es de carne."""
+    line = session.get(RecipeLine, line_id)
+    if line is None or line.recipe_id != dish.id:
+        raise MeatError("Esa línea no es de este plato")
+    carne = meat_line(dish, session)
+    if carne is not None and line.id == carne.id:
+        raise MeatError(t(lang, "m.menu.need_cut"))
+    session.delete(line)
+    session.flush()
+
+
+def set_plate_grams(session: Session, user: User, dish: Recipe, grams: float,
+                    lang: str = "es") -> None:
+    """Cambia el gramaje de carne del plato, que es lo que se descuenta."""
+    if grams <= 0:
+        raise MeatError(t(lang, "m.menu.need_cut"))
+    line = meat_line(dish, session)
+    if line is None:
+        raise MeatError(t(lang, "m.menu.need_cut"))
+    line.qty = round(grams / 1000, 6)
+    session.flush()
+
+
+@dataclass
+class PlateLine:
+    line_id: int | None
+    name: str
+    unit: str
+    qty: float
+    waste_pct: float
+    gross_qty: float
+    unit_cost: float | None
+    cost: float
+    share_pct: float
+    is_meat: bool
+
+
+@dataclass
+class Plate:
+    dish: Recipe
+    lines: list[PlateLine]
+    cost: float
+    food_cost_pct: float | None
+    margin: float | None
+    pos_code: str | None
+    pos_name: str
+    missing_price: list[str]
+
+    @property
+    def meat(self) -> PlateLine | None:
+        return next((l for l in self.lines if l.is_meat), None)
+
+    @property
+    def extras(self) -> list[PlateLine]:
+        return [l for l in self.lines if not l.is_meat]
+
+
+def plate(session: Session, restaurant_id: int, dish: Recipe) -> Plate:
+    """El emplatado entero: qué lleva, qué cuesta cada cosa y su food cost."""
+    costs = costing.unit_costs(session, restaurant_id)
+    detail = costing.cost_of(session, dish, costs)
+    carne = meat_line(dish, session)
+    product = (session.query(PosProduct)
+               .filter_by(restaurant_id=restaurant_id, recipe_id=dish.id).first())
+
+    lines = []
+    for line, computed in zip(dish.lines, detail.lines):
+        lines.append(PlateLine(
+            line_id=line.id, name=computed.label, unit=computed.unit,
+            qty=computed.net_qty, waste_pct=computed.waste_pct,
+            gross_qty=computed.gross_qty, unit_cost=computed.unit_cost,
+            cost=computed.cost, share_pct=computed.share_pct,
+            is_meat=carne is not None and line.id == carne.id))
+    return Plate(dish=dish, lines=lines, cost=detail.cost_per_portion,
+                 food_cost_pct=detail.food_cost_pct, margin=detail.margin_per_portion,
+                 pos_code=product.pos_code if product else None,
+                 pos_name=product.pos_name if product else dish.name,
+                 missing_price=list(detail.missing))
 
 
 # ==================================================================== hoy

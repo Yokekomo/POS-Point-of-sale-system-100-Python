@@ -20,9 +20,9 @@ from sqlalchemy.orm import Session
 from thegrill import db
 from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
-from thegrill.models import (Alert, CountPeriod, CountStatus, Ingredient, IngredientItem,
-                             MeatCount, PosMatch, PosProduct, Primal, Restaurant, Role,
-                             Rotation, User)
+from thegrill.models import (Alert, ConsumptionMode, CountPeriod, CountStatus, Ingredient,
+                             IngredientItem, MeatCount, PosMatch, PosProduct, Primal, Recipe,
+                             Restaurant, Role, Rotation, Unit, User)
 from thegrill.web import (auth, butchery, costing, defrost, i18n, inventory, service,
                           tracing, waste)
 
@@ -417,7 +417,7 @@ def cuts_page(request: Request, ctx=Depends(require_user),
               session: Session = Depends(get_db), error: str = ""):
     user, auth_session = ctx
     return page(request, "cuts.html", user, auth_session, session, error=error,
-                rotations=list(Rotation),
+                rotations=list(Rotation), modes=list(ConsumptionMode),
                 cuts=meat.cuts(session, user.restaurant_id),
                 stock=costing.stock_on_hand(session, user.restaurant_id),
                 costs=costing.unit_costs(session, user.restaurant_id))
@@ -425,14 +425,18 @@ def cuts_page(request: Request, ctx=Depends(require_user),
 
 @app.post("/cortes/nuevo")
 def new_cut(request: Request, name: str = Form(...), min_stock: str = Form(""),
-            rotation: str = Form("FEFO"), csrf: str = Form(""),
-            ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+            rotation: str = Form("FEFO"), consumption: str = Form("RECIPE"),
+            csrf: str = Form(""), ctx=Depends(require_manager_user),
+            session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
         meat.create_cut(session, user, name, min_stock=_num(min_stock),
                         rotation=Rotation[rotation] if rotation in Rotation.__members__
-                        else Rotation.FEFO)
+                        else Rotation.FEFO,
+                        consumption=ConsumptionMode[consumption]
+                        if consumption in ConsumptionMode.__members__
+                        else ConsumptionMode.RECIPE)
     except (meat.MeatError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
     return RedirectResponse("/cortes", status_code=303)
@@ -477,6 +481,113 @@ def new_dish(request: Request, name: str = Form(...), cut_id: int = Form(...),
     except (meat.MeatError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
     return RedirectResponse("/carta", status_code=303)
+
+
+# =============================================== OTROS INGREDIENTES DEL PLATO
+@app.get("/ingredientes", response_class=HTMLResponse)
+def extras_page(request: Request, ctx=Depends(require_user),
+                session: Session = Depends(get_db), saved: int = 0, error: str = ""):
+    """Lo que acompaña a la carne. Aquí solo se configura su coste."""
+    user, auth_session = ctx
+    rows = meat.extras(session, user.restaurant_id)
+    used = meat.extras_usage(session, user.restaurant_id)
+    return page(request, "extras.html", user, auth_session, session, extras=rows,
+                used=used, units=list(Unit), saved=bool(saved), error=error,
+                cost_of=meat.extra_cost)
+
+
+@app.post("/ingredientes/nuevo")
+def new_extra(request: Request, name: str = Form(...), unit: str = Form("KG"),
+              cost: str = Form(""), csrf: str = Form(""),
+              ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    try:
+        meat.create_extra(session, user, name,
+                          unit=Unit[unit] if unit in Unit.__members__ else Unit.KG,
+                          cost=_num(cost))
+    except (meat.MeatError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return RedirectResponse("/ingredientes?saved=1", status_code=303)
+
+
+@app.post("/ingredientes/{ingredient_id}/coste")
+def update_extra_cost(ingredient_id: int, request: Request, cost: str = Form(...),
+                      csrf: str = Form(""), ctx=Depends(require_manager_user),
+                      session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    try:
+        meat.set_extra_cost(session, user, ingredient_id, _num(cost, 0.0) or 0.0)
+    except (meat.MeatError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return RedirectResponse("/ingredientes?saved=1", status_code=303)
+
+
+# ============================================================= EMPLATADO
+def _dish(session: Session, user: User, code: str, request: Request) -> Recipe:
+    dish = (session.query(Recipe)
+            .filter_by(restaurant_id=user.restaurant_id, code=code).first())
+    if dish is None:
+        raise HTTPException(status_code=404,
+                            detail=i18n.t(lang_for(request, session, user), "error.tpl_not_found"))
+    return dish
+
+
+@app.get("/carta/{code}", response_class=HTMLResponse)
+def plate_page(code: str, request: Request, ctx=Depends(require_user),
+               session: Session = Depends(get_db), error: str = ""):
+    """El emplatado: todo lo que va en el plato y lo que cuesta cada cosa."""
+    user, auth_session = ctx
+    dish = _dish(session, user, code, request)
+    return page(request, "plate.html", user, auth_session, session, error=error,
+                plate=meat.plate(session, user.restaurant_id, dish),
+                extras=meat.extras(session, user.restaurant_id),
+                cost_of=meat.extra_cost)
+
+
+@app.post("/carta/{code}/linea")
+def add_plate_line(code: str, request: Request, ingredient_id: int = Form(...),
+                   qty: str = Form(...), waste_pct: str = Form("0"), csrf: str = Form(""),
+                   ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    dish = _dish(session, user, code, request)
+    try:
+        meat.add_plate_line(session, user, dish, ingredient_id, _num(qty, 0.0) or 0.0,
+                            waste_pct=_num(waste_pct, 0.0) or 0.0,
+                            lang=lang_for(request, session, user))
+    except (meat.MeatError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return RedirectResponse(f"/carta/{code}", status_code=303)
+
+
+@app.post("/carta/{code}/linea/{line_id}/quitar")
+def remove_plate_line(code: str, line_id: int, request: Request, csrf: str = Form(""),
+                      ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    dish = _dish(session, user, code, request)
+    try:
+        meat.remove_plate_line(session, user, dish, line_id,
+                               lang=lang_for(request, session, user))
+    except meat.MeatError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return RedirectResponse(f"/carta/{code}", status_code=303)
+
+
+@app.post("/carta/{code}/gramos")
+def set_plate_grams(code: str, request: Request, grams: str = Form(...), csrf: str = Form(""),
+                    ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    dish = _dish(session, user, code, request)
+    try:
+        meat.set_plate_grams(session, user, dish, _num(grams, 0.0) or 0.0,
+                             lang=lang_for(request, session, user))
+    except (meat.MeatError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return RedirectResponse(f"/carta/{code}", status_code=303)
 
 
 # =============================================================== VENTAS

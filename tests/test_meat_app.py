@@ -74,7 +74,7 @@ def test_this_edition_says_what_it_is(client):
 def test_there_is_no_door_to_anything_that_is_not_meat(client):
     """Ni recetas de cocina, ni plantillas HACCP, ni registros generales."""
     signup(client)
-    for path in ("/recetas", "/ingredientes", "/manager/plantillas", "/manager/registros",
+    for path in ("/recetas", "/manager/plantillas", "/manager/registros",
                  "/app", "/app/mis-registros", "/manager"):
         assert client.get(path).status_code == 404, path
 
@@ -83,10 +83,9 @@ def test_the_bar_only_shows_meat(client):
     signup(client)
     nav = client.get("/hoy").text
     for path in ("/recepcion", "/despiece", "/carne", "/descongelado", "/inventario",
-                 "/merma", "/trazabilidad", "/cortes", "/carta"):
+                 "/merma", "/trazabilidad", "/cortes", "/carta", "/ingredientes"):
         assert f'href="{path}"' in nav, path
-    assert 'href="/recetas"' not in nav
-    assert 'href="/ingredientes"' not in nav
+    assert 'href="/recetas"' not in nav          # las recetas de cocina no están aquí
 
 
 def test_someone_who_already_has_an_account_can_come_back_in(client):

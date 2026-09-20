@@ -1,0 +1,57 @@
+{% extends "base.html" %}{% block title %}{{ t("m.ext.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.ext.title") }}</h1>
+<p class="sub">{{ t("m.ext.sub") }}</p>
+{% if saved %}<div class="banner ok">{{ t("m.ext.saved") }}</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+<div class="card scroll">
+<table>
+<tr><th>{{ t("m.ext.name") }}</th><th>{{ t("ing.unit") }}</th>
+    <th class="num">{{ t("m.ext.cost") }}</th><th></th></tr>
+{% for e in extras %}
+<tr>
+  <td>{{ e.name }}
+    {% if used.get(e.id) %}<div class="muted">{{ t("m.ext.used_in", n=used[e.id]) }}</div>{% endif %}</td>
+  <td class="muted">{{ e.unit.value }}</td>
+  <td class="num">
+    {% if cost_of(e) is none %}<span class="tag bad">{{ t("ing.no_price") }}</span>
+    {% else %}{{ "%.4f"|format(cost_of(e)) }}{% endif %}</td>
+  <td>
+    {% if user.role.value == "MANAGER" %}
+    <form method="post" action="/ingredientes/{{ e.id }}/coste" class="rowflex" style="margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input name="cost" inputmode="decimal" required style="max-width:120px"
+             value="{% if cost_of(e) is not none %}{{ "%.4f"|format(cost_of(e)) }}{% endif %}">
+      <button class="ghost" type="submit">{{ t("m.ext.update") }}</button>
+    </form>
+    {% endif %}
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="4" class="muted">{{ t("m.ext.none") }}</td></tr>
+{% endfor %}
+</table>
+</div>
+
+{% if user.role.value == "MANAGER" %}
+<h2>{{ t("m.ext.new") }}</h2>
+<div class="card">
+<form method="post" action="/ingredientes/nuevo">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid">
+    <div><label for="name">{{ t("m.ext.name") }}</label>
+      <input id="name" name="name" required placeholder="Patata"></div>
+    <div><label for="unit">{{ t("ing.unit") }}</label>
+      <select id="unit" name="unit">
+        {% for u in units %}<option value="{{ u.value }}">{{ u.value }}</option>{% endfor %}
+      </select></div>
+    <div><label for="cost">{{ t("m.ext.cost") }}</label>
+      <input id="cost" name="cost" inputmode="decimal" placeholder="1,20"></div>
+  </div>
+  <div class="help">{{ t("m.ext.cost_help") }}</div>
+  <button class="wide" type="submit">{{ t("m.ext.new") }}</button>
+</form>
+</div>
+{% endif %}
+{% endblock %}

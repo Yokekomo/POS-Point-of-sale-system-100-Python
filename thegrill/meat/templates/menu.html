@@ -12,9 +12,10 @@
     <th class="num">{{ t("rec.food_cost") }}</th></tr>
 {% for r in rows %}
 <tr>
-  <td>{{ r.dish.name }}<div class="muted">{{ r.pos_name }}</div></td>
+  <td><a href="/carta/{{ r.dish.code }}">{{ r.dish.name }}</a>
+      <div class="muted">{{ r.pos_name }}</div></td>
   <td>{{ r.cut }}</td>
-  <td class="num">{{ "%.0f"|format(r.grams) }}</td>
+  <td class="num">{{ "%.0f"|format(r.grams) }}{% if r.extras %} <span class="muted">+{{ r.extras }}</span>{% endif %}</td>
   <td class="muted">{{ r.pos_code or "" }}</td>
   <td class="num">{% if r.dish.sale_price %}{{ "%.2f"|format(r.dish.sale_price) }}{% endif %}</td>
   <td class="num">{{ "%.4f"|format(r.cost) }}</td>

@@ -1,0 +1,95 @@
+{% extends "base.html" %}{% block title %}{{ plate.dish.name }}{% endblock %}
+{% block body %}
+<h1>{{ plate.dish.name }}</h1>
+<p class="sub">{{ t("m.plate.sub") }}{% if plate.pos_code %} · {{ t("sale.code") }} {{ plate.pos_code }}{% endif %}
+  · {{ plate.pos_name }}</p>
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if plate.missing_price %}
+<div class="banner bad">{{ t("m.plate.no_price") }} {{ plate.missing_price | join(" · ") }}</div>
+{% endif %}
+{% if not plate.extras %}<div class="banner warn">{{ t("m.plate.no_extras") }}</div>{% endif %}
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+  <div class="kpi"><b>{{ "%.4f"|format(plate.cost) }}</b><span>{{ t("m.plate.total") }}</span></div>
+  {% if plate.dish.sale_price %}
+  <div class="kpi"><b>{{ "%.2f"|format(plate.dish.sale_price) }}</b><span>{{ t("rec.price") }}</span></div>
+  {% endif %}
+  {% if plate.food_cost_pct is not none %}
+  <div class="kpi"><b>{{ plate.food_cost_pct | ceil_pct }}%</b><span>{{ t("rec.food_cost") }}</span>
+    <div class="bar"><i style="width:{{ [plate.food_cost_pct, 100] | min }}%"></i></div></div>
+  {% endif %}
+  {% if plate.margin is not none %}
+  <div class="kpi"><b>{{ "%.2f"|format(plate.margin) }}</b><span>{{ t("rec.margin") }}</span></div>
+  {% endif %}
+</div>
+
+<h2>{{ t("m.plate.title") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("m.ext.name") }}</th>
+    <th class="num">{{ t("m.plate.qty") }}</th><th class="num">{{ t("rec.waste") }}</th>
+    <th class="num">{{ t("rec.gross") }}</th><th class="num">{{ t("ing.unit_cost") }}</th>
+    <th class="num">{{ t("rec.line_cost") }}</th><th class="num">{{ t("rec.share") }}</th>
+    <th></th></tr>
+{% for l in plate.lines %}
+<tr>
+  <td>{{ l.name }}{% if l.is_meat %} <span class="tag ok">{{ t("m.plate.meat") }}</span>{% endif %}</td>
+  <td class="num">{{ "%.4g"|format(l.qty) }} {{ l.unit }}</td>
+  <td class="num">{% if l.waste_pct %}{{ "%.0f"|format(l.waste_pct) }}%{% endif %}</td>
+  <td class="num">{{ "%.4g"|format(l.gross_qty) }}</td>
+  <td class="num">{% if l.unit_cost is not none %}{{ "%.4f"|format(l.unit_cost) }}
+      {% else %}<span class="tag bad">{{ t("ing.no_price") }}</span>{% endif %}</td>
+  <td class="num">{{ "%.4f"|format(l.cost) }}</td>
+  <td class="num" style="min-width:110px">{{ "%.1f"|format(l.share_pct) }}%
+    <div class="bar"><i style="width:{{ l.share_pct }}%"></i></div></td>
+  <td>{% if user.role.value == "MANAGER" and not l.is_meat %}
+    <form method="post" action="/carta/{{ plate.dish.code }}/linea/{{ l.line_id }}/quitar" style="margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="ghost" type="submit" title="{{ t("m.plate.remove") }}">×</button>
+    </form>{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+{% if user.role.value == "MANAGER" %}
+<h2>{{ t("m.plate.add") }}</h2>
+<div class="card">
+{% if extras %}
+<form method="post" action="/carta/{{ plate.dish.code }}/linea">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid">
+    <div><label for="ingredient_id">{{ t("m.ext.name") }}</label>
+      <select id="ingredient_id" name="ingredient_id" required>
+        {% for e in extras %}<option value="{{ e.id }}">{{ e.name }} ({{ e.unit.value }}){% if cost_of(e) is not none %} · {{ "%.4f"|format(cost_of(e)) }}{% endif %}</option>{% endfor %}
+      </select></div>
+    <div><label for="qty">{{ t("m.plate.qty") }}</label>
+      <input id="qty" name="qty" inputmode="decimal" required placeholder="0,200"></div>
+    <div><label for="waste_pct">{{ t("rec.waste") }}</label>
+      <input id="waste_pct" name="waste_pct" inputmode="decimal" value="0"></div>
+  </div>
+  <div class="help">{{ t("m.plate.qty_help") }}</div>
+  <button class="wide" type="submit">{{ t("m.plate.add") }}</button>
+</form>
+{% else %}
+<p class="muted" style="margin:0">{{ t("m.ext.none") }}
+  <a href="/ingredientes">{{ t("m.ext.new") }}</a></p>
+{% endif %}
+</div>
+
+<h2>{{ t("m.plate.meat") }}</h2>
+<div class="card">
+<form method="post" action="/carta/{{ plate.dish.code }}/gramos" class="rowflex">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div style="flex:1">
+    <label for="grams">{{ t("m.menu.grams") }}</label>
+    <input id="grams" name="grams" inputmode="decimal" required
+           value="{% if plate.meat %}{{ "%.0f"|format(plate.meat.qty * 1000) }}{% endif %}">
+  </div>
+  <button type="submit" style="align-self:end">{{ t("m.plate.save_grams") }}</button>
+</form>
+</div>
+{% endif %}
+
+<p class="muted"><a href="/carta">← {{ t("m.menu.title") }}</a></p>
+{% endblock %}
