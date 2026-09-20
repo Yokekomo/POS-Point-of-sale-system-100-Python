@@ -542,3 +542,92 @@ def test_no_screen_leaks_spanish_when_the_language_is_english(client):
         html = client.get(path).text
         leaked = [w for w in spanish if w in html]
         assert not leaked, f"{path} deja en español: {leaked}"
+
+
+# ------------------------------------------------------------- descargas
+def test_the_downloads_page_lists_every_active_form(client):
+    signup(client)
+    html = client.get("/descargas").text
+    assert "Hojas para imprimir" in html
+    assert "Temperatura de refrigeración" in html and "Conteo de inventario" in html
+    assert 'href="/descargas/todo.xlsx"' in html
+    assert 'href="/descargas/temp_refrigeracion.xlsx"' in html
+    assert "no genera alertas" in html        # el papel hay que pasarlo luego
+
+
+def test_staff_can_download_the_sheets_too(client):
+    signup(client)
+    code = join_code()
+    client.cookies.clear()
+    join(client, code, "luis@casa.com")
+    assert client.get("/descargas").status_code == 200
+    assert client.get("/descargas/merma.xlsx").status_code == 200
+
+
+def test_downloading_one_form_gives_a_real_workbook(client):
+    import io
+    from openpyxl import load_workbook
+    signup(client)
+    r = client.get("/descargas/temp_refrigeracion.xlsx")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    assert 'filename="temp_refrigeracion.xlsx"' in r.headers["content-disposition"]
+    wb = load_workbook(io.BytesIO(r.content))
+    assert wb.sheetnames == ["Temperatura de refrigeración"]
+    assert wb.active["A1"].value == "Temperatura de refrigeración"
+
+
+def test_downloading_everything_gives_one_tab_per_form(client):
+    import io
+    from openpyxl import load_workbook
+    signup(client)
+    r = client.get("/descargas/todo.xlsx")
+    wb = load_workbook(io.BytesIO(r.content))
+    assert len(wb.sheetnames) == 7
+    assert "casa-pepe-hojas.xlsx" in r.headers["content-disposition"]
+
+
+def test_a_deactivated_form_is_not_downloadable(client):
+    signup(client)
+    token = csrf_from(client.get("/manager/plantillas").text)
+    with db.session_scope() as s:
+        from thegrill.models import RecordTemplate
+        tpl_id = s.query(RecordTemplate).filter_by(code="inventario").one().id
+    client.post(f"/manager/plantillas/{tpl_id}/activar", data={"csrf": token})
+    assert client.get("/descargas/inventario.xlsx").status_code == 404
+    assert "Conteo de inventario" not in client.get("/descargas").text
+
+
+def test_you_cannot_download_another_restaurants_sheets(client):
+    import io
+    from openpyxl import load_workbook
+    signup(client, "Casa Pepe", "ana@casa.com", "Ana")
+    token = csrf_from(client.get("/manager/plantillas").text)
+    client.post("/manager/plantillas/nueva",
+                data={"csrf": token, "name": "Secreto de Casa Pepe", "category": "other",
+                      "fields_spec": "Dato | TEXT"})
+    client.cookies.clear()
+
+    signup(client, "El Otro", "eva@otro.com", "Eva")
+    assert client.get("/descargas/secreto_de_casa_pepe.xlsx").status_code == 404
+    wb = load_workbook(io.BytesIO(client.get("/descargas/todo.xlsx").content))
+    assert "Secreto de Casa Pepe" not in wb.sheetnames
+
+
+def test_downloads_need_a_session(client):
+    for path in ("/descargas", "/descargas/todo.xlsx", "/descargas/merma.xlsx"):
+        r = client.get(path)
+        assert r.status_code == 303 and r.headers["location"] == "/login", path
+
+
+def test_the_sheet_follows_the_readers_language(client):
+    import io
+    from openpyxl import load_workbook
+    signup(client)                                  # restaurante en español
+    settings = client.get("/configuracion")
+    client.post("/configuracion", data={"csrf": csrf_from(settings.text), "language": "nl"})
+    assert "Formulieren om af te drukken" in client.get("/descargas").text
+    ws = load_workbook(io.BytesIO(client.get("/descargas/merma.xlsx").content)).active
+    assert [c.value for c in ws[8]][:3] == ["Nº", "Datum", "Tijd"]
+    assert ws.cell(row=9, column=1).value == "VOORBEELD"

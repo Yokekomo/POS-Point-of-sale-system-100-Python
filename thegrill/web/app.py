@@ -21,7 +21,7 @@ from thegrill import db
 from thegrill.models import (Alert, Attachment, FieldType, Notification, Record,
                              RecordTemplate, Restaurant, Role, TemplateField, User)
 
-from thegrill.web import auth, i18n, service
+from thegrill.web import auth, i18n, service, sheets
 from thegrill.web.seed import seed_templates
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
@@ -467,6 +467,54 @@ def export_csv(request: Request, ctx=Depends(require_manager_user),
     body = service.export_records_csv(session, user.restaurant_id, since, until)
     return PlainTextResponse(body, media_type="text/csv", headers={
         "Content-Disposition": f'attachment; filename="registros_{since}_{until}.csv"'})
+
+
+# ========================================================= DESCARGAS
+XLSX_MEDIA = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def active_templates(session: Session, restaurant_id: int) -> list[RecordTemplate]:
+    return (session.query(RecordTemplate)
+            .filter_by(restaurant_id=restaurant_id, active=True)
+            .order_by(RecordTemplate.sort_order, RecordTemplate.name).all())
+
+
+@app.get("/descargas", response_class=HTMLResponse)
+def downloads_page(request: Request, ctx=Depends(require_user),
+                   session: Session = Depends(get_db)):
+    """Hojas en Excel para imprimir y rellenar a mano. Las ve todo el equipo."""
+    user, auth_session = ctx
+    rows = active_templates(session, user.restaurant_id)
+    return page(request, "downloads.html", user, auth_session, session,
+                rows=rows, blank_rows=sheets.BLANK_ROWS)
+
+
+@app.get("/descargas/todo.xlsx")
+def download_all(request: Request, ctx=Depends(require_user),
+                 session: Session = Depends(get_db)):
+    user, _ = ctx
+    lang = lang_for(request, session, user)
+    restaurant = session.get(Restaurant, user.restaurant_id)
+    payload = sheets.workbook_for(active_templates(session, user.restaurant_id), restaurant, lang)
+    name = sheets.filename_for(f"{restaurant.slug}-hojas")
+    return Response(payload, media_type=XLSX_MEDIA,
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.get("/descargas/{code}.xlsx")
+def download_template(code: str, request: Request, ctx=Depends(require_user),
+                      session: Session = Depends(get_db)):
+    user, _ = ctx
+    lang = lang_for(request, session, user)
+    tpl = (session.query(RecordTemplate)
+           .filter_by(restaurant_id=user.restaurant_id, code=code, active=True).first())
+    if tpl is None:
+        raise HTTPException(status_code=404,
+                            detail=i18n.t(lang, "error.template_not_found"))
+    restaurant = session.get(Restaurant, user.restaurant_id)
+    payload = sheets.workbook_for([tpl], restaurant, lang)
+    return Response(payload, media_type=XLSX_MEDIA, headers={
+        "Content-Disposition": f'attachment; filename="{sheets.filename_for(tpl.code)}"'})
 
 
 # ====================================================== CONFIGURACIÓN

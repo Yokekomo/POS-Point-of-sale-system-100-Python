@@ -4,6 +4,7 @@ fastapi>=0.110           # API y páginas web
 uvicorn>=0.27            # servidor
 jinja2>=3.1              # plantillas HTML
 python-multipart>=0.0.9  # subida de fotos
+openpyxl>=3.1            # hojas de registro en Excel para imprimir
 
 # desarrollo
 pytest>=8
@@ -11,5 +12,4 @@ httpx>=0.27              # cliente de pruebas
 
 # fases posteriores (importadores e informes), aún no usadas por el código:
 # pdfplumber             # leer PDFs del POS
-# openpyxl               # export a Excel
 # weasyprint             # informe diario en PDF

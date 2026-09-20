@@ -1,0 +1,36 @@
+{% extends "base.html" %}{% block title %}{{ t("dl.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("dl.title") }}</h1>
+<p class="sub">{{ t("dl.sub") }}</p>
+
+{% if rows %}
+<div class="card">
+  <div class="rowflex">
+    <div style="flex:1">
+      <b>{{ t("dl.all_in_one") }}</b>
+      <div class="muted">{{ t("dl.all_in_one_help") }}</div>
+    </div>
+    <a class="btn" href="/descargas/todo.xlsx">{{ t("dl.download") }}</a>
+  </div>
+</div>
+
+<div class="card scroll">
+<table>
+<tr><th>{{ t("form.record") }}</th><th>{{ t("dash.category") }}</th><th>{{ t("dl.columns") }}</th><th></th></tr>
+{% for tpl in rows %}
+<tr>
+  <td><b>{{ tpl.name }}</b><div class="muted">{{ tpl.description or "" }}</div></td>
+  <td class="muted">{{ t("cat." ~ tpl.category) }}</td>
+  <td class="muted">{% for f in tpl.fields %}{{ f.label }}{% if not loop.last %} · {% endif %}{% endfor %}</td>
+  <td><a class="btn ghost" href="/descargas/{{ tpl.code }}.xlsx">{{ t("dl.download") }}</a></td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+<p class="muted">{{ t("dl.rows_help", n=blank_rows) }}</p>
+<div class="banner warn">{{ t("dl.typing_note") }}</div>
+{% else %}
+<div class="card"><p class="muted" style="margin:0">{{ t("dl.empty") }}</p></div>
+{% endif %}
+{% endblock %}

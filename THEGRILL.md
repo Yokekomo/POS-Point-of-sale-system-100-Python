@@ -8,7 +8,9 @@ auditoría.
 El programa recoge datos de los trabajadores y los presenta. No envía mensajes
 a nadie por fuera: los avisos viven dentro de la propia plataforma.
 
-Está en seis idiomas: español, inglés, francés, alemán, neerlandés y árabe.
+Está en seis idiomas: español, inglés, francés, alemán, neerlandés y árabe. Y
+trae las mismas hojas en Excel para imprimir y rellenar a mano cuando hace
+falta.
 
 Incluye además los motores especializados de control de carne desarrollados
 para el proyecto The Grill (FEFO, stock por serial de primal, despieces y
@@ -39,6 +41,36 @@ CSV de auditoría. Reparte el código de acceso del restaurante.
 **Empleado.** Ve la pantalla de captura y rellena registros con fotos. Consulta
 solo lo que él mismo ha enviado. No entra en ninguna pantalla de gestión: cada
 ruta del área de manager le responde 403.
+
+## Hojas para imprimir
+
+Hay un apartado de descargas, abierto a todo el equipo, con una hoja de Excel
+por cada registro activo, más un libro con todas juntas, una pestaña por
+registro.
+
+Cada hoja sale de la misma plantilla que el formulario de la pantalla, así que
+las columnas del papel y los campos de la aplicación coinciden siempre. Si el
+manager añade un campo, la hoja lo trae en la siguiente descarga.
+
+Lo que lleva cada hoja:
+
+- Cabecera con el registro, el restaurante, y huecos a mano para turno y quién
+  la rellena.
+- Una columna de número de fila, otra de fecha y otra de hora, porque un parte
+  de papel cubre varios días y sin hora no vale para HACCP.
+- Una columna por campo, con su unidad, sus límites y un asterisco si es
+  obligatorio. Así el cocinero ve en el papel que la cámara no puede pasar de
+  +5 °C.
+- Una fila de ejemplo en gris con valores realistas, y una leyenda que avisa de
+  que no se use.
+- Veinte filas en blanco con cuadrícula y una línea de firma del responsable.
+- Ajustes de impresión ya puestos: A4, todo a lo ancho de una página, el
+  encabezado repetido en cada página, y vertical mientras quepa para sacar más
+  filas por hoja. En árabe la hoja se lee de derecha a izquierda.
+
+El aviso de la pantalla lo deja claro: lo escrito en papel hay que pasarlo
+luego a la plataforma, porque el papel no genera alertas ni entra en las
+estadísticas.
 
 ## Idiomas
 
@@ -142,11 +174,12 @@ thegrill/
   rules.py               Reglas del negocio de carne como funciones puras
   web/
     i18n.py              Seis idiomas, resolución y escritura de derecha a izquierda
+    sheets.py            Hojas de registro en Excel, listas para imprimir
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
     service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV
     app.py               Rutas web de empleado y de manager
-    templates/           Catorce pantallas, móvil primero, claro y oscuro
+    templates/           Quince pantallas, móvil primero, claro y oscuro
   engine/
     fefo.py              Consumo por caducidad y valoración de merma
     stock.py             Motor v4: ledger, re-anclaje por conteo, genealogía por serial
@@ -155,7 +188,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   132 tests
+tests/                   155 tests
 ```
 
 ## Uso

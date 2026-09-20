@@ -105,6 +105,7 @@ input[type=file]{padding:9px}
   {% endif %}
     <a class="bell" href="/notificaciones">{{ t("nav.notifications") }}<span class="badge" id="navbadge"
        {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
+    <a href="/descargas">{{ t("nav.downloads") }}</a>
     <a href="/configuracion">{{ t("nav.settings") }}</a>
   </nav>
   <form method="post" action="/logout" style="margin:0"><button class="ghost" style="padding:6px 12px">{{ t("nav.logout") }}</button></form>
