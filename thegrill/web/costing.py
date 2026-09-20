@@ -83,6 +83,17 @@ def unit_costs(session: Session, restaurant_id: int) -> dict[int, float]:
     return costs
 
 
+def frozen_on_hand(session: Session, restaurant_id: int) -> dict[int, float]:
+    """Lo que hay congelado de cada madre: existe, pero todavía no se vende."""
+    out: dict[int, float] = {}
+    for lot in (session.query(IngredientLot)
+                .filter(IngredientLot.restaurant_id == restaurant_id,
+                        IngredientLot.frozen.is_(True),
+                        IngredientLot.qty_remaining > EPSILON)):
+        out[lot.ingredient_id] = round(out.get(lot.ingredient_id, 0.0) + lot.qty_remaining, 6)
+    return out
+
+
 def stock_on_hand(session: Session, restaurant_id: int) -> dict[int, float]:
     """Cantidad que queda de cada ingrediente madre, sumando marcas."""
     out: dict[int, float] = {}
@@ -92,16 +103,26 @@ def stock_on_hand(session: Session, restaurant_id: int) -> dict[int, float]:
     return out
 
 
-def rotation_order(session: Session, restaurant_id: int, ingredient: Ingredient) -> list[IngredientLot]:
+def rotation_order(session: Session, restaurant_id: int, ingredient: Ingredient,
+                   include_frozen: bool = False) -> list[IngredientLot]:
     """Lotes con existencias de una madre, en el orden en que deben salir.
 
     Compiten todos los lotes de todas sus marcas: el ingrediente madre existe
     precisamente para poder gastarlos en una sola cola.
+
+    Lo congelado no compite. Un número congelado está **en espera**: no se
+    vende hasta que alguien lo saca a descongelar, y hasta entonces descontarle
+    una venta es apuntar que se ha servido carne que sigue dura en el arcón. Lo
+    que se vende son los números descongelados; los otros esperan su turno.
+    `include_frozen` es para contar, no para vender.
     """
-    lots = (session.query(IngredientLot)
-            .filter(IngredientLot.restaurant_id == restaurant_id,
-                    IngredientLot.ingredient_id == ingredient.id,
-                    IngredientLot.qty_remaining > EPSILON).all())
+    query = (session.query(IngredientLot)
+             .filter(IngredientLot.restaurant_id == restaurant_id,
+                     IngredientLot.ingredient_id == ingredient.id,
+                     IngredientLot.qty_remaining > EPSILON))
+    if not include_frozen:
+        query = query.filter(IngredientLot.frozen.isnot(True))
+    lots = query.all()
     as_dataclass = [fefo.Lot(ingredient=str(ingredient.id), lot_id=str(l.id), expiry=l.expiry,
                              kg=l.qty_remaining, unit_cost_usd=l.unit_cost, received=l.received)
                     for l in lots]
@@ -140,6 +161,8 @@ class Shortfall:
     name: str
     missing_qty: float
     unit: str
+    # Lo que hay de eso mismo, pero congelado: no falta carne, falta sacarla.
+    frozen_qty: float = 0.0
 
 
 @dataclass
@@ -271,10 +294,12 @@ def consume_sales(session: Session, user: User, sales: list[tuple],
                 missing_total[ingredient_id] = round(
                     missing_total.get(ingredient_id, 0.0) + missing, 6)
 
+    congelado = frozen_on_hand(session, user.restaurant_id) if missing_total else {}
     for ingredient_id, missing in missing_total.items():
         ingredient = ingredients[ingredient_id]
         result.shortfalls.append(Shortfall(ingredient_id, ingredient.name, missing,
-                                           ingredient.unit.value))
+                                           ingredient.unit.value,
+                                           frozen_qty=congelado.get(ingredient_id, 0.0)))
 
     _raise_alerts(session, user, result, lang)
     return result
@@ -286,8 +311,14 @@ def _raise_alerts(session: Session, user: User, result: ConsumptionResult, lang:
     now = datetime.utcnow()
 
     for gap in result.shortfalls:
-        message = t(lang, "alert.stock_short", ingredient=gap.name,
-                    qty=f"{gap.missing_qty:.10g}", unit=gap.unit)
+        # No es lo mismo no tener carne que tenerla dura en el arcón: lo
+        # segundo se arregla sacándola, y hay que decirlo así.
+        message = (t(lang, "alert.stock_frozen", ingredient=gap.name,
+                     qty=f"{gap.missing_qty:.10g}", unit=gap.unit,
+                     frozen=f"{gap.frozen_qty:.10g}")
+                   if gap.frozen_qty > EPSILON else
+                   t(lang, "alert.stock_short", ingredient=gap.name,
+                     qty=f"{gap.missing_qty:.10g}", unit=gap.unit))
         alert = Alert(restaurant_id=user.restaurant_id, code="stock.short",
                       message=message, severity=AlertSeverity.WARNING, created_at=now)
         session.add(alert)

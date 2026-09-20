@@ -71,6 +71,59 @@ def _lot_by_serial(session: Session, restaurant_id: int, serial: str) -> Ingredi
     return lot
 
 
+def _thaw_serial(session: Session, restaurant_id: int, base: str) -> str:
+    """Un número nuevo para lo que sale del arcón: «8017-01·D1», «·D2»…"""
+    for n in range(1, 100):
+        candidate = f"{base}·D{n}"
+        if not (session.query(IngredientLot)
+                .filter_by(restaurant_id=restaurant_id, serial=candidate).first()):
+            return candidate
+    raise DefrostError(f"Demasiadas salidas del congelador del lote {base}")
+
+
+def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
+         pieces: int = 0) -> IngredientLot:
+    """Saca del arcón lo que se va a descongelar, y solo eso.
+
+    Lo congelado está en espera: no se vende. Lo que lo despierta es esto, que
+    es lo que pasa de verdad en la cocina —alguien abre el arcón y saca unas
+    piezas—. Si sale el número entero, ese número deja de estar congelado. Si
+    salen unas piezas, el número se parte: lo que sale nace con su propio
+    número colgando del de origen y ya descongelado, y lo que queda sigue
+    congelado esperando su turno. Así el POS descuenta de lo que de verdad hay
+    en la cámara, y no de lo que sigue duro.
+    """
+    if not lot.frozen:
+        return lot
+    if kg <= EPSILON:
+        raise DefrostError(
+            f"Para sacar del congelador el número {lot.serial} hace falta su peso: "
+            f"es lo que deja de estar en espera.")
+    if kg >= lot.qty_remaining - EPSILON:
+        lot.frozen = False                      # sale entero: se despierta entero
+        session.flush()
+        return lot
+
+    movido = round(kg, 6)
+    salen = pieces if pieces > 0 else None
+    if lot.pieces and lot.qty_remaining > EPSILON:
+        salen = min(lot.pieces, salen or max(1, int(round(lot.pieces * movido / lot.qty_remaining))))
+        lot.pieces = max(0, lot.pieces - salen)
+    hijo = IngredientLot(
+        restaurant_id=lot.restaurant_id, item_id=lot.item_id,
+        ingredient_id=lot.ingredient_id, lot_code=lot.lot_code,
+        serial=_thaw_serial(session, lot.restaurant_id, lot.serial),
+        parent_serial=lot.parent_serial or lot.serial, parent_lot=lot.parent_lot,
+        expiry=lot.expiry, received=lot.received, qty=movido, qty_remaining=movido,
+        unit_cost=lot.unit_cost, pieces=salen, piece_weight_g=lot.piece_weight_g,
+        nominal_piece_g=lot.nominal_piece_g, grade=lot.grade, origin=lot.origin,
+        frozen=False, site_id=lot.site_id)
+    lot.qty_remaining = round(lot.qty_remaining - movido, 6)
+    session.add(hijo)
+    session.flush()
+    return hijo
+
+
 def record(session: Session, user: User, kind: DefrostKind, serial: str, pieces: int,
            total_kg: float, on: date | None = None, shift: str = "",
            note: str | None = None) -> DefrostEntry:
@@ -78,6 +131,10 @@ def record(session: Session, user: User, kind: DefrostKind, serial: str, pieces:
     if pieces < 0 or total_kg < 0:
         raise DefrostError("Ni las piezas ni el peso pueden ser negativos")
     lot = _lot_by_serial(session, user.restaurant_id, serial)
+    if kind == DefrostKind.INTAKE and lot.frozen:
+        # Lo que sale del arcón deja de estar en espera, y lo que se queda no.
+        lot = thaw(session, user, lot, total_kg, pieces)
+        serial = lot.serial
     entry = DefrostEntry(restaurant_id=user.restaurant_id, date=on or date.today(),
                          shift=shift or "", kind=kind, lot_serial=serial,
                          ingredient_id=lot.ingredient_id, lot_id=lot.id, pieces=pieces,

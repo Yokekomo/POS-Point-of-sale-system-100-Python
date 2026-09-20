@@ -510,6 +510,12 @@ def sell_by_weight(session: Session, user: User, serial: str, grams: float,
         raise AgingError("El precio no puede ser negativo")
 
     primal = find(session, user.restaurant_id, serial)
+    if where(primal) == Storage.FROZEN:
+        # Lo congelado está en espera: no se corta al peso ni se cobra. Primero
+        # sale del arcón, y cuando esté descongelado se vende.
+        raise AgingError(
+            f"La pieza {primal.serial} está congelada: hay que sacarla a descongelar "
+            f"antes de venderla al corte.")
     kg = round(grams / 1000, 6)
     available = round(primal.weight_kg or 0.0, 6)
     if kg > available + EPSILON:

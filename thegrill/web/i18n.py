@@ -660,6 +660,8 @@ ES = {
     "seed.item": "Artículo",
     "seed.counted": "Cantidad contada",
     "seed.location": "Ubicación",
+    'alert.stock_frozen': '{ingredient}: faltan {qty} {unit} para lo vendido. Hay {frozen} congelados, pero lo congelado está en espera: no se vende hasta sacarlo a descongelar.',
+    'meat.frozen_waiting': 'congelados, en espera',
 }
 
 
@@ -1211,6 +1213,8 @@ EN = {
     "seed.item": "Item",
     "seed.counted": "Counted quantity",
     "seed.location": "Location",
+    'alert.stock_frozen': '{ingredient}: {qty} {unit} short of what was sold. There are {frozen} frozen, but frozen stock is waiting: it does not sell until someone takes it out to thaw.',
+    'meat.frozen_waiting': 'frozen, waiting',
 }
 
 
@@ -1762,6 +1766,8 @@ FR = {
     "seed.item": "Article",
     "seed.counted": "Quantité comptée",
     "seed.location": "Emplacement",
+    'alert.stock_frozen': '{ingredient} : il manque {qty} {unit} pour ce qui a été vendu. Il y a {frozen} congelés, mais le congelé attend : il ne se vend pas tant que personne ne le sort à décongeler.',
+    'meat.frozen_waiting': 'congelés, en attente',
 }
 
 
@@ -2313,6 +2319,8 @@ DE = {
     "seed.item": "Artikel",
     "seed.counted": "Gezählte Menge",
     "seed.location": "Lagerort",
+    'alert.stock_frozen': '{ingredient}: {qty} {unit} fehlen für das Verkaufte. Es liegen {frozen} gefroren da, aber Gefrorenes wartet: Es wird erst verkauft, wenn es jemand zum Auftauen herausnimmt.',
+    'meat.frozen_waiting': 'gefroren, wartend',
 }
 
 
@@ -2864,6 +2872,8 @@ NL = {
     "seed.item": "Artikel",
     "seed.counted": "Getelde hoeveelheid",
     "seed.location": "Locatie",
+    'alert.stock_frozen': '{ingredient}: {qty} {unit} tekort voor wat verkocht is. Er ligt {frozen} ingevroren, maar wat ingevroren is wacht: het verkoopt pas als iemand het eruit haalt om te ontdooien.',
+    'meat.frozen_waiting': 'ingevroren, in afwachting',
 }
 
 
@@ -3415,6 +3425,8 @@ AR = {
     "seed.item": "الصنف",
     "seed.counted": "الكمية المجرودة",
     "seed.location": "الموقع",
+    'alert.stock_frozen': '{ingredient}: ينقص {qty} {unit} عمّا بيع. يوجد {frozen} مجمَّد، لكن المجمَّد في الانتظار: لا يُباع حتى يُخرَج للتذويب.',
+    'meat.frozen_waiting': 'مجمَّد، في الانتظار',
 }
 
 
@@ -3954,6 +3966,8 @@ HU = {
     "seed.item": 'Tétel',
     "seed.counted": 'Megszámolt mennyiség',
     "seed.location": 'Hely',
+    'alert.stock_frozen': '{ingredient}: {qty} {unit} hiányzik az eladotthoz. Van {frozen} fagyasztva, de a fagyasztott vár: nem kerül eladásra, amíg valaki ki nem veszi kiolvasztani.',
+    'meat.frozen_waiting': 'fagyasztva, várakozik',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

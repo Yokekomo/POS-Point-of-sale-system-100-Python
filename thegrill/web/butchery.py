@@ -333,6 +333,9 @@ class CutStock:
     open_serials: int = 0
     thawed_pieces: int = 0
     thawed_kg: float = 0.0
+    # De esos kilos, los que están congelados: existen, pero están en espera
+    # de que alguien los saque. No se venden, así que no cuentan para servir.
+    frozen_kg: float = 0.0
     min_stock: float | None = None
     days_to_expiry: int | None = None
 
@@ -421,6 +424,7 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
             kg=round(sum(l.qty_remaining for l in rows), 3),
             labels=_labels(rows), open_serials=len(rows),
             thawed_pieces=thawed_pieces, thawed_kg=thawed_kg, min_stock=ing.min_stock,
+            frozen_kg=round(sum(l.qty_remaining for l in rows if l.frozen), 3),
             days_to_expiry=(soonest - on).days))
     result.cuts.sort(key=lambda c: c.name)
     result.expiring = sorted((c for c in result.cuts

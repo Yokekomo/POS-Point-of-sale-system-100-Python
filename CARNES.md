@@ -363,6 +363,23 @@ Sin recuento no hay cierre.
 debajo cuelgan los artículos de cada procedencia, que se gastan en una sola cola
 por FEFO o FIFO. Cambiar de proveedor es añadir un artículo, no tocar la carta.
 
+**Lo congelado está en espera.** En esa cola no entra lo que está en el arcón.
+Un número congelado es carne que existe y que hoy no se puede servir, así que el
+POS no descuenta de él: descontarle una venta sería apuntar que se ha servido un
+entrecot que sigue duro, y el día que alguien vaya a buscarlo no está. Si lo
+único que hay de un corte está congelado, la venta se queda corta y el aviso lo
+dice con esas palabras —hay tantos kilos, pero congelados—, en vez de decir que
+falta carne.
+
+Lo que despierta a un número es sacarlo a descongelar, que es lo que pasa de
+verdad: alguien abre el arcón. Si sale entero, ese número deja de estar
+congelado. Si salen unas piezas, el número se parte y lo que sale nace con su
+propio número (`TG-0001·01·D1`), ya descongelado, mientras el resto se queda
+dentro esperando su turno. El kilo vale lo mismo dentro y fuera: descongelar no
+cuesta dinero. En la cámara los kilos congelados se ven aparte, para que nadie
+cuente como disponible lo que está en espera. Y una pieza entera del congelador
+tampoco se vende al corte: primero sale del arcón.
+
 **Carta de carnes.** Un plato es un corte y unos gramos, atado a su producto del
 POS por código o por nombre. Por dentro es una receta, así que el food cost y el
 descuento de cámara salen del mismo motor de siempre, sin una segunda manera de

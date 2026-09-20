@@ -462,6 +462,9 @@ ES = {
     'm.si.people_help': 'Lo que esa persona dé de alta entra en su sede. Sin sede, trabaja con la casa entera.',
     'm.si.assign': 'Sede',
     'm.si.whole_house': 'Toda la casa',
+    'm.df.frozen_help': 'Lo congelado está en espera: el POS no lo descuenta. Sacarlo de aquí es lo que lo pone a la venta, y si solo sale una parte, esa parte recibe su propio número y el resto se queda congelado.',
+    'm.df.thawed': '{serial} sale del congelador: ya se puede vender.',
+    'm.df.thawed_split': '{serial} sale del congelador con {kg} kg. Del número {parent} quedan {left} kg, todavía congelados.',
 }
 
 EN = {
@@ -909,6 +912,9 @@ EN = {
     'm.si.people_help': 'What that person books in lands in their site. With no site, they work with the whole house.',
     'm.si.assign': 'Site',
     'm.si.whole_house': 'The whole house',
+    'm.df.frozen_help': 'Frozen stock is waiting: the POS does not deduct from it. Taking it out here is what puts it up for sale, and if only part of it comes out, that part gets its own number and the rest stays frozen.',
+    'm.df.thawed': '{serial} is out of the freezer: it can be sold now.',
+    'm.df.thawed_split': '{serial} comes out of the freezer with {kg} kg. Number {parent} still has {left} kg, frozen.',
 }
 
 FR = {
@@ -1356,6 +1362,9 @@ FR = {
     'm.si.people_help': 'Ce que cette personne enregistre entre dans son site. Sans site, elle travaille sur toute la maison.',
     'm.si.assign': 'Site',
     'm.si.whole_house': 'Toute la maison',
+    'm.df.frozen_help': "Le congelé attend : le POS ne le décompte pas. C'est de le sortir ici qui le met en vente, et si seule une partie sort, cette partie reçoit son propre numéro et le reste reste congelé.",
+    'm.df.thawed': '{serial} sort du congélateur : il peut être vendu.',
+    'm.df.thawed_split': '{serial} sort du congélateur avec {kg} kg. Il reste {left} kg au numéro {parent}, toujours congelés.',
 }
 
 DE = {
@@ -1803,6 +1812,9 @@ DE = {
     'm.si.people_help': 'Was diese Person einbucht, landet in ihrem Standort. Ohne Standort arbeitet sie mit dem ganzen Haus.',
     'm.si.assign': 'Standort',
     'm.si.whole_house': 'Das ganze Haus',
+    'm.df.frozen_help': 'Gefrorenes wartet: Das Kassensystem bucht davon nichts ab. Erst das Herausnehmen hier stellt es zum Verkauf, und wenn nur ein Teil herauskommt, bekommt dieser Teil seine eigene Nummer und der Rest bleibt gefroren.',
+    'm.df.thawed': '{serial} ist aus dem Gefrierraum: jetzt verkäuflich.',
+    'm.df.thawed_split': '{serial} kommt mit {kg} kg aus dem Gefrierraum. Bei Nummer {parent} bleiben {left} kg, weiter gefroren.',
 }
 
 NL = {
@@ -2250,6 +2262,9 @@ NL = {
     'm.si.people_help': 'Wat die persoon inboekt komt in zijn vestiging terecht. Zonder vestiging werkt hij met het hele huis.',
     'm.si.assign': 'Vestiging',
     'm.si.whole_house': 'Het hele huis',
+    'm.df.frozen_help': 'Wat ingevroren is wacht: de kassa boekt er niets van af. Het hier uithalen zet het pas te koop, en komt er maar een deel uit, dan krijgt dat deel een eigen nummer en blijft de rest ingevroren.',
+    'm.df.thawed': '{serial} is uit de vriezer: nu te verkopen.',
+    'm.df.thawed_split': '{serial} komt met {kg} kg uit de vriezer. Van nummer {parent} blijft {left} kg over, nog ingevroren.',
 }
 
 AR = {
@@ -2697,6 +2712,9 @@ AR = {
     'm.si.people_help': 'ما يسجّله هذا الشخص يدخل في موقعه. وبلا موقع يعمل على البيت كله.',
     'm.si.assign': 'الموقع',
     'm.si.whole_house': 'البيت كله',
+    'm.df.frozen_help': 'المجمَّد في الانتظار: نقطة البيع لا تخصم منه. إخراجه من هنا هو ما يجعله للبيع، وإذا خرج جزء منه فقط أخذ ذلك الجزء رقمه الخاص وبقي الباقي مجمَّداً.',
+    'm.df.thawed': '{serial} خرج من المجمِّد: صار قابلاً للبيع.',
+    'm.df.thawed_split': '{serial} يخرج من المجمِّد بـ {kg} كجم. وفي الرقم {parent} يبقى {left} كجم مجمَّدة.',
 }
 
 
@@ -3146,6 +3164,9 @@ HU = {
     'm.si.people_help': 'Amit az illető rögzít, az ő telephelyére kerül. Telephely nélkül az egész házzal dolgozik.',
     'm.si.assign': 'Telephely',
     'm.si.whole_house': 'Az egész ház',
+    'm.df.frozen_help': 'A fagyasztott vár: a kassza nem ír le belőle. Az teszi eladhatóvá, hogy itt kiveszed, és ha csak egy része jön ki, az a rész saját számot kap, a többi pedig fagyasztva marad.',
+    'm.df.thawed': '{serial} kikerült a fagyasztóból: már eladható.',
+    'm.df.thawed_split': '{serial} {kg} kg-mal jön ki a fagyasztóból. A(z) {parent} számon {left} kg marad, továbbra is fagyasztva.',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

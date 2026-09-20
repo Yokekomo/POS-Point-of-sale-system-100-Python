@@ -635,12 +635,28 @@ def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form
                    session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    pedido = serial.strip()
+    # Lo congelado está en espera: esta salida es lo que lo pone a la venta,
+    # así que conviene decir con qué número sale.
+    estaba = (session.query(IngredientLot)
+              .filter_by(restaurant_id=user.restaurant_id, serial=pedido).first())
+    congelado = bool(estaba and estaba.frozen)
     try:
-        defrost.intake(session, user, serial.strip(), pieces, _num(total_kg, 0.0) or 0.0,
-                       shift=shift.strip(), note=note.strip() or None)
+        entry = defrost.intake(session, user, pedido, pieces, _num(total_kg, 0.0) or 0.0,
+                               shift=shift.strip(), note=note.strip() or None)
     except (defrost.DefrostError, ValueError) as e:
         return _defrost(request, user, auth_session, session, shift=shift, error=str(e))
-    return RedirectResponse(f"/descongelado?shift={shift}", status_code=303)
+    done = ""
+    if congelado and entry.lot_serial != pedido:
+        queda = (session.query(IngredientLot)
+                 .filter_by(restaurant_id=user.restaurant_id, serial=pedido).first())
+        done = i18n.t(lang, "m.df.thawed_split", serial=entry.lot_serial,
+                      kg=f"{entry.total_kg:.10g}", parent=pedido,
+                      left=f"{(queda.qty_remaining if queda else 0):.10g}")
+    elif congelado:
+        done = i18n.t(lang, "m.df.thawed", serial=entry.lot_serial)
+    return RedirectResponse(f"/descongelado?shift={shift}&done={done}", status_code=303)
 
 
 @app.post("/descongelado/recuento", response_class=HTMLResponse)
