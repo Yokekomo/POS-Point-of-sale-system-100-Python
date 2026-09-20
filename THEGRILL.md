@@ -486,7 +486,7 @@ thegrill/
   importers/             Pendiente: facturas y hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   562 tests
+tests/                   564 tests
 ```
 
 ## Uso

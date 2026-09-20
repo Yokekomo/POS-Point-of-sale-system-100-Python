@@ -5,6 +5,8 @@
 {% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 
+<p class="sub">{{ t("sale.two_ways") }}</p>
+
 <div class="card">
   <b>{{ t("sale.file") }}</b>
   <form method="post" action="/ventas/fichero" enctype="multipart/form-data">
@@ -70,11 +72,12 @@
 {% endif %}
 
 {% if mapping %}
+<h2>{{ t("sale.by_hand") }}</h2>
 <div class="card">
 <form method="post" action="/ventas">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <label for="business_date">{{ t("common.date") }}</label>
-  <input id="business_date" type="date" name="business_date" value="{{ today }}">
+  <input id="business_date" type="date" name="business_date" value="{{ business_date or today }}">
   <div class="scroll"><table>
   <tr><th>{{ t("sale.code") }}</th><th>{{ t("sale.product") }}</th>
       <th>{{ t("m.menu.dish") }}</th><th class="num">{{ t("sale.units") }}</th>
@@ -95,6 +98,7 @@
   </tr>
   {% endfor %}
   </table></div>
+  <div class="help">{{ t("sale.by_hand_help") }}</div>
   <div class="help">{{ t("sale.grams_help") }}</div>
   <button class="wide" type="submit">{{ t("sale.discount") }}</button>
 </form>

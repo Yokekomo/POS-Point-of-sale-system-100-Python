@@ -280,10 +280,14 @@ despiece:
   el cuchillo delante del cliente;
 - **en piezas ya cortadas**: raciones con su peso, como el resto de la carta.
 
-**Y todo pasa por el POS.** El parte de ventas se carga del fichero que
-exporta la caja —CSV o Excel, como salga—: la pantalla lo lee, dice qué ha
-entendido de cada columna, con qué plato ha emparejado cada artículo y cuáles
-no conoce, y solo descuenta cuando se confirma. Leer no toca el almacén.
+**Y todo pasa por el POS**, de una de las dos maneras, la que venga mejor ese
+día. Se carga el fichero que exporta la caja —CSV o Excel, como salga—: la
+pantalla lo lee, dice qué ha entendido de cada columna, con qué plato ha
+emparejado cada artículo y cuáles no conoce, y solo descuenta cuando se
+confirma; leer no toca el almacén. O se escriben las unidades a mano, plato a
+plato, que es lo que se hace cuando la caja no exporta nada, cuando el fichero
+sale mal o cuando solo hay que apuntar dos líneas. Las dos están siempre a la
+vista en la misma pantalla y las dos descuentan igual.
 
 Un plato «a peso» se cobra por kilo y el parte de ventas trae además los
 gramos de cada venta: eso es lo que descuenta de cámara

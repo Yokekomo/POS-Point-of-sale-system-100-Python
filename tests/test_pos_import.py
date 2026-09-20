@@ -192,3 +192,33 @@ def test_without_a_file_it_says_so(client):
     pantalla = client.get("/ventas")
     r = client.post("/ventas/fichero", data={"csrf": csrf_from(pantalla.text)})
     assert r.status_code == 200 and "ningún fichero" in r.text
+
+
+def test_the_two_ways_live_together_and_the_manual_one_still_works(client):
+    """Se puede cargar el fichero o escribirlo a mano; las dos, siempre a la vista."""
+    carta(client)
+    pantalla = client.get("/ventas")
+    assert "A mano" in pantalla.text and "Cargar el parte del POS" in pantalla.text
+    assert 'name="units:CHULETON"' in pantalla.text
+
+    hecho = client.post("/ventas", data={"csrf": csrf_from(pantalla.text),
+                                         "business_date": str(HOY),
+                                         "units:CHULETON": "3",
+                                         "units:LOMO MADURADO": "2",
+                                         "grams:LOMO MADURADO": "824"})
+    assert hecho.status_code == 303
+    with db.session_scope() as s:
+        quedan = {l.lot_code: round(l.qty_remaining, 4) for l in s.query(IngredientLot)}
+    assert quedan["TG-1"] == pytest.approx(8.4 - 1.26)     # tres chuletones de 420 g
+    assert quedan["TG-2"] == pytest.approx(6.4 - 0.824)    # los gramos escritos a mano
+
+
+def test_after_reading_a_file_the_manual_form_is_still_there(client):
+    """Leer un fichero no quita la otra manera: la pantalla sigue entera."""
+    carta(client)
+    pantalla = client.get("/ventas")
+    leido = client.post("/ventas/fichero", data={"csrf": csrf_from(pantalla.text)},
+                        files={"file": ("v.csv", "codigo;producto;uds\n1402;CHULETON;2\n".encode(),
+                                        "text/csv")})
+    assert "Lo que dice el fichero" in leido.text
+    assert "A mano" in leido.text and 'name="units:CHULETON"' in leido.text
