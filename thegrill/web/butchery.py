@@ -382,18 +382,26 @@ class MeatStatus:
 
 
 def status(session: Session, restaurant_id: int, on: date | None = None,
-           expiry_days: int = 3) -> MeatStatus:
-    """Foto de la carne al cerrar el día: cortes y primales que quedan."""
+           expiry_days: int = 3, site_id: int | None = None) -> MeatStatus:
+    """Foto de la carne al cerrar el día: cortes y primales que quedan.
+
+    Con `site_id` es la foto de una sede. Quien trabaja en un local no quiere
+    ver las ocho piezas del obrador cuando mira lo que le queda para el pase.
+    """
     from thegrill.models import (ConsumptionMode, DefrostEntry, DefrostKind, Ingredient,
                                  PrimalPar)
+    from thegrill.web import costing, sites
     on = on or date.today()
     result = MeatStatus(date=on)
+    principal = sites.main(session, restaurant_id).id if site_id else None
 
     pars = {p.sku: p.min_pieces for p in session.query(PrimalPar)
             .filter_by(restaurant_id=restaurant_id)}
     by_sku: dict[str, list[Primal]] = {}
     for primal in (session.query(Primal)
                    .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK)):
+        if site_id and (primal.site_id or principal) != site_id:
+            continue
         by_sku.setdefault(primal.sku, []).append(primal)
     for sku in sorted(set(by_sku) | set(pars)):
         pieces = by_sku.get(sku, [])
@@ -403,10 +411,11 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
             min_pieces=pars.get(sku)))
 
     # Cortes: solo lo que sale de un despiece, es decir lo que tiene serial.
-    lots = (session.query(IngredientLot)
-            .filter(IngredientLot.restaurant_id == restaurant_id,
-                    IngredientLot.serial.isnot(None),
-                    IngredientLot.qty_remaining > EPSILON).all())
+    lots = costing.at_site(session.query(IngredientLot)
+                           .filter(IngredientLot.restaurant_id == restaurant_id,
+                                   IngredientLot.serial.isnot(None),
+                                   IngredientLot.qty_remaining > EPSILON),
+                           session, restaurant_id, site_id).all()
     ingredients = {i.id: i for i in session.query(Ingredient)
                    .filter_by(restaurant_id=restaurant_id)}
     grouped: dict[int, list[IngredientLot]] = {}

@@ -11,6 +11,12 @@ Une la base de datos con el motor de escandallo:
   antes caduca.
 - Si no hay bastante stock se descuenta lo que hay, se registra el faltante y
   se abre una alerta. El faltante significa que alguien no registró una entrada.
+
+Y el descuento sale de donde se ha vendido. La carne de un grupo está en una
+sede: la del obrador no la sirve nadie en la playa, y descontarla allí es
+cuadrar el papel descuadrando la cámara. Quien vende con sede puesta descuenta
+de su sede; quien no la tiene —el manager que mete las ventas de la casa—
+descuenta de la casa entera, como siempre.
 """
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -22,8 +28,8 @@ from thegrill.engine.recipes import RecipeCost, cost_recipe, explode, menu_ranki
 from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, Ingredient,
                              IngredientItem, IngredientLot, IngredientMovement,
                              MovementKind, PosMatch, PosProduct, Recipe, RecipeKind,
-                             Restaurant, SalesByProduct, User)
-from thegrill.web import service
+                             Restaurant, SalesByProduct, Site, User)
+from thegrill.web import service, sites
 from thegrill.web.i18n import DEFAULT_LANG, t
 
 EPSILON = 1e-9
@@ -83,13 +89,55 @@ def unit_costs(session: Session, restaurant_id: int) -> dict[int, float]:
     return costs
 
 
-def frozen_on_hand(session: Session, restaurant_id: int) -> dict[int, float]:
-    """Lo que hay congelado de cada madre: existe, pero todavía no se vende."""
-    out: dict[int, float] = {}
+def at_site(query, session: Session, restaurant_id: int, site_id: int | None):
+    """Deja en la consulta solo los lotes de esa sede.
+
+    La carne que no dice dónde está, está en la principal: así una casa de toda
+    la vida —que no ha oído hablar de sedes— sigue funcionando igual.
+    """
+    if not site_id:
+        return query
+    if site_id == sites.main(session, restaurant_id).id:
+        return query.filter((IngredientLot.site_id == site_id)
+                            | (IngredientLot.site_id.is_(None)))
+    return query.filter(IngredientLot.site_id == site_id)
+
+
+def elsewhere_on_hand(session: Session, restaurant_id: int,
+                      site_id: int | None) -> dict[int, tuple[float, set[str]]]:
+    """Lo que hay de cada madre en las **otras** sedes, y en cuáles.
+
+    No falta carne: está en otro sitio. Lo que hace falta es un traslado, y
+    decir eso es más útil que decir que no hay.
+    """
+    if not site_id:
+        return {}
+    principal = sites.main(session, restaurant_id)
+    nombres = {s.id: s.name for s in sites.all_sites(session, restaurant_id, active=False)}
+    out: dict[int, tuple[float, set[str]]] = {}
     for lot in (session.query(IngredientLot)
                 .filter(IngredientLot.restaurant_id == restaurant_id,
-                        IngredientLot.frozen.is_(True),
+                        IngredientLot.frozen.isnot(True),
                         IngredientLot.qty_remaining > EPSILON)):
+        donde = lot.site_id or principal.id
+        if donde == site_id:
+            continue
+        qty, casas = out.get(lot.ingredient_id, (0.0, set()))
+        casas.add(nombres.get(donde, ""))
+        out[lot.ingredient_id] = (round(qty + lot.qty_remaining, 6), casas)
+    return out
+
+
+def frozen_on_hand(session: Session, restaurant_id: int,
+                   site_id: int | None = None) -> dict[int, float]:
+    """Lo que hay congelado de cada madre: existe, pero todavía no se vende."""
+    out: dict[int, float] = {}
+    query = at_site(session.query(IngredientLot)
+                    .filter(IngredientLot.restaurant_id == restaurant_id,
+                            IngredientLot.frozen.is_(True),
+                            IngredientLot.qty_remaining > EPSILON),
+                    session, restaurant_id, site_id)
+    for lot in query:
         out[lot.ingredient_id] = round(out.get(lot.ingredient_id, 0.0) + lot.qty_remaining, 6)
     return out
 
@@ -104,7 +152,8 @@ def stock_on_hand(session: Session, restaurant_id: int) -> dict[int, float]:
 
 
 def rotation_order(session: Session, restaurant_id: int, ingredient: Ingredient,
-                   include_frozen: bool = False) -> list[IngredientLot]:
+                   include_frozen: bool = False,
+                   site_id: int | None = None) -> list[IngredientLot]:
     """Lotes con existencias de una madre, en el orden en que deben salir.
 
     Compiten todos los lotes de todas sus marcas: el ingrediente madre existe
@@ -115,6 +164,9 @@ def rotation_order(session: Session, restaurant_id: int, ingredient: Ingredient,
     una venta es apuntar que se ha servido carne que sigue dura en el arcón. Lo
     que se vende son los números descongelados; los otros esperan su turno.
     `include_frozen` es para contar, no para vender.
+
+    Con `site_id`, solo compiten los números que están en esa sede: lo que hay
+    en el obrador no lo sirve el local, por muy antiguo que sea.
     """
     query = (session.query(IngredientLot)
              .filter(IngredientLot.restaurant_id == restaurant_id,
@@ -122,7 +174,7 @@ def rotation_order(session: Session, restaurant_id: int, ingredient: Ingredient,
                      IngredientLot.qty_remaining > EPSILON))
     if not include_frozen:
         query = query.filter(IngredientLot.frozen.isnot(True))
-    lots = query.all()
+    lots = at_site(query, session, restaurant_id, site_id).all()
     as_dataclass = [fefo.Lot(ingredient=str(ingredient.id), lot_id=str(l.id), expiry=l.expiry,
                              kg=l.qty_remaining, unit_cost_usd=l.unit_cost, received=l.received)
                     for l in lots]
@@ -163,6 +215,9 @@ class Shortfall:
     unit: str
     # Lo que hay de eso mismo, pero congelado: no falta carne, falta sacarla.
     frozen_qty: float = 0.0
+    # Y lo que hay en otra sede: tampoco falta carne, falta traerla.
+    elsewhere_qty: float = 0.0
+    elsewhere: str = ""
 
 
 @dataclass
@@ -177,6 +232,7 @@ class ConsumptionResult:
     # Lo que las recetas dicen que se gastaría de los ingredientes que se
     # controlan por conteo. No se descuenta aquí: se compara al cerrar turno.
     theoretical: dict[int, float] = field(default_factory=dict)
+    site: str = ""                        # de qué sede ha salido el descuento
     weighed_kg: float = 0.0               # lo vendido a peso, con su peso real
     # Platos que se cobran por kilo y han llegado sin peso: ahí el descuento
     # sale de la ración de referencia, que no es lo que se cortó.
@@ -194,11 +250,11 @@ def _by_weight_line(recipe: Recipe):
 
 
 def take_from_stock(session: Session, user: User, ingredient: Ingredient, qty: float,
-                    kind: MovementKind, on: date, source: str, source_ref: str | None = None
-                    ) -> tuple[float, float]:
-    """Descuenta `qty` por FEFO. Devuelve (coste, faltante)."""
+                    kind: MovementKind, on: date, source: str, source_ref: str | None = None,
+                    site_id: int | None = None) -> tuple[float, float]:
+    """Descuenta `qty` por FEFO, de la sede que se diga. Devuelve (coste, faltante)."""
     pending, cost = qty, 0.0
-    for lot in rotation_order(session, user.restaurant_id, ingredient):
+    for lot in rotation_order(session, user.restaurant_id, ingredient, site_id=site_id):
         if pending <= EPSILON:
             break
         take = min(lot.qty_remaining, pending)
@@ -226,17 +282,27 @@ def take_from_stock(session: Session, user: User, ingredient: Ingredient, qty: f
 
 
 def consume_sales(session: Session, user: User, sales: list[tuple],
-                  on: date | None = None, lang: str | None = None) -> ConsumptionResult:
+                  on: date | None = None, lang: str | None = None,
+                  site_id: int | None = None) -> ConsumptionResult:
     """Descuenta del almacén lo que se ha vendido en el POS.
 
     `sales` son pares (nombre del producto en el POS, unidades vendidas), o
     tríos con el peso real cuando ese producto se cobra por kilo: la carne
     madurada se corta delante del cliente y no hay dos raciones iguales, así
     que lo que descuenta son los gramos de esa venta y no un gramaje de carta.
+
+    Se descuenta de la sede donde se ha vendido: la de quien mete las ventas,
+    o la que se diga en `site_id` —el manager que sube el fichero de cada
+    local—. Sin sede, la casa entera, como se ha trabajado siempre.
     """
     on = on or date.today()
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     result = ConsumptionResult(date=on)
+    donde = sites.of_user(session, user) if site_id is None else session.get(Site, site_id)
+    if donde is not None and donde.restaurant_id != user.restaurant_id:
+        raise ValueError("Esa sede no es de esta casa")
+    site_id = donde.id if donde is not None else None
+    result.site = donde.name if donde is not None else ""
 
     mapping = pos_index(session, user.restaurant_id)
     # Se descuenta plato a plato, no todo junto: así cada salida deja escrito
@@ -286,7 +352,8 @@ def consume_sales(session: Session, user: User, sales: list[tuple],
                     result.theoretical.get(ingredient_id, 0.0) + qty, 6)
                 continue
             cost, missing = take_from_stock(session, user, ingredient, qty,
-                                            MovementKind.SALE, on, "pos", pos_name)
+                                            MovementKind.SALE, on, "pos", pos_name,
+                                            site_id=site_id)
             result.cost = round(result.cost + cost, 6)
             result.consumed[ingredient_id] = round(
                 result.consumed.get(ingredient_id, 0.0) + qty, 6)
@@ -294,12 +361,16 @@ def consume_sales(session: Session, user: User, sales: list[tuple],
                 missing_total[ingredient_id] = round(
                     missing_total.get(ingredient_id, 0.0) + missing, 6)
 
-    congelado = frozen_on_hand(session, user.restaurant_id) if missing_total else {}
+    congelado = frozen_on_hand(session, user.restaurant_id, site_id) if missing_total else {}
+    fuera = elsewhere_on_hand(session, user.restaurant_id, site_id) if missing_total else {}
     for ingredient_id, missing in missing_total.items():
         ingredient = ingredients[ingredient_id]
+        otras_kg, otras = fuera.get(ingredient_id, (0.0, set()))
         result.shortfalls.append(Shortfall(ingredient_id, ingredient.name, missing,
                                            ingredient.unit.value,
-                                           frozen_qty=congelado.get(ingredient_id, 0.0)))
+                                           frozen_qty=congelado.get(ingredient_id, 0.0),
+                                           elsewhere_qty=otras_kg,
+                                           elsewhere=", ".join(sorted(n for n in otras if n))))
 
     _raise_alerts(session, user, result, lang)
     return result
@@ -311,14 +382,20 @@ def _raise_alerts(session: Session, user: User, result: ConsumptionResult, lang:
     now = datetime.utcnow()
 
     for gap in result.shortfalls:
-        # No es lo mismo no tener carne que tenerla dura en el arcón: lo
-        # segundo se arregla sacándola, y hay que decirlo así.
-        message = (t(lang, "alert.stock_frozen", ingredient=gap.name,
-                     qty=f"{gap.missing_qty:.10g}", unit=gap.unit,
-                     frozen=f"{gap.frozen_qty:.10g}")
-                   if gap.frozen_qty > EPSILON else
-                   t(lang, "alert.stock_short", ingredient=gap.name,
-                     qty=f"{gap.missing_qty:.10g}", unit=gap.unit))
+        # No falta carne de la misma manera en los tres casos: en otra sede se
+        # arregla con un traslado, en el arcón sacándola a descongelar, y sin
+        # nada de eso es que alguien no registró una entrada.
+        if gap.elsewhere_qty > EPSILON:
+            message = t(lang, "alert.stock_elsewhere", ingredient=gap.name,
+                        qty=f"{gap.missing_qty:.10g}", unit=gap.unit,
+                        there=f"{gap.elsewhere_qty:.10g}", sites=gap.elsewhere)
+        elif gap.frozen_qty > EPSILON:
+            message = t(lang, "alert.stock_frozen", ingredient=gap.name,
+                        qty=f"{gap.missing_qty:.10g}", unit=gap.unit,
+                        frozen=f"{gap.frozen_qty:.10g}")
+        else:
+            message = t(lang, "alert.stock_short", ingredient=gap.name,
+                        qty=f"{gap.missing_qty:.10g}", unit=gap.unit)
         alert = Alert(restaurant_id=user.restaurant_id, code="stock.short",
                       message=message, severity=AlertSeverity.WARNING, created_at=now)
         session.add(alert)

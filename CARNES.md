@@ -571,12 +571,25 @@ traslado tocara el kilo el food cost del local sería un cuento. Y queda escrito
 qué salió, de dónde, adónde, cuánto pesaba y quién lo mandó, que es lo que se
 pregunta cuando falta algo.
 
-**Lo que todavía no mira la sede.** El consumo por FEFO, el inventario y el
-descongelado siguen trabajando con la casa entera. Es decir: el traslado ya
-mueve la carne y su dinero, pero si el local vende un corte, el programa lo
-descuenta del lote más antiguo de la casa aunque ese lote esté en el obrador.
-Para un grupo con un obrador y dos locales eso todavía se nota, y está dicho en
-la propia pantalla en vez de escondido.
+**El consumo sale de la sede.** Lo que se vende en un local se descuenta de los
+números que están en ese local: descontar en la playa un lote que está en el
+obrador cuadra el papel y descuadra las dos cámaras —la de allí, con carne que
+el programa ya ha dado por servida, y la de aquí, que no tiene la que dice
+tener—. Lo mismo con la merma: el que tira carne en el local no está tirando la
+del obrador.
+
+Quien tiene sede puesta trabaja con la suya en todas las pantallas: la cámara,
+el descongelado y las ventas enseñan lo de su sede y nada más. El manager, que
+no tiene sede, sigue viendo la casa entera y elige de qué local es cada parte de
+ventas cuando lo sube.
+
+Y cuando falta carne se dice por qué falta, que no es lo mismo en los tres
+casos: **está en otra sede** —hace falta un traslado—, **está congelada** —hace
+falta sacarla— o **no está** —alguien no registró una entrada—.
+
+**Lo que todavía mira la casa entera:** el inventario y la maduración. El
+inventario se cuenta de toda la casa, y las piezas maduran donde maduran, que es
+el obrador. Está dicho en la propia pantalla en vez de escondido.
 
 En el recibo el grupo ya existía desde antes: las casas de la misma empresa
 comparten grupo, se ven juntas en la pantalla de la plataforma con sus locales
@@ -584,9 +597,8 @@ y su cuota total, y se cobran de una vez —una empresa, un recibo, no cinco—.
 
 ## Por dónde seguir
 
-1. Que la sede mande en el consumo: FEFO, inventario y descongelado mirando la
-   sede y no la casa entera, y los números del grupo sumados sin mezclar
-   cámaras.
+1. Inventario por sede: hoy se cuenta la casa entera, y un grupo con obrador y
+   dos locales necesita cuadrar cada cámara por su cuenta.
 2. Varias cámaras dentro del mismo local, para saber en cuál está cada pieza.
 3. Parte de carne diario en PDF, para el pase.
 4. Guardar el cuadre de cada turno, para ver la pérdida acumulada del mes sin

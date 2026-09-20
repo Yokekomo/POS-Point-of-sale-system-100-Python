@@ -2,6 +2,7 @@
 {% block body %}
 <h1>{{ t("m.nav.chamber") }}</h1>
 <p class="sub">{{ t("m.chamber.sub") }}</p>
+{% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
 
 {% if closed %}
   {% if closed == "0" %}<div class="banner ok">{{ t("meat.all_good") }}</div>

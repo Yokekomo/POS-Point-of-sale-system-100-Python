@@ -16,6 +16,10 @@
         <input id="file" type="file" name="file" accept=".csv,.tsv,.txt,.xlsx,.xlsm" required></div>
       <div><label for="file_date">{{ t("common.date") }}</label>
         <input id="file_date" type="date" name="business_date" value="{{ business_date or today }}"></div>
+    {% if sites %}<div><label for="file_site">{{ t("m.tr.site") }}</label>
+        <select id="file_site" name="site">
+          {% for s in sites %}<option value="{{ s.id }}"{% if site == s.id|string %} selected{% endif %}>{{ s.name }}</option>{% endfor %}
+        </select></div>{% endif %}
     </div>
     <div class="help">{{ t("sale.file_help") }}</div>
     <button class="wide ghost" type="submit">{{ t("sale.read") }}</button>
@@ -65,6 +69,7 @@
     <input type="hidden" name="csrf" value="{{ csrf }}">
     <input type="hidden" name="rows" value="{{ rows_json }}">
     <input type="hidden" name="business_date" value="{{ business_date }}">
+    <input type="hidden" name="site" value="{{ site }}">
     <div class="help">{{ t("sale.confirm_help") }}</div>
     <button class="wide" type="submit">{{ t("sale.confirm") }}</button>
   </form>
@@ -78,6 +83,14 @@
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <label for="business_date">{{ t("common.date") }}</label>
   <input id="business_date" type="date" name="business_date" value="{{ business_date or today }}">
+  {% if sites %}
+  <label for="hand_site">{{ t("m.tr.site") }}</label>
+  <select id="hand_site" name="site">
+    {% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  {% if mine %}<p class="help">{{ t("m.tr.sales_here", site=mine.name) }}</p>
+  {% elif sites|length > 1 %}<p class="help">{{ t("m.tr.sales_pick") }}</p>{% endif %}
   <div class="scroll"><table>
   <tr><th>{{ t("sale.code") }}</th><th>{{ t("sale.product") }}</th>
       <th>{{ t("m.menu.dish") }}</th><th class="num">{{ t("sale.units") }}</th>

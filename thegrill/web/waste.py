@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Alert, AlertSeverity, Ingredient, IngredientLot,
                              IngredientMovement, LossKind, MovementKind, Primal,
                              PrimalWeighing, User)
-from thegrill.web import costing, service
+from thegrill.web import costing, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -116,9 +116,14 @@ def _find_lot(session: Session, user: User, serial: str | None,
         ingredient = session.get(Ingredient, ingredient_id)
         if ingredient is None or ingredient.restaurant_id != user.restaurant_id:
             raise WasteError("Ese ingrediente no es de este restaurante")
-        lots = costing.rotation_order(session, user.restaurant_id, ingredient)
+        # La merma sale de donde está quien la apunta: el que tira carne en el
+        # local no está tirando la del obrador.
+        mia = sites.of_user(session, user)
+        lots = costing.rotation_order(session, user.restaurant_id, ingredient,
+                                      site_id=mia.id if mia else None)
         if not lots:
-            raise WasteError(f"No queda stock de {ingredient.name}")
+            raise WasteError(f"No queda stock de {ingredient.name}"
+                             + (f" en {mia.name}" if mia else ""))
         return lots[0]
     raise WasteError("Hay que decir de qué pieza o de qué ingrediente es la merma")
 

@@ -41,6 +41,7 @@
 {% endif %}
 {% endif %}
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
 
 <div class="grid">
   <div class="card">

@@ -662,6 +662,7 @@ ES = {
     "seed.location": "Ubicación",
     'alert.stock_frozen': '{ingredient}: faltan {qty} {unit} para lo vendido. Hay {frozen} congelados, pero lo congelado está en espera: no se vende hasta sacarlo a descongelar.',
     'meat.frozen_waiting': 'congelados, en espera',
+    'alert.stock_elsewhere': '{ingredient}: faltan {qty} {unit} aquí. Hay {there} en {sites}: no falta carne, falta traerla.',
 }
 
 
@@ -1215,6 +1216,7 @@ EN = {
     "seed.location": "Location",
     'alert.stock_frozen': '{ingredient}: {qty} {unit} short of what was sold. There are {frozen} frozen, but frozen stock is waiting: it does not sell until someone takes it out to thaw.',
     'meat.frozen_waiting': 'frozen, waiting',
+    'alert.stock_elsewhere': '{ingredient}: {qty} {unit} short here. There are {there} at {sites}: the meat is not missing, it needs bringing over.',
 }
 
 
@@ -1768,6 +1770,7 @@ FR = {
     "seed.location": "Emplacement",
     'alert.stock_frozen': '{ingredient} : il manque {qty} {unit} pour ce qui a été vendu. Il y a {frozen} congelés, mais le congelé attend : il ne se vend pas tant que personne ne le sort à décongeler.',
     'meat.frozen_waiting': 'congelés, en attente',
+    'alert.stock_elsewhere': "{ingredient} : il manque {qty} {unit} ici. Il y en a {there} à {sites} : la viande ne manque pas, il faut l'amener.",
 }
 
 
@@ -2321,6 +2324,7 @@ DE = {
     "seed.location": "Lagerort",
     'alert.stock_frozen': '{ingredient}: {qty} {unit} fehlen für das Verkaufte. Es liegen {frozen} gefroren da, aber Gefrorenes wartet: Es wird erst verkauft, wenn es jemand zum Auftauen herausnimmt.',
     'meat.frozen_waiting': 'gefroren, wartend',
+    'alert.stock_elsewhere': '{ingredient}: Hier fehlen {qty} {unit}. In {sites} liegen {there}: Das Fleisch fehlt nicht, es muss herkommen.',
 }
 
 
@@ -2874,6 +2878,7 @@ NL = {
     "seed.location": "Locatie",
     'alert.stock_frozen': '{ingredient}: {qty} {unit} tekort voor wat verkocht is. Er ligt {frozen} ingevroren, maar wat ingevroren is wacht: het verkoopt pas als iemand het eruit haalt om te ontdooien.',
     'meat.frozen_waiting': 'ingevroren, in afwachting',
+    'alert.stock_elsewhere': '{ingredient}: hier {qty} {unit} tekort. Er ligt {there} in {sites}: het vlees ontbreekt niet, het moet hierheen.',
 }
 
 
@@ -3427,6 +3432,7 @@ AR = {
     "seed.location": "الموقع",
     'alert.stock_frozen': '{ingredient}: ينقص {qty} {unit} عمّا بيع. يوجد {frozen} مجمَّد، لكن المجمَّد في الانتظار: لا يُباع حتى يُخرَج للتذويب.',
     'meat.frozen_waiting': 'مجمَّد، في الانتظار',
+    'alert.stock_elsewhere': '{ingredient}: ينقص هنا {qty} {unit}. يوجد {there} في {sites}: اللحم ليس ناقصاً، بل يحتاج نقلاً.',
 }
 
 
@@ -3968,6 +3974,7 @@ HU = {
     "seed.location": 'Hely',
     'alert.stock_frozen': '{ingredient}: {qty} {unit} hiányzik az eladotthoz. Van {frozen} fagyasztva, de a fagyasztott vár: nem kerül eladásra, amíg valaki ki nem veszi kiolvasztani.',
     'meat.frozen_waiting': 'fagyasztva, várakozik',
+    'alert.stock_elsewhere': '{ingredient}: itt {qty} {unit} hiányzik. {sites} helyen van {there}: nem a hús hiányzik, át kell hozni.',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

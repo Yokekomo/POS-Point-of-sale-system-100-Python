@@ -385,3 +385,145 @@ class TestScreens:
         carnicero = add_user(client, email="paco@marina.com", name="Paco", role=Role.BUTCHER)
         assert "Valor en cámara" in client.get("/traslados").text
         assert "Valor en cámara" not in carnicero.get("/traslados").text
+
+
+# ===================================================== la venta, por su sede
+class TestConsumption:
+    """Lo que se vende en un local sale de los números que están en ese local.
+
+    Descontar en la playa un lote que está en el obrador cuadra el papel y
+    descuadra las dos cámaras: la de allí, que tiene carne que el programa ya
+    ha dado por servida, y la de aquí, que no tiene la que dice tener.
+    """
+
+    @pytest.fixture
+    def casa(self, ctx):
+        from thegrill.models import Role
+
+        s, rest, ana, luis = ctx
+        obrador = sites.main(s, rest.id)
+        playa = sites.create(s, ana, "Playa")
+        luis.role = Role.BUTCHER
+        sites.assign(s, ana, luis, playa.id)
+        cut = meat.create_cut(s, ana, "Entrecot")
+        item = meat.add_article(s, ana, cut, "Entrecot AUS")
+        meat.add_dish(s, ana, "Entrecot a la brasa", cut.id, 300, sale_price=28.0,
+                      pos_code="1001", pos_name="ENTRECOT")
+        return s, rest, ana, luis, obrador, playa, cut, item
+
+    def lote(self, s, rest, cut, item, serial, kg, site_id=None, frozen=False):
+        row = IngredientLot(restaurant_id=rest.id, item_id=item.id, ingredient_id=cut.id,
+                            lot_code="TG-0001", serial=serial, expiry=HOY, received=HOY,
+                            qty=kg, qty_remaining=kg, unit_cost=40.0, frozen=frozen,
+                            site_id=site_id)
+        s.add(row); s.flush(); return row
+
+    def test_the_sale_of_an_outlet_comes_out_of_the_outlet(self, casa):
+        from thegrill.web import costing
+
+        s, rest, ana, luis, obrador, playa, cut, item = casa
+        en_obrador = self.lote(s, rest, cut, item, "TG-0001·01", 6.0, site_id=obrador.id)
+        en_playa = self.lote(s, rest, cut, item, "TG-0001·02", 6.0, site_id=playa.id)
+
+        venta = costing.consume_sales(s, luis, [("ENTRECOT", 4)], on=HOY, lang="es")
+
+        assert venta.site == "Playa"
+        assert en_playa.qty_remaining == pytest.approx(4.8)
+        assert en_obrador.qty_remaining == 6.0          # el obrador no se toca
+        assert not venta.shortfalls
+
+    def test_meat_in_another_site_is_not_missing_meat(self, casa):
+        """Si la carne está en el obrador, lo que hace falta es un traslado."""
+        from thegrill.models import Alert
+        from thegrill.web import costing
+
+        s, rest, ana, luis, obrador, playa, cut, item = casa
+        self.lote(s, rest, cut, item, "TG-0001·01", 6.0, site_id=obrador.id)
+
+        venta = costing.consume_sales(s, luis, [("ENTRECOT", 2)], on=HOY, lang="es")
+
+        gap = venta.shortfalls[0]
+        assert gap.missing_qty == pytest.approx(0.6)
+        assert gap.elsewhere_qty == pytest.approx(6.0) and gap.elsewhere == "Principal"
+        aviso = s.query(Alert).filter_by(code="stock.short").one()
+        assert "Principal" in aviso.message and "traerla" in aviso.message
+
+    def test_meat_with_no_site_is_the_main_site_meat(self, casa):
+        """Lo de toda la vida: sin sede escrita, está en la principal."""
+        from thegrill.web import costing
+
+        s, rest, ana, luis, obrador, playa, cut, item = casa
+        viejo = self.lote(s, rest, cut, item, "TG-0001·01", 6.0)      # sin sede
+        en_playa = self.lote(s, rest, cut, item, "TG-0001·02", 6.0, site_id=playa.id)
+
+        costing.consume_sales(s, ana, [("ENTRECOT", 2)], on=HOY, lang="es",
+                              site_id=obrador.id)
+
+        assert viejo.qty_remaining == pytest.approx(5.4)
+        assert en_playa.qty_remaining == 6.0
+
+    def test_the_manager_says_which_site_the_file_belongs_to(self, casa):
+        """El manager sube el parte de cada local desde su despacho."""
+        from thegrill.web import costing
+
+        s, rest, ana, luis, obrador, playa, cut, item = casa
+        en_obrador = self.lote(s, rest, cut, item, "TG-0001·01", 6.0, site_id=obrador.id)
+        en_playa = self.lote(s, rest, cut, item, "TG-0001·02", 6.0, site_id=playa.id)
+
+        venta = costing.consume_sales(s, ana, [("ENTRECOT", 2)], on=HOY, lang="es",
+                                      site_id=playa.id)
+
+        assert venta.site == "Playa"
+        assert en_playa.qty_remaining == pytest.approx(5.4) and en_obrador.qty_remaining == 6.0
+
+    def test_without_a_site_it_works_like_it_always_did(self, casa):
+        """Un manager sin sede y una casa de una sola: la casa entera."""
+        from thegrill.web import costing
+
+        s, rest, ana, luis, obrador, playa, cut, item = casa
+        en_obrador = self.lote(s, rest, cut, item, "TG-0001·01", 6.0, site_id=obrador.id)
+
+        venta = costing.consume_sales(s, ana, [("ENTRECOT", 2)], on=HOY, lang="es")
+
+        assert venta.site == "" and not venta.shortfalls
+        assert en_obrador.qty_remaining == pytest.approx(5.4)
+
+    def test_frozen_in_your_own_site_still_does_not_sell(self, casa):
+        """Las dos reglas a la vez: ni de otra sede, ni del arcón."""
+        from thegrill.web import costing
+
+        s, rest, ana, luis, obrador, playa, cut, item = casa
+        congelado = self.lote(s, rest, cut, item, "TG-0001·02", 6.0, site_id=playa.id,
+                              frozen=True)
+
+        venta = costing.consume_sales(s, luis, [("ENTRECOT", 2)], on=HOY, lang="es")
+
+        assert congelado.qty_remaining == 6.0
+        assert venta.shortfalls[0].frozen_qty == pytest.approx(6.0)
+
+    def test_the_chamber_of_an_outlet_only_shows_its_own(self, casa):
+        from thegrill.web import butchery
+
+        s, rest, ana, luis, obrador, playa, cut, item = casa
+        self.lote(s, rest, cut, item, "TG-0001·01", 6.0, site_id=obrador.id)
+        self.lote(s, rest, cut, item, "TG-0001·02", 2.0, site_id=playa.id)
+        pieza(s, rest, serial="8017", site_id=obrador.id)
+
+        suyo = butchery.status(s, rest.id, on=HOY, site_id=playa.id)
+        assert suyo.total_cut_kg == pytest.approx(2.0)
+        assert suyo.total_primals == 0
+        # Y el manager, sin sede, sigue viendo la casa entera.
+        todo = butchery.status(s, rest.id, on=HOY)
+        assert todo.total_cut_kg == pytest.approx(8.0) and todo.total_primals == 1
+
+    def test_waste_comes_out_of_your_own_site(self, casa):
+        from thegrill.web import waste
+
+        s, rest, ana, luis, obrador, playa, cut, item = casa
+        en_obrador = self.lote(s, rest, cut, item, "TG-0001·01", 6.0, site_id=obrador.id)
+        en_playa = self.lote(s, rest, cut, item, "TG-0001·02", 6.0, site_id=playa.id)
+
+        waste.record(s, luis, ingredient_id=cut.id, kg=1.0, reason="se cayó", on=HOY)
+
+        assert en_playa.qty_remaining == pytest.approx(5.0)
+        assert en_obrador.qty_remaining == 6.0

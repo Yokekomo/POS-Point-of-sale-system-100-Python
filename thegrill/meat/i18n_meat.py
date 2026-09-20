@@ -444,7 +444,7 @@ ES = {
     'm.tr.none': 'Todavía no se ha movido carne de una sede a otra.',
     'm.tr.what': 'Qué',
     'm.tr.new_serial': 'Número nuevo',
-    'm.tr.not_yet': 'Por ahora el traslado mueve la carne y su coste. El consumo por FEFO, el inventario y el descongelado siguen mirando la casa entera y no la sede: eso llega después.',
+    'm.tr.not_yet': 'La venta, la merma, la cámara y el descongelado ya miran la sede: cada local gasta de sus números. El inventario y la maduración siguen mirando la casa entera.',
     'm.si.title': 'Sedes',
     'm.si.sub': 'El obrador recibe las piezas, las madura y las despieza. Los locales consumen de él: piezas enteras o cortes ya hechos.',
     'm.si.kind': 'Tipo',
@@ -465,6 +465,9 @@ ES = {
     'm.df.frozen_help': 'Lo congelado está en espera: el POS no lo descuenta. Sacarlo de aquí es lo que lo pone a la venta, y si solo sale una parte, esa parte recibe su propio número y el resto se queda congelado.',
     'm.df.thawed': '{serial} sale del congelador: ya se puede vender.',
     'm.df.thawed_split': '{serial} sale del congelador con {kg} kg. Del número {parent} quedan {left} kg, todavía congelados.',
+    'm.tr.only_here': 'Esto es lo de {site}. Lo que hay en las otras sedes no sale aquí.',
+    'm.tr.sales_here': 'Estas ventas descuentan de {site}: de los números que están ahí.',
+    'm.tr.sales_pick': 'Elige de qué sede son estas ventas. Sin elegir, descuentan de la casa entera.',
 }
 
 EN = {
@@ -894,7 +897,7 @@ EN = {
     'm.tr.none': 'No meat has moved between sites yet.',
     'm.tr.what': 'What',
     'm.tr.new_serial': 'New number',
-    'm.tr.not_yet': 'For now a transfer moves the meat and its cost. FEFO consumption, stocktakes and thawing still look at the whole house and not at the site: that comes later.',
+    'm.tr.not_yet': 'Sales, waste, the chiller and thawing already look at the site: each outlet spends its own numbers. Stocktakes and ageing still look at the whole house.',
     'm.si.title': 'Sites',
     'm.si.sub': 'The butchery room takes the primals in, ages them and breaks them down. The outlets consume from it: whole primals or ready cuts.',
     'm.si.kind': 'Type',
@@ -915,6 +918,9 @@ EN = {
     'm.df.frozen_help': 'Frozen stock is waiting: the POS does not deduct from it. Taking it out here is what puts it up for sale, and if only part of it comes out, that part gets its own number and the rest stays frozen.',
     'm.df.thawed': '{serial} is out of the freezer: it can be sold now.',
     'm.df.thawed_split': '{serial} comes out of the freezer with {kg} kg. Number {parent} still has {left} kg, frozen.',
+    'm.tr.only_here': 'This is what {site} has. What the other sites hold is not shown here.',
+    'm.tr.sales_here': 'These sales come out of {site}: out of the numbers that are there.',
+    'm.tr.sales_pick': 'Pick which site these sales belong to. With none picked, they come out of the whole house.',
 }
 
 FR = {
@@ -1344,7 +1350,7 @@ FR = {
     'm.tr.none': "Aucune viande n'a encore bougé d'un site à l'autre.",
     'm.tr.what': 'Quoi',
     'm.tr.new_serial': 'Nouveau numéro',
-    'm.tr.not_yet': "Pour l'instant le transfert déplace la viande et son coût. La consommation FEFO, l'inventaire et la décongélation regardent encore toute la maison et pas le site : cela viendra ensuite.",
+    'm.tr.not_yet': "Les ventes, les pertes, la chambre et la décongélation regardent déjà le site : chaque point de vente consomme ses propres numéros. L'inventaire et la maturation regardent encore toute la maison.",
     'm.si.title': 'Sites',
     'm.si.sub': "L'atelier reçoit les pièces, les fait maturer et les découpe. Les points de vente consomment de lui : pièces entières ou découpes prêtes.",
     'm.si.kind': 'Type',
@@ -1365,6 +1371,9 @@ FR = {
     'm.df.frozen_help': "Le congelé attend : le POS ne le décompte pas. C'est de le sortir ici qui le met en vente, et si seule une partie sort, cette partie reçoit son propre numéro et le reste reste congelé.",
     'm.df.thawed': '{serial} sort du congélateur : il peut être vendu.',
     'm.df.thawed_split': '{serial} sort du congélateur avec {kg} kg. Il reste {left} kg au numéro {parent}, toujours congelés.',
+    'm.tr.only_here': "Voici ce qu'il y a à {site}. Ce que détiennent les autres sites n'apparaît pas ici.",
+    'm.tr.sales_here': "Ces ventes sont décomptées de {site} : des numéros qui s'y trouvent.",
+    'm.tr.sales_pick': 'Choisissez de quel site sont ces ventes. Sans choix, elles sont décomptées de toute la maison.',
 }
 
 DE = {
@@ -1794,7 +1803,7 @@ DE = {
     'm.tr.none': 'Es wurde noch kein Fleisch zwischen Standorten bewegt.',
     'm.tr.what': 'Was',
     'm.tr.new_serial': 'Neue Nummer',
-    'm.tr.not_yet': 'Vorerst bewegt eine Umlagerung das Fleisch und seine Kosten. FEFO-Verbrauch, Inventur und Auftauen schauen noch auf das ganze Haus und nicht auf den Standort: das kommt später.',
+    'm.tr.not_yet': 'Verkauf, Schwund, Kühlraum und Auftauen schauen bereits auf den Standort: Jeder Betrieb verbraucht seine eigenen Nummern. Inventur und Reifung schauen noch auf das ganze Haus.',
     'm.si.title': 'Standorte',
     'm.si.sub': 'Die Zerlegerei nimmt die Stücke an, reift sie und zerlegt sie. Die Betriebe verbrauchen von ihr: ganze Stücke oder fertige Teilstücke.',
     'm.si.kind': 'Art',
@@ -1815,6 +1824,9 @@ DE = {
     'm.df.frozen_help': 'Gefrorenes wartet: Das Kassensystem bucht davon nichts ab. Erst das Herausnehmen hier stellt es zum Verkauf, und wenn nur ein Teil herauskommt, bekommt dieser Teil seine eigene Nummer und der Rest bleibt gefroren.',
     'm.df.thawed': '{serial} ist aus dem Gefrierraum: jetzt verkäuflich.',
     'm.df.thawed_split': '{serial} kommt mit {kg} kg aus dem Gefrierraum. Bei Nummer {parent} bleiben {left} kg, weiter gefroren.',
+    'm.tr.only_here': 'Das ist, was in {site} liegt. Was die anderen Standorte haben, steht hier nicht.',
+    'm.tr.sales_here': 'Diese Verkäufe gehen von {site} ab: von den Nummern, die dort liegen.',
+    'm.tr.sales_pick': 'Wähle, zu welchem Standort diese Verkäufe gehören. Ohne Auswahl gehen sie vom ganzen Haus ab.',
 }
 
 NL = {
@@ -2244,7 +2256,7 @@ NL = {
     'm.tr.none': 'Er is nog geen vlees tussen vestigingen verplaatst.',
     'm.tr.what': 'Wat',
     'm.tr.new_serial': 'Nieuw nummer',
-    'm.tr.not_yet': 'Voorlopig verplaatst een overdracht het vlees en zijn kostprijs. FEFO-verbruik, de telling en het ontdooien kijken nog naar het hele huis en niet naar de vestiging: dat komt later.',
+    'm.tr.not_yet': 'Verkoop, derving, de koeling en het ontdooien kijken al naar de vestiging: elke zaak verbruikt haar eigen nummers. De telling en de rijping kijken nog naar het hele huis.',
     'm.si.title': 'Vestigingen',
     'm.si.sub': 'De uitsnijderij neemt de stukken aan, rijpt ze en snijdt ze uit. De zaken verbruiken ervan: hele stukken of kant-en-klare delen.',
     'm.si.kind': 'Soort',
@@ -2265,6 +2277,9 @@ NL = {
     'm.df.frozen_help': 'Wat ingevroren is wacht: de kassa boekt er niets van af. Het hier uithalen zet het pas te koop, en komt er maar een deel uit, dan krijgt dat deel een eigen nummer en blijft de rest ingevroren.',
     'm.df.thawed': '{serial} is uit de vriezer: nu te verkopen.',
     'm.df.thawed_split': '{serial} komt met {kg} kg uit de vriezer. Van nummer {parent} blijft {left} kg over, nog ingevroren.',
+    'm.tr.only_here': 'Dit is wat er in {site} ligt. Wat de andere vestigingen hebben staat hier niet.',
+    'm.tr.sales_here': 'Deze verkopen gaan van {site} af: van de nummers die daar liggen.',
+    'm.tr.sales_pick': 'Kies van welke vestiging deze verkopen zijn. Zonder keuze gaan ze van het hele huis af.',
 }
 
 AR = {
@@ -2694,7 +2709,7 @@ AR = {
     'm.tr.none': 'لم يتحرك لحم بين المواقع بعد.',
     'm.tr.what': 'ماذا',
     'm.tr.new_serial': 'رقم جديد',
-    'm.tr.not_yet': 'حتى الآن ينقل التحويل اللحم وتكلفته. أما الصرف بنظام FEFO والجرد والتذويب فما زالت تنظر إلى البيت كله لا إلى الموقع: ذلك يأتي لاحقاً.',
+    'm.tr.not_yet': 'البيع والهدر والبراد والتذويب تنظر الآن إلى الموقع: كل محل يصرف من أرقامه. أما الجرد والتعتيق فما زالا ينظران إلى البيت كله.',
     'm.si.title': 'المواقع',
     'm.si.sub': 'المسلخ يستلم القطع ويعتّقها ويقطّعها. والمحلات تستهلك منه: قطعاً كاملة أو تقطيعات جاهزة.',
     'm.si.kind': 'النوع',
@@ -2715,6 +2730,9 @@ AR = {
     'm.df.frozen_help': 'المجمَّد في الانتظار: نقطة البيع لا تخصم منه. إخراجه من هنا هو ما يجعله للبيع، وإذا خرج جزء منه فقط أخذ ذلك الجزء رقمه الخاص وبقي الباقي مجمَّداً.',
     'm.df.thawed': '{serial} خرج من المجمِّد: صار قابلاً للبيع.',
     'm.df.thawed_split': '{serial} يخرج من المجمِّد بـ {kg} كجم. وفي الرقم {parent} يبقى {left} كجم مجمَّدة.',
+    'm.tr.only_here': 'هذا ما في {site}. وما في المواقع الأخرى لا يظهر هنا.',
+    'm.tr.sales_here': 'هذه المبيعات تُخصم من {site}: من الأرقام الموجودة هناك.',
+    'm.tr.sales_pick': 'اختر من أي موقع هذه المبيعات. وبلا اختيار تُخصم من البيت كله.',
 }
 
 
@@ -3146,7 +3164,7 @@ HU = {
     'm.tr.none': 'Még nem mozgott hús telephelyek között.',
     'm.tr.what': 'Mi',
     'm.tr.new_serial': 'Új szám',
-    'm.tr.not_yet': 'Az átadás egyelőre a húst és a költségét mozgatja. A FEFO szerinti felhasználás, a leltár és a kiolvasztás még az egész házat nézi, nem a telephelyet: az később jön.',
+    'm.tr.not_yet': 'Az eladás, a selejt, a hűtő és a kiolvasztás már a telephelyet nézi: minden üzlet a saját számaiból fogyaszt. A leltár és az érlelés még az egész házat nézi.',
     'm.si.title': 'Telephelyek',
     'm.si.sub': 'A feldolgozó veszi át a darabokat, érleli és bontja őket. Az üzletek onnan fogyasztanak: egész darabot vagy kész húsokat.',
     'm.si.kind': 'Típus',
@@ -3167,6 +3185,9 @@ HU = {
     'm.df.frozen_help': 'A fagyasztott vár: a kassza nem ír le belőle. Az teszi eladhatóvá, hogy itt kiveszed, és ha csak egy része jön ki, az a rész saját számot kap, a többi pedig fagyasztva marad.',
     'm.df.thawed': '{serial} kikerült a fagyasztóból: már eladható.',
     'm.df.thawed_split': '{serial} {kg} kg-mal jön ki a fagyasztóból. A(z) {parent} számon {left} kg marad, továbbra is fagyasztva.',
+    'm.tr.only_here': 'Ez az, ami {site} telephelyen van. A többi telephelyé itt nem látszik.',
+    'm.tr.sales_here': 'Ezek az eladások {site} telephelyről fogynak: az ott lévő számokról.',
+    'm.tr.sales_pick': 'Válaszd ki, melyik telephely eladásai ezek. Választás nélkül az egész házról fogynak.',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

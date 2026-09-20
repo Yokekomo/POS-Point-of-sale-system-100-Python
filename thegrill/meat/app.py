@@ -593,10 +593,13 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
 @app.get("/carne", response_class=HTMLResponse)
 def chamber(request: Request, ctx=Depends(needs(perms.STOCK)),
             session: Session = Depends(get_db), closed: str = ""):
-    """Lo que queda: cortes en cámara y primales sin despiezar."""
+    """Lo que queda: cortes en cámara y primales sin despiezar, en su sede."""
     user, auth_session = ctx
+    mia = sites.of_user(session, user)
     return page(request, "chamber.html", user, auth_session, session, closed=closed,
-                status=butchery.status(session, user.restaurant_id))
+                site=mia,
+                status=butchery.status(session, user.restaurant_id,
+                                       site_id=mia.id if mia else None))
 
 
 @app.post("/carne/cierre")
@@ -618,14 +621,19 @@ def defrost_page(request: Request, ctx=Depends(needs(perms.DEFROST)),
 
 def _defrost(request, user, auth_session, session, *, shift="", done="", error="", closed=None):
     on = date.today()
+    mia = sites.of_user(session, user)
+    # No se saca a descongelar lo que está en otra sede: ese arcón no se abre
+    # desde aquí.
+    lots = costing.at_site(
+        session.query(butchery.IngredientLot)
+        .filter(butchery.IngredientLot.restaurant_id == user.restaurant_id,
+                butchery.IngredientLot.qty_remaining > 1e-9,
+                butchery.IngredientLot.serial.isnot(None)),
+        session, user.restaurant_id, mia.id if mia else None)
     return page(request, "defrost.html", user, auth_session, session, shift=shift,
-                done=done, error=error, on=on, closed=closed,
+                done=done, error=error, on=on, closed=closed, site=mia,
                 states=defrost.shift_states(session, user.restaurant_id, on, shift),
-                lots=(session.query(butchery.IngredientLot)
-                      .filter(butchery.IngredientLot.restaurant_id == user.restaurant_id,
-                              butchery.IngredientLot.qty_remaining > 1e-9,
-                              butchery.IngredientLot.serial.isnot(None))
-                      .order_by(butchery.IngredientLot.expiry).all()))
+                lots=lots.order_by(butchery.IngredientLot.expiry).all())
 
 
 @app.post("/descongelado/salida", response_class=HTMLResponse)
@@ -1147,9 +1155,14 @@ def sales_page(request: Request, ctx=Depends(needs(perms.MENU)),
 
 
 def _sales(request, user, auth_session, session, *, done="", error="", parsed=None,
-           preview=None, business_date=""):
+           preview=None, business_date="", site=""):
+    mia = sites.of_user(session, user)
     return page(request, "sales.html", user, auth_session, session, done=done, error=error,
                 parsed=parsed, preview=preview, business_date=business_date,
+                mine=mia, site=site,
+                # Sin sede se elige de cuál son estas ventas: el manager sube el
+                # fichero de cada local desde su despacho.
+                sites=[] if mia else sites.all_sites(session, user.restaurant_id),
                 rows_json=json.dumps([[p["key"], p["units"], p["kg"]] for p in preview
                                       if p["dish"]]) if preview else "",
                 mapping=(session.query(PosProduct).filter_by(restaurant_id=user.restaurant_id)
@@ -1183,7 +1196,8 @@ async def read_sales_file(request: Request, ctx=Depends(needs(perms.MENU)),
             "dish": product.recipe.name if product and product.recipe else None,
             "by_weight": bool(product and product.recipe and product.recipe.by_weight)})
     return _sales(request, user, auth_session, session, parsed=parsed, preview=preview,
-                  business_date=(form.get("business_date") or "").strip())
+                  business_date=(form.get("business_date") or "").strip(),
+                  site=(form.get("site") or "").strip())
 
 
 @app.post("/ventas")
@@ -1222,9 +1236,16 @@ async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
         if units > 0:
             sales.append((name, units, round(grams / 1000, 6) if grams else None))
     on = form.get("business_date")
-    result = costing.consume_sales(session, user, sales,
-                                   on=date.fromisoformat(on) if on else None, lang=lang)
+    sede = (form.get("site") or "").strip()
+    try:
+        result = costing.consume_sales(session, user, sales,
+                                       on=date.fromisoformat(on) if on else None, lang=lang,
+                                       site_id=int(sede) if sede else None)
+    except ValueError as e:
+        return _sales(request, user, auth_session, session, error=str(e))
     summary = i18n.t(lang, "sale.done", n=result.lines, cost=f"{result.cost:.2f}")
+    if result.site:
+        summary += " · " + result.site
     if result.weighed_kg:
         summary += " · " + i18n.t(lang, "sale.weighed", kg=f"{result.weighed_kg:.10g}")
     if result.missing_weight:
