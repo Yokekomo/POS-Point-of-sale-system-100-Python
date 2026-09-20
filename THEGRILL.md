@@ -67,7 +67,10 @@ que se pierde al limpiar. Del almacén sale el bruto, `neto / (1 - merma)`. Así
 se ve lo que cuesta lo que se tira.
 
 **Food cost.** Se mide contra el precio sin impuestos. Sobre el PVP saldría un
-número más bonito y falso.
+número más bonito y falso. Se muestra en entero y hacia arriba —un 32,4 % se
+lee 33 %—, igual en el escandallo, en la carta y en la trazabilidad de una
+pieza: un food cost no se redondea a la baja, y el color de aviso va sobre el
+número que se lee, para que nunca se contradigan.
 
 **Identificación del POS.** Cada emplatado se ata a su producto del punto de
 venta. Según el POS, el artículo llega por número o por nombre; se guardan los
@@ -416,7 +419,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   341 tests
+tests/                   344 tests
 ```
 
 ## Uso
@@ -446,6 +449,7 @@ desarrollo. Las fotos se guardan en la ruta de `GRILL_UPLOAD_DIR`.
 | Conteo semanal completo | `rules.weekly_count_is_complete` | `test_weekly_count_complete_and_stale` |
 | FEFO, coste nunca en blanco | `fefo.consume` | `test_never_blank_cost` |
 | Lo tirado lo paga lo que queda del lote | `waste.record` | `test_the_pieces_that_survive_pay_for_the_ones_thrown` |
+| Food cost entero y hacia arriba | `butchery.ceil_pct` | `test_the_escandallo_shows_the_food_cost_rounded_up_with_no_decimals` |
 | Pescado fuera del registro de carne | `rules.is_meat_entry` | `test_fish_excluded_from_meat_entry` |
 | Idempotencia y checkpoints | `orchestrator.chain.Chain` | `test_sequential_idempotent_and_weekday_steps` |
 | Tres estados, nunca colapsar en cero | `models.SourceStatus` | `test_three_states_never_collapse` |

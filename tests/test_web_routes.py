@@ -719,3 +719,57 @@ def test_an_employee_can_record_waste_too(client):
 def test_waste_needs_a_session(client):
     r = client.get("/merma")
     assert r.status_code == 303 and r.headers["location"] == "/login"
+
+
+# ------------------------------------------------- el food cost, en todas partes igual
+def recipe_with_food_cost(client, unit_cost=8.1, qty=0.4, price=10.0):
+    """Un plato con un food cost que no cae redondo: 8,1 × 0,4 / 10 = 32,4 %."""
+    from datetime import date, timedelta
+
+    from thegrill.models import Ingredient, IngredientItem, Rotation, Unit
+    from thegrill.web import costing
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter_by(slug="casa-pepe").one()
+        ana = s.query(User).filter_by(restaurant_id=rest.id, role=Role.MANAGER).first()
+        ing = Ingredient(restaurant_id=rest.id, name="Solomillo", unit=Unit.KG,
+                         rotation=Rotation.FEFO)
+        s.add(ing); s.flush()
+        item = IngredientItem(restaurant_id=rest.id, ingredient_id=ing.id, name="Solomillo AUS")
+        s.add(item); s.flush()
+        costing.receive(s, ana, item, 10.0, unit_cost, date.today() + timedelta(days=9))
+        ing_id = ing.id
+    form = client.get("/recetas")
+    client.post("/recetas/nueva", data={"csrf": csrf_from(form.text), "name": "Solomillo a la brasa",
+                                        "kind": "DISH", "portions": "1", "sale_price": str(price),
+                                        "vat_pct": "0"})
+    detail = client.get("/recetas/solomillo_a_la_brasa")
+    client.post("/recetas/solomillo_a_la_brasa/linea",
+                data={"csrf": csrf_from(detail.text), "component": f"ing:{ing_id}",
+                      "qty": str(qty), "waste_pct": "0"})
+    return "solomillo_a_la_brasa"
+
+
+def test_the_escandallo_shows_the_food_cost_rounded_up_with_no_decimals(client):
+    """Un food cost no se redondea a la baja: 32,4 % se lee 33 %."""
+    signup(client)
+    code = recipe_with_food_cost(client)
+    html = client.get(f"/recetas/{code}").text
+    assert "<b>33%</b>" in html
+    assert ">32.4%" not in html                     # el 32,4 solo vive en el ancho de la barra
+
+
+def test_the_menu_list_shows_the_same_food_cost_as_the_escandallo(client):
+    signup(client)
+    recipe_with_food_cost(client)
+    html = client.get("/recetas").text
+    assert "33%</span>" in html
+    assert "32.4" not in html
+
+
+def test_a_food_cost_just_over_the_limit_is_flagged_by_what_it_shows(client):
+    """El color no puede contradecir al número: 34,8 se lee 35 y no pasa del límite."""
+    signup(client)
+    recipe_with_food_cost(client, unit_cost=8.7, qty=0.4, price=10.0)   # 34,8 %
+    html = client.get("/recetas").text
+    assert "35%</span>" in html
+    assert 'class="tag bad"' not in html            # 35 no es «más de 35»

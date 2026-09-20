@@ -18,8 +18,9 @@
   <td class="num">{{ "%.2f"|format(m.cost_per_portion) }}</td>
   <td class="num">{% if m.sale_price %}{{ "%.2f"|format(m.sale_price) }}{% endif %}</td>
   <td class="num">{% if m.food_cost_pct is not none %}
-      <span class="tag {{ 'bad' if m.food_cost_pct > 35 else ('warn' if m.food_cost_pct > 28 else 'ok') }}">
-      {{ "%.1f"|format(m.food_cost_pct) }}%</span>{% else %}—{% endif %}</td>
+      {% set fc = m.food_cost_pct | ceil_pct %}
+      <span class="tag {{ 'bad' if fc > 35 else ('warn' if fc > 28 else 'ok') }}">
+      {{ fc }}%</span>{% else %}—{% endif %}</td>
   <td class="num">{% if m.margin is not none %}{{ "%.2f"|format(m.margin) }}{% endif %}</td>
 </tr>
 {% endfor %}

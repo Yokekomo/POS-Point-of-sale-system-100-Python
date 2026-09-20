@@ -15,7 +15,7 @@
   <div class="kpi"><b>{{ "%.4f"|format(cost.total_cost) }}</b><span>{{ t("rec.total_cost") }}</span></div>
   <div class="kpi"><b>{{ "%.4f"|format(cost.cost_per_portion) }}</b><span>{{ t("rec.cost_portion") }}</span></div>
   {% if cost.food_cost_pct is not none %}
-  <div class="kpi"><b>{{ "%.1f"|format(cost.food_cost_pct) }}%</b><span>{{ t("rec.food_cost") }}</span>
+  <div class="kpi"><b>{{ cost.food_cost_pct | ceil_pct }}%</b><span>{{ t("rec.food_cost") }}</span>
     <div class="bar"><i style="width:{{ [cost.food_cost_pct, 100] | min }}%"></i></div></div>
   <div class="kpi"><b>{{ "%.2f"|format(cost.margin_per_portion) }}</b><span>{{ t("rec.margin") }}</span></div>
   {% endif %}
