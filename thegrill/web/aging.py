@@ -543,6 +543,96 @@ def sell_by_weight(session: Session, user: User, serial: str, grams: float,
                       kg_left=primal.weight_kg, finished=finished)
 
 
+# ------------------------------------------------------------ conteo diario
+@dataclass
+class DailyLine:
+    """Una pieza en el conteo del día."""
+    serial: str
+    sku: str
+    days: int
+    yesterday_kg: float          # lo que pesaba la última vez que se pesó
+    last_weighed: date | None
+    kg: float | None = None      # lo de hoy, cuando ya se ha pesado
+    loss_kg: float = 0.0
+    cost: float | None = None    # lo que valían esos kilos que ya no se venden
+
+
+@dataclass
+class DailyCount:
+    """Lo que ha dejado el conteo de hoy en la nevera de maduración."""
+    date: date
+    lines: list[DailyLine] = field(default_factory=list)
+    alerts: list[Alert] = field(default_factory=list)
+    missing: list[str] = field(default_factory=list)      # las que no se han pesado
+
+    @property
+    def loss_kg(self) -> float:
+        return round(sum(l.loss_kg for l in self.lines), 6)
+
+    @property
+    def cost(self) -> float:
+        return round(sum(l.cost or 0.0 for l in self.lines), 4)
+
+    @property
+    def counted(self) -> int:
+        return len([l for l in self.lines if l.kg is not None])
+
+
+def to_count(session: Session, restaurant_id: int, on: date | None = None) -> list[DailyLine]:
+    """Lo que hay que pesar hoy: todo lo que madura, que es producto fresco.
+
+    Una pieza madurando no está congelada: está en una cámara a dos grados
+    perdiendo agua todos los días. Se cuenta como se cuenta lo descongelado,
+    porque es lo mismo —carne fresca abierta— y porque así la merma se sabe
+    cada día y no cuando alguien se acuerda.
+    """
+    on = on or date.today()
+    ultimas = _last_weighings(session, restaurant_id)
+    out = []
+    for row in board(session, restaurant_id, storage=Storage.AGING, on=on):
+        cuando = ultimas.get(row.serial)
+        out.append(DailyLine(serial=row.serial, sku=row.sku, days=row.days,
+                             yesterday_kg=row.kg, last_weighed=cuando,
+                             kg=row.kg if cuando == on else None))
+    return sorted(out, key=lambda l: (l.kg is not None, l.serial))
+
+
+def pending_today(session: Session, restaurant_id: int, on: date | None = None) -> list[str]:
+    """Las piezas que madurando se han quedado hoy sin pesar."""
+    on = on or date.today()
+    return [l.serial for l in to_count(session, restaurant_id, on) if l.kg is None]
+
+
+def count_day(session: Session, user: User, readings: list[tuple[str, float]],
+              on: date | None = None, lang: str | None = None) -> DailyCount:
+    """Pesa de una vez todas las piezas que maduran, que es el conteo del día.
+
+    Devuelve lo que se ha ido hoy en kilos y en dinero: esos kilos no se van a
+    vender, aunque su coste se quede en los que quedan. Y dice cuáles no se han
+    pesado, porque un conteo a medias no cuadra nada.
+    """
+    on = on or date.today()
+    lang = lang or service.restaurant_language(session, user.restaurant_id)
+    out = DailyCount(date=on)
+    pesadas = {s.strip(): kg for s, kg in readings if s and s.strip() and kg and kg > 0}
+
+    for line in to_count(session, user.restaurant_id, on):
+        kg = pesadas.get(line.serial)
+        if kg is None:
+            out.missing.append(line.serial)
+            out.lines.append(line)
+            continue
+        pesada = weigh(session, user, line.serial, kg, on=on, source="daily", lang=lang)
+        line.kg = pesada.kg
+        line.loss_kg = pesada.loss_kg
+        line.cost = (round(pesada.loss_kg * pesada.cost_per_kg_before, 4)
+                     if pesada.cost_per_kg_before else None)
+        out.lines.append(line)
+        if pesada.alert is not None:
+            out.alerts.append(pesada.alert)
+    return out
+
+
 # ---------------------------------------------------------------- la pizarra
 def board(session: Session, restaurant_id: int, storage: Storage | None = None,
           on: date | None = None) -> list[BoardRow]:

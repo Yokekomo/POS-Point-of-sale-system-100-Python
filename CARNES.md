@@ -286,6 +286,13 @@ lleva solo lo que vale, con su índice: 0,25 para un recorte, 0,10 para la
 grasa. Lo tirado no se lleva nada, así que su coste se queda en los kilos que
 quedan, igual que la merma de cámara de toda la vida.
 
+**Y se pesa todos los días.** Una pieza madurando no está congelada: está en
+una cámara a dos grados, fresca y abierta, perdiendo agua cada día. Así que
+entra en el conteo diario igual que lo descongelado, con su casilla en la
+pantalla de maduración: se pesan todas de una vez y sale lo que se ha ido hoy,
+en kilos y en dinero. Lo que no se pese hoy aparece mañana en los pendientes
+de la pantalla de hoy, porque un conteo a medias no cuadra nada.
+
 Lo importante es que la limpieza **no se cuenta como agua**. Una pieza que
 pierde 1,4 kg evaporando y 1,2 de costra tiene dos columnas distintas, porque
 juntas cuentan la misma historia mal: el agua es inevitable y la costra

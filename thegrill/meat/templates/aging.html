@@ -122,6 +122,50 @@
 <div class="card"><p class="muted">{{ t("m.ag.none") }}</p></div>
 {% endif %}
 
+{% if to_count and can("count") %}
+<h2>{{ t("m.ag.daily") }}</h2>
+{% if counted %}
+<div class="card">
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+    <div class="kpi"><b>{{ counted.counted }}</b><span>{{ t("m.ag.counted_pieces") }}</span></div>
+    <div class="kpi"><b class="bad">-{{ "%.3f"|format(counted.loss_kg) }}</b>
+      <span>{{ t("m.ag.water") }}</span></div>
+    {% if can("money") and counted.cost %}
+    <div class="kpi"><b>{{ "%.2f"|format(counted.cost) }}</b><span>{{ t("m.df.loss") }}</span></div>
+    {% endif %}
+    {% if counted.missing %}
+    <div class="kpi"><b class="bad">{{ counted.missing|length }}</b>
+      <span>{{ t("m.df.pending_count") }}</span>
+      <div class="muted">{{ counted.missing[:4]|join(", ") }}</div></div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+<div class="card">
+<form method="post" action="/maduracion/conteo">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="scroll"><table>
+  <tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.sku") }}</th>
+      <th class="num">{{ t("m.ag.days") }}</th><th class="num">{{ t("m.ag.yesterday") }}</th>
+      <th class="num">{{ t("m.ag.weigh_kg") }}</th></tr>
+  {% for l in to_count %}
+  <tr>
+    <td><b>{{ l.serial }}</b></td>
+    <td>{{ l.sku }}</td>
+    <td class="num">{{ l.days }}</td>
+    <td class="num">{{ "%.3f"|format(l.yesterday_kg) }}
+        {% if l.last_weighed %}<div class="muted">{{ l.last_weighed }}</div>{% endif %}</td>
+    <td class="num"><input name="kg:{{ l.serial }}" inputmode="decimal" style="max-width:110px"
+        {% if l.kg is not none %}placeholder="{{ "%.3f"|format(l.kg) }}"{% endif %}></td>
+  </tr>
+  {% endfor %}
+  </table></div>
+  <div class="help">{{ t("m.ag.daily_help") }}</div>
+  <button class="wide" type="submit">{{ t("m.ag.count_submit") }}</button>
+</form>
+</div>
+{% endif %}
+
 <div class="grid">
   {% if can("age") %}
   <div class="card">

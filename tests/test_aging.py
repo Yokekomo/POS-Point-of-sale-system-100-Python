@@ -631,3 +631,68 @@ def test_without_enough_pieces_it_says_nothing(ctx):
     aging.move(s, ana, "8017", Storage.AGING, target_days=45, on=HOY - timedelta(days=45))
     aging.weigh(s, ana, "8017", 7.6, on=HOY)
     assert aging.yield_by_days(s, rest.id) == []
+
+
+# ------------------------------------------------------------ conteo diario
+def test_what_ages_is_counted_every_day_like_anything_thawed(ctx):
+    """Madurando es producto fresco y abierto: se pesa a diario, no cuando toque."""
+    s, rest, ana, _ = ctx
+    for serial, kg in (("8017", 9.0), ("8018", 8.0)):
+        pieza(s, rest, serial=serial, kg=kg, precio=30.0)
+        aging.move(s, ana, serial, Storage.AGING, target_days=45,
+                   on=HOY - timedelta(days=20))
+
+    pendientes = aging.to_count(s, rest.id, on=HOY)
+    assert [l.serial for l in pendientes] == ["8017", "8018"]
+    assert all(l.kg is None for l in pendientes)          # hoy no se ha pesado ninguna
+    assert aging.pending_today(s, rest.id, on=HOY) == ["8017", "8018"]
+
+    conteo = aging.count_day(s, ana, [("8017", 8.82), ("8018", 7.86)], on=HOY)
+    assert conteo.counted == 2 and conteo.missing == []
+    assert conteo.loss_kg == pytest.approx(0.32)          # el agua de hoy, en kilos
+    assert conteo.cost == pytest.approx(9.6)              # y en dinero: 0,32 × 30
+    assert aging.pending_today(s, rest.id, on=HOY) == []
+
+    # Al día siguiente vuelven a estar pendientes, porque vuelven a perder agua.
+    mañana = HOY + timedelta(days=1)
+    assert aging.pending_today(s, rest.id, on=mañana) == ["8017", "8018"]
+
+
+def test_a_count_that_leaves_pieces_out_says_which(ctx):
+    """Un conteo a medias no cuadra nada, así que se dice cuáles faltan."""
+    s, rest, ana, _ = ctx
+    for serial in ("8017", "8018", "8019"):
+        pieza(s, rest, serial=serial, kg=9.0, precio=30.0)
+        aging.move(s, ana, serial, Storage.AGING, target_days=45, on=HOY - timedelta(days=10))
+
+    conteo = aging.count_day(s, ana, [("8017", 8.7)], on=HOY)
+    assert conteo.counted == 1
+    assert conteo.missing == ["8018", "8019"]
+    assert aging.pending_today(s, rest.id, on=HOY) == ["8018", "8019"]
+
+
+def test_the_daily_count_raises_the_price_of_the_kilo_like_any_weighing(ctx):
+    s, rest, ana, _ = ctx
+    pieza(s, rest, kg=9.0, precio=30.0)                   # 270 €
+    aging.move(s, ana, "8017", Storage.AGING, target_days=45, on=HOY - timedelta(days=30))
+    aging.count_day(s, ana, [("8017", 7.8)], on=HOY)
+
+    p = s.query(Primal).one()
+    assert p.weight_kg == 7.8 and p.piece_cost_usd == 270.0
+    assert p.landed_usd_per_kg == pytest.approx(34.615385, abs=1e-5)
+    assert s.query(PrimalWeighing).one().source == "daily"
+
+
+def test_today_asks_for_the_pieces_that_are_missing_their_weight(ctx):
+    """En la pantalla de hoy, lo que falta por pesar es de hoy, no de la semana."""
+    from thegrill.meat import service as meat
+    s, rest, ana, _ = ctx
+    pieza(s, rest, kg=9.0, precio=30.0)
+    aging.move(s, ana, "8017", Storage.AGING, target_days=45, on=HOY - timedelta(days=2))
+
+    hoy = meat.today(s, rest.id, on=HOY, lang="es")
+    assert any("sin pesar hoy" in linea for linea in hoy.pending)
+
+    aging.count_day(s, ana, [("8017", 8.85)], on=HOY)
+    hoy = meat.today(s, rest.id, on=HOY, lang="es")
+    assert not any("sin pesar hoy" in linea for linea in hoy.pending)

@@ -682,9 +682,10 @@ def aging_page(request: Request, ctx=Depends(needs(perms.STOCK)),
 
 
 def _aging(request, user, auth_session, session, *, done="", error="", weighed=None,
-           sold=None, trimmed=None):
+           sold=None, trimmed=None, counted=None):
     return page(request, "aging.html", user, auth_session, session, done=done, error=error,
-                weighed=weighed, sold=sold, trimmed=trimmed, storages=list(Storage),
+                weighed=weighed, sold=sold, trimmed=trimmed, counted=counted,
+                to_count=aging.to_count(session, user.restaurant_id), storages=list(Storage),
                 articles=meat.articles(session, user.restaurant_id),
                 rows=aging.board(session, user.restaurant_id),
                 summary=aging.summary(session, user.restaurant_id),
@@ -732,6 +733,33 @@ def aging_weigh(request: Request, serial: str = Form(...), kg: str = Form(...),
                   done=i18n.t(lang, "m.ag.weighed", serial=result.serial,
                               kg=f"{result.kg:.10g}", loss=f"{result.loss_kg:.10g}",
                               pct=f"{result.total_loss_pct:.10g}"))
+
+
+@app.post("/maduracion/conteo", response_class=HTMLResponse)
+async def aging_daily_count(request: Request, ctx=Depends(needs(perms.COUNT)),
+                            session: Session = Depends(get_db)):
+    """El conteo diario de la nevera de maduración: se pesan todas de una vez."""
+    user, auth_session = ctx
+    form = await request.form()
+    _guard(request, session, user, auth_session, form.get("csrf"))
+    lang = lang_for(request, session, user)
+    lecturas = []
+    for key, value in form.multi_items():
+        if not key.startswith("kg:") or not str(value).strip():
+            continue
+        try:
+            kg = _num(value)
+        except ValueError:
+            continue
+        if kg:
+            lecturas.append((key.split(":", 1)[1], kg))
+    try:
+        result = aging.count_day(session, user, lecturas, lang=lang)
+    except (aging.AgingError, ValueError) as e:
+        return _aging(request, user, auth_session, session, error=str(e))
+    return _aging(request, user, auth_session, session, counted=result,
+                  done=i18n.t(lang, "m.ag.counted", n=result.counted,
+                              kg=f"{result.loss_kg:.10g}"))
 
 
 @app.post("/maduracion/limpiar", response_class=HTMLResponse)

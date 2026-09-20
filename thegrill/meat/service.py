@@ -573,8 +573,9 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
     # semana sin pesar, que es cuando la merma deja de estar controlada.
     aging_rows = aging_mod.board(session, restaurant_id, on=on)
     ready = [r for r in aging_rows if r.storage == Storage.AGING and r.ready]
-    stale = [r for r in aging_rows if r.storage == Storage.AGING
-             and (on - (r.last_weighed or r.since or on)).days > 7]
+    # Lo que madura está fresco y abierto: se pesa todos los días, como se
+    # cuenta lo descongelado. Sin ese peso, la merma del día no existe.
+    stale = [r for r in aging_rows if r.storage == Storage.AGING and r.last_weighed != on]
 
     month = inventory.monthly_status(session, restaurant_id, on=on)
     open_count = (session.query(MeatCount)

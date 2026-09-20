@@ -402,3 +402,27 @@ def test_the_waste_screen_shows_both_sources_and_hides_the_money(client):
     del_carnicero = luis.get("/merma").text
     assert "De limpieza" in del_carnicero and "1.200" in del_carnicero
     assert "36.00" not in del_carnicero    # los kilos sí, el dinero no
+
+
+def test_the_daily_count_of_the_aging_fridge_is_the_butchers_job(client):
+    """Pesar lo que madura es contar: lo hace quien cuenta, sin ver el dinero."""
+    luis = alta(client, "luis@marina.com", "Luis", Role.BUTCHER)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        s.add(Primal(restaurant_id=rest.id, serial="9300", sku="Ribeye AUS", weight_kg=9.0,
+                     landed_usd_per_kg=30.0, piece_cost_usd=270.0, received_date=HOY))
+        s.flush()
+    token = csrf_from(luis.get("/maduracion").text)
+    luis.post("/maduracion/mover", data={"csrf": token, "serial": "9300",
+                                         "storage": "AGING", "target_days": "45"})
+
+    pantalla = luis.get("/maduracion")
+    assert "Conteo diario" in pantalla.text and 'name="kg:9300"' in pantalla.text
+
+    hecho = luis.post("/maduracion/conteo", data={"csrf": token, "kg:9300": "8,7"})
+    assert hecho.status_code == 200
+    assert "Agua evaporada" in hecho.text       # los kilos de hoy, sí
+    assert "Se pierde hoy" not in hecho.text    # el dinero de esos kilos, no
+
+    with db.session_scope() as s:
+        assert s.query(Primal).filter_by(serial="9300").one().weight_kg == 8.7
