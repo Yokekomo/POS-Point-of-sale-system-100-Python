@@ -291,3 +291,104 @@ def test_what_was_sold_at_the_block_is_not_counted_as_evaporated(ctx):
     assert fila.loss_kg == 1.5                      # solo el agua
     assert fila.loss_pct == pytest.approx(15.96, abs=0.01)
     assert aging.summary(s, rest.id, on=HOY).lost_kg == 1.5
+
+
+# ------------------------------- del primal madurado al POS, por su camino
+def test_an_aged_piece_is_trimmed_in_the_butchery_and_sold_by_weight(ctx):
+    """El camino entero: madurar, limpiar y vender por gramos desde la caja.
+
+    La carne madurada no sale de la nevera al plato: se limpia primero, y esa
+    limpieza la pagan los kilos que quedan. Lo que entra en cámara es un lote a
+    peso, sin piezas, y lo que lo descuenta son los gramos del POS.
+    """
+    from thegrill.meat import service as meat
+    from thegrill.models import Ingredient, IngredientLot
+    from thegrill.web import costing
+
+    s, rest, ana, _ = ctx
+    pieza(s, rest, kg=9.0, precio=30.0)
+    aging.move(s, ana, "8017", Storage.AGING, target_days=45, on=HOY - timedelta(days=45))
+    aging.weigh(s, ana, "8017", 7.6, on=HOY)                 # 35,53 €/kg
+
+    corte = meat.create_cut(s, ana, "Lomo madurado", sold_by_weight=True)
+    articulo = meat.add_article(s, ana, corte, "Ribeye AUS")
+    s.query(Primal).one().expiry_label = HOY + timedelta(days=30)
+    s.flush()
+
+    meat.post_butchery(s, ana, tg="TG-0001", serials=["8017"], before_kg=7.6,
+                       rows=[meat.CutRow(name="Lomo madurado", item_id=articulo.id,
+                                         pieces=0, grams=0, by_weight=True, kg=6.4)],
+                       waste_kg=1.2, on=HOY)
+
+    lote = s.query(IngredientLot).one()
+    assert lote.pieces is None and lote.piece_weight_g is None   # no hay ración que fingir
+    assert lote.qty_remaining == 6.4
+    # Los 270 € de la pieza siguen ahí, ahora en 6,4 kg: la limpieza la pagan ellos.
+    assert lote.unit_cost == pytest.approx(42.1875, abs=1e-3)
+
+    plato = meat.add_dish(s, ana, "Lomo madurado al corte", corte.id, 300,
+                          by_weight=True, price_per_kg=129.0, vat_pct=10.0,
+                          pos_code="1401", pos_name="LOMO MADURADO")
+    assert plato.by_weight and plato.price_per_kg == 129.0
+    assert plato.sale_price == pytest.approx(38.7)      # la ración de referencia, para la carta
+
+    venta = costing.consume_sales(s, ana, [("LOMO MADURADO", 1, 0.412)], on=HOY, lang="es")
+    assert venta.weighed_kg == 0.412
+    assert venta.cost == pytest.approx(17.381, abs=0.01)
+    assert s.query(IngredientLot).one().qty_remaining == pytest.approx(5.988)
+    assert not venta.missing_weight
+
+
+def test_a_weight_dish_without_its_weight_says_so(ctx):
+    """Si el POS no manda el peso se descuenta la ración de referencia, y se avisa."""
+    from thegrill.meat import service as meat
+    from thegrill.models import IngredientLot
+    from thegrill.web import costing
+
+    s, rest, ana, _ = ctx
+    corte = meat.create_cut(s, ana, "Lomo madurado", sold_by_weight=True)
+    articulo = meat.add_article(s, ana, corte, "Ribeye AUS")
+    costing.receive(s, ana, articulo, 6.0, 40.0, HOY + timedelta(days=20),
+                    lot_code="TG-9", on=HOY)
+    meat.add_dish(s, ana, "Lomo al corte", corte.id, 300, by_weight=True,
+                  price_per_kg=129.0, pos_name="LOMO")
+
+    venta = costing.consume_sales(s, ana, [("LOMO", 1)], on=HOY, lang="es")
+    assert venta.missing_weight == ["LOMO"]
+    assert s.query(IngredientLot).one().qty_remaining == pytest.approx(5.7)   # los 300 g de referencia
+
+
+def test_a_dish_by_weight_needs_its_price_per_kilo(ctx):
+    from thegrill.meat import service as meat
+    s, rest, ana, _ = ctx
+    corte = meat.create_cut(s, ana, "Lomo madurado", sold_by_weight=True)
+    with pytest.raises(meat.MeatError):
+        meat.add_dish(s, ana, "Lomo al corte", corte.id, 300, by_weight=True)
+
+
+def test_pieces_and_by_weight_come_out_of_the_same_butchery(ctx):
+    """Dos opciones a la vez: parte en raciones y parte entera para cortar al vender."""
+    from thegrill.meat import service as meat
+    from thegrill.models import IngredientLot
+
+    s, rest, ana, _ = ctx
+    p = pieza(s, rest, kg=9.0, precio=30.0)
+    p.expiry_label = HOY + timedelta(days=30)
+    s.flush()
+    raciones = meat.create_cut(s, ana, "Chuletón")
+    entero = meat.create_cut(s, ana, "Lomo madurado", sold_by_weight=True)
+    art_r = meat.add_article(s, ana, raciones, "Ribeye AUS")
+    art_e = meat.add_article(s, ana, entero, "Ribeye AUS entero")
+
+    meat.post_butchery(s, ana, tg="TG-0002", serials=["8017"], before_kg=9.0,
+                       rows=[meat.CutRow(name="Chuletón", item_id=art_r.id,
+                                         pieces=10, grams=400),
+                             meat.CutRow(name="Lomo madurado", item_id=art_e.id,
+                                         pieces=0, grams=0, by_weight=True, kg=3.6)],
+                       waste_kg=1.4, on=HOY)
+
+    lotes = {l.ingredient_id: l for l in s.query(IngredientLot)}
+    assert lotes[raciones.id].pieces == 10
+    assert lotes[raciones.id].piece_weight_g == pytest.approx(400)
+    assert lotes[entero.id].pieces is None
+    assert lotes[entero.id].qty_remaining == 3.6

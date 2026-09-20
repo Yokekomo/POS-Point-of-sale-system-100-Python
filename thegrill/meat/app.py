@@ -477,13 +477,16 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
             name = (form.get(f"cut:{i}") or "").strip()
             pieces = form.get(f"pieces:{i}")
             grams = form.get(f"grams:{i}")
-            if not name and not (pieces or "").strip():
+            kg = form.get(f"kg:{i}")
+            by_weight = bool(form.get(f"weight:{i}"))
+            if not name and not (pieces or "").strip() and not (kg or "").strip():
                 continue
             rows.append(meat.CutRow(
                 name=name, item_id=int(form.get(f"item:{i}") or 0),
                 pieces=int(_num(pieces, 0) or 0), grams=_num(grams, 0.0) or 0.0,
                 value_index=_num(form.get(f"index:{i}"), 1.0) or 1.0,
-                is_trim=bool(form.get(f"trim:{i}"))))
+                is_trim=bool(form.get(f"trim:{i}")),
+                by_weight=by_weight, kg=_num(kg, 0.0) or 0.0))
         on = (form.get("date") or "").strip()
         _, result = meat.post_butchery(
             session, user, tg=(form.get("tg") or ""),
@@ -678,12 +681,13 @@ def cuts_page(request: Request, ctx=Depends(needs(perms.STOCK)),
 @app.post("/cortes/nuevo")
 def new_cut(request: Request, name: str = Form(...), min_stock: str = Form(""),
             rotation: str = Form("FEFO"), consumption: str = Form("RECIPE"),
-            csrf: str = Form(""), ctx=Depends(needs(perms.CATALOGUE)),
-            session: Session = Depends(get_db)):
+            sold_by_weight: str = Form(""), csrf: str = Form(""),
+            ctx=Depends(needs(perms.CATALOGUE)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
         meat.create_cut(session, user, name, min_stock=_num(min_stock),
+                        sold_by_weight=bool(sold_by_weight),
                         rotation=Rotation[rotation] if rotation in Rotation.__members__
                         else Rotation.FEFO,
                         consumption=ConsumptionMode[consumption]
@@ -721,7 +725,8 @@ def menu_page(request: Request, ctx=Depends(needs(perms.MENU)),
 @app.post("/carta/nuevo")
 def new_dish(request: Request, name: str = Form(...), cut_id: int = Form(...),
              grams: str = Form(...), sale_price: str = Form(""), vat_pct: str = Form("0"),
-             pos_code: str = Form(""), pos_name: str = Form(""), csrf: str = Form(""),
+             pos_code: str = Form(""), pos_name: str = Form(""),
+             by_weight: str = Form(""), price_per_kg: str = Form(""), csrf: str = Form(""),
              ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -729,7 +734,8 @@ def new_dish(request: Request, name: str = Form(...), cut_id: int = Form(...),
     try:
         meat.add_dish(session, user, name, cut_id, _num(grams, 0.0) or 0.0,
                       sale_price=_num(sale_price), vat_pct=_num(vat_pct, 0.0) or 0.0,
-                      pos_code=pos_code, pos_name=pos_name, lang=lang)
+                      pos_code=pos_code, pos_name=pos_name,
+                      by_weight=bool(by_weight), price_per_kg=_num(price_per_kg), lang=lang)
     except (meat.MeatError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
     return RedirectResponse("/carta", status_code=303)
@@ -867,20 +873,29 @@ async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
 
-    sales: list[tuple[str, float]] = []
+    sales: list[tuple[str, float, float | None]] = []
     for key, value in form.multi_items():
         if not key.startswith("units:") or not str(value).strip():
             continue
+        name = key.split(":", 1)[1]
         try:
             units = _num(value, 0.0) or 0.0
+            # Lo que se cobra por kilo llega con su peso: son los gramos que
+            # se cortaron, no los de la carta.
+            grams = _num(form.get(f"grams:{name}"), None)
         except ValueError:
             continue
         if units > 0:
-            sales.append((key.split(":", 1)[1], units))
+            sales.append((name, units, round(grams / 1000, 6) if grams else None))
     on = form.get("business_date")
     result = costing.consume_sales(session, user, sales,
                                    on=date.fromisoformat(on) if on else None, lang=lang)
     summary = i18n.t(lang, "sale.done", n=result.lines, cost=f"{result.cost:.2f}")
+    if result.weighed_kg:
+        summary += " · " + i18n.t(lang, "sale.weighed", kg=f"{result.weighed_kg:.10g}")
+    if result.missing_weight:
+        summary += " · " + i18n.t(lang, "sale.no_weight",
+                                  products=", ".join(result.missing_weight[:4]))
     return RedirectResponse(f"/ventas?done={summary}", status_code=303)
 
 

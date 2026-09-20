@@ -21,9 +21,12 @@
       <select id="consumption" name="consumption">
         {% for m in modes %}<option value="{{ m.value }}">{{ t("ing.consumption." ~ m.value) }}</option>{% endfor %}
       </select></div>
+    <div><label for="sold_by_weight">{{ t("m.cut.by_weight") }}</label>
+      <input id="sold_by_weight" type="checkbox" name="sold_by_weight" value="1"></div>
   </div>
   <div class="help">{{ t("ing.rotation_help") }}</div>
   <div class="help">{{ t("ing.consumption_help") }}</div>
+  <div class="help">{{ t("m.cut.by_weight_help") }}</div>
   <button class="wide" type="submit">{{ t("m.cut.new") }}</button>
 </form>
 </div>
@@ -34,7 +37,8 @@
   <div class="rowflex">
     <div style="flex:1">
       <b>{{ c.name }}</b>
-      <div class="muted">{{ c.rotation.value }} · {{ t("ing.consumption." ~ c.consumption.value) }} ·
+      <div class="muted">{{ c.rotation.value }} · {{ t("ing.consumption." ~ c.consumption.value) }}
+        {% if c.sold_by_weight %} · {{ t("m.cut.by_weight") }}{% endif %} ·
         {{ "%.3f"|format(stock.get(c.id, 0)) }} kg
         {% if can("money") %} ·
         {% if costs.get(c.id) %}{{ "%.2f"|format(costs[c.id]) }} / kg

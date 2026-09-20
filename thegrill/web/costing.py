@@ -154,6 +154,20 @@ class ConsumptionResult:
     # Lo que las recetas dicen que se gastaría de los ingredientes que se
     # controlan por conteo. No se descuenta aquí: se compara al cerrar turno.
     theoretical: dict[int, float] = field(default_factory=dict)
+    weighed_kg: float = 0.0               # lo vendido a peso, con su peso real
+    # Platos que se cobran por kilo y han llegado sin peso: ahí el descuento
+    # sale de la ración de referencia, que no es lo que se cortó.
+    missing_weight: list[str] = field(default_factory=list)
+
+
+def _by_weight_line(recipe: Recipe):
+    """La línea del plato cuyo peso lo decide la balanza, si la hay."""
+    if not getattr(recipe, "by_weight", False):
+        return None
+    for line in recipe.lines:
+        if line.by_weight and line.ingredient_id:
+            return line
+    return None
 
 
 def take_from_stock(session: Session, user: User, ingredient: Ingredient, qty: float,
@@ -188,11 +202,14 @@ def take_from_stock(session: Session, user: User, ingredient: Ingredient, qty: f
     return round(cost, 6), round(pending, 6)
 
 
-def consume_sales(session: Session, user: User, sales: list[tuple[str, float]],
+def consume_sales(session: Session, user: User, sales: list[tuple],
                   on: date | None = None, lang: str | None = None) -> ConsumptionResult:
     """Descuenta del almacén lo que se ha vendido en el POS.
 
-    `sales` son pares (nombre del producto en el POS, unidades vendidas).
+    `sales` son pares (nombre del producto en el POS, unidades vendidas), o
+    tríos con el peso real cuando ese producto se cobra por kilo: la carne
+    madurada se corta delante del cliente y no hay dos raciones iguales, así
+    que lo que descuenta son los gramos de esa venta y no un gramaje de carta.
     """
     on = on or date.today()
     lang = lang or service.restaurant_language(session, user.restaurant_id)
@@ -203,7 +220,9 @@ def consume_sales(session: Session, user: User, sales: list[tuple[str, float]],
     # a qué plato fue, y luego se puede repartir lo que ingresó.
     by_dish: list[tuple[str, dict[int, float]]] = []
     needed: dict[int, float] = {}
-    for pos_name, units in sales:
+    for line in sales:
+        pos_name, units = line[0], line[1]
+        kg = line[2] if len(line) > 2 else None
         if units <= 0:
             continue
         product = mapping.get(_norm(pos_name))
@@ -211,9 +230,19 @@ def consume_sales(session: Session, user: User, sales: list[tuple[str, float]],
             result.unmapped.append(pos_name)
             continue
         result.lines += 1
+        recipe = product.recipe
+        exploded = explode(recipe, units)
+        weighed = _by_weight_line(recipe)
+        if weighed is not None and kg and kg > EPSILON:
+            # Manda la balanza: los gramos de esta venta sustituyen a la ración
+            # de la carta, que en un corte a peso es solo una referencia.
+            exploded[weighed.ingredient_id] = round(kg, 6)
+            result.weighed_kg = round(result.weighed_kg + kg, 6)
+        elif weighed is not None:
+            result.missing_weight.append(product.pos_name)
         session.add(SalesByProduct(restaurant_id=user.restaurant_id, op_date=on,
-                                   pos_name=product.pos_name, units=int(units)))
-        exploded = explode(product.recipe, units)
+                                   pos_name=product.pos_name, units=int(units),
+                                   kg=round(kg, 6) if kg else None))
         by_dish.append((product.pos_name, exploded))
         for ingredient_id, qty in exploded.items():
             needed[ingredient_id] = round(needed.get(ingredient_id, 0.0) + qty, 6)

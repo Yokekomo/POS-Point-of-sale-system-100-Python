@@ -277,11 +277,17 @@ verdad falta. Si pierde más de lo razonable —más de un 10 % de una pesada a 
 siguiente o más de un 20 % desde que entró— salta el aviso; del 30 % para
 arriba, crítico.
 
-La carne madurada se corta delante del cliente y se cobra por kilo, no por
-ración: se apuntan los gramos y lo cobrado, y sale el coste de ese trozo con el
-precio del kilo de hoy y su food cost. Lo que se corta se lleva su parte del
-coste, así que el kilo de lo que queda no se mueve. La congelada va por el
-camino de siempre: despiece, porciones con serial y venta por pieza.
+La madurada pasa por despiece igual que las demás: hay que limpiarla antes de
+meterla en cámara, y esa limpieza la pagan los kilos que quedan. Al limpiarla se
+decide qué sale, y pueden salir las dos cosas a la vez: un corte **a peso**, que
+entra en cámara en kilos y sin piezas porque se corta delante del cliente, y
+raciones ya cortadas con su peso.
+
+Todo se vende por el POS. Un plato a peso se cobra por kilo y el parte de ventas
+trae los gramos de cada venta: son esos gramos los que descuentan de cámara y
+los que dan el coste de ese corte al precio del kilo de hoy. Sin ese peso se
+descuenta la ración de referencia y se avisa, porque la referencia no es lo que
+se cortó.
 
 ## Cuando la pieza aparece
 
@@ -459,7 +465,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   531 tests
+tests/                   536 tests
 ```
 
 ## Uso

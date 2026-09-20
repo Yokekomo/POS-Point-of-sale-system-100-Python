@@ -59,6 +59,7 @@
   <div class="scroll"><table>
   <tr><th>{{ t("m.tg.cut_name") }}</th><th>{{ t("m.tg.article") }}</th>
       <th class="num">{{ t("meat.pieces") }}</th><th class="num">{{ t("m.tg.g_piece") }}</th>
+      <th>{{ t("m.tg.by_weight") }}</th><th class="num">kg</th>
       <th class="num">{{ t("m.tg.value_index") }}</th><th>{{ t("m.tg.trim") }}</th></tr>
   {% for i in rows %}
   <tr>
@@ -69,6 +70,8 @@
       </select></td>
     <td><input name="pieces:{{ i }}" inputmode="numeric" style="max-width:90px"></td>
     <td><input name="grams:{{ i }}" inputmode="decimal" style="max-width:110px"></td>
+    <td><input type="checkbox" name="weight:{{ i }}" value="1"></td>
+    <td><input name="kg:{{ i }}" inputmode="decimal" style="max-width:100px"></td>
     <td><input name="index:{{ i }}" inputmode="decimal" placeholder="1" style="max-width:90px"></td>
     <td><input type="checkbox" name="trim:{{ i }}" value="1"></td>
   </tr>
@@ -76,6 +79,7 @@
   </table></div>
   <div class="help">{{ t("m.tg.rows_help") }}</div>
   <div class="help">{{ t("m.tg.index_help") }}</div>
+  <div class="help">{{ t("m.tg.by_weight_help") }}</div>
   <button class="wide" type="submit">{{ t("m.tg.submit") }}</button>
 </form>
 </div>

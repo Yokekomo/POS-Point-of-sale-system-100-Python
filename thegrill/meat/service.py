@@ -102,12 +102,17 @@ def recent_primals(session: Session, restaurant_id: int, limit: int = 50) -> lis
 # ============================================================ cortes madre
 def create_cut(session: Session, user: User, name: str, min_stock: float | None = None,
                rotation: Rotation = Rotation.FEFO,
-               consumption: ConsumptionMode = ConsumptionMode.RECIPE) -> Ingredient:
+               consumption: ConsumptionMode = ConsumptionMode.RECIPE,
+               sold_by_weight: bool = False) -> Ingredient:
     """Un corte es un ingrediente madre de carne: lo que se cuenta y se vende.
 
     `consumption` dice de dónde sale el consumo: de la venta en el POS, o del
     recuento de descongelado al cerrar el turno. Las dos cosas a la vez
     descontarían el doble.
+
+    `sold_by_weight` es el corte que no se raciona: entra entero y limpio en
+    cámara y se corta delante del cliente, así que lo que descuenta cada venta
+    son los gramos que manda el POS, no un gramaje de carta.
     """
     name = name.strip()
     if not name:
@@ -117,7 +122,8 @@ def create_cut(session: Session, user: User, name: str, min_stock: float | None 
         raise MeatError(f"Ya hay un corte llamado {name}")
     cut = Ingredient(restaurant_id=user.restaurant_id, name=name, unit=Unit.KG,
                      rotation=rotation, consumption=consumption,
-                     min_stock=min_stock, category=CATEGORY)
+                     min_stock=min_stock, category=CATEGORY,
+                     sold_by_weight=bool(sold_by_weight))
     session.add(cut)
     session.flush()
     return cut
@@ -257,6 +263,8 @@ class CutRow:
     grams: float
     value_index: float = 1.0
     is_trim: bool = False
+    by_weight: bool = False     # sale entero: se corta al vender
+    kg: float = 0.0             # solo para los que salen a peso
 
 
 def post_butchery(session: Session, user: User, tg: str, serials: list[str],
@@ -265,7 +273,10 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
                   country: str | None = None, grade: str | None = None,
                   lang: str = "es") -> tuple[Despiece, butchery.PostResult]:
     """Monta el despiece con lo que se ha escrito y lo vuelca a cámara."""
-    rows = [r for r in rows if r.name.strip() and r.pieces and r.grams]
+    # Una fila vale si dice cuántas piezas y de cuántos gramos, o —si sale a
+    # peso— cuántos kilos entran enteros en cámara.
+    rows = [r for r in rows if r.name.strip()
+            and ((r.by_weight and r.kg) or (not r.by_weight and r.pieces and r.grams))]
     serials = [s.strip() for s in serials if s.strip()]
     if not serials:
         raise MeatError(t(lang, "m.tg.need_primals"))
@@ -292,10 +303,13 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
         despiece.primals.append(DespiecePrimal(serial=serial))
     for row in rows:
         despiece.cuts.append(DespieceCut(
-            cut_name=row.name.strip(), item_id=row.item_id, pieces=row.pieces,
-            weight_per_piece_g=row.grams,
-            total_kg=round(row.pieces * row.grams / 1000, 4),
-            value_index=row.value_index or 1.0, is_trim=row.is_trim))
+            cut_name=row.name.strip(), item_id=row.item_id,
+            pieces=0 if row.by_weight else row.pieces,
+            weight_per_piece_g=0.0 if row.by_weight else row.grams,
+            total_kg=round(row.kg, 4) if row.by_weight
+            else round(row.pieces * row.grams / 1000, 4),
+            value_index=row.value_index or 1.0, is_trim=row.is_trim,
+            by_weight=row.by_weight))
     session.add(despiece)
     session.flush()
 
@@ -323,12 +337,18 @@ def next_tg(session: Session, restaurant_id: int) -> str:
 def add_dish(session: Session, user: User, name: str, cut_id: int, grams: float,
              sale_price: float | None = None, vat_pct: float = 0.0,
              pos_code: str | None = None, pos_name: str | None = None,
+             by_weight: bool = False, price_per_kg: float | None = None,
              lang: str = "es") -> Recipe:
     """Un plato de carne: un corte, unos gramos y su producto del POS.
 
     Por dentro es una receta de una línea, así que el food cost, el descuento
     de cámara y el reparto del ingreso salen del mismo motor que ya está
     probado, sin una segunda manera de calcular lo mismo.
+
+    Un plato **a peso** es el mismo plato con otra manera de cobrar: el precio
+    va por kilo y los gramos los manda el POS en cada venta. Los gramos que se
+    escriben aquí son la ración de referencia, la que sirve para ver el food
+    cost en la carta antes de vender nada.
     """
     name = name.strip()
     if not name:
@@ -343,12 +363,20 @@ def add_dish(session: Session, user: User, name: str, cut_id: int, grams: float,
     if session.query(Recipe).filter_by(restaurant_id=user.restaurant_id, code=code).first():
         raise MeatError(f"Ya hay un plato llamado {name}")
 
+    if by_weight and not price_per_kg:
+        raise MeatError(t(lang, "m.menu.need_price_kg"))
+    if by_weight and sale_price is None:
+        # El PVP de la ración de referencia, para que la carta sepa comparar.
+        sale_price = round(price_per_kg * grams / 1000, 4)
+
     dish = Recipe(restaurant_id=user.restaurant_id, code=code, name=name,
-                  kind=RecipeKind.DISH, portions=1, sale_price=sale_price, vat_pct=vat_pct)
+                  kind=RecipeKind.DISH, portions=1, sale_price=sale_price, vat_pct=vat_pct,
+                  by_weight=bool(by_weight), price_per_kg=price_per_kg)
     session.add(dish)
     session.flush()
     session.add(RecipeLine(recipe_id=dish.id, ingredient_id=cut.id,
-                           qty=round(grams / 1000, 6), waste_pct=0.0, sort_order=0))
+                           qty=round(grams / 1000, 6), waste_pct=0.0, sort_order=0,
+                           by_weight=bool(by_weight)))
     session.add(PosProduct(restaurant_id=user.restaurant_id, recipe_id=dish.id,
                            pos_code=(pos_code or "").strip() or None,
                            pos_name=(pos_name or "").strip() or name))

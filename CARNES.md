@@ -238,12 +238,27 @@ Si la pieza pierde más de lo que una maduración explica —más de un 10 % de 
 pesada a la siguiente, o más de un 20 % desde que entró— salta el aviso; a
 partir del 30 % es crítico, porque eso ya no es maduración.
 
-**Las dos maneras de vender lo que no es un filete de cámara.** La madurada se
-corta delante del cliente y se cobra por kilo: se apuntan los gramos cortados y
-lo cobrado, y sale el coste de ese trozo y su food cost, con el precio del kilo
-de hoy, no con el del día que llegó. La congelada va por el camino de siempre:
-se despieza en porciones —que nacen congeladas, con la fecha del congelador— y
-se vende por pieza, con su escandallo.
+**La madurada también pasa por despiece.** Hay que limpiarla antes de meterla
+en cámara: quitarle la corteza seca. Eso es un despiece como cualquier otro, y
+la limpieza la pagan los kilos que quedan, igual que la merma de siempre. Una
+pieza de 9 kg a 30 € que madura hasta 7,6 y deja 6,4 limpios sale a 42,19 € el
+kilo: los 270 € no se han movido, los kilos sí.
+
+Al limpiarla se elige qué sale, y pueden salir las dos cosas del mismo
+despiece:
+
+- **para vender a gramos**: el corte sale entero y se marca «a peso». Entra en
+  cámara en kilos, sin piezas ni gramos por pieza, porque la ración la decide
+  el cuchillo delante del cliente;
+- **en piezas ya cortadas**: raciones con su peso, como el resto de la carta.
+
+**Y todo pasa por el POS.** Un plato «a peso» se cobra por kilo y el parte de
+ventas trae además los gramos de cada venta: eso es lo que descuenta de cámara
+y con lo que sale el coste de ese corte concreto, al precio del kilo de hoy. Si
+el parte llega sin el peso, se descuenta la ración de referencia y la pantalla
+lo dice, porque esa ración no es lo que se cortó. La congelada va por el camino
+de siempre: porciones —que nacen congeladas, con la fecha del congelador—
+vendidas por pieza con su escandallo.
 
 **Descongelado.** Lo que sale a descongelar, lo que el POS ha vendido y lo que
 queda al cerrar el turno. Las tres cosas juntas son el cuadre del día:

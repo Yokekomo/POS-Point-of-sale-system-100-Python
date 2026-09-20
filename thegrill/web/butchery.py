@@ -96,7 +96,9 @@ def check(session: Session, despiece: Despiece) -> list[str]:
     serials = [p.serial for p in despiece.primals]
     for issue in validate_tg(TGInput(despiece.tg, despiece.country, serials,
                                      [{"cut_name": c.cut_name, "pieces": c.pieces,
-                                       "weight_per_piece_g": c.weight_per_piece_g} for c in cuts])):
+                                       "weight_per_piece_g": c.weight_per_piece_g,
+                                       "by_weight": bool(c.by_weight),
+                                       "total_kg": c.total_kg} for c in cuts])):
         if issue.severity == "ERROR":
             problems.append(issue.message)
 
@@ -206,6 +208,8 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
         result.issues.append(
             f"{despiece.tg}: descuadre de masa de {mass.drift_kg} kg ({mass.drift_pct} %)")
     for alloc in allocations:
+        if alloc.cut.by_weight:
+            continue          # se corta al vender: no hay peso por pieza que comparar
         gap = piece_gap_pct(avg_piece_g(alloc.kg, alloc.cut.pieces),
                             alloc.cut.weight_per_piece_g)
         if gap is not None and abs(gap) >= config.PORTION_VARIANCE_PCT:
@@ -223,10 +227,14 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
                             parent_lot=parent_lot,
                             expiry=use_by, received=despiece.date, qty=alloc.kg,
                             qty_remaining=alloc.kg, unit_cost=alloc.unit_cost,
-                            pieces=alloc.cut.pieces,
-                            piece_weight_g=avg_piece_g(alloc.kg, alloc.cut.pieces)
-                            or alloc.cut.weight_per_piece_g,
-                            nominal_piece_g=alloc.cut.weight_per_piece_g,
+                            # Lo que sale a peso entra en kilos y sin piezas: la
+                            # ración la decide el cuchillo en el momento de vender.
+                            pieces=None if alloc.cut.by_weight else alloc.cut.pieces,
+                            piece_weight_g=None if alloc.cut.by_weight else (
+                                avg_piece_g(alloc.kg, alloc.cut.pieces)
+                                or alloc.cut.weight_per_piece_g),
+                            nominal_piece_g=None if alloc.cut.by_weight
+                            else alloc.cut.weight_per_piece_g,
                             grade=grade, origin=origin, frozen=from_freezer)
         session.add(lot)
         session.flush()

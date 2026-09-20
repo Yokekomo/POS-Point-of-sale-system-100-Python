@@ -516,6 +516,9 @@ class DespieceCut(Base):
     total_kg: Mapped[float] = mapped_column(Float)
     item_id: Mapped[int | None] = mapped_column(ForeignKey("ingredient_items.id"), index=True)
     is_trim: Mapped[bool] = mapped_column(Boolean, default=False)   # parte para reusar
+    # Sale limpio y entero, para cortarlo al vender: no hay piezas ni gramos
+    # por pieza, solo los kilos que entran en cámara.
+    by_weight: Mapped[bool | None] = mapped_column(Boolean, default=False)
     value_index: Mapped[float] = mapped_column(Float, default=1.0)  # reparto del coste del primal
     lot_id: Mapped[int | None] = mapped_column(ForeignKey("ingredient_lots.id"))
 
@@ -588,6 +591,7 @@ class SalesByProduct(TenantMixin, Base):
     op_date: Mapped[date] = mapped_column(Date, index=True)
     pos_name: Mapped[str] = mapped_column(String(128))
     units: Mapped[int] = mapped_column(Integer)
+    kg: Mapped[float | None] = mapped_column(Float)      # lo pesado, si se vendió a peso
     amount: Mapped[float | None] = mapped_column(Float)
     unit_price: Mapped[float | None] = mapped_column(Float)
 
@@ -657,6 +661,10 @@ class Ingredient(TenantMixin, Base):
     # unidad base. Es lo que se escribe en cocina, y de ahí sale lo que cuesta
     # la ración.
     portion_g: Mapped[float | None] = mapped_column(Float)
+    # Un corte que se vende a peso no lleva ración fija: se corta delante del
+    # cliente y el POS manda los gramos de esa venta. Es como se vende la carne
+    # madurada, y por eso su stock vive en kilos y no en piezas.
+    sold_by_weight: Mapped[bool | None] = mapped_column(Boolean, default=False)
     category: Mapped[str | None] = mapped_column(String(48))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text)
@@ -758,6 +766,10 @@ class Recipe(TenantMixin, Base):
     yield_unit: Mapped[Unit | None] = mapped_column(Enum(Unit))
     sale_price: Mapped[float | None] = mapped_column(Float)          # PVP con impuestos
     vat_pct: Mapped[float] = mapped_column(Float, default=0.0)       # para el food cost neto
+    # El plato que se cobra por kilo: el POS manda los gramos de cada venta y
+    # el precio sale de ahí, no de una ración fija.
+    by_weight: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    price_per_kg: Mapped[float | None] = mapped_column(Float)        # PVP por kilo, con impuestos
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text)
 
@@ -776,6 +788,9 @@ class RecipeLine(Base):
     ingredient_id: Mapped[int | None] = mapped_column(ForeignKey("ingredients.id"), index=True)
     sub_recipe_id: Mapped[int | None] = mapped_column(ForeignKey("recipes.id"), index=True)
     qty: Mapped[float] = mapped_column(Float)                  # peso NETO, el que va al plato
+    # La línea cuyo peso lo decide la balanza en el momento de la venta. Su
+    # `qty` es solo una referencia: el que manda es el que llega del POS.
+    by_weight: Mapped[bool | None] = mapped_column(Boolean, default=False)
     waste_pct: Mapped[float] = mapped_column(Float, default=0.0)   # merma de limpieza sobre el bruto
     note: Mapped[str | None] = mapped_column(Text)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)

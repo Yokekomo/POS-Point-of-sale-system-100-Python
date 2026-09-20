@@ -71,6 +71,12 @@ def validate_tg(tg_in: TGInput) -> list[Issue]:
     if not tg_in.cuts:
         issues.append(Issue("TG_NO_CUTS", f"{tg_in.tg}: sin cortes de salida", "ERROR"))
     for c in tg_in.cuts:
+        if c.get("by_weight"):
+            # Corte que sale entero y se cortará al vender: no hay piezas ni
+            # gramos por pieza que exigir, pero los kilos que entran, sí.
+            if not c.get("total_kg") or c["total_kg"] <= 0:
+                issues.append(Issue("CUT_NO_KG", f"{tg_in.tg}/{c.get('cut_name')}: kilos obligatorios", "ERROR"))
+            continue
         if not c.get("pieces") or c["pieces"] <= 0:
             issues.append(Issue("CUT_NO_PIECES", f"{tg_in.tg}/{c.get('cut_name')}: nº piezas obligatorio", "ERROR"))
         if not c.get("weight_per_piece_g") or c["weight_per_piece_g"] <= 0:
