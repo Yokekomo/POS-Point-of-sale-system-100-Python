@@ -9,6 +9,7 @@ Corre por su cuenta, con su propia base de datos:
 
     python -m thegrill.cli --db sqlite:///carnes.db serve-carne --port 8001
 """
+import json
 import logging
 import os
 from datetime import date, datetime, timedelta
@@ -28,7 +29,7 @@ from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, Cou
                              PosMatch, PosProduct, Primal, PrimalStatus, Recipe,
                              RequestStatus, Restaurant, Role, Rotation, Storage, Unit, User)
 from thegrill.web import (aging, auth, butchery, costing, defrost, i18n, inventory,
-                          service, tracing, waste)
+                          pos_import, service, tracing, waste)
 
 log = logging.getLogger(__name__)
 
@@ -895,9 +896,47 @@ def set_plate_grams(code: str, request: Request, grams: str = Form(...), csrf: s
 def sales_page(request: Request, ctx=Depends(needs(perms.MENU)),
                session: Session = Depends(get_db), done: str = ""):
     user, auth_session = ctx
-    return page(request, "sales.html", user, auth_session, session, done=done,
+    return _sales(request, user, auth_session, session, done=done)
+
+
+def _sales(request, user, auth_session, session, *, done="", error="", parsed=None,
+           preview=None, business_date=""):
+    return page(request, "sales.html", user, auth_session, session, done=done, error=error,
+                parsed=parsed, preview=preview, business_date=business_date,
+                rows_json=json.dumps([[p["key"], p["units"], p["kg"]] for p in preview
+                                      if p["dish"]]) if preview else "",
                 mapping=(session.query(PosProduct).filter_by(restaurant_id=user.restaurant_id)
                          .order_by(PosProduct.pos_name).all()))
+
+
+@app.post("/ventas/fichero", response_class=HTMLResponse)
+async def read_sales_file(request: Request, ctx=Depends(needs(perms.MENU)),
+                          session: Session = Depends(get_db)):
+    """Lee el parte de ventas del POS y enseña lo entendido. No descuenta nada."""
+    user, auth_session = ctx
+    form = await request.form()
+    _guard(request, session, user, auth_session, form.get("csrf"))
+    upload = form.get("file")
+    if upload is None or not getattr(upload, "filename", ""):
+        return _sales(request, user, auth_session, session,
+                      error=i18n.t(lang_for(request, session, user), "sale.no_file"))
+    try:
+        parsed = pos_import.parse(await upload.read(), upload.filename)
+    except (pos_import.ImportError_, ValueError) as e:
+        return _sales(request, user, auth_session, session, error=str(e))
+
+    index = costing.pos_index(session, user.restaurant_id)
+    preview = []
+    for row in parsed.rows:
+        product = index.get(costing._norm(row.code)) or index.get(costing._norm(row.name))
+        preview.append({
+            "key": (product.pos_name if product else row.key),
+            "label": row.name or row.code, "code": row.code,
+            "units": row.units, "kg": row.kg, "amount": row.amount,
+            "dish": product.recipe.name if product and product.recipe else None,
+            "by_weight": bool(product and product.recipe and product.recipe.by_weight)})
+    return _sales(request, user, auth_session, session, parsed=parsed, preview=preview,
+                  business_date=(form.get("business_date") or "").strip())
 
 
 @app.post("/ventas")
@@ -910,6 +949,18 @@ async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
     lang = lang_for(request, session, user)
 
     sales: list[tuple[str, float, float | None]] = []
+    confirmed = form.get("rows")
+    if confirmed:
+        # Viene de un fichero ya leído y enseñado: se vuelve a validar, que lo
+        # que llega de un formulario no se cree por venir de nosotros.
+        try:
+            for line in json.loads(confirmed)[:pos_import.MAX_ROWS]:
+                name, units, kg = str(line[0])[:160], float(line[1]), line[2]
+                if units > 0:
+                    sales.append((name, units, float(kg) if kg else None))
+        except (TypeError, ValueError, IndexError, json.JSONDecodeError):
+            return _sales(request, user, auth_session, session,
+                          error=i18n.t(lang, "sale.bad_rows"))
     for key, value in form.multi_items():
         if not key.startswith("units:") or not str(value).strip():
             continue

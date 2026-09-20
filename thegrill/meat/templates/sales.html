@@ -3,6 +3,71 @@
 <h1>{{ t("sale.title") }}</h1>
 <p class="sub">{{ t("sale.sub") }}</p>
 {% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+<div class="card">
+  <b>{{ t("sale.file") }}</b>
+  <form method="post" action="/ventas/fichero" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="grid">
+      <div><label for="file">{{ t("sale.file_pick") }}</label>
+        <input id="file" type="file" name="file" accept=".csv,.tsv,.txt,.xlsx,.xlsm" required></div>
+      <div><label for="file_date">{{ t("common.date") }}</label>
+        <input id="file_date" type="date" name="business_date" value="{{ business_date or today }}"></div>
+    </div>
+    <div class="help">{{ t("sale.file_help") }}</div>
+    <button class="wide ghost" type="submit">{{ t("sale.read") }}</button>
+  </form>
+</div>
+
+{% if preview %}
+<h2>{{ t("sale.preview") }}</h2>
+<div class="card">
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+    <div class="kpi"><b>{{ preview|length }}</b><span>{{ t("sale.lines") }}</span></div>
+    <div class="kpi"><b>{{ "%.0f"|format(parsed.units) }}</b><span>{{ t("sale.units") }}</span></div>
+    {% if parsed.kg %}<div class="kpi"><b>{{ "%.3f"|format(parsed.kg) }}</b><span>kg</span></div>{% endif %}
+    {% if parsed.amount %}<div class="kpi"><b>{{ "%.2f"|format(parsed.amount) }}</b>
+      <span>{{ t("sale.amount") }}</span></div>{% endif %}
+    {% set sin = preview | rejectattr("dish") | list %}
+    {% if sin %}<div class="kpi"><b class="bad">{{ sin|length }}</b>
+      <span>{{ t("sale.unknown") }}</span></div>{% endif %}
+  </div>
+  <div class="muted" style="margin-top:8px">{{ t("sale.file_columns") }}:
+    {% for campo, columna in parsed.columns.items() %}<b>{{ columna }}</b>{% if not loop.last %} · {% endif %}{% endfor %}
+    {% if parsed.skipped %} · {{ t("sale.skipped", n=parsed.skipped) }}{% endif %}</div>
+  {% for aviso in parsed.warnings %}<div class="banner warn">{{ aviso }}</div>{% endfor %}
+</div>
+
+<div class="card scroll">
+<table>
+<tr><th>{{ t("sale.product") }}</th><th>{{ t("m.menu.dish") }}</th>
+    <th class="num">{{ t("sale.units") }}</th><th class="num">{{ t("sale.grams") }}</th>
+    <th class="num">{{ t("sale.amount") }}</th></tr>
+{% for r in preview %}
+<tr>
+  <td>{{ r.label }}{% if r.code %}<div class="muted">{{ r.code }}</div>{% endif %}</td>
+  <td>{% if r.dish %}{{ r.dish }}
+        {%- if r.by_weight %} <span class="tag">{{ t("m.menu.by_weight") }}</span>{% endif %}
+      {% else %}<span class="tag bad">{{ t("sale.unknown") }}</span>{% endif %}</td>
+  <td class="num">{{ "%.0f"|format(r.units) }}</td>
+  <td class="num">{% if r.kg %}{{ "%.0f"|format(r.kg * 1000) }}
+      {%- elif r.by_weight %} <span class="tag warn">—</span>{% endif %}</td>
+  <td class="num">{% if r.amount %}{{ "%.2f"|format(r.amount) }}{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+<div class="card">
+  <form method="post" action="/ventas">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="rows" value="{{ rows_json }}">
+    <input type="hidden" name="business_date" value="{{ business_date }}">
+    <div class="help">{{ t("sale.confirm_help") }}</div>
+    <button class="wide" type="submit">{{ t("sale.confirm") }}</button>
+  </form>
+</div>
+{% endif %}
 
 {% if mapping %}
 <div class="card">

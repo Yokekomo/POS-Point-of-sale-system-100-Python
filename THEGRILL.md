@@ -465,6 +465,7 @@ thegrill/
     butchery.py          Del primal a los cortes, con reparto de coste, serial propio y stock diario
     defrost.py           Descongelado, recuento de cierre y peso real por pieza
     inventory.py         Inventario mensual que re-ancla el stock, y recuperación de piezas
+    pos_import.py        El parte de ventas del POS: lee el fichero que salga y dice qué ha entendido
     tracing.py           Historia de un primal y reparto del ingreso
     waste.py             Merma de cámara: queda escrita y la paga lo que queda del lote
     aging.py             Maduración, congelador y venta a peso: el agua se va y el dinero no
@@ -482,10 +483,10 @@ thegrill/
     inventory.py         Conciliación del inventario físico, pieza a pieza
   meat/                  Edición solo carne: ver CARNES.md
   orchestrator/chain.py  Cadena diaria idempotente con checkpoints y reintentos
-  importers/             Pendiente: POS PDF, facturas, hojas manuscritas
+  importers/             Pendiente: facturas y hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   551 tests
+tests/                   562 tests
 ```
 
 ## Uso

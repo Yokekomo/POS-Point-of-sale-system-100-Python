@@ -280,8 +280,13 @@ despiece:
   el cuchillo delante del cliente;
 - **en piezas ya cortadas**: raciones con su peso, como el resto de la carta.
 
-**Y todo pasa por el POS.** Un plato «a peso» se cobra por kilo y el parte de
-ventas trae además los gramos de cada venta: eso es lo que descuenta de cámara
+**Y todo pasa por el POS.** El parte de ventas se carga del fichero que
+exporta la caja —CSV o Excel, como salga—: la pantalla lo lee, dice qué ha
+entendido de cada columna, con qué plato ha emparejado cada artículo y cuáles
+no conoce, y solo descuenta cuando se confirma. Leer no toca el almacén.
+
+Un plato «a peso» se cobra por kilo y el parte de ventas trae además los
+gramos de cada venta: eso es lo que descuenta de cámara
 y con lo que sale el coste de ese corte concreto, al precio del kilo de hoy. Si
 el parte llega sin el peso, se descuenta la ración de referencia y la pantalla
 lo dice, porque esa ración no es lo que se cortó. La congelada va por el camino
