@@ -11,14 +11,15 @@ import os
 from datetime import date, datetime, timedelta
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import (HTMLResponse, JSONResponse, PlainTextResponse,
+                               RedirectResponse, Response)
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile   # el que devuelve request.form(), no el de FastAPI
 
 from thegrill import db
-from thegrill.models import (Alert, Attachment, FieldType, Record, RecordTemplate,
-                             Restaurant, Role, TemplateField, User)
+from thegrill.models import (Alert, Attachment, FieldType, Notification, Record,
+                             RecordTemplate, Restaurant, Role, TemplateField, User)
 
 from thegrill.web import auth, service
 from thegrill.web.seed import seed_templates
@@ -55,9 +56,11 @@ def require_manager_user(request: Request, session: Session = Depends(get_db)):
     return user, auth_session
 
 
-def page(request: Request, name: str, user: User | None = None, auth_session=None, **ctx):
+def page(request: Request, name: str, user: User | None = None, auth_session=None,
+         session: Session | None = None, **ctx):
     base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
-            "today": date.today().isoformat()}
+            "today": date.today().isoformat(),
+            "unread": service.unread_count(session, user.id) if (user and session) else 0}
     base.update(ctx)
     return templates.TemplateResponse(request, name, base)
 
@@ -163,7 +166,7 @@ def employee_home(request: Request, ctx=Depends(require_user), session: Session 
             .filter_by(restaurant_id=user.restaurant_id, created_by=user.id)
             .order_by(Record.created_at.desc()).limit(10).all())
     restaurant = session.get(Restaurant, user.restaurant_id)
-    return page(request, "employee_home.html", user, auth_session,
+    return page(request, "employee_home.html", user, auth_session, session,
                 templates_list=tpls, mine=mine, restaurant=restaurant)
 
 
@@ -175,7 +178,7 @@ def record_form(code: str, request: Request, ctx=Depends(require_user),
            .filter_by(restaurant_id=user.restaurant_id, code=code, active=True).first())
     if tpl is None:
         raise HTTPException(status_code=404, detail="Ese registro no existe o está desactivado")
-    return page(request, "record_form.html", user, auth_session, tpl=tpl,
+    return page(request, "record_form.html", user, auth_session, session, tpl=tpl,
                 FieldType=FieldType, error=error, errors={}, sent=False)
 
 
@@ -202,11 +205,11 @@ async def record_submit(code: str, request: Request, ctx=Depends(require_user),
                                        shift=form.get("shift") or None,
                                        note=form.get("note") or None)
     except service.ValidationError as e:
-        return page(request, "record_form.html", user, auth_session, tpl=tpl,
+        return page(request, "record_form.html", user, auth_session, session, tpl=tpl,
                     FieldType=FieldType, error="Revisa los campos marcados",
                     errors=e.errors, sent=False, submitted=data)
     except ValueError as e:
-        return page(request, "record_form.html", user, auth_session, tpl=tpl,
+        return page(request, "record_form.html", user, auth_session, session, tpl=tpl,
                     FieldType=FieldType, error=str(e), errors={}, sent=False, submitted=data)
 
     photos = form.getlist("photos")
@@ -225,7 +228,7 @@ async def record_submit(code: str, request: Request, ctx=Depends(require_user),
     if tpl.requires_photo and not result.record.attachments:
         photo_errors.append("Esta plantilla pide foto: el registro se guardó sin ella")
 
-    return page(request, "record_form.html", user, auth_session, tpl=tpl, FieldType=FieldType,
+    return page(request, "record_form.html", user, auth_session, session, tpl=tpl, FieldType=FieldType,
                 error="", errors={}, sent=True, result=result, photo_errors=photo_errors)
 
 
@@ -235,7 +238,7 @@ def my_records(request: Request, ctx=Depends(require_user), session: Session = D
     rows = (session.query(Record)
             .filter_by(restaurant_id=user.restaurant_id, created_by=user.id)
             .order_by(Record.created_at.desc()).limit(100).all())
-    return page(request, "records_list.html", user, auth_session, rows=rows,
+    return page(request, "records_list.html", user, auth_session, session, rows=rows,
                 title="Mis registros", authors={user.id: user.name}, manager_view=False)
 
 
@@ -250,7 +253,7 @@ def manager_home(request: Request, ctx=Depends(require_manager_user),
     alerts = (session.query(Alert)
               .filter(Alert.restaurant_id == user.restaurant_id, Alert.acknowledged_at.is_(None))
               .order_by(Alert.created_at.desc()).limit(10).all())
-    return page(request, "manager_home.html", user, auth_session, d=data,
+    return page(request, "manager_home.html", user, auth_session, session, d=data,
                 restaurant=restaurant, alerts=alerts, days=days)
 
 
@@ -268,7 +271,7 @@ def manager_records(request: Request, ctx=Depends(require_manager_user),
     rows = q.order_by(Record.created_at.desc()).limit(300).all()
     authors = {u.id: u.name for u in session.query(User).filter_by(restaurant_id=user.restaurant_id)}
     tpls = session.query(RecordTemplate).filter_by(restaurant_id=user.restaurant_id).all()
-    return page(request, "records_list.html", user, auth_session, rows=rows,
+    return page(request, "records_list.html", user, auth_session, session, rows=rows,
                 title="Todos los registros", authors=authors, manager_view=True,
                 templates_list=tpls, code=code, days=days)
 
@@ -282,7 +285,7 @@ def manager_alerts(request: Request, ctx=Depends(require_manager_user),
         q = q.filter(Alert.acknowledged_at.is_(None))
     rows = q.order_by(Alert.created_at.desc()).limit(200).all()
     names = {u.id: u.name for u in session.query(User).filter_by(restaurant_id=user.restaurant_id)}
-    return page(request, "alerts.html", user, auth_session, rows=rows, show=show, names=names)
+    return page(request, "alerts.html", user, auth_session, session, rows=rows, show=show, names=names)
 
 
 @app.post("/manager/alertas/{alert_id}/cerrar")
@@ -305,7 +308,7 @@ def manager_templates(request: Request, ctx=Depends(require_manager_user),
     user, auth_session = ctx
     rows = (session.query(RecordTemplate).filter_by(restaurant_id=user.restaurant_id)
             .order_by(RecordTemplate.sort_order, RecordTemplate.name).all())
-    return page(request, "templates_admin.html", user, auth_session, rows=rows)
+    return page(request, "templates_admin.html", user, auth_session, session, rows=rows)
 
 
 @app.post("/manager/plantillas/nueva")
@@ -367,7 +370,7 @@ def manager_team(request: Request, ctx=Depends(require_manager_user),
     rows = (session.query(User).filter_by(restaurant_id=user.restaurant_id)
             .order_by(User.role, User.name).all())
     restaurant = session.get(Restaurant, user.restaurant_id)
-    return page(request, "team.html", user, auth_session, rows=rows, restaurant=restaurant)
+    return page(request, "team.html", user, auth_session, session, rows=rows, restaurant=restaurant)
 
 
 @app.post("/manager/equipo/{user_id}/rol")
@@ -414,6 +417,35 @@ def export_csv(request: Request, ctx=Depends(require_manager_user),
     body = service.export_records_csv(session, user.restaurant_id, since, until)
     return PlainTextResponse(body, media_type="text/csv", headers={
         "Content-Disposition": f'attachment; filename="registros_{since}_{until}.csv"'})
+
+
+# ====================================================== NOTIFICACIONES
+@app.get("/notificaciones", response_class=HTMLResponse)
+def notifications_page(request: Request, ctx=Depends(require_user),
+                       session: Session = Depends(get_db)):
+    """Avisos de esta persona. Verlos los marca como leídos, con hora."""
+    user, auth_session = ctx
+    rows = service.recent_notifications(session, user.id)
+    pending = [n.id for n in rows if n.read_at is None]
+    response = page(request, "notifications.html", user, auth_session, session,
+                    rows=rows, just_read=set(pending))
+    service.mark_all_read(session, user.id)
+    return response
+
+
+@app.get("/api/notificaciones")
+def notifications_feed(request: Request, ctx=Depends(require_user),
+                       session: Session = Depends(get_db)):
+    """Lo consulta la cabecera cada medio minuto para refrescar el contador."""
+    user, _ = ctx
+    rows = (session.query(Notification)
+            .filter(Notification.user_id == user.id, Notification.read_at.is_(None))
+            .order_by(Notification.id.desc()).limit(10).all())
+    return JSONResponse({
+        "unread": service.unread_count(session, user.id),
+        "items": [{"id": n.id, "title": n.title, "body": n.body,
+                   "severity": n.severity.value} for n in rows],
+    })
 
 
 @app.get("/foto/{attachment_id}")

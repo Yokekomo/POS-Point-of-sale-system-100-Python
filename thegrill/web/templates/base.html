@@ -71,6 +71,15 @@ input[type=file]{padding:9px}
 .muted{color:var(--muted);font-size:13px}
 .code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--bg);border:1px solid var(--line);
   padding:4px 10px;border-radius:8px;letter-spacing:.08em;font-weight:650}
+.bell{position:relative;white-space:nowrap}
+.badge{display:inline-block;min-width:19px;padding:1px 6px;border-radius:999px;background:var(--bad);
+  color:#fff;font-size:11px;font-weight:700;text-align:center;vertical-align:1px;margin-left:2px}
+.badge[hidden]{display:none}
+.notif{border-left:3px solid var(--line);padding:10px 14px;margin-bottom:12px;border-radius:0 10px 10px 0}
+.notif.unread{border-left-color:var(--accent);background:var(--card);border:1px solid var(--line);
+  border-left:3px solid var(--accent)}
+.notif.crit.unread{border-left-color:var(--bad)}
+.notif.crit{border-left-color:var(--bad)}
 </style>
 </head>
 <body>
@@ -84,10 +93,45 @@ input[type=file]{padding:9px}
   {% else %}
     <a href="/app">Registrar</a><a href="/app/mis-registros">Mis registros</a>
   {% endif %}
+    <a class="bell" href="/notificaciones">Avisos<span class="badge" id="navbadge"
+       {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
   </nav>
   <form method="post" action="/logout" style="margin:0"><button class="ghost" style="padding:6px 12px">Salir</button></form>
 </div></header>
 {% endif %}
 <main>{% block body %}{% endblock %}</main>
+<script>
+// Refresca el contador de avisos sin recargar la página. Si la persona ha
+// autorizado los avisos del navegador, una alerta crítica salta a su pantalla.
+(function () {
+  var badge = document.getElementById("navbadge");
+  if (!badge) return;
+  function remember(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+  function recall(key) { try { return Number(localStorage.getItem(key) || 0); } catch (e) { return 0; } }
+  var lastSeen = recall("grill_last_notif");
+  function poll() {
+    fetch("/api/notificaciones", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d) return;
+        badge.textContent = d.unread > 99 ? "99+" : d.unread;
+        badge.hidden = d.unread === 0;
+        var top = lastSeen;
+        d.items.forEach(function (it) {
+          if (it.id > top) top = it.id;
+          if (it.id > lastSeen && it.severity === "CRITICAL" &&
+              window.Notification && Notification.permission === "granted") {
+            new Notification(it.title, { body: it.body, tag: "grill-" + it.id });
+          }
+        });
+        if (top !== lastSeen) { lastSeen = top; remember("grill_last_notif", top); }
+      })
+      .catch(function () {});
+  }
+  poll();
+  setInterval(poll, 30000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
+})();
+</script>
 </body>
 </html>

@@ -42,6 +42,11 @@ class RecordStatus(str, enum.Enum):
     CORRECTED = "CORRECTED"  # sustituido por un registro posterior
 
 
+class NotificationKind(str, enum.Enum):
+    ALERT = "ALERT"            # un registro se salió de límites
+    RESOLUTION = "RESOLUTION"  # un manager cerró una alerta que tú reportaste
+
+
 class AlertSeverity(str, enum.Enum):
     INFO = "INFO"
     WARNING = "WARNING"
@@ -238,6 +243,27 @@ class Alert(TenantMixin, Base):
     acknowledged_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime)
     resolution: Mapped[str | None] = mapped_column(Text)
+
+
+class Notification(TenantMixin, Base):
+    """Aviso dirigido a una persona concreta dentro de la plataforma.
+
+    Existe para que una alerta crítica no se quede esperando a que alguien
+    entre a mirar: aparece en el contador de la cabecera de quien debe actuar.
+    No sale de la plataforma: no hay correo ni mensajería.
+    """
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    kind: Mapped[NotificationKind] = mapped_column(Enum(NotificationKind), default=NotificationKind.ALERT)
+    severity: Mapped[AlertSeverity] = mapped_column(Enum(AlertSeverity), default=AlertSeverity.WARNING)
+    title: Mapped[str] = mapped_column(String(160))
+    body: Mapped[str] = mapped_column(Text)
+    alert_id: Mapped[int | None] = mapped_column(ForeignKey("alerts.id"))
+    record_id: Mapped[int | None] = mapped_column(ForeignKey("records.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 # ================================================= Módulos especializados

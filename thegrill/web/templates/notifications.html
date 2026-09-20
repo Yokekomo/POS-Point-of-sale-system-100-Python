@@ -1,0 +1,60 @@
+{% extends "base.html" %}{% block title %}Avisos{% endblock %}
+{% block body %}
+<h1>Avisos</h1>
+<p class="sub">Lo que necesita tu atención. Al abrir esta página quedan marcados como vistos, con la hora.</p>
+
+<div class="card">
+  <div class="rowflex">
+    <div style="flex:1">
+      <b>Avisos del navegador</b>
+      <div class="muted">Actívalos y una alerta crítica te salta en la pantalla aunque
+        tengas la plataforma en segundo plano.</div>
+    </div>
+    <button class="ghost" id="askperm" type="button">Activar</button>
+  </div>
+  <div class="help" id="permstate"></div>
+</div>
+
+{% for n in rows %}
+<div class="notif {% if n.id in just_read %}unread{% endif %}
+     {% if n.severity.value == 'CRITICAL' %}crit{% endif %}">
+  <div class="rowflex">
+    <span class="tag {{ 'bad' if n.severity.value == 'CRITICAL' else ('ok' if n.kind.value == 'RESOLUTION' else 'warn') }}">
+      {{ "Resuelta" if n.kind.value == "RESOLUTION" else n.severity.value }}</span>
+    <b style="flex:1">{{ n.title }}</b>
+    <span class="muted">{{ n.created_at.strftime("%d/%m %H:%M") }}</span>
+  </div>
+  <div style="margin-top:4px">{{ n.body }}</div>
+  {% if n.kind.value == "ALERT" and user.role.value == "MANAGER" %}
+    <div style="margin-top:8px"><a href="/manager/alertas">Ver y cerrar la alerta</a></div>
+  {% endif %}
+</div>
+{% else %}
+<div class="card"><p class="muted" style="margin:0">No tienes ningún aviso.</p></div>
+{% endfor %}
+
+<script>
+(function () {
+  var btn = document.getElementById("askperm"), state = document.getElementById("permstate");
+  if (!btn) return;
+  function paint() {
+    if (!window.Notification) {
+      state.textContent = "Este navegador no admite avisos de escritorio.";
+      btn.hidden = true; return;
+    }
+    if (Notification.permission === "granted") {
+      state.textContent = "Activados en este dispositivo."; btn.hidden = true;
+    } else if (Notification.permission === "denied") {
+      state.textContent = "Bloqueados. Habilítalos en los ajustes del navegador para este sitio.";
+      btn.hidden = true;
+    } else {
+      state.textContent = "En iPhone hay que añadir antes la plataforma a la pantalla de inicio.";
+    }
+  }
+  btn.addEventListener("click", function () {
+    Notification.requestPermission().then(paint);
+  });
+  paint();
+})();
+</script>
+{% endblock %}

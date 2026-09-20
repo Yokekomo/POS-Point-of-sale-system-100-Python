@@ -19,9 +19,9 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from thegrill.models import (Alert, AlertSeverity, Attachment, FieldType, Record,
-                             RecordStatus, RecordTemplate, RecordValue, Role,
-                             TemplateField, User)
+from thegrill.models import (Alert, AlertSeverity, Attachment, FieldType, Notification,
+                             NotificationKind, Record, RecordStatus, RecordTemplate,
+                             RecordValue, Role, TemplateField, User)
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
                        "image/heic": ".heic", "application/pdf": ".pdf"}
@@ -57,6 +57,55 @@ class ParsedValue:
 class SubmitResult:
     record: Record
     alerts: list[Alert] = field(default_factory=list)
+    notifications: list[Notification] = field(default_factory=list)
+
+
+# ----------------------------------------------------------- notificaciones
+def notify(session: Session, restaurant_id: int, user_ids, title: str, body: str,
+           severity: AlertSeverity = AlertSeverity.WARNING,
+           kind: NotificationKind = NotificationKind.ALERT,
+           alert_id: int | None = None, record_id: int | None = None,
+           now: datetime | None = None) -> list[Notification]:
+    """Deja un aviso dentro de la plataforma para cada persona indicada."""
+    now = now or datetime.utcnow()
+    out = []
+    for uid in dict.fromkeys(user_ids):          # sin duplicados, manteniendo el orden
+        n = Notification(restaurant_id=restaurant_id, user_id=uid, kind=kind, severity=severity,
+                         title=title[:160], body=body, alert_id=alert_id, record_id=record_id,
+                         created_at=now)
+        session.add(n)
+        out.append(n)
+    session.flush()
+    return out
+
+
+def manager_ids(session: Session, restaurant_id: int) -> list[int]:
+    return [u.id for u in session.query(User)
+            .filter_by(restaurant_id=restaurant_id, role=Role.MANAGER, active=True)
+            .order_by(User.id)]
+
+
+def unread_count(session: Session, user_id: int) -> int:
+    return (session.query(func.count(Notification.id))
+            .filter(Notification.user_id == user_id, Notification.read_at.is_(None))
+            .scalar() or 0)
+
+
+def recent_notifications(session: Session, user_id: int, limit: int = 50) -> list[Notification]:
+    return (session.query(Notification).filter(Notification.user_id == user_id)
+            .order_by(Notification.created_at.desc(), Notification.id.desc())
+            .limit(limit).all())
+
+
+def mark_all_read(session: Session, user_id: int, now: datetime | None = None) -> int:
+    """Marca como leídas las pendientes. `read_at` deja constancia de cuándo se vio."""
+    now = now or datetime.utcnow()
+    pending = (session.query(Notification)
+               .filter(Notification.user_id == user_id, Notification.read_at.is_(None)).all())
+    for n in pending:
+        n.read_at = now
+    session.flush()
+    return len(pending)
 
 
 # ------------------------------------------------------------- validación
@@ -164,7 +213,19 @@ def submit_record(session: Session, user: User, template: RecordTemplate, data: 
         a.record_id = record.id
         session.add(a)
     session.flush()
-    return SubmitResult(record, alerts)
+
+    # El aviso va a buscar al manager: una alerta crítica no puede quedarse
+    # esperando a que alguien entre a mirar el panel.
+    notifications = []
+    targets = [uid for uid in manager_ids(session, user.restaurant_id) if uid != user.id]
+    for a in alerts:
+        notifications.extend(notify(
+            session, user.restaurant_id, targets,
+            title=f"{template.name}: valor fuera de límites",
+            body=f"{a.message} · registrado por {user.name}",
+            severity=a.severity, kind=NotificationKind.ALERT,
+            alert_id=a.id, record_id=record.id, now=now))
+    return SubmitResult(record, alerts, notifications)
 
 
 # --------------------------------------------------------------- adjuntos
@@ -292,6 +353,16 @@ def acknowledge_alert(session: Session, user: User, alert_id: int, resolution: s
     alert.acknowledged_at = datetime.utcnow()
     alert.resolution = resolution.strip()
     session.flush()
+
+    # Quien registró el problema se entera de qué se hizo con él.
+    if alert.record_id:
+        record = session.get(Record, alert.record_id)
+        if record is not None and record.created_by != user.id:
+            notify(session, user.restaurant_id, [record.created_by],
+                   title="Alerta resuelta",
+                   body=f"{alert.message} · {user.name}: {alert.resolution}",
+                   severity=AlertSeverity.INFO, kind=NotificationKind.RESOLUTION,
+                   alert_id=alert.id, record_id=alert.record_id)
     return alert
 
 

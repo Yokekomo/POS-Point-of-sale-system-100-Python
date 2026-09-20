@@ -6,7 +6,7 @@ la dirección lo ve todo en un panel con estadísticas, alertas y export para
 auditoría.
 
 El programa recoge datos de los trabajadores y los presenta. No envía mensajes
-a nadie: todo lo que hay que ver se consulta dentro de la plataforma.
+a nadie por fuera: los avisos viven dentro de la propia plataforma.
 
 Incluye además los motores especializados de control de carne desarrollados
 para el proyecto The Grill (FEFO, stock por serial de primal, despieces y
@@ -38,6 +38,25 @@ CSV de auditoría. Reparte el código de acceso del restaurante.
 solo lo que él mismo ha enviado. No entra en ninguna pantalla de gestión: cada
 ruta del área de manager le responde 403.
 
+## Avisos: la alerta va a buscar a quien debe actuar
+
+Una alerta crítica no puede quedarse esperando a que alguien entre a mirar el
+panel. Cuando un registro se sale de límites, cada manager activo recibe un
+aviso dentro de la plataforma:
+
+- **Contador en la cabecera**, en todas las pantallas, que se refresca solo cada
+  medio minuto y al volver a la pestaña. No hay que recargar nada.
+- **Página de avisos** con el detalle, quién lo registró y el enlace para cerrar
+  la alerta. Abrirla los marca como vistos y guarda la hora, así queda constancia
+  de cuándo se enteró cada cual.
+- **Aviso del navegador**, opcional. Si la persona lo autoriza, una alerta
+  crítica le salta en la pantalla aunque tenga la plataforma en segundo plano.
+  En iPhone hace falta añadir antes la plataforma a la pantalla de inicio.
+
+Quien registró el problema recibe a su vez un aviso cuando un manager cierra la
+alerta, con la acción correctiva escrita. Nadie se avisa a sí mismo, y ningún
+aviso cruza de un restaurante a otro.
+
 Un manager puede ascender a un empleado o desactivar una cuenta, pero no puede
 cambiar su propio rol ni desactivarse a sí mismo.
 
@@ -65,6 +84,8 @@ propio límite legal y un solo campo numérico no puede validar los dos.
   que apunta al anterior, y el original queda marcado como corregido.
 - Cerrar una alerta exige escribir la acción correctiva, y queda firmado con
   quién y cuándo.
+- Cada aviso guarda cuándo se vio, así que se puede demostrar que la desviación
+  llegó a la persona responsable.
 - Ningún restaurante ve datos, fotos ni estadísticas de otro.
 - Las contraseñas se guardan con PBKDF2 y sal por usuario. La sesión viaja en
   cookie httponly y en la base solo vive el hash del testigo. Cada formulario
@@ -77,14 +98,14 @@ propio límite legal y un solo campo numérico no puede validar los dos.
 thegrill/
   config.py              FX, límites HACCP, umbrales de precio, tolerancias de despiece
   db.py                  SQLAlchemy; SQLite por defecto, PostgreSQL cambiando la URL
-  models.py              26 tablas: plataforma, módulos de carne, auditoría
+  models.py              27 tablas: plataforma, módulos de carne, auditoría
   rules.py               Reglas del negocio de carne como funciones puras
   web/
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
-    service.py           Validación, alertas, fotos, estadísticas, export CSV
+    service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV
     app.py               Rutas web de empleado y de manager
-    templates/           Doce pantallas, móvil primero, claro y oscuro
+    templates/           Trece pantallas, móvil primero, claro y oscuro
   engine/
     fefo.py              Consumo por caducidad y valoración de merma
     stock.py             Motor v4: ledger, re-anclaje por conteo, genealogía por serial
@@ -93,7 +114,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   86 tests
+tests/                   99 tests
 ```
 
 ## Uso

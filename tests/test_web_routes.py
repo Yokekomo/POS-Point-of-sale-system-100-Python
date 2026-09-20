@@ -329,3 +329,74 @@ def test_logout_kills_the_session(client):
     assert client.get("/manager").status_code == 200
     assert client.post("/logout").status_code == 303
     assert client.get("/manager").headers["location"] == "/login"
+
+
+# ------------------------------------------------------- notificaciones web
+def test_the_badge_and_the_feed_reach_the_manager(client):
+    signup(client)
+    code = join_code()
+    manager_cookie = client.cookies.get(webapp.auth.COOKIE_NAME)
+
+    client.cookies.clear()
+    join(client, code, "luis@casa.com")
+    token = csrf_from(client.get("/app/registro/temp_refrigeracion").text)
+    client.post("/app/registro/temp_refrigeracion",
+                data={"csrf": token, "unidad": "Vitrina", "temperatura": "11"})
+    feed = client.get("/api/notificaciones").json()
+    assert feed["unread"] == 0                       # quien lo registró ya lo vio al guardar
+
+    client.cookies.set(webapp.auth.COOKIE_NAME, manager_cookie)
+    feed = client.get("/api/notificaciones").json()
+    assert feed["unread"] == 1
+    item = feed["items"][0]
+    assert item["severity"] == "CRITICAL" and "Luis" in item["body"]
+
+    panel = client.get("/manager")
+    assert 'id="navbadge"' in panel.text and "hidden" not in panel.text.split('id="navbadge"')[1][:40]
+
+    avisos = client.get("/notificaciones")
+    assert "11°C" in avisos.text and "Ver y cerrar la alerta" in avisos.text
+    assert client.get("/api/notificaciones").json()["unread"] == 0     # verlos los marca
+
+
+def test_the_feed_is_private_to_each_user(client):
+    signup(client, "Casa Pepe", "ana@casa.com", "Ana")
+    code = join_code()
+    client.cookies.clear()
+    join(client, code, "luis@casa.com")
+    token = csrf_from(client.get("/app/registro/temp_refrigeracion").text)
+    client.post("/app/registro/temp_refrigeracion",
+                data={"csrf": token, "unidad": "Vitrina", "temperatura": "11"})
+
+    client.cookies.clear()
+    signup(client, "El Otro", "eva@otro.com", "Eva")
+    assert client.get("/api/notificaciones").json() == {"unread": 0, "items": []}
+    assert "Vitrina" not in client.get("/notificaciones").text
+
+
+def test_the_feed_needs_a_session(client):
+    r = client.get("/api/notificaciones")
+    assert r.status_code == 303 and r.headers["location"] == "/login"
+
+
+def test_an_employee_is_told_how_his_alert_was_resolved(client):
+    signup(client)
+    code = join_code()
+    manager_cookie = client.cookies.get(webapp.auth.COOKIE_NAME)
+    client.cookies.clear()
+    employee_cookie = join(client, code, "luis@casa.com")
+    token = csrf_from(client.get("/app/registro/temp_refrigeracion").text)
+    client.post("/app/registro/temp_refrigeracion",
+                data={"csrf": token, "unidad": "Vitrina", "temperatura": "11"})
+
+    client.cookies.set(webapp.auth.COOKIE_NAME, manager_cookie)
+    alerts = client.get("/manager/alertas")
+    with db.session_scope() as s:
+        from thegrill.models import Alert
+        alert_id = s.query(Alert).one().id
+    client.post(f"/manager/alertas/{alert_id}/cerrar",
+                data={"csrf": csrf_from(alerts.text), "resolution": "Vitrina reparada"})
+
+    client.cookies.set(webapp.auth.COOKIE_NAME, employee_cookie)
+    assert client.get("/api/notificaciones").json()["unread"] == 1
+    assert "Vitrina reparada" in client.get("/notificaciones").text
