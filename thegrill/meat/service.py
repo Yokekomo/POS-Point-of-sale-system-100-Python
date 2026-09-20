@@ -162,6 +162,12 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
         raise MeatError(t(lang, "m.tg.need_cuts"))
     if any(not r.item_id for r in rows):
         raise MeatError(t(lang, "m.tg.need_article"))
+    # El artículo tiene que ser de esta casa. Si no se comprueba, un formulario
+    # manipulado mete un lote de este restaurante colgando del corte de otro.
+    mine = {i.id for i in session.query(IngredientItem.id)
+            .filter_by(restaurant_id=user.restaurant_id)}
+    if any(r.item_id not in mine for r in rows):
+        raise MeatError(t(lang, "m.tg.need_article"))
     tg = tg.strip()
     if not tg:
         raise MeatError("El despiece necesita su número")

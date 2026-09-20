@@ -310,6 +310,99 @@ def test_a_butchery_that_does_not_reconcile_leaves_nothing_behind(client):
         assert s.query(IngredientLot).count() == 0
 
 
+def test_a_rejected_butchery_never_loses_the_primal(client):
+    """Lo que se tira es el papel, no la pieza: sigue entera y se puede volver a cortar."""
+    signup(client)
+    items = setup_cuts(client)
+    deliver(client)
+
+    form = client.get("/despiece")
+    r = client.post("/despiece", data={
+        "csrf": csrf_from(form.text), "tg": "TG-0007", "before_kg": "10", "primal": "8017",
+        "cut:0": "Steak", "item:0": "", "pieces:0": "20", "grams:0": "250"})   # sin artículo
+    assert r.status_code == 200
+
+    with db.session_scope() as s:
+        pieza = s.query(Primal).filter_by(serial="8017").one()
+        assert pieza.status == PrimalStatus.IN_STOCK     # entera, en su sitio
+        assert pieza.weight_kg == 10.0                   # con su peso
+        assert pieza.piece_cost_usd == 300.0             # y con su coste
+        assert s.query(Despiece).count() == 0            # solo se ha ido el papel
+
+    # Y vuelve a estar en la lista, lista para despiezar otra vez.
+    assert "8017" in client.get("/despiece").text
+    assert butcher(client, items, tg="TG-0008").status_code == 200
+    with db.session_scope() as s:
+        assert s.query(Primal).filter_by(serial="8017").one().status == PrimalStatus.CUT
+        assert s.query(IngredientLot).count() == 3
+
+
+def test_only_a_posted_butchery_marks_a_primal_as_cut(client):
+    """Nunca se da una pieza por cortada por inferencia: lo dice el despiece o nada."""
+    signup(client)
+    items = setup_cuts(client)
+    deliver(client, serials=("8017", "8018", "8019"))
+    butcher(client, items)                                # solo entra la 8017
+    with db.session_scope() as s:
+        estados = {p.serial: p.status for p in s.query(Primal)}
+        assert estados["8017"] == PrimalStatus.CUT
+        assert estados["8018"] == PrimalStatus.IN_STOCK
+        assert estados["8019"] == PrimalStatus.IN_STOCK
+    pantalla = client.get("/despiece").text
+    assert "8018" in pantalla and "8019" in pantalla      # las otras dos siguen ahí
+
+
+def test_a_piece_already_cut_cannot_be_butchered_twice(client):
+    signup(client)
+    items = setup_cuts(client)
+    deliver(client)
+    butcher(client, items)
+    r = butcher(client, items, tg="TG-0050")
+    assert r.status_code == 200 and "8017" in r.text
+    with db.session_scope() as s:
+        assert s.query(Despiece).count() == 1
+        assert s.query(IngredientLot).count() == 3        # no se han duplicado los cortes
+
+
+def test_a_butchery_whose_weight_does_not_add_up_is_posted_with_a_warning(client):
+    """Un descuadre de masa avisa, pero no bloquea: la carne ya está cortada."""
+    signup(client)
+    items = setup_cuts(client)
+    deliver(client)
+    form = client.get("/despiece")
+    r = client.post("/despiece", data={
+        "csrf": csrf_from(form.text), "tg": "TG-0011", "before_kg": "10", "waste_kg": "0",
+        "primal": "8017",
+        "cut:0": "Striploin steak", "item:0": items["Striploin steak"],
+        "pieces:0": "10", "grams:0": "250"})              # 2,5 kg de 10: faltan 7,5
+    assert r.status_code == 200
+    assert "banner warn" in r.text                        # lo dice
+    with db.session_scope() as s:
+        assert s.query(Despiece).one().posted             # pero lo vuelca
+        assert s.query(Primal).one().status == PrimalStatus.CUT
+
+
+def test_a_butchery_can_never_borrow_another_kitchens_article(client):
+    """Sin esto, un formulario manipulado cuelga un lote del corte del vecino."""
+    signup(client)
+    setup_cuts(client)
+    deliver(client)
+    client.cookies.clear()
+    signup(client, restaurant="Otro hotel", email="bea@otro.com", name="Bea")
+    ajeno = setup_cuts(client)["Striploin steak"]          # artículo de la otra casa
+    client.cookies.clear()
+    client.post("/login", data={"email": "albano@marina.com", "password": "clave-larga-1"})
+
+    form = client.get("/despiece")
+    r = client.post("/despiece", data={
+        "csrf": csrf_from(form.text), "tg": "TG-0012", "before_kg": "10", "primal": "8017",
+        "cut:0": "Steak", "item:0": ajeno, "pieces:0": "20", "grams:0": "250"})
+    assert r.status_code == 200
+    with db.session_scope() as s:
+        assert s.query(IngredientLot).count() == 0
+        assert s.query(Primal).filter_by(serial="8017").one().status == PrimalStatus.IN_STOCK
+
+
 def test_a_cut_without_its_article_is_refused(client):
     signup(client)
     setup_cuts(client)

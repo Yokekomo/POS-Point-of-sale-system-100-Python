@@ -18,7 +18,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from thegrill import db
-from thegrill.meat import i18n_meat, service as meat  # noqa: F401  (instala los textos)
+from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
 from thegrill.models import (Alert, CountPeriod, CountStatus, Ingredient, IngredientItem,
                              MeatCount, PosMatch, PosProduct, Primal, Restaurant, Role,
