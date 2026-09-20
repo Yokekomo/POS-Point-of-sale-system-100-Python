@@ -595,9 +595,11 @@ def aging_page(request: Request, ctx=Depends(needs(perms.STOCK)),
     return _aging(request, user, auth_session, session, done=done)
 
 
-def _aging(request, user, auth_session, session, *, done="", error="", weighed=None, sold=None):
+def _aging(request, user, auth_session, session, *, done="", error="", weighed=None,
+           sold=None, trimmed=None):
     return page(request, "aging.html", user, auth_session, session, done=done, error=error,
-                weighed=weighed, sold=sold, storages=list(Storage),
+                weighed=weighed, sold=sold, trimmed=trimmed, storages=list(Storage),
+                articles=meat.articles(session, user.restaurant_id),
                 rows=aging.board(session, user.restaurant_id),
                 summary=aging.summary(session, user.restaurant_id),
                 sales=aging.sales(session, user.restaurant_id),
@@ -643,6 +645,31 @@ def aging_weigh(request: Request, serial: str = Form(...), kg: str = Form(...),
                   done=i18n.t(lang, "m.ag.weighed", serial=result.serial,
                               kg=f"{result.kg:.10g}", loss=f"{result.loss_kg:.10g}",
                               pct=f"{result.total_loss_pct:.10g}"))
+
+
+@app.post("/maduracion/limpiar", response_class=HTMLResponse)
+def aging_trim(request: Request, serial: str = Form(...), removed_kg: str = Form(""),
+               new_kg: str = Form(""), item_id: str = Form(""), value_index: str = Form(""),
+               note: str = Form(""), csrf: str = Form(""),
+               ctx=Depends(needs(perms.AGE)), session: Session = Depends(get_db)):
+    """Limpia la pieza: la costra o la grasa dejan de estar en ella."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    try:
+        result = aging.trim(session, user, serial.strip(),
+                            removed_kg=_num(removed_kg), new_kg=_num(new_kg),
+                            item_id=int(item_id) if item_id.strip() else None,
+                            value_index=_num(value_index, aging.TRIM_VALUE_INDEX)
+                            or aging.TRIM_VALUE_INDEX,
+                            note=note.strip() or None, lang=lang)
+    except (aging.AgingError, ValueError) as e:
+        return _aging(request, user, auth_session, session, error=str(e))
+    return _aging(request, user, auth_session, session, trimmed=result,
+                  done=i18n.t(lang, "m.ag.trimmed", serial=result.serial,
+                              kg=f"{result.removed_kg:.10g}",
+                              pct=f"{result.removed_pct:.10g}",
+                              left=f"{result.kg:.10g}"))
 
 
 @app.post("/maduracion/venta", response_class=HTMLResponse)

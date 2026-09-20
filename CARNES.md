@@ -238,11 +238,29 @@ Si la pieza pierde más de lo que una maduración explica —más de un 10 % de 
 pesada a la siguiente, o más de un 20 % desde que entró— salta el aviso; a
 partir del 30 % es crítico, porque eso ya no es maduración.
 
-**La madurada también pasa por despiece.** Hay que limpiarla antes de meterla
-en cámara: quitarle la corteza seca. Eso es un despiece como cualquier otro, y
-la limpieza la pagan los kilos que quedan, igual que la merma de siempre. Una
-pieza de 9 kg a 30 € que madura hasta 7,6 y deja 6,4 limpios sale a 42,19 € el
-kilo: los 270 € no se han movido, los kilos sí.
+**Se limpia dos veces, y no son lo mismo.** Antes de madurar se le quita lo
+que sobra —grasa suelta, telillas— para que entre limpia. Y cuando lleva
+semanas hay que quitarle la costra seca, que es mucha más cuanto más tiempo
+lleva. Las dos se apuntan en la pantalla de maduración, y las dos suben el
+precio del kilo que queda, porque el dinero de la pieza no se va con el
+recorte. Si los recortes se aprovechan se dice a qué artículo entran y se
+llevan solo lo que valen —un recorte no vale lo que un lomo—; si se tiran, el
+coste entero se queda en la pieza.
+
+Lo importante es que la limpieza **no se cuenta como agua**. Una pieza que
+pierde 1,4 kg evaporando y 1,2 de costra tiene dos columnas distintas, porque
+juntas cuentan la misma historia mal: el agua es inevitable y la costra
+depende de cuántos días la tengas.
+
+Y al lado, el **rendimiento**: lo que queda de lo que entró, contando lo
+vendido. De 9,4 kg que entraron, 6,3 vendibles es un 67 %. Ese es el número
+que dice si compensa madurar cuarenta y cinco días o sesenta.
+
+**La madurada también pasa por despiece.** La limpieza grande puede hacerse
+ahí, que es un despiece como cualquier otro, y la pagan los kilos que quedan
+igual que la merma de siempre. Una pieza de 9 kg a 30 € que madura hasta 7,6 y
+deja 6,4 limpios sale a 42,19 € el kilo: los 270 € no se han movido, los kilos
+sí.
 
 Al limpiarla se elige qué sale, y pueden salir las dos cosas del mismo
 despiece:
@@ -370,7 +388,7 @@ thegrill/meat/
   billing.py       La cuenta: solicitudes, altas, la prueba y el recibo del mes
   mailer.py        El aviso por correo de cada solicitud
   security.py      Cabeceras, freno a las contraseñas y freno al formulario
-  i18n_meat.py     367 textos propios × siete idiomas
+  i18n_meat.py     387 textos propios × siete idiomas
   templates/       Las pantallas propias; lo demás se hereda de la cocina
   static/fotos/    Las tres fotos de la portada, si se ponen (LEEME.md dentro)
 ```

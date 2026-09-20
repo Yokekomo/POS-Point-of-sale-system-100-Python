@@ -97,6 +97,18 @@ class Storage(str, enum.Enum):
     AGING = "AGING"
 
 
+class LossKind(str, enum.Enum):
+    """Por qué pesa menos una pieza. No es lo mismo el agua que el cuchillo.
+
+    El agua se evapora y no deja nada: sale de los kilos y no del dinero. La
+    limpieza sí deja algo —la costra que se tira o los recortes que se
+    aprovechan— y por eso se apunta aparte: juntas, las dos cuentan la misma
+    historia mal.
+    """
+    EVAPORATION = "EVAPORATION"
+    TRIM = "TRIM"
+
+
 class MovementType(str, enum.Enum):
     IN = "IN"
     OUT = "OUT"
@@ -431,7 +443,10 @@ class Primal(TenantMixin, Base):
     sku: Mapped[str] = mapped_column(String(64), index=True)
     grade: Mapped[str | None] = mapped_column(String(32))
     origin: Mapped[str | None] = mapped_column(String(32))
-    weight_kg: Mapped[float] = mapped_column(Float)
+    weight_kg: Mapped[float] = mapped_column(Float)          # lo que pesa HOY
+    # Lo que pesaba al entrar. No se toca nunca: es contra esto contra lo que
+    # se mide el rendimiento de toda la pieza —agua, limpieza y lo vendible—.
+    received_kg: Mapped[float | None] = mapped_column(Float)
     lot: Mapped[str | None] = mapped_column(String(16), index=True)
     received_date: Mapped[date | None] = mapped_column(Date)
     landed_usd_per_kg: Mapped[float | None] = mapped_column(Float)
@@ -884,6 +899,8 @@ class PrimalWeighing(TenantMixin, Base):
     serial: Mapped[str] = mapped_column(String(16), index=True)
     date: Mapped[date] = mapped_column(Date, index=True)
     storage: Mapped[Storage] = mapped_column(Enum(Storage), default=Storage.AGING)
+    kind: Mapped[LossKind | None] = mapped_column(Enum(LossKind), default=LossKind.EVAPORATION)
+    trim_serial: Mapped[str | None] = mapped_column(String(48))   # los recortes, si se guardaron
     previous_kg: Mapped[float] = mapped_column(Float)
     kg: Mapped[float] = mapped_column(Float)
     loss_kg: Mapped[float] = mapped_column(Float, default=0.0)

@@ -28,8 +28,9 @@ from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from thegrill.models import (Alert, AlertSeverity, AuditLog, Primal, PrimalStatus,
-                             PrimalWeighing, Storage, User, WeightSale)
+from thegrill.models import (Alert, AlertSeverity, AuditLog, IngredientItem, IngredientLot,
+                             IngredientMovement, LossKind, MovementKind, Primal,
+                             PrimalStatus, PrimalWeighing, Storage, User, WeightSale)
 from thegrill.web import service
 from thegrill.web.i18n import t
 
@@ -41,6 +42,7 @@ SINGLE_LOSS_PCT = 10.0      # de una pesada a la siguiente
 TOTAL_LOSS_PCT = 20.0       # desde que entró a madurar
 CRITICAL_LOSS_PCT = 30.0    # a partir de aquí no es maduración, es un problema
 GAIN_TOLERANCE_KG = 0.05    # la báscula tiene su juego; más que esto es un error
+TRIM_VALUE_INDEX = 0.25     # lo que vale un recorte frente al corte del que sale
 
 
 class AgingError(ValueError):
@@ -84,6 +86,34 @@ class WeighResult:
 
 
 @dataclass
+class TrimResult:
+    """Una limpieza: lo que se le ha quitado a la pieza y adónde ha ido."""
+    serial: str
+    sku: str
+    storage: Storage
+    days: int
+    removed_kg: float
+    kg: float                       # lo que queda de la pieza
+    cost_per_kg_before: float | None
+    cost_per_kg: float | None
+    kept_kg: float = 0.0            # los recortes que se guardaron
+    kept_cost: float = 0.0          # y lo que se llevaron de coste
+    trim_serial: str | None = None
+
+    @property
+    def removed_pct(self) -> float:
+        whole = self.kg + self.removed_kg
+        return 0.0 if whole <= EPSILON else round(self.removed_kg / whole * 100, 2)
+
+    @property
+    def cost_rise_pct(self) -> float | None:
+        if not self.cost_per_kg_before or not self.cost_per_kg:
+            return None
+        return round((self.cost_per_kg - self.cost_per_kg_before)
+                     / self.cost_per_kg_before * 100, 2)
+
+
+@dataclass
 class BoardRow:
     """Una pieza en la nevera de maduración o en el congelador."""
     serial: str
@@ -94,15 +124,24 @@ class BoardRow:
     target_days: int | None
     start_kg: float | None
     kg: float
-    loss_kg: float
+    loss_kg: float                  # el agua: lo que se ha evaporado
     loss_pct: float
+    trim_kg: float                  # el cuchillo: lo que se le ha quitado limpiando
     cost_per_kg: float | None
     value: float | None
     use_by: date | None
+    received_kg: float | None = None   # lo que pesaba al entrar en la casa
     sold_kg: float = 0.0            # lo que ya se ha cortado y vendido al peso
     grade: str | None = None
     origin: str | None = None
     last_weighed: date | None = None
+
+    @property
+    def yield_pct(self) -> float | None:
+        """De lo que entró, cuánto queda. Es la pregunta de la maduración."""
+        if not self.received_kg:
+            return None
+        return round((self.kg + self.sold_kg) / self.received_kg * 100, 1)
 
     @property
     def ready_on(self) -> date | None:
@@ -264,9 +303,9 @@ def weigh(session: Session, user: User, serial: str, kg: float,
 
     session.add(PrimalWeighing(
         restaurant_id=user.restaurant_id, primal_id=primal.id, serial=primal.serial,
-        date=on, storage=storage, previous_kg=previous, kg=round(kg, 6), loss_kg=loss,
-        cost_per_kg=primal.landed_usd_per_kg, days=days, source=source, note=note,
-        created_by=user.id))
+        date=on, storage=storage, kind=LossKind.EVAPORATION, previous_kg=previous,
+        kg=round(kg, 6), loss_kg=loss, cost_per_kg=primal.landed_usd_per_kg, days=days,
+        source=source, note=note, created_by=user.id))
     session.flush()
 
     result = WeighResult(
@@ -309,6 +348,103 @@ def _announce(session: Session, user: User, result: WeighResult, lang: str) -> N
     targets = [uid for uid in service.manager_ids(session, user.restaurant_id) if uid != user.id]
     service.notify(session, user.restaurant_id, targets, title=t(lang, "alert.aging_title"),
                    body=alert.message, severity=severity, alert_id=alert.id, now=now)
+
+
+# -------------------------------------------------------------- limpieza
+def trim(session: Session, user: User, serial: str, removed_kg: float | None = None,
+         new_kg: float | None = None, item_id: int | None = None,
+         value_index: float = TRIM_VALUE_INDEX, use_by: date | None = None,
+         on: date | None = None, note: str | None = None,
+         lang: str | None = None) -> TrimResult:
+    """Limpia una pieza entera: lo que se le quita deja de estar en ella.
+
+    Se limpia dos veces, y no son la misma. Antes de madurar se le quita lo
+    que sobra —grasa suelta, telillas— para que entre limpia. Y cuando lleva
+    semanas hay que quitarle la costra seca, que es mucha más: cuanto más
+    tiempo, más costra. Las dos se apuntan igual y las dos suben el precio del
+    kilo que queda, porque el dinero de la pieza no se va con el recorte.
+
+    Si los recortes se aprovechan, se dice a qué artículo entran y se llevan
+    su parte del coste, la que valgan: un recorte no vale lo que un lomo. Si
+    se tiran, el coste entero se queda en la pieza.
+    """
+    on = on or date.today()
+    primal = find(session, user.restaurant_id, serial)
+    previous = round(primal.weight_kg or 0.0, 6)
+
+    if removed_kg is None and new_kg is None:
+        raise AgingError("Hay que decir cuánto se ha quitado, o cuánto pesa ya limpia")
+    if removed_kg is None:
+        removed_kg = round(previous - (new_kg or 0.0), 6)
+    if removed_kg <= 0:
+        raise AgingError("Lo que se quita limpiando tiene que ser más de cero")
+    if removed_kg >= previous:
+        raise AgingError(
+            f"Se quieren quitar {removed_kg:.10g} kg de la pieza {primal.serial}, que pesa "
+            f"{previous:.10g}. Una limpieza no puede dejar la pieza en nada.")
+
+    before_per_kg = cost_per_kg(primal)
+    whole = total_cost(primal)
+    kept_lot = None
+    kept_cost = 0.0
+    if item_id is not None:
+        kept_lot = _keep_trim(session, user, primal, removed_kg, item_id,
+                              value_index=value_index, use_by=use_by, on=on)
+        kept_cost = round(kept_lot.qty * kept_lot.unit_cost, 6)
+
+    primal.weight_kg = round(previous - removed_kg, 6)
+    if whole is not None:
+        primal.piece_cost_usd = round(max(0.0, whole - kept_cost), 6)
+        primal.landed_usd_per_kg = (round(primal.piece_cost_usd / primal.weight_kg, 6)
+                                    if primal.weight_kg > EPSILON else None)
+    session.add(PrimalWeighing(
+        restaurant_id=user.restaurant_id, primal_id=primal.id, serial=primal.serial,
+        date=on, storage=where(primal), kind=LossKind.TRIM, previous_kg=previous,
+        kg=primal.weight_kg, loss_kg=round(removed_kg, 6),
+        cost_per_kg=primal.landed_usd_per_kg, days=days_in(primal, on), source="trim",
+        trim_serial=kept_lot.serial if kept_lot else None, note=note, created_by=user.id))
+    _audit(session, user, primal.serial, f"limpieza -{removed_kg:.10g} kg", note)
+    session.flush()
+
+    return TrimResult(
+        serial=primal.serial, sku=primal.sku, storage=where(primal),
+        days=days_in(primal, on), removed_kg=round(removed_kg, 6), kg=primal.weight_kg,
+        cost_per_kg_before=before_per_kg, cost_per_kg=primal.landed_usd_per_kg,
+        kept_kg=round(kept_lot.qty, 6) if kept_lot else 0.0, kept_cost=kept_cost,
+        trim_serial=kept_lot.serial if kept_lot else None)
+
+
+def _keep_trim(session: Session, user: User, primal: Primal, kg: float, item_id: int,
+               value_index: float, use_by: date | None, on: date) -> IngredientLot:
+    """Mete los recortes en cámara con su propio lote y su parte del coste."""
+    item = session.get(IngredientItem, item_id)
+    if item is None or item.restaurant_id != user.restaurant_id:
+        raise AgingError("Ese artículo no es de este restaurante")
+    expiry = use_by or primal.frozen_use_by or primal.expiry_label
+    if expiry is None:
+        raise AgingError(
+            "Los recortes necesitan fecha de consumo y la pieza no trae ninguna. "
+            "Una caducidad no se inventa.")
+    per_kg = cost_per_kg(primal) or 0.0
+    unit_cost = round(per_kg * max(0.0, value_index), 6)
+
+    from thegrill.web.butchery import next_serial      # el mismo contador de siempre
+    serial = next_serial(session, user.restaurant_id, primal.serial, 90)
+    lot = IngredientLot(restaurant_id=user.restaurant_id, item_id=item.id,
+                        ingredient_id=item.ingredient_id, lot_code=f"LIMP-{primal.serial}",
+                        serial=serial, parent_serial=primal.serial, parent_lot=primal.lot,
+                        expiry=expiry, received=on, qty=round(kg, 6),
+                        qty_remaining=round(kg, 6), unit_cost=unit_cost,
+                        grade=primal.grade, origin=primal.origin)
+    session.add(lot)
+    session.flush()
+    item.last_cost = unit_cost
+    session.add(IngredientMovement(
+        restaurant_id=user.restaurant_id, ingredient_id=item.ingredient_id, lot_id=lot.id,
+        date=on, kind=MovementKind.IN, qty=lot.qty, cost=round(lot.qty * unit_cost, 6),
+        source="trim", source_ref=serial, created_by=user.id))
+    session.flush()
+    return lot
 
 
 # --------------------------------------------------------- venta a peso
@@ -369,6 +505,7 @@ def board(session: Session, restaurant_id: int, storage: Storage | None = None,
              .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK))
     last = _last_weighings(session, restaurant_id)
     sold = _sold_kg(session, restaurant_id)
+    trimmed = _trimmed_kg(session, restaurant_id)
 
     rows: list[BoardRow] = []
     for primal in query:
@@ -383,19 +520,36 @@ def board(session: Session, restaurant_id: int, storage: Storage | None = None,
         # cobrado. Lo que se ha evaporado es lo otro.
         cut = round(sum(k for when, k in sold.get(primal.serial, [])
                         if not primal.storage_since or when >= primal.storage_since), 6)
-        loss = round(max(0.0, start - kg - cut), 6)
+        # Ni lo vendido ni lo limpiado son agua: cada cosa en su columna, que
+        # si no la merma de maduración sale inflada y no se parece a nada. El
+        # porcentaje de agua se mide contra el peso con el que entró a madurar,
+        # que es lo honesto: la costra no evaporó, la cortó alguien.
+        trim = round(sum(k for when, k in trimmed.get(primal.serial, [])
+                         if not primal.storage_since or when >= primal.storage_since), 6)
+        loss = round(max(0.0, start - kg - cut - trim), 6)
         per_kg = cost_per_kg(primal)
         rows.append(BoardRow(
             serial=primal.serial, sku=primal.sku, storage=place,
             since=primal.storage_since, days=days_in(primal, on),
             target_days=primal.aging_target_days,
             start_kg=round(start, 6) if primal.aging_start_kg else None,
-            kg=kg, loss_kg=loss, loss_pct=_pct(loss, start), cost_per_kg=per_kg,
+            kg=kg, loss_kg=loss, loss_pct=_pct(loss, start), trim_kg=trim,
+            cost_per_kg=per_kg,
             value=round(kg * per_kg, 2) if per_kg is not None else None,
             use_by=primal.frozen_use_by or primal.expiry_label, sold_kg=cut,
+            received_kg=primal.received_kg,
             grade=primal.grade, origin=primal.origin,
             last_weighed=last.get(primal.serial)))
     return sorted(rows, key=lambda r: (r.storage.value, -r.days, r.serial))
+
+
+def _trimmed_kg(session: Session, restaurant_id: int) -> dict[str, list[tuple[date, float]]]:
+    """Los kilos que se le han quitado a cada pieza limpiándola, con su día."""
+    found: dict[str, list[tuple[date, float]]] = {}
+    for row in (session.query(PrimalWeighing)
+                .filter_by(restaurant_id=restaurant_id, kind=LossKind.TRIM)):
+        found.setdefault(row.serial, []).append((row.date, row.loss_kg))
+    return found
 
 
 def _sold_kg(session: Session, restaurant_id: int) -> dict[str, list[tuple[date, float]]]:
@@ -443,6 +597,7 @@ class Summary:
     frozen_kg: float = 0.0
     frozen_value: float = 0.0
     lost_kg: float = 0.0           # agua evaporada, la que ya no se vende
+    trimmed_kg: float = 0.0        # lo quitado limpiando: costra y recortes
     ready: list[str] = field(default_factory=list)
 
 
@@ -454,6 +609,7 @@ def summary(session: Session, restaurant_id: int, on: date | None = None) -> Sum
             out.aging_kg = round(out.aging_kg + row.kg, 6)
             out.aging_value = round(out.aging_value + (row.value or 0.0), 2)
             out.lost_kg = round(out.lost_kg + row.loss_kg, 6)
+            out.trimmed_kg = round(out.trimmed_kg + row.trim_kg, 6)
             if row.ready:
                 out.ready.append(row.serial)
         elif row.storage == Storage.FROZEN:

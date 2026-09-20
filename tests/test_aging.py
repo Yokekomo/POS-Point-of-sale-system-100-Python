@@ -392,3 +392,126 @@ def test_pieces_and_by_weight_come_out_of_the_same_butchery(ctx):
     assert lotes[raciones.id].piece_weight_g == pytest.approx(400)
     assert lotes[entero.id].pieces is None
     assert lotes[entero.id].qty_remaining == 3.6
+
+
+# --------------------------------------------------------------- limpieza
+def test_trimming_before_ageing_raises_the_price_of_what_is_left(ctx):
+    """La grasa que se quita al entrar no se lleva el dinero de la pieza."""
+    s, rest, ana, _ = ctx
+    pieza(s, rest, kg=10.0, precio=30.0)                 # 300 €
+
+    limpia = aging.trim(s, ana, "8017", removed_kg=1.0, on=HOY)
+    assert limpia.removed_kg == 1.0
+    assert limpia.removed_pct == 10.0
+    assert limpia.cost_per_kg_before == 30.0
+    assert limpia.cost_per_kg == pytest.approx(33.333333, abs=1e-5)   # 300 / 9
+    assert limpia.kept_kg == 0.0
+
+    p = s.query(Primal).one()
+    assert p.weight_kg == 9.0 and p.piece_cost_usd == 300.0
+    pesada = s.query(PrimalWeighing).one()
+    assert pesada.kind.value == "TRIM" and pesada.loss_kg == 1.0
+
+
+def test_the_crust_taken_off_after_ageing_is_not_counted_as_water(ctx):
+    """A los cuarenta y cinco días la costra es mucha, y no es evaporación."""
+    s, rest, ana, _ = ctx
+    pieza(s, rest, kg=9.0, precio=30.0)
+    aging.move(s, ana, "8017", Storage.AGING, target_days=45, on=HOY - timedelta(days=45))
+    aging.weigh(s, ana, "8017", 7.6, on=HOY)             # 1,4 kg de agua
+    aging.trim(s, ana, "8017", new_kg=6.4, on=HOY)       # 1,2 kg de costra
+
+    fila = aging.board(s, rest.id, on=HOY)[0]
+    assert fila.kg == 6.4
+    assert fila.loss_kg == 1.4          # el agua, sola
+    assert fila.trim_kg == 1.2          # la costra, aparte
+    assert fila.cost_per_kg == pytest.approx(42.1875, abs=1e-3)    # 270 / 6,4
+
+    resumen = aging.summary(s, rest.id, on=HOY)
+    assert resumen.lost_kg == 1.4 and resumen.trimmed_kg == 1.2
+
+
+def test_the_trim_can_be_kept_and_takes_only_what_it_is_worth(ctx):
+    """Un recorte no vale lo que un lomo: entra en cámara con su índice."""
+    from thegrill.meat import service as meat
+    from thegrill.models import IngredientLot
+
+    s, rest, ana, _ = ctx
+    p = pieza(s, rest, kg=10.0, precio=30.0)
+    p.expiry_label = HOY + timedelta(days=20)
+    s.flush()
+    recortes = meat.create_cut(s, ana, "Recortes de vacuno")
+    articulo = meat.add_article(s, ana, recortes, "Recortes AUS")
+
+    limpia = aging.trim(s, ana, "8017", removed_kg=1.0, item_id=articulo.id,
+                        value_index=0.25, on=HOY)
+    lote = s.query(IngredientLot).one()
+    assert lote.qty_remaining == 1.0
+    assert lote.unit_cost == pytest.approx(7.5)          # 30 × 0,25
+    assert lote.parent_serial == "8017"
+    assert limpia.kept_cost == pytest.approx(7.5)
+    assert limpia.trim_serial == lote.serial
+
+    # Los 7,50 € se los lleva el recorte; el resto se queda en la pieza.
+    p = s.query(Primal).one()
+    assert p.piece_cost_usd == pytest.approx(292.5)
+    assert p.landed_usd_per_kg == pytest.approx(32.5)    # 292,50 / 9
+
+
+def test_a_trim_cannot_eat_the_whole_piece(ctx):
+    s, rest, ana, _ = ctx
+    pieza(s, rest, kg=4.0)
+    with pytest.raises(aging.AgingError):
+        aging.trim(s, ana, "8017", removed_kg=4.0, on=HOY)
+    with pytest.raises(aging.AgingError):
+        aging.trim(s, ana, "8017", on=HOY)               # ni cuánto se quita ni cuánto queda
+    assert s.query(Primal).one().weight_kg == 4.0
+
+
+def test_kept_trim_needs_a_use_by_date(ctx):
+    """Una caducidad no se inventa: sin fecha en la pieza, no entra en cámara."""
+    from thegrill.meat import service as meat
+    s, rest, ana, _ = ctx
+    pieza(s, rest, kg=10.0)
+    recortes = meat.create_cut(s, ana, "Recortes")
+    articulo = meat.add_article(s, ana, recortes, "Recortes AUS")
+    with pytest.raises(aging.AgingError):
+        aging.trim(s, ana, "8017", removed_kg=1.0, item_id=articulo.id, on=HOY)
+
+
+def test_trimming_in_the_middle_does_not_inflate_the_water(ctx):
+    """La costra no evaporó: la cortó alguien, y va en su propia columna."""
+    s, rest, ana, _ = ctx
+    pieza(s, rest, kg=10.0, precio=30.0)
+    aging.move(s, ana, "8017", Storage.AGING, target_days=60, on=HOY - timedelta(days=30))
+    aging.weigh(s, ana, "8017", 9.3, on=HOY - timedelta(days=1))    # 0,7 de agua
+    aging.trim(s, ana, "8017", removed_kg=0.8, on=HOY)              # 0,8 de limpieza
+
+    fila = aging.board(s, rest.id, on=HOY)[0]
+    assert fila.start_kg == 10.0         # el peso con el que entró a madurar no se toca
+    assert fila.kg == 8.5
+    assert fila.loss_kg == 0.7 and fila.trim_kg == 0.8
+    assert fila.loss_pct == 7.0          # el agua, contra los diez kilos que entraron
+
+
+def test_the_yield_says_what_is_left_of_what_came_in(ctx):
+    """De nueve kilos que entraron, cuánto se puede vender. Eso decide los días."""
+    from thegrill.meat import service as meat
+    s, rest, ana, _ = ctx
+    meat.receive_primals(s, ana, "DXB1",
+                         [meat.PrimalRow(serial="8017", sku="Ribeye AUS", kg=9.0,
+                                         price_kg=30.0, use_by=HOY + timedelta(days=60))],
+                         received=HOY - timedelta(days=46))
+    aging.move(s, ana, "8017", Storage.AGING, target_days=45, on=HOY - timedelta(days=45))
+    aging.weigh(s, ana, "8017", 7.6, on=HOY)             # agua
+    aging.trim(s, ana, "8017", new_kg=6.4, on=HOY)       # costra
+
+    fila = aging.board(s, rest.id, on=HOY)[0]
+    assert fila.received_kg == 9.0
+    assert fila.yield_pct == pytest.approx(71.1, abs=0.1)
+
+    # Lo vendido cuenta como aprovechado, no como pérdida.
+    aging.sell_by_weight(s, ana, "8017", 400, price=52.0, on=HOY)
+    fila = aging.board(s, rest.id, on=HOY)[0]
+    assert fila.kg == 6.0 and fila.sold_kg == 0.4
+    assert fila.yield_pct == pytest.approx(71.1, abs=0.1)

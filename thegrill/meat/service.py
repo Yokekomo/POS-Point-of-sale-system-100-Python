@@ -77,7 +77,8 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
             restaurant_id=user.restaurant_id, serial=row.serial.strip(),
             sku=(row.sku or "").strip() or row.serial.strip(),
             grade=(row.grade or None), origin=(row.origin or None),
-            weight_kg=row.kg, lot=lot.strip() or None, received_date=received,
+            weight_kg=row.kg, received_kg=row.kg, lot=lot.strip() or None,
+            received_date=received,
             landed_usd_per_kg=row.price_kg,
             piece_cost_usd=round(row.kg * row.price_kg, 4) if row.price_kg else None,
             frozen_use_by=row.use_by, status=PrimalStatus.IN_STOCK)

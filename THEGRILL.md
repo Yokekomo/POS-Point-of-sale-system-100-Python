@@ -277,8 +277,16 @@ verdad falta. Si pierde más de lo razonable —más de un 10 % de una pesada a 
 siguiente o más de un 20 % desde que entró— salta el aviso; del 30 % para
 arriba, crítico.
 
-La madurada pasa por despiece igual que las demás: hay que limpiarla antes de
-meterla en cámara, y esa limpieza la pagan los kilos que quedan. Al limpiarla se
+Se limpia dos veces y no son lo mismo: antes de madurar, para quitar lo que
+sobra, y al cabo de las semanas, para quitar la costra seca, que crece con los
+días. Las dos se apuntan aparte del agua —si no, la merma de maduración sale
+inflada— y las dos suben el precio del kilo que queda. Si los recortes se
+guardan, entran en cámara con su propio lote y se llevan solo lo que valen. De
+ahí sale el **rendimiento**: lo que queda de lo que entró, que es el número que
+dice si compensan cuarenta y cinco días o sesenta.
+
+La madurada pasa por despiece igual que las demás: la limpieza grande puede
+hacerse ahí, y la pagan los kilos que quedan. Al limpiarla se
 decide qué sale, y pueden salir las dos cosas a la vez: un corte **a peso**, que
 entra en cámara en kilos y sin piezas porque se corta delante del cliente, y
 raciones ya cortadas con su peso.
@@ -465,7 +473,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   536 tests
+tests/                   543 tests
 ```
 
 ## Uso
