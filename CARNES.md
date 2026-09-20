@@ -220,6 +220,31 @@ vuelca y no queda un despiece a medias.
 lo que hay descongelando y los días que faltan para caducar. El cierre del día
 deja los avisos de lo que baja del mínimo.
 
+**Maduración y congelador.** Una pieza entera puede estar en tres sitios y en
+cada uno le pasa algo distinto. En cámara es la que llegó. Congelada, el reloj
+se para y manda la fecha de consumo del congelador, no la de la etiqueta. Y
+madurando pierde agua todos los días.
+
+Ahí está lo que casi nadie apunta: **los kilos se van y el dinero no**. Una
+pieza de 9 kg comprada a 30 € el kilo son 270 €; si a los cuarenta y cinco días
+pesa 7,6, esos 270 € siguen enteros y el kilo ha pasado a valer 35,53 €. Quien
+siga cobrando como si costara 30 está regalando la maduración. Por eso cada
+pesada deja escrito el peso de antes, el de ahora, lo perdido y a cómo sale el
+kilo, y el inventario del mes cuenta también como pesada: la merma de
+maduración se apunta como agua evaporada, no como carne que falte, y el aviso
+de carne que falta se queda solo con lo que de verdad falta.
+
+Si la pieza pierde más de lo que una maduración explica —más de un 10 % de una
+pesada a la siguiente, o más de un 20 % desde que entró— salta el aviso; a
+partir del 30 % es crítico, porque eso ya no es maduración.
+
+**Las dos maneras de vender lo que no es un filete de cámara.** La madurada se
+corta delante del cliente y se cobra por kilo: se apuntan los gramos cortados y
+lo cobrado, y sale el coste de ese trozo y su food cost, con el precio del kilo
+de hoy, no con el del día que llegó. La congelada va por el camino de siempre:
+se despieza en porciones —que nacen congeladas, con la fecha del congelador— y
+se vende por pieza, con su escandallo.
+
 **Descongelado.** Lo que sale a descongelar, lo que el POS ha vendido y lo que
 queda al cerrar el turno. Las tres cosas juntas son el cuadre del día:
 
@@ -298,6 +323,7 @@ colgar al lado de la balanza.
 | Emplatado con guarnición y food cost del plato entero | ✓ | ✓ (con su propia pantalla) |
 | Plantillas HACCP y registros generales | ✓ | — |
 | Recepción de primales y despiece con pantalla propia | — | ✓ |
+| Maduración, congelador y venta a peso | ✓ (el mismo motor) | ✓ (con su propia pantalla) |
 | Descongelado con pantalla propia | — | ✓ |
 | Carta: un plato es un corte y unos gramos | — | ✓ |
 
@@ -307,8 +333,8 @@ plataforma completa; una que solo maneje carne, esta.
 
 ## Idiomas
 
-Los seis de siempre —español, inglés, francés, alemán, neerlandés y árabe, este
-de derecha a izquierda—, elegibles en la pantalla de acceso y en configuración.
+Siete: español, inglés, francés, alemán, neerlandés, árabe —este de derecha a
+izquierda— y húngaro, elegibles en la pantalla de acceso y en configuración.
 Los textos propios de esta edición viven en `thegrill/meat/i18n_meat.py` y un
 test comprueba que ningún idioma se deje claves sin traducir.
 
@@ -329,7 +355,7 @@ thegrill/meat/
   billing.py       La cuenta: solicitudes, altas, la prueba y el recibo del mes
   mailer.py        El aviso por correo de cada solicitud
   security.py      Cabeceras, freno a las contraseñas y freno al formulario
-  i18n_meat.py     322 textos propios × siete idiomas
+  i18n_meat.py     367 textos propios × siete idiomas
   templates/       Las pantallas propias; lo demás se hereda de la cocina
   static/fotos/    Las tres fotos de la portada, si se ponen (LEEME.md dentro)
 ```

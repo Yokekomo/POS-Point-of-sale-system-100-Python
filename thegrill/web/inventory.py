@@ -19,8 +19,8 @@ from thegrill.engine.inventory import (MATCH, NOT_FOUND, OVER, SHORT, UNCOUNTED,
                                        Counted, Expected, Summary, reconcile)
 from thegrill.models import (Alert, AlertSeverity, CountItemKind, CountPeriod, CountStatus,
                              Ingredient, IngredientLot, IngredientMovement, MeatCount,
-                             MeatCountLine, MovementKind, Primal, PrimalStatus, User)
-from thegrill.web import service
+                             MeatCountLine, MovementKind, Primal, PrimalStatus, Storage, User)
+from thegrill.web import aging, service
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -38,6 +38,12 @@ class CloseResult:
     adjusted_value: float = 0.0
     phantoms: list[str] = field(default_factory=list)
     alerts: list[Alert] = field(default_factory=list)
+    weighings: list = field(default_factory=list)   # piezas que maduran, repesadas
+
+    @property
+    def aging_kg(self) -> float:
+        """El agua que se han dejado las piezas que maduran. No es carne que falte."""
+        return round(sum(w.loss_kg for w in self.weighings), 4)
 
 
 # ------------------------------------------------------------- lo esperado
@@ -144,7 +150,7 @@ def close_count(session: Session, user: User, count: MeatCount,
             result.adjusted_kg = round(result.adjusted_kg + abs(row.gap_kg), 6)
             result.adjusted_value = round(result.adjusted_value + row.gap_value, 4)
         else:
-            _flag_primal(session, user, row, result)
+            _flag_primal(session, user, row, result, count=count, lang=lang)
 
     count.status = CountStatus.CLOSED
     count.closed_by = user.id
@@ -170,8 +176,14 @@ def _reanchor_cut(session: Session, user: User, row, count: MeatCount, now: date
         source_ref=f"INV-{count.id} {row.serial}", created_by=user.id))
 
 
-def _flag_primal(session: Session, user: User, row, result: CloseResult) -> None:
-    """Un primal que no aparece queda sospechoso, nunca cortado por inferencia."""
+def _flag_primal(session: Session, user: User, row, result: CloseResult,
+                 count: MeatCount | None = None, lang: str | None = None) -> None:
+    """Un primal que no aparece queda sospechoso, nunca cortado por inferencia.
+
+    Y si la pieza estaba madurando, pesarla en el inventario es una pesada como
+    cualquier otra: lo que ha perdido es agua, no carne que falte, así que se
+    apunta como tal y el coste se queda en los kilos que quedan.
+    """
     primal = (session.query(Primal)
               .filter_by(restaurant_id=user.restaurant_id, serial=row.serial).first())
     if primal is None:
@@ -180,6 +192,15 @@ def _flag_primal(session: Session, user: User, row, result: CloseResult) -> None
         primal.suspect_phantom = True
         result.phantoms.append(primal.serial)
     elif row.counted_kg:
+        if aging.where(primal) != Storage.CHILLED:
+            try:
+                weighed = aging.weigh(session, user, primal.serial, row.counted_kg,
+                                      on=count.date if count else None, source="count",
+                                      lang=lang)
+                result.weighings.append(weighed)
+                return
+            except aging.AgingError:
+                pass      # pesa más que antes o ya no está en stock: se trata como antes
         primal.weight_kg = round(row.counted_kg, 6)
 
 
@@ -195,11 +216,24 @@ def _raise_alerts(session: Session, user: User, result: CloseResult, lang: str,
             message=t(lang, "alert.count_partial", n=len(pending),
                       serials=", ".join(pending[:8])),
             severity=AlertSeverity.WARNING, created_at=now))
-    if summary.shrink_kg > EPSILON:
+    # Lo que se han dejado madurando es agua, y el dinero sigue en la pieza: no
+    # entra en lo que falta. Lo que quede después de descontarlo, sí.
+    aging_kg = result.aging_kg
+    aging_value = round(sum(w.loss_kg * (w.cost_per_kg_before or 0.0)
+                            for w in result.weighings), 2)
+    missing_kg = round(summary.shrink_kg - aging_kg, 4)
+    missing_value = round(summary.shrink_value - aging_value, 2)
+    if aging_kg > EPSILON:
+        result.alerts.append(Alert(
+            restaurant_id=user.restaurant_id, code="count.aging",
+            message=t(lang, "alert.count_aging", kg=f"{aging_kg:.10g}",
+                      n=len(result.weighings)),
+            severity=AlertSeverity.INFO, created_at=now))
+    if missing_kg > EPSILON:
         result.alerts.append(Alert(
             restaurant_id=user.restaurant_id, code="count.shrink",
-            message=t(lang, "alert.count_shrink", kg=f"{summary.shrink_kg:.10g}",
-                      value=f"{summary.shrink_value:.2f}"),
+            message=t(lang, "alert.count_shrink", kg=f"{missing_kg:.10g}",
+                      value=f"{max(0.0, missing_value):.2f}"),
             severity=AlertSeverity.CRITICAL, created_at=now))
     if result.phantoms:
         result.alerts.append(Alert(

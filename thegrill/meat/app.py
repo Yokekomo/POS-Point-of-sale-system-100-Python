@@ -25,10 +25,10 @@ from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
 from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, CountPeriod,
                              CountStatus, Ingredient, IngredientItem, MeatCount, Plan,
-                             PosMatch, PosProduct, Primal, Recipe, RequestStatus,
-                             Restaurant, Role, Rotation, Unit, User)
-from thegrill.web import (auth, butchery, costing, defrost, i18n, inventory, service,
-                          tracing, waste)
+                             PosMatch, PosProduct, Primal, PrimalStatus, Recipe,
+                             RequestStatus, Restaurant, Role, Rotation, Storage, Unit, User)
+from thegrill.web import (aging, auth, butchery, costing, defrost, i18n, inventory,
+                          service, tracing, waste)
 
 log = logging.getLogger(__name__)
 
@@ -581,6 +581,86 @@ def defrost_close(request: Request, shift: str = Form(""), csrf: str = Form(""),
         return _defrost(request, user, auth_session, session, shift=shift, error=str(e))
     return _defrost(request, user, auth_session, session, shift=shift, closed=result,
                     done=i18n.t(lang, "m.df.closed", n=len(result.consumed)))
+
+
+# ========================================================== MADURACIÓN
+@app.get("/maduracion", response_class=HTMLResponse)
+def aging_page(request: Request, ctx=Depends(needs(perms.STOCK)),
+               session: Session = Depends(get_db), done: str = ""):
+    """La nevera de maduración y el congelador, pieza a pieza."""
+    user, auth_session = ctx
+    return _aging(request, user, auth_session, session, done=done)
+
+
+def _aging(request, user, auth_session, session, *, done="", error="", weighed=None, sold=None):
+    return page(request, "aging.html", user, auth_session, session, done=done, error=error,
+                weighed=weighed, sold=sold, storages=list(Storage),
+                rows=aging.board(session, user.restaurant_id),
+                summary=aging.summary(session, user.restaurant_id),
+                sales=aging.sales(session, user.restaurant_id),
+                chilled=[p for p in meat.primals_in_stock(session, user.restaurant_id)
+                         if aging.where(p) == Storage.CHILLED])
+
+
+@app.post("/maduracion/mover", response_class=HTMLResponse)
+def aging_move(request: Request, serial: str = Form(...), storage: str = Form(...),
+               target_days: str = Form(""), use_by: str = Form(""), note: str = Form(""),
+               csrf: str = Form(""), ctx=Depends(needs(perms.AGE)),
+               session: Session = Depends(get_db)):
+    """Mete una pieza a madurar, la congela o la devuelve a la cámara."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    if storage not in Storage.__members__:
+        raise HTTPException(status_code=400, detail="Ese sitio no existe")
+    days = _num(target_days)
+    try:
+        aging.move(session, user, serial.strip(), Storage[storage],
+                   target_days=int(days) if days else None,
+                   use_by=date.fromisoformat(use_by) if use_by.strip() else None,
+                   note=note.strip() or None)
+    except (aging.AgingError, ValueError) as e:
+        return _aging(request, user, auth_session, session, error=str(e))
+    return RedirectResponse("/maduracion", status_code=303)
+
+
+@app.post("/maduracion/pesar", response_class=HTMLResponse)
+def aging_weigh(request: Request, serial: str = Form(...), kg: str = Form(...),
+                note: str = Form(""), csrf: str = Form(""),
+                ctx=Depends(needs(perms.AGE)), session: Session = Depends(get_db)):
+    """Vuelve a pesar la pieza: lo que ha perdido sube el precio de lo que queda."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    try:
+        result = aging.weigh(session, user, serial.strip(), _num(kg, 0.0) or 0.0,
+                             note=note.strip() or None, lang=lang)
+    except (aging.AgingError, ValueError) as e:
+        return _aging(request, user, auth_session, session, error=str(e))
+    return _aging(request, user, auth_session, session, weighed=result,
+                  done=i18n.t(lang, "m.ag.weighed", serial=result.serial,
+                              kg=f"{result.kg:.10g}", loss=f"{result.loss_kg:.10g}",
+                              pct=f"{result.total_loss_pct:.10g}"))
+
+
+@app.post("/maduracion/venta", response_class=HTMLResponse)
+def aging_sale(request: Request, serial: str = Form(...), grams: str = Form(...),
+               price: str = Form("0"), dish: str = Form(""), note: str = Form(""),
+               csrf: str = Form(""), ctx=Depends(needs(perms.MENU)),
+               session: Session = Depends(get_db)):
+    """Venta a peso: se corta en el momento y se cobra por kilo."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    try:
+        result = aging.sell_by_weight(session, user, serial.strip(), _num(grams, 0.0) or 0.0,
+                                      price=_num(price, 0.0) or 0.0,
+                                      dish=dish.strip() or None, note=note.strip() or None)
+    except (aging.AgingError, ValueError) as e:
+        return _aging(request, user, auth_session, session, error=str(e))
+    return _aging(request, user, auth_session, session, sold=result,
+                  done=i18n.t(lang, "m.ag.sold", serial=result.serial,
+                              grams=f"{result.grams:.10g}",
+                              left=f"{result.kg_left:.10g}"))
 
 
 # =============================================================== CORTES

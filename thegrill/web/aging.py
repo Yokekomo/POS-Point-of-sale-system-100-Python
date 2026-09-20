@@ -1,0 +1,472 @@
+"""Maduración, congelador y venta a peso.
+
+Una pieza entera puede estar en tres sitios, y en cada uno le pasa algo
+distinto:
+
+- **En cámara**, la pieza es la que llegó. Ni gana ni pierde.
+- **Congelada**, el reloj se para. Se guarda el día en que se congeló y la
+  fecha de consumo del congelador, que es la que manda desde entonces.
+- **Madurando**, pierde agua todos los días. Y aquí está lo que casi nadie
+  apunta: los kilos se van, pero el dinero no. Una pieza de 9 kg a 30 €/kg son
+  270 €; si a los cuarenta días pesa 7,6 kg, esos 270 € siguen ahí y el kilo
+  ha pasado a valer 35,53 €. Quien siga cobrando como si costara 30 está
+  regalando la maduración.
+
+Por eso cada pesada se escribe: el peso de antes, el de ahora, lo que se ha
+ido y a cómo queda el kilo. El inventario mensual pesa igual que cualquier
+otro día, así que también vale como pesada y la merma de maduración queda
+contada como lo que es —evaporación— y no como carne que falta.
+
+La carne madurada se corta en el momento de la venta y se cobra por kilo: no
+hay gramos fijos que valgan. Eso es `sell_by_weight`, que descuenta de la
+pieza los gramos que se hayan cortado y deja escrito su coste y su food cost.
+La congelada es la otra manera: se despieza en porciones y se vende por pieza,
+que es el camino de siempre —despiece, cámara, carta— y no necesita nada nuevo.
+"""
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
+
+from sqlalchemy.orm import Session
+
+from thegrill.models import (Alert, AlertSeverity, AuditLog, Primal, PrimalStatus,
+                             PrimalWeighing, Storage, User, WeightSale)
+from thegrill.web import service
+from thegrill.web.i18n import t
+
+EPSILON = 1e-9
+
+# Una pieza que madura pierde agua, y eso es normal. Lo que no es normal es
+# cuánto: por encima de estos números alguien tiene que mirarla.
+SINGLE_LOSS_PCT = 10.0      # de una pesada a la siguiente
+TOTAL_LOSS_PCT = 20.0       # desde que entró a madurar
+CRITICAL_LOSS_PCT = 30.0    # a partir de aquí no es maduración, es un problema
+GAIN_TOLERANCE_KG = 0.05    # la báscula tiene su juego; más que esto es un error
+
+
+class AgingError(ValueError):
+    """Lo que se pide hacer con la pieza no se puede hacer."""
+
+
+@dataclass
+class MoveResult:
+    serial: str
+    sku: str
+    was: Storage
+    now: Storage
+    kg: float
+    target_days: int | None = None
+    use_by: date | None = None
+
+
+@dataclass
+class WeighResult:
+    serial: str
+    sku: str
+    storage: Storage
+    days: int | None
+    previous_kg: float
+    kg: float
+    loss_kg: float
+    loss_pct: float                 # de esta pesada
+    total_loss_kg: float            # desde que entró a madurar
+    total_loss_pct: float
+    cost_per_kg_before: float | None
+    cost_per_kg: float | None
+    alert: Alert | None = None
+
+    @property
+    def cost_rise_pct(self) -> float | None:
+        """Cuánto sube el kilo, que es lo que hay que llevar a la carta."""
+        if not self.cost_per_kg_before or not self.cost_per_kg:
+            return None
+        return round((self.cost_per_kg - self.cost_per_kg_before)
+                     / self.cost_per_kg_before * 100, 2)
+
+
+@dataclass
+class BoardRow:
+    """Una pieza en la nevera de maduración o en el congelador."""
+    serial: str
+    sku: str
+    storage: Storage
+    since: date | None
+    days: int
+    target_days: int | None
+    start_kg: float | None
+    kg: float
+    loss_kg: float
+    loss_pct: float
+    cost_per_kg: float | None
+    value: float | None
+    use_by: date | None
+    sold_kg: float = 0.0            # lo que ya se ha cortado y vendido al peso
+    grade: str | None = None
+    origin: str | None = None
+    last_weighed: date | None = None
+
+    @property
+    def ready_on(self) -> date | None:
+        if self.storage != Storage.AGING or not self.since or not self.target_days:
+            return None
+        return self.since + timedelta(days=self.target_days)
+
+    @property
+    def ready(self) -> bool:
+        return bool(self.target_days) and self.days >= (self.target_days or 0)
+
+    @property
+    def days_left(self) -> int | None:
+        if not self.target_days:
+            return None
+        return max(0, self.target_days - self.days)
+
+
+@dataclass
+class SaleResult:
+    serial: str
+    sku: str
+    grams: float
+    price: float
+    cost: float
+    cost_per_kg: float | None
+    kg_left: float
+    finished: bool = False          # la pieza se ha acabado con esta venta
+
+    @property
+    def margin(self) -> float:
+        return round(self.price - self.cost, 4)
+
+    @property
+    def food_cost_pct(self) -> float | None:
+        if self.price <= EPSILON:
+            return None
+        return round(self.cost / self.price * 100, 2)
+
+
+# ------------------------------------------------------------------ piezas
+def find(session: Session, restaurant_id: int, serial: str) -> Primal:
+    """La pieza entera con ese número, si está en la casa y en stock."""
+    primal = (session.query(Primal)
+              .filter_by(restaurant_id=restaurant_id, serial=(serial or "").strip()).first())
+    if primal is None:
+        raise AgingError(f"No hay ninguna pieza con el número {serial}")
+    if primal.status != PrimalStatus.IN_STOCK:
+        raise AgingError(f"La pieza {primal.serial} ya no está en stock")
+    return primal
+
+
+def where(primal: Primal) -> Storage:
+    """Dónde está la pieza. Las de antes de esto estaban en cámara."""
+    return primal.storage or Storage.CHILLED
+
+
+def cost_per_kg(primal: Primal) -> float | None:
+    """A cómo sale el kilo de esta pieza ahora mismo."""
+    if primal.landed_usd_per_kg is not None:
+        return primal.landed_usd_per_kg
+    if primal.piece_cost_usd is not None and primal.weight_kg:
+        return round(primal.piece_cost_usd / primal.weight_kg, 6)
+    return None
+
+
+def total_cost(primal: Primal) -> float | None:
+    """Lo que costó la pieza entera. No cambia porque pierda agua."""
+    if primal.piece_cost_usd is not None:
+        return primal.piece_cost_usd
+    if primal.landed_usd_per_kg is not None and primal.weight_kg:
+        return round(primal.landed_usd_per_kg * primal.weight_kg, 6)
+    return None
+
+
+def days_in(primal: Primal, on: date | None = None) -> int:
+    since = primal.storage_since
+    if not since:
+        return 0
+    return max(0, ((on or date.today()) - since).days)
+
+
+# -------------------------------------------------------------- el traslado
+def move(session: Session, user: User, serial: str, storage: Storage,
+         target_days: int | None = None, use_by: date | None = None,
+         on: date | None = None, note: str | None = None) -> MoveResult:
+    """Lleva una pieza entera a la cámara, al congelador o a madurar.
+
+    Entrar a madurar deja escrito el peso de salida: sin él no hay forma de
+    decir después cuánto ha perdido. Congelar pide la fecha de consumo del
+    congelador, porque la de la etiqueta original deja de valer.
+    """
+    on = on or date.today()
+    primal = find(session, user.restaurant_id, serial)
+    was = where(primal)
+    if was == storage:
+        raise AgingError(f"La pieza {primal.serial} ya está ahí")
+    if storage == Storage.AGING and not primal.weight_kg:
+        raise AgingError(f"La pieza {primal.serial} no tiene peso: no se puede madurar lo que no se pesa")
+    if target_days is not None and target_days <= 0:
+        raise AgingError("Los días de maduración tienen que ser más de cero")
+
+    primal.storage = storage
+    primal.storage_since = on
+    if storage == Storage.AGING:
+        primal.aging_start_kg = primal.weight_kg
+        primal.aging_target_days = target_days
+    else:
+        primal.aging_start_kg = None
+        primal.aging_target_days = None
+    if storage == Storage.FROZEN and use_by:
+        primal.frozen_use_by = use_by
+    if storage != Storage.FROZEN:
+        # Sale del congelador: la fecha del congelador deja de mandar.
+        primal.frozen_use_by = None if was == Storage.FROZEN else primal.frozen_use_by
+
+    _audit(session, user, primal.serial, f"{was.value} → {storage.value}", note)
+    session.flush()
+    return MoveResult(serial=primal.serial, sku=primal.sku, was=was, now=storage,
+                      kg=round(primal.weight_kg or 0.0, 6), target_days=target_days,
+                      use_by=primal.frozen_use_by)
+
+
+# --------------------------------------------------------------- la pesada
+def weigh(session: Session, user: User, serial: str, kg: float,
+          on: date | None = None, source: str = "manual", note: str | None = None,
+          lang: str | None = None) -> WeighResult:
+    """Vuelve a pesar una pieza entera y reparte el coste sobre lo que queda.
+
+    Los kilos que faltan no se los ha llevado nadie: se han evaporado. Por eso
+    el coste de la pieza no baja y el precio del kilo sube.
+    """
+    on = on or date.today()
+    lang = lang or service.restaurant_language(session, user.restaurant_id)
+    if kg <= 0:
+        raise AgingError("El peso tiene que ser mayor que cero")
+
+    primal = find(session, user.restaurant_id, serial)
+    previous = round(primal.weight_kg or 0.0, 6)
+    if kg > previous + GAIN_TOLERANCE_KG:
+        raise AgingError(
+            f"La pieza {primal.serial} pesaba {previous:.10g} kg y no puede pesar "
+            f"{kg:.10g}. Una pieza no engorda en la cámara: revisa la báscula o el número.")
+
+    cost = total_cost(primal)
+    before_per_kg = cost_per_kg(primal)
+    # El coste de la pieza se fija aquí: a partir de ahora el kilo se calcula
+    # contra el peso de hoy, no contra el del día que llegó.
+    if cost is not None:
+        primal.piece_cost_usd = cost
+        primal.landed_usd_per_kg = round(cost / kg, 6) if kg > EPSILON else None
+    primal.weight_kg = round(kg, 6)
+
+    storage = where(primal)
+    days = days_in(primal, on)
+    start = primal.aging_start_kg or previous
+    total_loss = round(max(0.0, start - kg), 6)
+    loss = round(max(0.0, previous - kg), 6)
+
+    session.add(PrimalWeighing(
+        restaurant_id=user.restaurant_id, primal_id=primal.id, serial=primal.serial,
+        date=on, storage=storage, previous_kg=previous, kg=round(kg, 6), loss_kg=loss,
+        cost_per_kg=primal.landed_usd_per_kg, days=days, source=source, note=note,
+        created_by=user.id))
+    session.flush()
+
+    result = WeighResult(
+        serial=primal.serial, sku=primal.sku, storage=storage, days=days,
+        previous_kg=previous, kg=round(kg, 6), loss_kg=loss,
+        loss_pct=_pct(loss, previous), total_loss_kg=total_loss,
+        total_loss_pct=_pct(total_loss, start),
+        cost_per_kg_before=before_per_kg, cost_per_kg=primal.landed_usd_per_kg)
+    _announce(session, user, result, lang)
+    return result
+
+
+def _pct(part: float, whole: float) -> float:
+    if whole <= EPSILON:
+        return 0.0
+    return round(part / whole * 100, 2)
+
+
+def _announce(session: Session, user: User, result: WeighResult, lang: str) -> None:
+    """Avisa cuando la pieza pierde más de lo que una maduración explica."""
+    if result.storage != Storage.AGING:
+        return
+    severity = None
+    if result.total_loss_pct >= CRITICAL_LOSS_PCT:
+        severity = AlertSeverity.CRITICAL
+    elif result.total_loss_pct >= TOTAL_LOSS_PCT or result.loss_pct >= SINGLE_LOSS_PCT:
+        severity = AlertSeverity.WARNING
+    if severity is None:
+        return
+
+    now = datetime.utcnow()
+    alert = Alert(restaurant_id=user.restaurant_id, code="aging.loss",
+                  message=t(lang, "alert.aging_loss", serial=result.serial,
+                            sku=result.sku, pct=f"{result.total_loss_pct:.10g}",
+                            kg=f"{result.total_loss_kg:.10g}", days=result.days or 0),
+                  severity=severity, created_at=now)
+    session.add(alert)
+    session.flush()
+    result.alert = alert
+    targets = [uid for uid in service.manager_ids(session, user.restaurant_id) if uid != user.id]
+    service.notify(session, user.restaurant_id, targets, title=t(lang, "alert.aging_title"),
+                   body=alert.message, severity=severity, alert_id=alert.id, now=now)
+
+
+# --------------------------------------------------------- venta a peso
+def sell_by_weight(session: Session, user: User, serial: str, grams: float,
+                   price: float = 0.0, dish: str | None = None,
+                   on: date | None = None, note: str | None = None) -> SaleResult:
+    """Corta y cobra por kilo: lo que se hace con una pieza madurada.
+
+    Se descuentan los gramos cortados y se lleva con ellos su parte del coste,
+    de manera que el kilo de lo que queda sigue valiendo lo mismo.
+    """
+    on = on or date.today()
+    if grams <= 0:
+        raise AgingError("Los gramos vendidos tienen que ser más de cero")
+    if price < 0:
+        raise AgingError("El precio no puede ser negativo")
+
+    primal = find(session, user.restaurant_id, serial)
+    kg = round(grams / 1000, 6)
+    available = round(primal.weight_kg or 0.0, 6)
+    if kg > available + EPSILON:
+        raise AgingError(
+            f"Se quieren cortar {kg:.10g} kg de la pieza {primal.serial} y solo quedan "
+            f"{available:.10g}. Una venta no puede dejar la pieza en negativo.")
+
+    per_kg = cost_per_kg(primal)
+    cost = round(kg * per_kg, 6) if per_kg is not None else 0.0
+    whole = total_cost(primal)
+    primal.weight_kg = round(available - kg, 6)
+    if whole is not None:
+        # El trozo se lleva su parte: el kilo de lo que queda no se mueve.
+        primal.piece_cost_usd = round(max(0.0, whole - cost), 6)
+
+    finished = primal.weight_kg <= EPSILON
+    if finished:
+        primal.status = PrimalStatus.CUT
+        primal.status_ref = "PESO"
+        primal.status_date = on
+        primal.weight_kg = 0.0
+        primal.piece_cost_usd = 0.0
+
+    session.add(WeightSale(
+        restaurant_id=user.restaurant_id, primal_id=primal.id, serial=primal.serial,
+        date=on, grams=round(grams, 4), price=round(price, 4), cost=cost,
+        cost_per_kg=per_kg, dish=(dish or None), note=note, created_by=user.id))
+    session.flush()
+    return SaleResult(serial=primal.serial, sku=primal.sku, grams=round(grams, 4),
+                      price=round(price, 4), cost=cost, cost_per_kg=per_kg,
+                      kg_left=primal.weight_kg, finished=finished)
+
+
+# ---------------------------------------------------------------- la pizarra
+def board(session: Session, restaurant_id: int, storage: Storage | None = None,
+          on: date | None = None) -> list[BoardRow]:
+    """Lo que hay madurando y lo que hay congelado, pieza a pieza."""
+    on = on or date.today()
+    query = (session.query(Primal)
+             .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK))
+    last = _last_weighings(session, restaurant_id)
+    sold = _sold_kg(session, restaurant_id)
+
+    rows: list[BoardRow] = []
+    for primal in query:
+        place = where(primal)
+        if storage is not None and place != storage:
+            continue
+        if storage is None and place == Storage.CHILLED:
+            continue
+        kg = round(primal.weight_kg or 0.0, 6)
+        start = primal.aging_start_kg or kg
+        # Lo vendido al corte no es merma: sale de la pieza porque se ha
+        # cobrado. Lo que se ha evaporado es lo otro.
+        cut = round(sum(k for when, k in sold.get(primal.serial, [])
+                        if not primal.storage_since or when >= primal.storage_since), 6)
+        loss = round(max(0.0, start - kg - cut), 6)
+        per_kg = cost_per_kg(primal)
+        rows.append(BoardRow(
+            serial=primal.serial, sku=primal.sku, storage=place,
+            since=primal.storage_since, days=days_in(primal, on),
+            target_days=primal.aging_target_days,
+            start_kg=round(start, 6) if primal.aging_start_kg else None,
+            kg=kg, loss_kg=loss, loss_pct=_pct(loss, start), cost_per_kg=per_kg,
+            value=round(kg * per_kg, 2) if per_kg is not None else None,
+            use_by=primal.frozen_use_by or primal.expiry_label, sold_kg=cut,
+            grade=primal.grade, origin=primal.origin,
+            last_weighed=last.get(primal.serial)))
+    return sorted(rows, key=lambda r: (r.storage.value, -r.days, r.serial))
+
+
+def _sold_kg(session: Session, restaurant_id: int) -> dict[str, list[tuple[date, float]]]:
+    """Los kilos vendidos al corte de cada pieza, con su día."""
+    found: dict[str, list[tuple[date, float]]] = {}
+    for row in (session.query(WeightSale).filter_by(restaurant_id=restaurant_id)):
+        found.setdefault(row.serial, []).append((row.date, round(row.grams / 1000, 6)))
+    return found
+
+
+def _last_weighings(session: Session, restaurant_id: int) -> dict[str, date]:
+    found: dict[str, date] = {}
+    for row in (session.query(PrimalWeighing)
+                .filter_by(restaurant_id=restaurant_id)
+                .order_by(PrimalWeighing.date.asc(), PrimalWeighing.id.asc())):
+        found[row.serial] = row.date
+    return found
+
+
+def history(session: Session, restaurant_id: int, serial: str) -> list[PrimalWeighing]:
+    """Todas las pesadas de una pieza, de la primera a la última."""
+    return (session.query(PrimalWeighing)
+            .filter_by(restaurant_id=restaurant_id, serial=(serial or "").strip())
+            .order_by(PrimalWeighing.date.asc(), PrimalWeighing.id.asc()).all())
+
+
+def sales(session: Session, restaurant_id: int, serial: str | None = None,
+          days: int = 60) -> list[WeightSale]:
+    """Las ventas a peso recientes, o todas las de una pieza."""
+    query = session.query(WeightSale).filter_by(restaurant_id=restaurant_id)
+    if serial:
+        query = query.filter(WeightSale.serial == serial.strip())
+    else:
+        query = query.filter(WeightSale.date >= date.today() - timedelta(days=days))
+    return query.order_by(WeightSale.date.desc(), WeightSale.id.desc()).limit(200).all()
+
+
+@dataclass
+class Summary:
+    """Lo que la maduración y el congelador dejan en números."""
+    aging_pieces: int = 0
+    aging_kg: float = 0.0
+    aging_value: float = 0.0
+    frozen_pieces: int = 0
+    frozen_kg: float = 0.0
+    frozen_value: float = 0.0
+    lost_kg: float = 0.0           # agua evaporada, la que ya no se vende
+    ready: list[str] = field(default_factory=list)
+
+
+def summary(session: Session, restaurant_id: int, on: date | None = None) -> Summary:
+    out = Summary()
+    for row in board(session, restaurant_id, on=on):
+        if row.storage == Storage.AGING:
+            out.aging_pieces += 1
+            out.aging_kg = round(out.aging_kg + row.kg, 6)
+            out.aging_value = round(out.aging_value + (row.value or 0.0), 2)
+            out.lost_kg = round(out.lost_kg + row.loss_kg, 6)
+            if row.ready:
+                out.ready.append(row.serial)
+        elif row.storage == Storage.FROZEN:
+            out.frozen_pieces += 1
+            out.frozen_kg = round(out.frozen_kg + row.kg, 6)
+            out.frozen_value = round(out.frozen_value + (row.value or 0.0), 2)
+    return out
+
+
+def _audit(session: Session, user: User, serial: str, move: str,
+           note: str | None = None) -> None:
+    """Un traslado se firma: quién movió la pieza, de dónde a dónde y por qué."""
+    detail = move if not note else f"{move} · {note}"
+    session.add(AuditLog(restaurant_id=user.restaurant_id, actor=user.name,
+                         table="primals", key=serial, action="move",
+                         detail=detail[:255]))

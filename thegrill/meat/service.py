@@ -18,7 +18,8 @@ from sqlalchemy.orm import Session
 from thegrill.models import (ConsumptionMode, CountStatus, Despiece, DespieceCut,
                              DespiecePrimal, Ingredient, IngredientItem, IngredientLot,
                              MeatCount, PosProduct, Primal, PrimalStatus, Recipe,
-                             RecipeKind, RecipeLine, Rotation, Unit, User)
+                             RecipeKind, RecipeLine, Rotation, Storage, Unit, User)
+from thegrill.web import aging as aging_mod
 from thegrill.web import butchery, costing, defrost, inventory
 from thegrill.web.i18n import t
 
@@ -521,6 +522,7 @@ class Today:
     uncounted: int = 0
     open_count: MeatCount | None = None
     month_due: bool = False
+    aging: aging_mod.Summary | None = None
 
 
 def today(session: Session, restaurant_id: int, on: date | None = None,
@@ -537,6 +539,13 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
     thawing = [s for s in states if s.opening_pieces or s.intake_pieces]
     # Salió a descongelar y nadie ha contado lo que quedaba: sin eso no hay cierre.
     uncounted = [s for s in thawing if s.closing_pieces is None]
+
+    # Lo que madura: las que ya han cumplido sus días y las que llevan una
+    # semana sin pesar, que es cuando la merma deja de estar controlada.
+    aging_rows = aging_mod.board(session, restaurant_id, on=on)
+    ready = [r for r in aging_rows if r.storage == Storage.AGING and r.ready]
+    stale = [r for r in aging_rows if r.storage == Storage.AGING
+             and (on - (r.last_weighed or r.since or on)).days > 7]
 
     month = inventory.monthly_status(session, restaurant_id, on=on)
     open_count = (session.query(MeatCount)
@@ -556,7 +565,12 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
         pending.append(t(lang, "m.home.expiring", n=len(status.expiring)))
     if unposted:
         pending.append(t(lang, "m.home.unposted", n=unposted))
+    if ready:
+        pending.append(t(lang, "m.home.aging_ready", n=len(ready)))
+    if stale:
+        pending.append(t(lang, "m.home.aging_unweighed", n=len(stale)))
 
     return Today(status=status, pending=pending, stock_value=value,
                  thawing=len(thawing), uncounted=len(uncounted),
-                 open_count=open_count, month_due=not month.done)
+                 open_count=open_count, month_due=not month.done,
+                 aging=aging_mod.summary(session, restaurant_id, on=on))

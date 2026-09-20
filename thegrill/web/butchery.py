@@ -26,7 +26,7 @@ from thegrill import config
 from thegrill.engine.stock import MassCheck, mass_balance, yield_pct
 from thegrill.models import (Despiece, DespieceCut, DespiecePrimal, IngredientItem,
                              IngredientLot, IngredientMovement, MovementKind, Primal,
-                             PrimalStatus, User)
+                             PrimalStatus, Storage, User)
 from thegrill.rules import TGInput, validate_tg
 
 EPSILON = 1e-9
@@ -179,6 +179,12 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
     # Un corte solo se puede atribuir a una pieza concreta si el despiece
     # consumió una sola. Con varias, el padre es el batch: no se finge una
     # trazabilidad por pieza que no existe.
+    # Si la pieza venía del congelador, lo que sale de ella nace congelado: no
+    # se vende hasta que alguien lo saque a descongelar, y su fecha es la del
+    # congelador, no la de la etiqueta original.
+    from_freezer = bool(primals) and all(
+        (p.storage or Storage.CHILLED) == Storage.FROZEN for p in primals)
+
     single = primals[0] if len(primals) == 1 else None
     base_serial = single.serial if single else despiece.tg
     parent_lot = single.lot if single else None
@@ -221,7 +227,7 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
                             piece_weight_g=avg_piece_g(alloc.kg, alloc.cut.pieces)
                             or alloc.cut.weight_per_piece_g,
                             nominal_piece_g=alloc.cut.weight_per_piece_g,
-                            grade=grade, origin=origin)
+                            grade=grade, origin=origin, frozen=from_freezer)
         session.add(lot)
         session.flush()
         alloc.cut.lot_id = lot.id

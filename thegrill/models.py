@@ -84,6 +84,19 @@ class PrimalStatus(str, enum.Enum):
     WASTE = "WASTE"
 
 
+class Storage(str, enum.Enum):
+    """Dónde está la pieza, que cambia lo que le pasa dentro.
+
+    En refrigeración la pieza es la que llegó. Congelada, el reloj se para y
+    la vida útil pasa a ser la del congelador. Madurando pierde agua todos los
+    días: pesa menos y el kilo que queda vale más, porque el dinero de la
+    pieza no se evapora con el agua.
+    """
+    CHILLED = "CHILLED"
+    FROZEN = "FROZEN"
+    AGING = "AGING"
+
+
 class MovementType(str, enum.Enum):
     IN = "IN"
     OUT = "OUT"
@@ -433,6 +446,13 @@ class Primal(TenantMixin, Base):
     pack_date: Mapped[date | None] = mapped_column(Date)
     expiry_label: Mapped[date | None] = mapped_column(Date)
     frozen_use_by: Mapped[date | None] = mapped_column(Date)
+    # Dónde está y desde cuándo. Madurando se guarda además el peso con el que
+    # entró y los días a los que se apunta, que es lo que permite decir cuánto
+    # lleva perdido y cuándo está lista.
+    storage: Mapped[Storage | None] = mapped_column(Enum(Storage), default=Storage.CHILLED)
+    storage_since: Mapped[date | None] = mapped_column(Date)
+    aging_start_kg: Mapped[float | None] = mapped_column(Float)
+    aging_target_days: Mapped[int | None] = mapped_column(Integer)
     halal: Mapped[bool | None] = mapped_column(Boolean)
     photo_ref: Mapped[str | None] = mapped_column(String(256))
     suspect_phantom: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -698,6 +718,9 @@ class IngredientLot(TenantMixin, Base):
     nominal_piece_g: Mapped[float | None] = mapped_column(Float)  # el peso al que se apunta
     grade: Mapped[str | None] = mapped_column(String(32))        # MB9+, Prime, Choice…
     origin: Mapped[str | None] = mapped_column(String(32))       # AUS, USA, JPN…
+    # Cortado de una pieza congelada: la porción nace congelada y no se vende
+    # hasta que alguien la saca a descongelar.
+    frozen: Mapped[bool | None] = mapped_column(Boolean, default=False)
 
     item: Mapped["IngredientItem"] = relationship(back_populates="lots")
     ingredient: Mapped["Ingredient"] = relationship()
@@ -828,6 +851,57 @@ class PrimalPar(TenantMixin, Base):
     sku: Mapped[str] = mapped_column(String(64), index=True)
     min_pieces: Mapped[int] = mapped_column(Integer, default=0)
     note: Mapped[str | None] = mapped_column(Text)
+
+
+class PrimalWeighing(TenantMixin, Base):
+    """Cada vez que se vuelve a pesar una pieza entera.
+
+    Madurando, la pieza pierde agua: pesa menos cada semana. Esos kilos no se
+    los lleva nadie, se evaporan, así que su coste se queda en lo que queda y
+    el precio del kilo sube. Aquí queda escrito el peso de antes, el de ahora
+    y a cómo sale el kilo después, que es lo que hay que mirar antes de poner
+    el precio de la carta.
+    """
+    __tablename__ = "primal_weighings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    primal_id: Mapped[int] = mapped_column(ForeignKey("primals.id"), index=True)
+    serial: Mapped[str] = mapped_column(String(16), index=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    storage: Mapped[Storage] = mapped_column(Enum(Storage), default=Storage.AGING)
+    previous_kg: Mapped[float] = mapped_column(Float)
+    kg: Mapped[float] = mapped_column(Float)
+    loss_kg: Mapped[float] = mapped_column(Float, default=0.0)
+    cost_per_kg: Mapped[float | None] = mapped_column(Float)     # a cómo queda el kilo
+    days: Mapped[int | None] = mapped_column(Integer)            # los que lleva madurando
+    source: Mapped[str] = mapped_column(String(16), default="manual")   # manual o count
+    note: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class WeightSale(TenantMixin, Base):
+    """Venta a peso: la pieza se corta delante del cliente y se cobra por kilo.
+
+    Es como se vende la carne madurada, y por eso no pasa por el escandallo:
+    no hay gramos fijos que valgan, cada corte pesa lo que pesa. Se apunta lo
+    que se cortó, lo que se cobró y lo que costaba ese trozo, y de ahí sale el
+    food cost de esa venta concreta.
+    """
+    __tablename__ = "weight_sales"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    primal_id: Mapped[int] = mapped_column(ForeignKey("primals.id"), index=True)
+    serial: Mapped[str] = mapped_column(String(16), index=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    grams: Mapped[float] = mapped_column(Float)
+    price: Mapped[float] = mapped_column(Float, default=0.0)     # cobrado, sin impuestos
+    cost: Mapped[float] = mapped_column(Float, default=0.0)      # lo que valía ese trozo
+    cost_per_kg: Mapped[float | None] = mapped_column(Float)
+    dish: Mapped[str | None] = mapped_column(String(96))         # cómo se llamó en la caja
+    note: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class DefrostEntry(TenantMixin, Base):

@@ -256,6 +256,33 @@ Si se va el lote entero no queda nadie a quien cargárselo: ese coste se pierde,
 y así se dice. Una merma nunca puede dejar el stock en negativo. Dirección
 recibe el aviso de cada merma, crítica si pasa de 50 en dinero.
 
+## Maduración, congelador y venta a peso
+
+Una pieza entera está en uno de tres sitios, y no es lo mismo. En cámara es la
+que llegó. Congelada, el reloj se para: manda la fecha de consumo del
+congelador y lo que se despiece de ella nace congelado, hasta que alguien lo
+saque a descongelar. Madurando, pierde agua todos los días.
+
+Y ahí está la cuenta que casi nadie hace: **los kilos se van, el dinero no**.
+Una pieza de 9 kg a 30 € el kilo son 270 €. A los cuarenta y cinco días pesa
+7,6 y esos 270 € siguen enteros, así que el kilo vale 35,53 €. El programa
+vuelve a calcular el precio del kilo en cada pesada y deja escrito el peso de
+antes, el de ahora, lo perdido y a cómo queda: eso es lo que hay que mirar
+antes de poner el precio en la carta.
+
+El inventario del mes pesa esas piezas como cualquier otra, así que también
+cuenta como pesada. Lo que se ha dejado madurando es agua, no carne que falte,
+y se apunta como tal: el aviso de carne que falta se queda solo con lo que de
+verdad falta. Si pierde más de lo razonable —más de un 10 % de una pesada a la
+siguiente o más de un 20 % desde que entró— salta el aviso; del 30 % para
+arriba, crítico.
+
+La carne madurada se corta delante del cliente y se cobra por kilo, no por
+ración: se apuntan los gramos y lo cobrado, y sale el coste de ese trozo con el
+precio del kilo de hoy y su food cost. Lo que se corta se lleva su parte del
+coste, así que el kilo de lo que queda no se mueve. La congelada va por el
+camino de siempre: despiece, porciones con serial y venta por pieza.
+
 ## Cuando la pieza aparece
 
 Dar una pieza por perdida no es definitivo. Si el primal o el corte aparecen
@@ -403,7 +430,7 @@ propio límite legal y un solo campo numérico no puede validar los dos.
 thegrill/
   config.py              FX, límites HACCP, umbrales de precio, tolerancias de despiece
   db.py                  SQLAlchemy; SQLite por defecto, PostgreSQL cambiando la URL
-  models.py              36 tablas: plataforma, módulos de carne, auditoría
+  models.py              38 tablas: plataforma, módulos de carne, auditoría
   rules.py               Reglas del negocio de carne como funciones puras
   web/
     i18n.py              Siete idiomas, resolución y escritura de derecha a izquierda
@@ -414,6 +441,7 @@ thegrill/
     inventory.py         Inventario mensual que re-ancla el stock, y recuperación de piezas
     tracing.py           Historia de un primal y reparto del ingreso
     waste.py             Merma de cámara: queda escrita y la paga lo que queda del lote
+    aging.py             Maduración, congelador y venta a peso: el agua se va y el dinero no
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
     service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV
@@ -431,7 +459,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   507 tests
+tests/                   531 tests
 ```
 
 ## Uso

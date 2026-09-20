@@ -105,6 +105,7 @@ input[type=file]{padding:9px}
     {% if can("butcher") %}<a href="/despiece">{{ t("m.nav.butchery") }}</a>{% endif %}
     {% if can("stock") %}<a href="/carne">{{ t("m.nav.chamber") }}</a>{% endif %}
     {% if can("defrost") %}<a href="/descongelado">{{ t("m.nav.defrost") }}</a>{% endif %}
+    {% if can("stock") %}<a href="/maduracion">{{ t("m.nav.aging") }}</a>{% endif %}
     {% if can("count") %}<a href="/inventario">{{ t("nav.inventory") }}</a>{% endif %}
     {% if can("waste") %}<a href="/merma">{{ t("nav.waste") }}</a>{% endif %}
     {% if can("stock") %}<a href="/trazabilidad">{{ t("nav.tracing") }}</a>

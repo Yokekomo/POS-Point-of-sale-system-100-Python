@@ -39,6 +39,7 @@ PANTALLAS = {
     "/descongelado": {Role.MANAGER, Role.BUTCHER, Role.EMPLOYEE},
     "/merma": {Role.MANAGER, Role.BUTCHER, Role.EMPLOYEE},
     "/inventario": {Role.MANAGER, Role.BUTCHER, Role.EMPLOYEE},
+    "/maduracion": {Role.MANAGER, Role.BUTCHER, Role.EMPLOYEE},
     "/recepcion": {Role.MANAGER, Role.BUTCHER},
     "/despiece": {Role.MANAGER, Role.BUTCHER},
     "/carta": {Role.MANAGER},
@@ -314,3 +315,63 @@ def test_the_butcher_opens_and_closes_inventories_but_does_not_resurrect_pieces(
     assert luis.post("/inventario/recuperar",
                      data={"csrf": token, "serial": "8017"}).status_code == 403
     assert 'action="/inventario/recuperar"' in client.get("/inventario").text
+
+
+# --------------------------------------------------- maduración y congelador
+def test_the_butcher_moves_and_weighs_but_does_not_sell_by_weight(client):
+    """La pieza la mueve y la pesa el carnicero; el precio es cosa del manager."""
+    luis = alta(client, "luis@marina.com", "Luis", Role.BUTCHER)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        s.add(Primal(restaurant_id=rest.id, serial="9001", sku="Ribeye AUS", weight_kg=9.0,
+                     landed_usd_per_kg=30.0, piece_cost_usd=270.0, received_date=HOY))
+        s.flush()
+
+    pantalla = luis.get("/maduracion")
+    assert pantalla.status_code == 200
+    token = csrf_from(pantalla.text)
+
+    assert luis.post("/maduracion/mover", data={
+        "csrf": token, "serial": "9001", "storage": "AGING",
+        "target_days": "45"}).status_code == 303
+    pesada = luis.post("/maduracion/pesar", data={"csrf": token, "serial": "9001", "kg": "7,6"})
+    assert pesada.status_code == 200
+
+    with db.session_scope() as s:
+        pieza = s.query(Primal).filter_by(serial="9001").one()
+        assert pieza.weight_kg == 7.6
+        assert pieza.piece_cost_usd == 270.0          # el dinero sigue en la pieza
+
+    # Ve los kilos y los días; el coste del kilo, no.
+    texto = luis.get("/maduracion").text
+    assert "7.600" in texto and "45" in texto
+    assert "35.53" not in texto
+    assert luis.post("/maduracion/venta", data={"csrf": token, "serial": "9001",
+                                                "grams": "400", "price": "52"}).status_code == 403
+
+
+def test_the_assistant_cannot_move_a_piece(client):
+    ayudante = alta(client, "eva@marina.com", "Eva", Role.EMPLOYEE)
+    # En su pantalla no hay ni formulario: el token se trae de otra.
+    assert "/maduracion/mover" not in ayudante.get("/maduracion").text
+    token = csrf_from(ayudante.get("/merma").text)
+    assert ayudante.post("/maduracion/mover", data={"csrf": token, "serial": "9001",
+                                                    "storage": "FROZEN"}).status_code == 403
+
+
+def test_the_manager_sells_by_weight_and_sees_the_food_cost(client):
+    ana = alta(client, "ana@marina.com", "Ana", Role.MANAGER)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        s.add(Primal(restaurant_id=rest.id, serial="9002", sku="Ribeye AUS", weight_kg=7.6,
+                     landed_usd_per_kg=35.526316, piece_cost_usd=270.0, received_date=HOY))
+        s.flush()
+    token = csrf_from(ana.get("/maduracion").text)
+    ana.post("/maduracion/mover", data={"csrf": token, "serial": "9002", "storage": "AGING"})
+
+    venta = ana.post("/maduracion/venta", data={"csrf": token, "serial": "9002",
+                                                "grams": "420", "price": "52",
+                                                "dish": "Chuleta madurada"})
+    assert venta.status_code == 200
+    assert "29 %" in venta.text                  # food cost de esa venta, redondeado arriba
+    assert "Chuleta madurada" in ana.get("/maduracion").text

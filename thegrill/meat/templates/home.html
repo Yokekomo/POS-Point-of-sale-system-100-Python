@@ -43,6 +43,11 @@
   <div class="kpi"><b>{{ info.status.total_primals }}</b><span>{{ t("meat.primals") }}</span></div>
   <div class="kpi"><b>{{ "%.1f"|format(info.status.total_cut_kg) }}</b><span>{{ t("meat.cuts") }} (kg)</span></div>
   <div class="kpi"><b>{{ info.thawing }}</b><span>{{ t("m.df.title") }}</span></div>
+  {% if info.aging and (info.aging.aging_pieces or info.aging.frozen_pieces) %}
+  <div class="kpi"><b>{{ info.aging.aging_pieces }}</b><span>{{ t("m.ag.aging") }}</span>
+    {% if info.aging.ready %}<div class="muted">{{ info.aging.ready|length }} {{ t("m.ag.ready")|lower }}</div>{% endif %}</div>
+  <div class="kpi"><b>{{ info.aging.frozen_pieces }}</b><span>{{ t("m.ag.frozen") }}</span></div>
+  {% endif %}
   {% if can("money") %}
   <div class="kpi"><b>{{ "%.0f"|format(info.stock_value) }}</b><span>{{ t("m.home.stock_value") }}</span></div>
   {% endif %}
@@ -53,7 +58,8 @@
   {% if can("receive") %}<a class="tile" href="/recepcion"><b>{{ t("m.nav.reception") }}</b><span>{{ t("meat.primals") }}</span></a>{% endif %}
   {% if can("butcher") %}<a class="tile" href="/despiece"><b>{{ t("m.nav.butchery") }}</b><span>{{ t("meat.cuts") }}</span></a>{% endif %}
   {% if can("defrost") %}<a class="tile" href="/descongelado"><b>{{ t("m.nav.defrost") }}</b><span>{{ t("m.df.count") }}</span></a>{% endif %}
-  {% if can("stock") %}<a class="tile" href="/carne"><b>{{ t("m.nav.chamber") }}</b><span>{{ t("ing.stock") }}</span></a>{% endif %}
+  {% if can("stock") %}<a class="tile" href="/carne"><b>{{ t("m.nav.chamber") }}</b><span>{{ t("ing.stock") }}</span></a>
+  <a class="tile" href="/maduracion"><b>{{ t("m.nav.aging") }}</b><span>{{ t("m.ag.now_kg") }}</span></a>{% endif %}
   {% if can("count") %}<a class="tile" href="/inventario"><b>{{ t("inv.title") }}</b><span>{{ t("inv.period.MONTHLY") }}</span></a>{% endif %}
   {% if can("waste") %}<a class="tile" href="/merma"><b>{{ t("waste.title") }}</b><span>{{ t("waste.kg") }}</span></a>{% endif %}
   {% if can("stock") %}<a class="tile" href="/trazabilidad"><b>{{ t("trace.title") }}</b><span>{{ t("m.rec.serial") }}</span></a>{% endif %}

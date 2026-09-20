@@ -1,0 +1,183 @@
+{% extends "base.html" %}{% block title %}{{ t("m.ag.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.ag.title") }}</h1>
+<p class="sub">{{ t("m.ag.sub") }}</p>
+{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+{% if weighed %}
+<div class="card">
+  <b>{{ weighed.serial }} · {{ weighed.sku }}</b>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+    <div class="kpi"><b>{{ "%.3f"|format(weighed.kg) }}</b><span>kg</span></div>
+    <div class="kpi"><b class="bad">-{{ "%.3f"|format(weighed.loss_kg) }}</b>
+      <span>{{ t("m.ag.lost") }}</span>
+      <div class="muted">{{ "%.1f"|format(weighed.total_loss_pct) }} % {{ t("m.ag.total") }}</div></div>
+    {% if can("money") and weighed.cost_per_kg %}
+    <div class="kpi"><b>{{ "%.2f"|format(weighed.cost_per_kg) }}</b><span>{{ t("m.ag.per_kg") }}</span>
+      {% if weighed.cost_rise_pct %}<div class="muted">{{ "%+.1f"|format(weighed.cost_rise_pct) }} %</div>{% endif %}</div>
+    {% endif %}
+    <div class="kpi"><b>{{ weighed.days or 0 }}</b><span>{{ t("m.ag.days") }}</span></div>
+  </div>
+  {% if can("money") %}<p class="help">{{ t("m.ag.money_help") }}</p>{% endif %}
+</div>
+{% endif %}
+
+{% if sold and can("money") %}
+<div class="card">
+  <b>{{ sold.serial }} · {{ "%.0f"|format(sold.grams) }} g</b>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+    <div class="kpi"><b>{{ "%.2f"|format(sold.price) }}</b><span>{{ t("m.ag.price") }}</span></div>
+    <div class="kpi"><b>{{ "%.2f"|format(sold.cost) }}</b><span>{{ t("trace.cost") }}</span></div>
+    <div class="kpi"><b>{{ "%.2f"|format(sold.margin) }}</b><span>{{ t("trace.margin") }}</span></div>
+    {% if sold.food_cost_pct is not none %}
+    <div class="kpi"><b>{{ sold.food_cost_pct|ceil_pct }} %</b><span>{{ t("rec.food_cost") }}</span></div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+  <div class="kpi"><b>{{ summary.aging_pieces }}</b><span>{{ t("m.ag.aging") }}</span>
+    <div class="muted">{{ "%.1f"|format(summary.aging_kg) }} kg</div></div>
+  <div class="kpi"><b>{{ summary.frozen_pieces }}</b><span>{{ t("m.ag.frozen") }}</span>
+    <div class="muted">{{ "%.1f"|format(summary.frozen_kg) }} kg</div></div>
+  <div class="kpi"><b>{{ "%.3f"|format(summary.lost_kg) }}</b><span>{{ t("m.ag.water") }}</span></div>
+  {% if can("money") %}
+  <div class="kpi"><b>{{ "%.2f"|format(summary.aging_value + summary.frozen_value) }}</b>
+    <span>{{ t("m.home.stock_value") }}</span></div>
+  {% endif %}
+  {% if summary.ready %}
+  <div class="kpi"><b>{{ summary.ready|length }}</b><span>{{ t("m.ag.ready") }}</span>
+    <div class="muted">{{ summary.ready[:4]|join(", ") }}</div></div>
+  {% endif %}
+</div>
+
+{% if rows %}
+<div class="card scroll">
+<table>
+<tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.sku") }}</th><th>{{ t("m.ag.where") }}</th>
+    <th class="num">{{ t("m.ag.days") }}</th><th class="num">{{ t("m.ag.start_kg") }}</th>
+    <th class="num">{{ t("m.ag.now_kg") }}</th><th class="num">{{ t("m.ag.lost") }}</th>
+    <th class="num">{{ t("m.ag.sold_kg") }}</th>
+    {% if can("money") %}<th class="num">{{ t("m.ag.per_kg") }}</th>
+    <th class="num">{{ t("inv.value") }}</th>{% endif %}
+    <th>{{ t("ing.expiry") }}</th></tr>
+{% for r in rows %}
+<tr>
+  <td><b>{{ r.serial }}</b>{% if r.grade %}<div class="muted">{{ r.grade }}</div>{% endif %}</td>
+  <td>{{ r.sku }}</td>
+  <td>{{ t("m.st." ~ r.storage.value) }}
+      {% if r.since %}<div class="muted">{{ r.since }}</div>{% endif %}</td>
+  <td class="num">{{ r.days }}
+      {% if r.target_days %}<div class="muted">
+        {% if r.ready %}{{ t("m.ag.is_ready") }}{% else %}{{ t("m.ag.days_left", n=r.days_left) }}{% endif %}
+      </div>{% endif %}</td>
+  <td class="num">{% if r.start_kg %}{{ "%.3f"|format(r.start_kg) }}{% endif %}</td>
+  <td class="num">{{ "%.3f"|format(r.kg) }}</td>
+  <td class="num">{% if r.loss_kg %}-{{ "%.3f"|format(r.loss_kg) }}
+      <div class="muted">{{ "%.1f"|format(r.loss_pct) }} %</div>{% endif %}</td>
+  <td class="num">{% if r.sold_kg %}{{ "%.3f"|format(r.sold_kg) }}{% endif %}</td>
+  {% if can("money") %}
+  <td class="num">{% if r.cost_per_kg %}{{ "%.2f"|format(r.cost_per_kg) }}{% endif %}</td>
+  <td class="num">{% if r.value %}{{ "%.2f"|format(r.value) }}{% endif %}</td>
+  {% endif %}
+  <td>{{ r.use_by or "" }}
+      {% if r.last_weighed %}<div class="muted">{{ t("m.ag.weighed_on", date=r.last_weighed) }}</div>{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+<p class="help">{{ t("m.ag.loss_help") }}</p>
+{% else %}
+<div class="card"><p class="muted">{{ t("m.ag.none") }}</p></div>
+{% endif %}
+
+<div class="grid">
+  {% if can("age") %}
+  <div class="card">
+    <b>{{ t("m.ag.move_title") }}</b>
+    <form method="post" action="/maduracion/mover">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label for="mv_serial">{{ t("m.rec.serial") }}</label>
+      <select id="mv_serial" name="serial" required>
+        {% for r in rows %}<option value="{{ r.serial }}">{{ r.serial }} · {{ r.sku }} · {{ t("m.st." ~ r.storage.value) }}</option>{% endfor %}
+        {% for p in chilled %}<option value="{{ p.serial }}">{{ p.serial }} · {{ p.sku }} · {{ t("m.st.CHILLED") }}</option>{% endfor %}
+      </select>
+      <label for="mv_storage">{{ t("m.ag.where") }}</label>
+      <select id="mv_storage" name="storage" required>
+        {% for s in storages %}<option value="{{ s.value }}">{{ t("m.st." ~ s.value) }}</option>{% endfor %}
+      </select>
+      <label for="mv_days">{{ t("m.ag.target_days") }}</label>
+      <input id="mv_days" name="target_days" inputmode="numeric" placeholder="45">
+      <label for="mv_useby">{{ t("m.ag.frozen_use_by") }}</label>
+      <input id="mv_useby" name="use_by" type="date">
+      <label for="mv_note">{{ t("m.df.note") }}</label>
+      <input id="mv_note" name="note">
+      <button type="submit">{{ t("m.ag.move_submit") }}</button>
+    </form>
+    <p class="help">{{ t("m.ag.move_help") }}</p>
+  </div>
+
+  <div class="card">
+    <b>{{ t("m.ag.weigh_title") }}</b>
+    <form method="post" action="/maduracion/pesar">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label for="wg_serial">{{ t("m.rec.serial") }}</label>
+      <select id="wg_serial" name="serial" required>
+        {% for r in rows %}<option value="{{ r.serial }}">{{ r.serial }} · {{ r.sku }} · {{ "%.3f"|format(r.kg) }} kg</option>{% endfor %}
+      </select>
+      <label for="wg_kg">{{ t("m.ag.weigh_kg") }}</label>
+      <input id="wg_kg" name="kg" inputmode="decimal" required>
+      <label for="wg_note">{{ t("m.df.note") }}</label>
+      <input id="wg_note" name="note">
+      <button type="submit">{{ t("m.ag.weigh_submit") }}</button>
+    </form>
+    <p class="help">{{ t("m.ag.weigh_help") }}</p>
+  </div>
+  {% endif %}
+
+  {% if can("menu") %}
+  <div class="card">
+    <b>{{ t("m.ag.sale_title") }}</b>
+    <form method="post" action="/maduracion/venta">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label for="sl_serial">{{ t("m.rec.serial") }}</label>
+      <select id="sl_serial" name="serial" required>
+        {% for r in rows %}<option value="{{ r.serial }}">{{ r.serial }} · {{ r.sku }} · {{ "%.3f"|format(r.kg) }} kg</option>{% endfor %}
+      </select>
+      <label for="sl_grams">{{ t("m.ag.grams") }}</label>
+      <input id="sl_grams" name="grams" inputmode="decimal" required>
+      <label for="sl_price">{{ t("m.ag.price") }}</label>
+      <input id="sl_price" name="price" inputmode="decimal">
+      <label for="sl_dish">{{ t("m.menu.dish") }}</label>
+      <input id="sl_dish" name="dish">
+      <button type="submit">{{ t("m.ag.sale_submit") }}</button>
+    </form>
+    <p class="help">{{ t("m.ag.sale_help") }}</p>
+  </div>
+  {% endif %}
+</div>
+
+{% if sales and can("money") %}
+<h2>{{ t("m.ag.sales") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("waste.date") }}</th><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.menu.dish") }}</th>
+    <th class="num">{{ t("m.ag.grams") }}</th><th class="num">{{ t("m.ag.price") }}</th>
+    <th class="num">{{ t("trace.cost") }}</th><th class="num">{{ t("rec.food_cost") }}</th></tr>
+{% for s in sales %}
+<tr>
+  <td>{{ s.date }}</td>
+  <td>{{ s.serial }}</td>
+  <td>{{ s.dish or "" }}</td>
+  <td class="num">{{ "%.0f"|format(s.grams) }}</td>
+  <td class="num">{{ "%.2f"|format(s.price) }}</td>
+  <td class="num">{{ "%.2f"|format(s.cost) }}</td>
+  <td class="num">{% if s.price %}{{ (s.cost / s.price * 100)|ceil_pct }} %{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endif %}
+{% endblock %}

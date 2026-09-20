@@ -50,7 +50,7 @@
       <input type="hidden" name="shift" value="{{ shift }}">
       <label for="in_serial">{{ t("waste.serial") }}</label>
       <select id="in_serial" name="serial" required>
-        {% for l in lots %}<option value="{{ l.serial }}">{{ l.serial }} · {{ l.lot_code or "" }}</option>{% endfor %}
+        {% for l in lots %}<option value="{{ l.serial }}">{{ l.serial }} · {{ l.lot_code or "" }}{% if l.frozen %} · {{ t("m.st.FROZEN") }}{% endif %}</option>{% endfor %}
       </select>
       <label for="in_pieces">{{ t("meat.pieces") }}</label>
       <input id="in_pieces" name="pieces" inputmode="numeric" required>
