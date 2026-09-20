@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from thegrill.models import AuthSession, Restaurant, Role, User
+from thegrill.web.i18n import DEFAULT_LANG, t
 
 PBKDF2_ROUNDS = 240_000
 SESSION_DAYS = 14
@@ -31,9 +32,9 @@ class PermissionDenied(Exception):
 
 
 # ------------------------------------------------------------- contraseñas
-def hash_password(password: str, *, rounds: int = PBKDF2_ROUNDS) -> str:
+def hash_password(password: str, *, rounds: int = PBKDF2_ROUNDS, lang: str = DEFAULT_LANG) -> str:
     if len(password) < MIN_PASSWORD_LEN:
-        raise ValueError(f"La contraseña necesita al menos {MIN_PASSWORD_LEN} caracteres")
+        raise ValueError(t(lang, "auth.short_password", n=MIN_PASSWORD_LEN))
     salt = secrets.token_hex(16)
     dk = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), rounds)
     return f"pbkdf2_sha256${rounds}${salt}${dk.hex()}"
@@ -50,10 +51,10 @@ def verify_password(password: str, stored: str) -> bool:
     return hmac.compare_digest(dk.hex(), digest)
 
 
-def normalize_email(email: str) -> str:
+def normalize_email(email: str, lang: str = DEFAULT_LANG) -> str:
     email = (email or "").strip().lower()
     if not EMAIL_RE.match(email):
-        raise ValueError(f"Email inválido: {email!r}")
+        raise ValueError(t(lang, "auth.bad_email", email=email))
     return email
 
 
@@ -74,34 +75,39 @@ def unique_slug(session: Session, name: str) -> str:
 
 # --------------------------------------------------------------- registro
 def create_restaurant(session: Session, name: str, manager_email: str, manager_name: str,
-                      password: str, timezone: str = "UTC", currency: str = "USD") -> tuple[Restaurant, User]:
+                      password: str, timezone: str = "UTC", currency: str = "USD",
+                      language: str = DEFAULT_LANG) -> tuple[Restaurant, User]:
     """Alta de un restaurante nuevo con su primer manager (el dueño de la cuenta)."""
-    email = normalize_email(manager_email)
+    email = normalize_email(manager_email, language)
     code = new_join_code()
     while session.query(Restaurant).filter_by(join_code=code).first():
         code = new_join_code()
     restaurant = Restaurant(name=name.strip(), slug=unique_slug(session, name),
-                            join_code=code, timezone=timezone, currency=currency)
+                            join_code=code, timezone=timezone, currency=currency,
+                            language=language)
     session.add(restaurant)
     session.flush()
     manager = User(restaurant_id=restaurant.id, email=email, name=manager_name.strip(),
-                   role=Role.MANAGER, password_hash=hash_password(password))
+                   role=Role.MANAGER, language=language,
+                   password_hash=hash_password(password, lang=language))
     session.add(manager)
     session.flush()
     return restaurant, manager
 
 
 def join_restaurant(session: Session, join_code: str, email: str, name: str, password: str,
-                    role: Role = Role.EMPLOYEE) -> User:
+                    role: Role = Role.EMPLOYEE, language: str | None = None) -> User:
     """Alta de empleado con el código del restaurante."""
+    lang = language or DEFAULT_LANG
     restaurant = session.query(Restaurant).filter_by(join_code=(join_code or "").strip().upper()).first()
     if restaurant is None or not restaurant.active:
-        raise AuthError("Código de restaurante no válido")
-    email = normalize_email(email)
+        raise AuthError(t(lang, "join.bad_code"))
+    lang = language or restaurant.language or DEFAULT_LANG
+    email = normalize_email(email, lang)
     if session.query(User).filter_by(restaurant_id=restaurant.id, email=email).first():
-        raise AuthError("Ya existe una cuenta con ese email en este restaurante")
-    user = User(restaurant_id=restaurant.id, email=email, name=name.strip(),
-                role=role, password_hash=hash_password(password))
+        raise AuthError(t(lang, "join.email_taken"))
+    user = User(restaurant_id=restaurant.id, email=email, name=name.strip(), role=role,
+                language=language, password_hash=hash_password(password, lang=lang))
     session.add(user)
     session.flush()
     return user
@@ -113,11 +119,11 @@ def _token_hash(token: str) -> str:
 
 
 def authenticate(session: Session, email: str, password: str,
-                 restaurant_id: int | None = None) -> User:
+                 restaurant_id: int | None = None, lang: str = DEFAULT_LANG) -> User:
     try:
-        email = normalize_email(email)
+        email = normalize_email(email, lang)
     except ValueError:
-        raise AuthError("Email o contraseña incorrectos") from None
+        raise AuthError(t(lang, "login.bad_credentials")) from None
     q = session.query(User).filter_by(email=email)
     if restaurant_id is not None:
         q = q.filter_by(restaurant_id=restaurant_id)
@@ -125,9 +131,9 @@ def authenticate(session: Session, email: str, password: str,
     for user in candidates:
         if verify_password(password, user.password_hash):
             if not user.active:
-                raise AuthError("Cuenta desactivada. Habla con tu manager")
+                raise AuthError(t(user.language or lang, "login.inactive"))
             return user
-    raise AuthError("Email o contraseña incorrectos")
+    raise AuthError(t(lang, "login.bad_credentials"))
 
 
 def start_session(session: Session, user: User, days: int = SESSION_DAYS) -> tuple[str, AuthSession]:
@@ -160,18 +166,18 @@ def end_session(session: Session, token: str | None) -> None:
         auth.revoked = True
 
 
-def check_csrf(auth: AuthSession, submitted: str | None) -> None:
+def check_csrf(auth: AuthSession, submitted: str | None, lang: str = DEFAULT_LANG) -> None:
     if not submitted or not hmac.compare_digest(auth.csrf, submitted):
-        raise PermissionDenied("Token CSRF inválido; recarga la página")
+        raise PermissionDenied(t(lang, "error.csrf"))
 
 
 # ------------------------------------------------------------- permisos
-def require_manager(user: User) -> None:
+def require_manager(user: User, lang: str = DEFAULT_LANG) -> None:
     if user.role != Role.MANAGER:
-        raise PermissionDenied("Solo un manager puede hacer esto")
+        raise PermissionDenied(t(user.language or lang, "error.managers_only"))
 
 
-def same_restaurant(user: User, restaurant_id: int) -> None:
+def same_restaurant(user: User, restaurant_id: int, lang: str = DEFAULT_LANG) -> None:
     """Aislamiento entre restaurantes: nadie ve datos de otro."""
     if user.restaurant_id != restaurant_id:
-        raise PermissionDenied("Ese dato pertenece a otro restaurante")
+        raise PermissionDenied(t(user.language or lang, "error.other_restaurant"))

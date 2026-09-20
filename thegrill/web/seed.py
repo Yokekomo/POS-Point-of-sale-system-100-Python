@@ -3,119 +3,137 @@
 Un restaurante nuevo arranca con estas y el manager las edita, desactiva o
 añade las suyas. Nada aquí es específico de una cocina concreta.
 
+Los textos se materializan en el idioma del restaurante al darlo de alta: a
+partir de ahí son datos suyos, que puede reescribir como quiera.
+
 Refrigeración y congelación van en plantillas separadas a propósito: cada una
 tiene su propio límite legal, y un solo campo numérico no puede validar los dos.
 """
 from sqlalchemy.orm import Session
 
 from thegrill.models import FieldType, RecordTemplate, TemplateField
+from thegrill.web.i18n import DEFAULT_LANG, t
 
 DEFAULT_TEMPLATES = [
     {
-        "code": "temp_refrigeracion", "name": "Temperatura de refrigeración", "category": "haccp",
-        "description": "Cámaras, neveras y vitrinas. Límite legal habitual: hasta +5 °C.",
+        "code": "temp_refrigeracion", "name_key": "seed.fridge.name", "category": "haccp",
+        "desc_key": "seed.fridge.desc",
         "frequency": "shift", "expected_per_day": 2, "requires_photo": False, "sort_order": 10,
         "fields": [
-            {"key": "unidad", "label": "Equipo", "type": FieldType.SELECT,
-             "options": "Cámara refrigerada 1|Cámara refrigerada 2|Nevera cocina|Vitrina|Abatidor"},
-            {"key": "temperatura", "label": "Temperatura", "type": FieldType.NUMBER, "unit": "°C",
+            {"key": "unidad", "label_key": "seed.fridge.unit", "type": FieldType.SELECT,
+             "options_key": "seed.fridge.unit_options"},
+            {"key": "temperatura", "label_key": "seed.temp", "type": FieldType.NUMBER, "unit": "°C",
              "min_value": -2, "max_value": 5,
-             "help_text": "Fuera de rango genera alerta crítica y exige acción correctiva."},
-            {"key": "accion_correctiva", "label": "Acción correctiva si está fuera de rango",
+             "help_key": "seed.fridge.temp_help"},
+            {"key": "accion_correctiva", "label_key": "seed.corrective",
              "type": FieldType.TEXT, "required": False},
         ],
     },
     {
-        "code": "temp_congelacion", "name": "Temperatura de congelación", "category": "haccp",
-        "description": "Congeladores y arcones. Límite legal habitual: hasta -18 °C.",
+        "code": "temp_congelacion", "name_key": "seed.freezer.name", "category": "haccp",
+        "desc_key": "seed.freezer.desc",
         "frequency": "shift", "expected_per_day": 2, "requires_photo": False, "sort_order": 11,
         "fields": [
-            {"key": "unidad", "label": "Equipo", "type": FieldType.SELECT,
-             "options": "Congelador 1|Congelador 2|Arcón|Cámara de congelación"},
-            {"key": "temperatura", "label": "Temperatura", "type": FieldType.NUMBER, "unit": "°C",
+            {"key": "unidad", "label_key": "seed.fridge.unit", "type": FieldType.SELECT,
+             "options_key": "seed.freezer.unit_options"},
+            {"key": "temperatura", "label_key": "seed.temp", "type": FieldType.NUMBER, "unit": "°C",
              "min_value": -40, "max_value": -18,
-             "help_text": "Por encima de -18 °C se rompe la cadena de frío: alerta crítica."},
-            {"key": "accion_correctiva", "label": "Acción correctiva si está fuera de rango",
+             "help_key": "seed.freezer.temp_help"},
+            {"key": "accion_correctiva", "label_key": "seed.corrective",
              "type": FieldType.TEXT, "required": False},
         ],
     },
     {
-        "code": "recepcion", "name": "Recepción de mercancía", "category": "reception",
-        "description": "Entrada de producto: proveedor, lote, caducidad y temperatura de llegada.",
+        "code": "recepcion", "name_key": "seed.reception.name", "category": "reception",
+        "desc_key": "seed.reception.desc",
         "frequency": "adhoc", "expected_per_day": 1, "requires_photo": True, "sort_order": 20,
         "fields": [
-            {"key": "proveedor", "label": "Proveedor", "type": FieldType.TEXT},
-            {"key": "producto", "label": "Producto", "type": FieldType.TEXT},
-            {"key": "lote", "label": "Lote", "type": FieldType.TEXT, "required": False},
-            {"key": "cantidad", "label": "Cantidad", "type": FieldType.NUMBER, "unit": "kg"},
-            {"key": "caducidad", "label": "Fecha de caducidad", "type": FieldType.DATE,
-             "expiry_alert_days": 3, "help_text": "Base del control FEFO: se consume primero lo que antes caduca."},
-            {"key": "temperatura_llegada", "label": "Temperatura de llegada", "type": FieldType.NUMBER,
+            {"key": "proveedor", "label_key": "seed.supplier", "type": FieldType.TEXT},
+            {"key": "producto", "label_key": "seed.product", "type": FieldType.TEXT},
+            {"key": "lote", "label_key": "seed.lot", "type": FieldType.TEXT, "required": False},
+            {"key": "cantidad", "label_key": "seed.quantity", "type": FieldType.NUMBER, "unit": "kg"},
+            {"key": "caducidad", "label_key": "seed.expiry", "type": FieldType.DATE,
+             "expiry_alert_days": 3, "help_key": "seed.expiry_help"},
+            {"key": "temperatura_llegada", "label_key": "seed.arrival_temp", "type": FieldType.NUMBER,
              "unit": "°C", "min_value": -30, "max_value": 5, "required": False},
-            {"key": "conforme", "label": "Mercancía conforme", "type": FieldType.BOOL},
+            {"key": "conforme", "label_key": "seed.conform", "type": FieldType.BOOL},
         ],
     },
     {
-        "code": "merma", "name": "Merma y desperdicio", "category": "waste",
-        "description": "Producto desechado, con motivo. Base del control de coste.",
+        "code": "merma", "name_key": "seed.waste.name", "category": "waste",
+        "desc_key": "seed.waste.desc",
         "frequency": "daily", "expected_per_day": 1, "requires_photo": True, "sort_order": 30,
         "fields": [
-            {"key": "producto", "label": "Producto", "type": FieldType.TEXT},
-            {"key": "cantidad", "label": "Cantidad", "type": FieldType.NUMBER, "unit": "kg"},
-            {"key": "motivo", "label": "Motivo", "type": FieldType.SELECT,
-             "options": "Caducado|Mal estado|Error de elaboración|Devolución de cliente|Rotura|Otro"},
-            {"key": "area", "label": "Área", "type": FieldType.SELECT,
-             "options": "Cocina caliente|Cocina fría|Pastelería|Bar|Almacén|Sala"},
+            {"key": "producto", "label_key": "seed.product", "type": FieldType.TEXT},
+            {"key": "cantidad", "label_key": "seed.quantity", "type": FieldType.NUMBER, "unit": "kg"},
+            {"key": "motivo", "label_key": "seed.reason", "type": FieldType.SELECT,
+             "options_key": "seed.waste.reason_options"},
+            {"key": "area", "label_key": "seed.area", "type": FieldType.SELECT,
+             "options_key": "seed.waste.area_options"},
         ],
     },
     {
-        "code": "produccion", "name": "Producción / mise en place", "category": "production",
-        "description": "Elaboraciones del turno con su fecha de consumo preferente.",
+        "code": "produccion", "name_key": "seed.production.name", "category": "production",
+        "desc_key": "seed.production.desc",
         "frequency": "daily", "expected_per_day": 1, "requires_photo": False, "sort_order": 40,
         "fields": [
-            {"key": "elaboracion", "label": "Elaboración", "type": FieldType.TEXT},
-            {"key": "cantidad", "label": "Cantidad", "type": FieldType.NUMBER, "unit": "kg"},
-            {"key": "consumir_antes_de", "label": "Consumir antes de", "type": FieldType.DATE,
+            {"key": "elaboracion", "label_key": "seed.preparation", "type": FieldType.TEXT},
+            {"key": "cantidad", "label_key": "seed.quantity", "type": FieldType.NUMBER, "unit": "kg"},
+            {"key": "consumir_antes_de", "label_key": "seed.use_by", "type": FieldType.DATE,
              "expiry_alert_days": 2},
-            {"key": "responsable", "label": "Responsable", "type": FieldType.TEXT, "required": False},
+            {"key": "responsable", "label_key": "seed.responsible", "type": FieldType.TEXT, "required": False},
         ],
     },
     {
-        "code": "limpieza", "name": "Limpieza y desinfección", "category": "cleaning",
-        "description": "Plan de limpieza firmado por turno.",
+        "code": "limpieza", "name_key": "seed.cleaning.name", "category": "cleaning",
+        "desc_key": "seed.cleaning.desc",
         "frequency": "shift", "expected_per_day": 2, "requires_photo": False, "sort_order": 50,
         "fields": [
-            {"key": "zona", "label": "Zona", "type": FieldType.SELECT,
-             "options": "Cocina|Cámaras|Almacén|Baños|Sala|Zona de lavado"},
-            {"key": "realizada", "label": "Limpieza realizada", "type": FieldType.BOOL},
-            {"key": "producto_usado", "label": "Producto usado", "type": FieldType.TEXT, "required": False},
-            {"key": "incidencias", "label": "Incidencias", "type": FieldType.TEXT, "required": False},
+            {"key": "zona", "label_key": "seed.zone", "type": FieldType.SELECT,
+             "options_key": "seed.cleaning.zone_options"},
+            {"key": "realizada", "label_key": "seed.cleaning.done", "type": FieldType.BOOL},
+            {"key": "producto_usado", "label_key": "seed.cleaning.product", "type": FieldType.TEXT, "required": False},
+            {"key": "incidencias", "label_key": "seed.incidents", "type": FieldType.TEXT, "required": False},
         ],
     },
     {
-        "code": "inventario", "name": "Conteo de inventario", "category": "count",
-        "description": "Conteo físico que re-ancla el stock.",
+        "code": "inventario", "name_key": "seed.count.name", "category": "count",
+        "desc_key": "seed.count.desc",
         "frequency": "weekly", "expected_per_day": 1, "requires_photo": False, "sort_order": 60,
         "fields": [
-            {"key": "articulo", "label": "Artículo", "type": FieldType.TEXT},
-            {"key": "cantidad", "label": "Cantidad contada", "type": FieldType.NUMBER, "unit": "kg"},
-            {"key": "ubicacion", "label": "Ubicación", "type": FieldType.TEXT, "required": False},
+            {"key": "articulo", "label_key": "seed.item", "type": FieldType.TEXT},
+            {"key": "cantidad", "label_key": "seed.counted", "type": FieldType.NUMBER, "unit": "kg"},
+            {"key": "ubicacion", "label_key": "seed.location", "type": FieldType.TEXT, "required": False},
         ],
     },
 ]
 
 
-def seed_templates(session: Session, restaurant_id: int) -> list[RecordTemplate]:
-    """Crea las plantillas por defecto. Idempotente: no duplica por código."""
+TEMPLATE_KEYS = {"name_key": "name", "desc_key": "description"}
+FIELD_KEYS = {"label_key": "label", "options_key": "options", "help_key": "help_text"}
+
+
+def _materialize(spec: dict, mapping: dict[str, str], lang: str) -> dict:
+    """Convierte las claves de traducción en el texto del idioma pedido."""
+    out = {k: v for k, v in spec.items() if k not in mapping and k != "fields"}
+    for key_field, target in mapping.items():
+        if key_field in spec:
+            out[target] = t(lang, spec[key_field])
+    return out
+
+
+def seed_templates(session: Session, restaurant_id: int,
+                   lang: str = DEFAULT_LANG) -> list[RecordTemplate]:
+    """Crea las plantillas por defecto en `lang`. Idempotente: no duplica por código."""
     created = []
-    existing = {t.code for t in session.query(RecordTemplate).filter_by(restaurant_id=restaurant_id)}
+    existing = {row.code for row in
+                session.query(RecordTemplate).filter_by(restaurant_id=restaurant_id)}
     for spec in DEFAULT_TEMPLATES:
         if spec["code"] in existing:
             continue
-        tpl = RecordTemplate(restaurant_id=restaurant_id,
-                             **{k: v for k, v in spec.items() if k != "fields"})
+        tpl = RecordTemplate(restaurant_id=restaurant_id, **_materialize(spec, TEMPLATE_KEYS, lang))
         for i, f in enumerate(spec.get("fields", [])):
-            tpl.fields.append(TemplateField(sort_order=i * 10, **f))
+            tpl.fields.append(TemplateField(sort_order=i * 10, **_materialize(f, FIELD_KEYS, lang)))
         session.add(tpl)
         created.append(tpl)
     session.flush()

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="es">
+<html lang="{{ lang }}" dir="{{ dir }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>{% block title %}Gestión de cocina{% endblock %}</title>
+<title>{% block title %}{{ t("app.title") }}{% endblock %}</title>
 <style>
 :root{
   --bg:#f6f6f4; --card:#fff; --ink:#1c1b19; --muted:#6b6862; --line:#e2e0db;
@@ -80,23 +80,34 @@ input[type=file]{padding:9px}
   border-left:3px solid var(--accent)}
 .notif.crit.unread{border-left-color:var(--bad)}
 .notif.crit{border-left-color:var(--bad)}
+[dir="rtl"] .notif{border-left:0;border-right:3px solid var(--line);border-radius:10px 0 0 10px}
+[dir="rtl"] .notif.unread{border-left:1px solid var(--line);border-right:3px solid var(--accent)}
+[dir="rtl"] .notif.crit.unread,[dir="rtl"] .notif.crit{border-right-color:var(--bad)}
+[dir="rtl"] th,[dir="rtl"] td{text-align:right}
+[dir="rtl"] .brand{margin-right:0;margin-left:auto}
+.langbar{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.langbar a{padding:6px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;
+  font-size:13px;color:var(--ink);background:var(--card)}
+.langbar a.on{border-color:var(--accent);color:var(--accent);font-weight:600}
 </style>
 </head>
 <body>
 {% if user %}
 <header class="top"><div class="topwrap">
-  <div class="brand">{{ user.name }}<small>{{ "Manager" if user.role.value == "MANAGER" else "Empleado" }}</small></div>
+  <div class="brand">{{ user.name }}<small>{{ t("role." ~ user.role.value) }}</small></div>
   <nav>
   {% if user.role.value == "MANAGER" %}
-    <a href="/manager">Panel</a><a href="/manager/registros">Registros</a><a href="/manager/alertas">Alertas</a>
-    <a href="/manager/plantillas">Plantillas</a><a href="/manager/equipo">Equipo</a><a href="/app">Registrar</a>
+    <a href="/manager">{{ t("nav.panel") }}</a><a href="/manager/registros">{{ t("nav.records") }}</a>
+    <a href="/manager/alertas">{{ t("nav.alerts") }}</a><a href="/manager/plantillas">{{ t("nav.templates") }}</a>
+    <a href="/manager/equipo">{{ t("nav.team") }}</a><a href="/app">{{ t("nav.capture") }}</a>
   {% else %}
-    <a href="/app">Registrar</a><a href="/app/mis-registros">Mis registros</a>
+    <a href="/app">{{ t("nav.capture") }}</a><a href="/app/mis-registros">{{ t("nav.my_records") }}</a>
   {% endif %}
-    <a class="bell" href="/notificaciones">Avisos<span class="badge" id="navbadge"
+    <a class="bell" href="/notificaciones">{{ t("nav.notifications") }}<span class="badge" id="navbadge"
        {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
+    <a href="/configuracion">{{ t("nav.settings") }}</a>
   </nav>
-  <form method="post" action="/logout" style="margin:0"><button class="ghost" style="padding:6px 12px">Salir</button></form>
+  <form method="post" action="/logout" style="margin:0"><button class="ghost" style="padding:6px 12px">{{ t("nav.logout") }}</button></form>
 </div></header>
 {% endif %}
 <main>{% block body %}{% endblock %}</main>

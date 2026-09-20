@@ -5,26 +5,26 @@
 
 {% if sent %}
   {% if result.alerts %}
-    <div class="banner bad"><b>Registro guardado con alerta.</b>
-      <ul style="margin:8px 0 0;padding-left:18px">
+    <div class="banner bad"><b>{{ t("form.saved_with_alert") }}</b>
+      <ul style="margin:8px 0 0;padding-inline-start:18px">
       {% for a in result.alerts %}<li>{{ a.message }}</li>{% endfor %}
       </ul>
-      Avisa a tu responsable y anota la acción correctiva.
+      {{ t("form.saved_with_alert_help") }}
     </div>
   {% else %}
-    <div class="banner ok">Registro guardado. Gracias.</div>
+    <div class="banner ok">{{ t("form.saved") }}</div>
   {% endif %}
   {% for pe in photo_errors %}<div class="banner warn">{{ pe }}</div>{% endfor %}
   <div class="rowflex">
-    <a class="btn" href="/app/registro/{{ tpl.code }}">Registrar otro</a>
-    <a class="btn ghost" href="/app">Volver</a>
+    <a class="btn" href="/app/registro/{{ tpl.code }}">{{ t("form.another") }}</a>
+    <a class="btn ghost" href="/app">{{ t("common.back") }}</a>
   </div>
 {% else %}
   {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
   <div class="card">
   <form method="post" action="/app/registro/{{ tpl.code }}" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <label for="business_date">Fecha</label>
+    <label for="business_date">{{ t("common.date") }}</label>
     <input id="business_date" type="date" name="business_date" value="{{ today }}">
 
     {% for f in tpl.fields %}
@@ -48,16 +48,16 @@
       {% if errors.get(f.key) %}<div class="err">{{ errors[f.key] }}</div>{% endif %}
     {% endfor %}
 
-    <label for="photos">Fotos {% if tpl.requires_photo %}<span class="req">*</span>{% endif %}</label>
+    <label for="photos">{{ t("form.photos") }} {% if tpl.requires_photo %}<span class="req">*</span>{% endif %}</label>
     <input id="photos" name="photos" type="file" accept="image/*,application/pdf" capture="environment" multiple>
-    <div class="help">Puedes hacer la foto directamente con el móvil.</div>
+    <div class="help">{{ t("form.photos_help") }}</div>
 
-    <label for="note">Nota</label>
+    <label for="note">{{ t("form.note") }}</label>
     <textarea id="note" name="note" rows="2"></textarea>
 
-    <button class="wide" type="submit">Guardar registro</button>
+    <button class="wide" type="submit">{{ t("form.submit") }}</button>
   </form>
   </div>
-  <p class="muted">La hora la pone el sistema. Un registro enviado no se borra: si te equivocas, avisa a tu manager.</p>
+  <p class="muted">{{ t("form.immutable_note") }}</p>
 {% endif %}
 {% endblock %}

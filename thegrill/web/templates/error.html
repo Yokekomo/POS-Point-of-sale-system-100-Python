@@ -1,6 +1,6 @@
-{% extends "base.html" %}{% block title %}Error {{ code }}{% endblock %}
+{% extends "base.html" %}{% block title %}{{ t("error.title", code=code) }}{% endblock %}
 {% block body %}
-<h1>Error {{ code }}</h1>
+<h1>{{ t("error.title", code=code) }}</h1>
 <div class="banner bad">{{ detail }}</div>
-<a class="btn ghost" href="/">Volver</a>
+<a class="btn ghost" href="/">{{ t("common.back") }}</a>
 {% endblock %}

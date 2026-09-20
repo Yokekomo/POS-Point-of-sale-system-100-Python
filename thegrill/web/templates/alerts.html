@@ -1,31 +1,31 @@
-{% extends "base.html" %}{% block title %}Alertas{% endblock %}
+{% extends "base.html" %}{% block title %}{{ t("alerts.title") }}{% endblock %}
 {% block body %}
-<h1>Alertas</h1>
-<p class="sub">Cerrar una alerta exige escribir la acción correctiva. Queda registrado quién y cuándo.</p>
+<h1>{{ t("alerts.title") }}</h1>
+<p class="sub">{{ t("alerts.sub") }}</p>
 <div class="rowflex" style="margin-bottom:14px">
-  <a class="btn {{ 'ghost' if show != 'open' }}" href="/manager/alertas?show=open">Abiertas</a>
-  <a class="btn {{ 'ghost' if show == 'open' }}" href="/manager/alertas?show=all">Todas</a>
+  <a class="btn {{ 'ghost' if show != 'open' }}" href="/manager/alertas?show=open">{{ t("alerts.open") }}</a>
+  <a class="btn {{ 'ghost' if show == 'open' }}" href="/manager/alertas?show=all">{{ t("alerts.all") }}</a>
 </div>
 {% for a in rows %}
 <div class="card">
   <div class="rowflex">
-    <span class="tag {{ 'bad' if a.severity.value == 'CRITICAL' else 'warn' }}">{{ a.severity.value }}</span>
+    <span class="tag {{ 'bad' if a.severity.value == 'CRITICAL' else 'warn' }}">{{ t("severity." ~ a.severity.value) }}</span>
     <b style="flex:1">{{ a.message }}</b>
     <span class="muted">{{ a.created_at.strftime("%d/%m/%Y %H:%M") }}</span>
   </div>
   {% if a.acknowledged_at %}
-    <p class="muted" style="margin:10px 0 0">Cerrada por {{ names.get(a.acknowledged_by, "?") }}
-      el {{ a.acknowledged_at.strftime("%d/%m/%Y %H:%M") }}: {{ a.resolution }}</p>
+    <p class="muted" style="margin:10px 0 0">{{ t("alerts.closed_by", who=names.get(a.acknowledged_by, "?"),
+       when=a.acknowledged_at.strftime("%d/%m/%Y %H:%M"), resolution=a.resolution) }}</p>
   {% else %}
     <form method="post" action="/manager/alertas/{{ a.id }}/cerrar">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <label for="r{{ a.id }}">Acción correctiva</label>
-      <input id="r{{ a.id }}" name="resolution" required placeholder="Qué se hizo para corregirlo">
-      <button style="margin-top:10px">Cerrar alerta</button>
+      <label for="r{{ a.id }}">{{ t("alerts.corrective_action") }}</label>
+      <input id="r{{ a.id }}" name="resolution" required placeholder="{{ t("alerts.corrective_placeholder") }}">
+      <button style="margin-top:10px">{{ t("alerts.close") }}</button>
     </form>
   {% endif %}
 </div>
 {% else %}
-<div class="card"><p class="muted" style="margin:0">No hay alertas.</p></div>
+<div class="card"><p class="muted" style="margin:0">{{ t("alerts.empty") }}</p></div>
 {% endfor %}
 {% endblock %}

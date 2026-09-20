@@ -1,0 +1,30 @@
+{% extends "base.html" %}{% block title %}{{ t("settings.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("settings.title") }}</h1>
+<p class="sub">{{ t("settings.sub") }}</p>
+{% if saved %}<div class="banner ok">{{ t("settings.saved") }}</div>{% endif %}
+<div class="card">
+<form method="post" action="/configuracion">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="language">{{ t("settings.your_language") }}</label>
+  <select id="language" name="language">
+    {% for code, l in languages.items() %}
+      <option value="{{ code }}" {% if code == (user.language or lang) %}selected{% endif %}>{{ l.name }}</option>
+    {% endfor %}
+  </select>
+  <div class="help">{{ t("settings.your_language_help") }}</div>
+
+  {% if user.role.value == "MANAGER" %}
+  <label for="restaurant_language">{{ t("settings.restaurant_language") }}</label>
+  <select id="restaurant_language" name="restaurant_language">
+    {% for code, l in languages.items() %}
+      <option value="{{ code }}" {% if code == restaurant.language %}selected{% endif %}>{{ l.name }}</option>
+    {% endfor %}
+  </select>
+  <div class="help">{{ t("settings.restaurant_language_help") }}</div>
+  {% endif %}
+
+  <button class="wide" type="submit">{{ t("common.save") }}</button>
+</form>
+</div>
+{% endblock %}

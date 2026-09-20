@@ -8,6 +8,11 @@ Reglas que no se negocian:
 - La fecha y hora las pone el servidor.
 - Los registros no se editan: una corrección es un registro nuevo que apunta
   al anterior.
+
+Idiomas: los errores de validación salen en el idioma de quien rellena el
+formulario, porque los lee él en ese momento. Las alertas y los avisos se
+guardan en el idioma del restaurante, porque quedan almacenados y los lee todo
+el equipo.
 """
 import hashlib
 import os
@@ -21,7 +26,8 @@ from sqlalchemy.orm import Session
 
 from thegrill.models import (Alert, AlertSeverity, Attachment, FieldType, Notification,
                              NotificationKind, Record, RecordStatus, RecordTemplate,
-                             RecordValue, Role, TemplateField, User)
+                             RecordValue, Restaurant, Role, TemplateField, User)
+from thegrill.web.i18n import DEFAULT_LANG, t
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
                        "image/heic": ".heic", "application/pdf": ".pdf"}
@@ -109,77 +115,92 @@ def mark_all_read(session: Session, user_id: int, now: datetime | None = None) -
 
 
 # ------------------------------------------------------------- validación
-def parse_field(fld: TemplateField, raw: str | None, today: date) -> ParsedValue:
-    """Convierte el valor del formulario y evalúa sus límites."""
+def parse_field(fld: TemplateField, raw: str | None, today: date,
+                lang: str = DEFAULT_LANG, alert_lang: str | None = None) -> ParsedValue:
+    """Convierte el valor del formulario y evalúa sus límites.
+
+    `lang` es el idioma de quien rellena (errores); `alert_lang` el del
+    restaurante (mensajes de alerta que se guardan)."""
+    alert_lang = alert_lang or lang
     raw = (raw or "").strip()
     pv = ParsedValue(fld.key)
 
     if fld.type == FieldType.BOOL:
         # Una casilla sin marcar no envía nada: eso es un "no", no un campo vacío.
-        pv.flag = raw.lower() in {"1", "true", "on", "si", "sí", "yes"}
+        pv.flag = raw.lower() in {"1", "true", "on", "si", "sí", "yes", "ja", "oui", "نعم"}
         if fld.required and not pv.flag:
             pv.out_of_range = True
-            pv.alert_message = f"{fld.label}: marcado como NO"
+            pv.alert_message = t(alert_lang, "alert.marked_no", label=fld.label)
         return pv
 
     if not raw:
         if fld.required:
-            raise ValidationError({fld.key: f"«{fld.label}» es obligatorio"})
+            raise ValidationError({fld.key: t(lang, "valid.required", label=fld.label)})
         return pv
 
     if fld.type == FieldType.NUMBER:
         try:
             pv.number = float(raw.replace(",", "."))
         except ValueError:
-            raise ValidationError({fld.key: f"«{fld.label}» debe ser un número"}) from None
+            raise ValidationError({fld.key: t(lang, "valid.not_a_number", label=fld.label)}) from None
         if fld.min_value is not None and pv.number < fld.min_value:
             pv.out_of_range = True
-            pv.alert_message = (f"{fld.label}: {fmt_number(pv.number)}{fld.unit or ''} por debajo "
-                                f"del mínimo {fmt_number(fld.min_value)}{fld.unit or ''}")
+            pv.alert_message = t(alert_lang, "alert.below_min", label=fld.label,
+                                 value=fmt_number(pv.number), unit=fld.unit or "",
+                                 limit=fmt_number(fld.min_value))
         elif fld.max_value is not None and pv.number > fld.max_value:
             pv.out_of_range = True
-            pv.alert_message = (f"{fld.label}: {fmt_number(pv.number)}{fld.unit or ''} por encima "
-                                f"del máximo {fmt_number(fld.max_value)}{fld.unit or ''}")
+            pv.alert_message = t(alert_lang, "alert.above_max", label=fld.label,
+                                 value=fmt_number(pv.number), unit=fld.unit or "",
+                                 limit=fmt_number(fld.max_value))
     elif fld.type == FieldType.DATE:
         try:
             pv.day = date.fromisoformat(raw)
         except ValueError:
-            raise ValidationError({fld.key: f"«{fld.label}» debe ser una fecha (AAAA-MM-DD)"}) from None
+            raise ValidationError({fld.key: t(lang, "valid.not_a_date", label=fld.label)}) from None
         if fld.expiry_alert_days is not None:
             days_left = (pv.day - today).days
             if days_left < 0:
                 pv.out_of_range = True
-                pv.alert_message = f"{fld.label}: {pv.day} ya está caducado"
+                pv.alert_message = t(alert_lang, "alert.expired", label=fld.label, date=pv.day)
             elif days_left <= fld.expiry_alert_days:
                 pv.out_of_range = True
-                pv.alert_message = f"{fld.label}: {pv.day}, caduca en {days_left} día(s)"
+                pv.alert_message = t(alert_lang, "alert.expires_soon", label=fld.label,
+                                     date=pv.day, n=days_left)
     elif fld.type == FieldType.SELECT:
         options = [o.strip() for o in (fld.options or "").split("|") if o.strip()]
         if options and raw not in options:
-            raise ValidationError({fld.key: f"«{fld.label}»: opción no válida"})
+            raise ValidationError({fld.key: t(lang, "valid.bad_option", label=fld.label)})
         pv.text = raw
     else:
         pv.text = raw
     return pv
 
 
+def restaurant_language(session: Session, restaurant_id: int) -> str:
+    restaurant = session.get(Restaurant, restaurant_id)
+    return (restaurant.language if restaurant else None) or DEFAULT_LANG
+
+
 def submit_record(session: Session, user: User, template: RecordTemplate, data: dict[str, str],
                   business_date: date | None = None, shift: str | None = None,
                   note: str | None = None, corrects_id: int | None = None,
-                  now: datetime | None = None) -> SubmitResult:
+                  now: datetime | None = None, lang: str | None = None) -> SubmitResult:
     """Guarda un registro validado. Cualquier empleado del restaurante puede hacerlo."""
     if template.restaurant_id != user.restaurant_id:
         raise PermissionError("La plantilla pertenece a otro restaurante")
     if not template.active:
-        raise ValidationError({"_": "Esta plantilla está desactivada"})
+        raise ValidationError({"_": t(lang or user.language or DEFAULT_LANG, "tpl.disabled")})
     now = now or datetime.utcnow()
     business_date = business_date or now.date()
+    alert_lang = restaurant_language(session, user.restaurant_id)
+    lang = lang or user.language or alert_lang
 
     errors: dict[str, str] = {}
     parsed: list[ParsedValue] = []
     for fld in template.fields:
         try:
-            parsed.append(parse_field(fld, data.get(fld.key), business_date))
+            parsed.append(parse_field(fld, data.get(fld.key), business_date, lang, alert_lang))
         except ValidationError as e:
             errors.update(e.errors)
     if errors:
@@ -221,8 +242,8 @@ def submit_record(session: Session, user: User, template: RecordTemplate, data: 
     for a in alerts:
         notifications.extend(notify(
             session, user.restaurant_id, targets,
-            title=f"{template.name}: valor fuera de límites",
-            body=f"{a.message} · registrado por {user.name}",
+            title=t(alert_lang, "notif.alert_title", template=template.name),
+            body=t(alert_lang, "notif.alert_body", message=a.message, who=user.name),
             severity=a.severity, kind=NotificationKind.ALERT,
             alert_id=a.id, record_id=record.id, now=now))
     return SubmitResult(record, alerts, notifications)
@@ -230,14 +251,15 @@ def submit_record(session: Session, user: User, template: RecordTemplate, data: 
 
 # --------------------------------------------------------------- adjuntos
 def store_attachment(session: Session, record: Record, filename: str, content_type: str,
-                     payload: bytes, upload_dir: str) -> Attachment:
+                     payload: bytes, upload_dir: str, lang: str = DEFAULT_LANG) -> Attachment:
     """Guarda una foto del registro. Valida tipo y tamaño antes de escribir."""
     if content_type not in ALLOWED_IMAGE_TYPES:
-        raise ValidationError({"foto": f"Tipo de archivo no permitido: {content_type}"})
+        raise ValidationError({"foto": t(lang, "valid.photo_type", type=content_type)})
     if not payload:
-        raise ValidationError({"foto": "El archivo está vacío"})
+        raise ValidationError({"foto": t(lang, "valid.photo_empty")})
     if len(payload) > MAX_UPLOAD_BYTES:
-        raise ValidationError({"foto": f"El archivo supera {MAX_UPLOAD_BYTES // (1024*1024)} MB"})
+        raise ValidationError({"foto": t(lang, "valid.photo_too_big",
+                                         n=MAX_UPLOAD_BYTES // (1024 * 1024))})
 
     digest = hashlib.sha256(payload).hexdigest()
     ext = ALLOWED_IMAGE_TYPES[content_type]
@@ -340,7 +362,8 @@ def dashboard(session: Session, restaurant_id: int, until: date | None = None,
                      by_template=stats, by_day=by_day, top_contributors=contributors)
 
 
-def acknowledge_alert(session: Session, user: User, alert_id: int, resolution: str) -> Alert:
+def acknowledge_alert(session: Session, user: User, alert_id: int, resolution: str,
+                      lang: str | None = None) -> Alert:
     """Solo un manager cierra una alerta, y deja escrito qué hizo."""
     alert = session.get(Alert, alert_id)
     if alert is None or alert.restaurant_id != user.restaurant_id:
@@ -348,7 +371,8 @@ def acknowledge_alert(session: Session, user: User, alert_id: int, resolution: s
     if user.role != Role.MANAGER:
         raise PermissionError("Solo un manager puede cerrar alertas")
     if not (resolution or "").strip():
-        raise ValidationError({"resolution": "Escribe qué acción correctiva se tomó"})
+        raise ValidationError({"resolution": t(lang or user.language or DEFAULT_LANG,
+                                                "alerts.need_resolution")})
     alert.acknowledged_by = user.id
     alert.acknowledged_at = datetime.utcnow()
     alert.resolution = resolution.strip()
@@ -358,9 +382,11 @@ def acknowledge_alert(session: Session, user: User, alert_id: int, resolution: s
     if alert.record_id:
         record = session.get(Record, alert.record_id)
         if record is not None and record.created_by != user.id:
+            lang = restaurant_language(session, user.restaurant_id)
             notify(session, user.restaurant_id, [record.created_by],
-                   title="Alerta resuelta",
-                   body=f"{alert.message} · {user.name}: {alert.resolution}",
+                   title=t(lang, "notif.resolution_title"),
+                   body=t(lang, "notif.resolution_body", message=alert.message,
+                          who=user.name, resolution=alert.resolution),
                    severity=AlertSeverity.INFO, kind=NotificationKind.RESOLUTION,
                    alert_id=alert.id, record_id=alert.record_id)
     return alert

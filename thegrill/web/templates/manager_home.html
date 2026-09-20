@@ -1,29 +1,30 @@
-{% extends "base.html" %}{% block title %}Panel{% endblock %}
+{% extends "base.html" %}{% block title %}{{ t("nav.panel") }}{% endblock %}
 {% block body %}
 <h1>{{ restaurant.name }}</h1>
-<p class="sub">Del {{ d.since }} al {{ d.until }} · código de acceso del equipo <span class="code">{{ restaurant.join_code }}</span></p>
+<p class="sub">{{ t("dash.range", since=d.since, until=d.until) }} <span class="code">{{ restaurant.join_code }}</span></p>
 
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
-  <div class="kpi"><b>{{ d.compliance_pct }}%</b><span>Cumplimiento</span>
+  <div class="kpi"><b>{{ d.compliance_pct }}%</b><span>{{ t("dash.compliance") }}</span>
     <div class="bar"><i style="width:{{ d.compliance_pct }}%"></i></div></div>
-  <div class="kpi"><b>{{ d.total_records }}</b><span>Registros</span></div>
-  <div class="kpi"><b>{{ d.open_alerts }}</b><span>Alertas abiertas</span></div>
-  <div class="kpi"><b>{{ d.critical_alerts }}</b><span>Críticas (HACCP)</span></div>
-  <div class="kpi"><b>{{ d.active_staff }}</b><span>Personas activas</span></div>
+  <div class="kpi"><b>{{ d.total_records }}</b><span>{{ t("dash.records") }}</span></div>
+  <div class="kpi"><b>{{ d.open_alerts }}</b><span>{{ t("dash.open_alerts") }}</span></div>
+  <div class="kpi"><b>{{ d.critical_alerts }}</b><span>{{ t("dash.critical") }}</span></div>
+  <div class="kpi"><b>{{ d.active_staff }}</b><span>{{ t("dash.active_staff") }}</span></div>
 </div>
 
 <div class="rowflex" style="margin-top:14px">
-  {% for n in [7, 14, 30] %}<a class="btn ghost" href="/manager?days={{ n }}">{{ n }} días</a>{% endfor %}
-  <a class="btn ghost" href="/manager/export.csv?days={{ days }}">Descargar CSV</a>
+  {% for n in [7, 14, 30] %}<a class="btn ghost" href="/manager?days={{ n }}">{{ t("common.days", n=n) }}</a>{% endfor %}
+  <a class="btn ghost" href="/manager/export.csv?days={{ days }}">{{ t("records.download") }}</a>
 </div>
 
-<h2>Cumplimiento por registro</h2>
+<h2>{{ t("dash.by_template") }}</h2>
 <div class="card scroll">
 <table>
-<tr><th>Registro</th><th>Categoría</th><th>Enviados</th><th>Esperados</th><th>Cumplimiento</th><th>Con alerta</th></tr>
+<tr><th>{{ t("form.record") }}</th><th>{{ t("dash.category") }}</th><th>{{ t("dash.submitted") }}</th>
+    <th>{{ t("dash.expected") }}</th><th>{{ t("dash.compliance") }}</th><th>{{ t("dash.with_alert") }}</th></tr>
 {% for s in d.by_template %}
 <tr>
-  <td>{{ s.name }}</td><td class="muted">{{ s.category }}</td>
+  <td>{{ s.name }}</td><td class="muted">{{ t("cat." ~ s.category) }}</td>
   <td>{{ s.submitted }}</td><td>{{ s.expected }}</td>
   <td style="min-width:120px">{{ s.compliance_pct }}%<div class="bar"><i style="width:{{ s.compliance_pct }}%"></i></div></td>
   <td>{% if s.alerts %}<span class="tag bad">{{ s.alerts }}</span>{% else %}<span class="muted">0</span>{% endif %}</td>
@@ -32,39 +33,39 @@
 </table>
 </div>
 
-<h2>Actividad diaria</h2>
+<h2>{{ t("dash.daily_activity") }}</h2>
 <div class="card">
 {% set top = d.by_day | map(attribute=1) | max %}
 {% for day, n in d.by_day %}
   <div class="rowflex" style="margin-bottom:6px">
     <span class="muted" style="width:96px">{{ day }}</span>
     <div class="bar" style="flex:1"><i style="width:{{ (n / top * 100) if top else 0 }}%"></i></div>
-    <span style="width:32px;text-align:right">{{ n }}</span>
+    <span style="width:32px;text-align:end">{{ n }}</span>
   </div>
 {% endfor %}
 </div>
 
-<h2>Alertas sin cerrar</h2>
+<h2>{{ t("dash.open_alerts_title") }}</h2>
 <div class="card scroll">
 <table>
-<tr><th>Cuándo</th><th>Alerta</th><th>Gravedad</th></tr>
+<tr><th>{{ t("dash.when") }}</th><th>{{ t("dash.alert") }}</th><th>{{ t("dash.severity") }}</th></tr>
 {% for a in alerts %}
-<tr><td>{{ a.created_at.strftime("%d/%m %H:%M") }}</td><td>{{ a.message }}</td>
-  <td><span class="tag {{ 'bad' if a.severity.value == 'CRITICAL' else 'warn' }}">{{ a.severity.value }}</span></td></tr>
+<tr><td class="when">{{ a.created_at.strftime("%d/%m %H:%M") }}</td><td>{{ a.message }}</td>
+  <td><span class="tag {{ 'bad' if a.severity.value == 'CRITICAL' else 'warn' }}">{{ t("severity." ~ a.severity.value) }}</span></td></tr>
 {% else %}
-<tr><td colspan="3" class="muted">Ninguna alerta abierta.</td></tr>
+<tr><td colspan="3" class="muted">{{ t("dash.no_open_alerts") }}</td></tr>
 {% endfor %}
 </table>
-{% if alerts %}<p style="margin:12px 0 0"><a class="btn" href="/manager/alertas">Gestionar alertas</a></p>{% endif %}
+{% if alerts %}<p style="margin:12px 0 0"><a class="btn" href="/manager/alertas">{{ t("dash.manage_alerts") }}</a></p>{% endif %}
 </div>
 
 {% if d.top_contributors %}
-<h2>Quién registra más</h2>
+<h2>{{ t("dash.top_contributors") }}</h2>
 <div class="card">
 {% for name, n in d.top_contributors %}
 <div class="rowflex" style="margin-bottom:6px"><span style="width:160px">{{ name }}</span>
   <div class="bar" style="flex:1"><i style="width:{{ n / d.top_contributors[0][1] * 100 }}%"></i></div>
-  <span style="width:32px;text-align:right">{{ n }}</span></div>
+  <span style="width:32px;text-align:end">{{ n }}</span></div>
 {% endfor %}
 </div>
 {% endif %}

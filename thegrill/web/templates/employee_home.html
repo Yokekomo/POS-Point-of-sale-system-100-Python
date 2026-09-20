@@ -1,31 +1,31 @@
-{% extends "base.html" %}{% block title %}Registrar{% endblock %}
+{% extends "base.html" %}{% block title %}{{ t("nav.capture") }}{% endblock %}
 {% block body %}
-<h1>¿Qué vas a registrar?</h1>
-<p class="sub">{{ restaurant.name }} · toca un registro para rellenarlo.</p>
+<h1>{{ t("capture.title") }}</h1>
+<p class="sub">{{ t("capture.sub", restaurant=restaurant.name) }}</p>
 <div class="grid">
-{% for t in templates_list %}
-  <a class="tile" href="/app/registro/{{ t.code }}">
-    <b>{{ t.name }}</b>
-    <span>{{ t.description or "" }}</span>
-    {% if t.requires_photo %}<span class="tag warn" style="margin-top:8px">Pide foto</span>{% endif %}
+{% for tpl in templates_list %}
+  <a class="tile" href="/app/registro/{{ tpl.code }}">
+    <b>{{ tpl.name }}</b>
+    <span>{{ tpl.description or "" }}</span>
+    {% if tpl.requires_photo %}<span class="tag warn" style="margin-top:8px">{{ t("capture.needs_photo") }}</span>{% endif %}
   </a>
 {% else %}
-  <div class="card"><p class="muted" style="margin:0">Tu manager todavía no ha creado registros.</p></div>
+  <div class="card"><p class="muted" style="margin:0">{{ t("capture.empty") }}</p></div>
 {% endfor %}
 </div>
 
 {% if mine %}
-<h2>Lo último que has enviado</h2>
+<h2>{{ t("capture.recent") }}</h2>
 <div class="card scroll">
 <table>
-<tr><th>Fecha</th><th>Registro</th><th>Estado</th></tr>
+<tr><th>{{ t("common.date") }}</th><th>{{ t("form.record") }}</th><th>{{ t("common.status") }}</th></tr>
 {% for r in mine %}
 <tr>
   <td class="when">{{ r.business_date }}<div class="muted">{{ r.created_at.strftime("%H:%M") }}</div></td>
   <td>{{ r.template.name }}</td>
-  <td>{% if r.status.value == "ALERT" %}<span class="tag bad">Alerta</span>
-      {% elif r.status.value == "CORRECTED" %}<span class="tag warn">Corregido</span>
-      {% else %}<span class="tag ok">OK</span>{% endif %}</td>
+  <td>{% if r.status.value == "ALERT" %}<span class="tag bad">{{ t("status.ALERT") }}</span>
+      {% elif r.status.value == "CORRECTED" %}<span class="tag warn">{{ t("status.CORRECTED") }}</span>
+      {% else %}<span class="tag ok">{{ t("status.OK") }}</span>{% endif %}</td>
 </tr>
 {% endfor %}
 </table>

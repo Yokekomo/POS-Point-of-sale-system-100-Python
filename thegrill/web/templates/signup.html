@@ -1,20 +1,27 @@
-{% extends "base.html" %}{% block title %}Alta de restaurante{% endblock %}
+{% extends "base.html" %}{% block title %}{{ t("signup.title") }}{% endblock %}
 {% block body %}
-<h1>Dar de alta un restaurante</h1>
-<p class="sub">Creas el restaurante y tu cuenta de manager. Recibirás un código para que entre tu equipo.</p>
+<h1>{{ t("signup.title") }}</h1>
+<p class="sub">{{ t("signup.sub") }}</p>
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 <div class="card">
 <form method="post" action="/signup">
-  <label for="restaurant">Nombre del restaurante</label>
+  <label for="restaurant">{{ t("signup.restaurant_name") }}</label>
   <input id="restaurant" name="restaurant" required autofocus>
-  <label for="name">Tu nombre</label>
+  <label for="name">{{ t("signup.your_name") }}</label>
   <input id="name" name="name" required>
-  <label for="email">Tu email</label>
+  <label for="email">{{ t("signup.your_email") }}</label>
   <input id="email" name="email" type="email" required>
-  <label for="password">Contraseña <span class="muted">(mínimo 8 caracteres)</span></label>
+  <label for="password">{{ t("common.password") }} <span class="muted">({{ t("common.password_hint") }})</span></label>
   <input id="password" name="password" type="password" minlength="8" required>
-  <button class="wide" type="submit">Crear restaurante</button>
+  <label for="language">{{ t("common.language") }}</label>
+  <select id="language" name="language">
+    {% for code, l in languages.items() %}
+      <option value="{{ code }}" {% if code == lang %}selected{% endif %}>{{ l.name }}</option>
+    {% endfor %}
+  </select>
+  <div class="help">{{ t("settings.restaurant_language_help") }}</div>
+  <button class="wide" type="submit">{{ t("signup.submit") }}</button>
 </form>
 </div>
-<p class="muted"><a href="/login">Ya tengo cuenta</a></p>
+<p class="muted"><a href="/login">{{ t("login.have_account") }}</a></p>
 {% endblock %}

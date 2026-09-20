@@ -21,7 +21,7 @@ from thegrill import db
 from thegrill.models import (Alert, Attachment, FieldType, Notification, Record,
                              RecordTemplate, Restaurant, Role, TemplateField, User)
 
-from thegrill.web import auth, service
+from thegrill.web import auth, i18n, service
 from thegrill.web.seed import seed_templates
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
@@ -42,6 +42,19 @@ def current(request: Request, session: Session):
     return auth.resolve_session(session, token)
 
 
+def lang_for(request: Request, session: Session | None = None, user: User | None = None) -> str:
+    """Idioma de esta petición: el de la persona, el elegido en el acceso,
+    el del navegador, el del restaurante, y si no, español."""
+    restaurant_lang = None
+    if session is not None and user is not None:
+        restaurant = session.get(Restaurant, user.restaurant_id)
+        restaurant_lang = restaurant.language if restaurant else None
+    return i18n.resolve(user_lang=user.language if user else None,
+                        cookie=request.cookies.get(i18n.COOKIE_NAME),
+                        accept_header=request.headers.get("accept-language"),
+                        restaurant_lang=restaurant_lang)
+
+
 def require_user(request: Request, session: Session = Depends(get_db)):
     found = current(request, session)
     if found is None:
@@ -52,15 +65,19 @@ def require_user(request: Request, session: Session = Depends(get_db)):
 def require_manager_user(request: Request, session: Session = Depends(get_db)):
     user, auth_session = require_user(request, session)
     if user.role != Role.MANAGER:
-        raise HTTPException(status_code=403, detail="Esta sección es solo para managers")
+        raise HTTPException(status_code=403,
+                            detail=i18n.t(lang_for(request, session, user), "error.managers_only"))
     return user, auth_session
 
 
 def page(request: Request, name: str, user: User | None = None, auth_session=None,
          session: Session | None = None, **ctx):
+    lang = ctx.pop("lang", None) or lang_for(request, session, user)
     base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
             "today": date.today().isoformat(),
-            "unread": service.unread_count(session, user.id) if (user and session) else 0}
+            "unread": service.unread_count(session, user.id) if (user and session) else 0,
+            "t": i18n.translator(lang), "lang": lang, "dir": i18n.direction(lang),
+            "languages": i18n.LANGUAGES}
     base.update(ctx)
     return templates.TemplateResponse(request, name, base)
 
@@ -80,10 +97,32 @@ def home_for(user: User) -> str:
 async def redirect_handler(request: Request, exc: HTTPException):
     if exc.status_code == 303 and "Location" in (exc.headers or {}):
         return RedirectResponse(exc.headers["Location"], status_code=303)
+    lang = i18n.resolve(cookie=request.cookies.get(i18n.COOKIE_NAME),
+                        accept_header=request.headers.get("accept-language"))
     return templates.TemplateResponse(request, "error.html",
-                                      {"user": None, "csrf": "",
+                                      {"user": None, "csrf": "", "unread": 0,
+                                       "t": i18n.translator(lang), "lang": lang,
+                                       "dir": i18n.direction(lang), "languages": i18n.LANGUAGES,
                                        "code": exc.status_code, "detail": exc.detail},
                                       status_code=exc.status_code)
+
+
+def set_lang_cookie(response: Response, lang: str) -> Response:
+    """La elección de idioma en la pantalla de acceso sobrevive al cierre de sesión."""
+    response.set_cookie(i18n.COOKIE_NAME, lang, httponly=False, samesite="lax",
+                        max_age=365 * 86400, path="/")
+    return response
+
+
+@app.get("/idioma/{lang}")
+def choose_language(lang: str, request: Request):
+    """Selector de idioma de la pantalla de acceso."""
+    if not i18n.is_supported(lang):
+        raise HTTPException(status_code=404, detail="Idioma no disponible")
+    destination = request.query_params.get("next", "/login")
+    if not destination.startswith("/") or destination.startswith("//"):
+        destination = "/login"
+    return set_lang_cookie(RedirectResponse(destination, status_code=303), lang)
 
 
 # ------------------------------------------------------------------ acceso
@@ -104,12 +143,14 @@ def login_form(request: Request, session: Session = Depends(get_db), error: str 
 @app.post("/login")
 def login(request: Request, email: str = Form(...), password: str = Form(...),
           session: Session = Depends(get_db)):
+    lang = lang_for(request, session)
     try:
-        user = auth.authenticate(session, email, password)
+        user = auth.authenticate(session, email, password, lang=lang)
     except auth.AuthError as e:
-        return page(request, "login.html", error=str(e))
+        return page(request, "login.html", error=str(e), lang=lang)
     token, _ = auth.start_session(session, user)
-    return set_session_cookie(RedirectResponse(home_for(user), status_code=303), token)
+    response = set_session_cookie(RedirectResponse(home_for(user), status_code=303), token)
+    return set_lang_cookie(response, user.language or lang)
 
 
 @app.post("/logout")
@@ -127,15 +168,18 @@ def signup_form(request: Request, error: str = ""):
 
 @app.post("/signup")
 def signup(request: Request, restaurant: str = Form(...), name: str = Form(...),
-           email: str = Form(...), password: str = Form(...),
+           email: str = Form(...), password: str = Form(...), language: str = Form(""),
            session: Session = Depends(get_db)):
+    lang = language if i18n.is_supported(language) else lang_for(request, session)
     try:
-        rest, manager = auth.create_restaurant(session, restaurant, email, name, password)
-        seed_templates(session, rest.id)
+        rest, manager = auth.create_restaurant(session, restaurant, email, name, password,
+                                               language=lang)
+        seed_templates(session, rest.id, lang)
     except (ValueError, auth.AuthError) as e:
-        return page(request, "signup.html", error=str(e))
+        return page(request, "signup.html", error=str(e), lang=lang)
     token, _ = auth.start_session(session, manager)
-    return set_session_cookie(RedirectResponse("/manager", status_code=303), token)
+    response = set_session_cookie(RedirectResponse("/manager", status_code=303), token)
+    return set_lang_cookie(response, lang)
 
 
 @app.get("/join", response_class=HTMLResponse)
@@ -145,14 +189,16 @@ def join_form(request: Request, error: str = "", code: str = ""):
 
 @app.post("/join")
 def join(request: Request, join_code: str = Form(...), name: str = Form(...),
-         email: str = Form(...), password: str = Form(...),
+         email: str = Form(...), password: str = Form(...), language: str = Form(""),
          session: Session = Depends(get_db)):
+    lang = language if i18n.is_supported(language) else lang_for(request, session)
     try:
-        user = auth.join_restaurant(session, join_code, email, name, password)
+        user = auth.join_restaurant(session, join_code, email, name, password, language=lang)
     except (ValueError, auth.AuthError) as e:
-        return page(request, "join.html", error=str(e), code=join_code)
+        return page(request, "join.html", error=str(e), code=join_code, lang=lang)
     token, _ = auth.start_session(session, user)
-    return set_session_cookie(RedirectResponse("/app", status_code=303), token)
+    response = set_session_cookie(RedirectResponse("/app", status_code=303), token)
+    return set_lang_cookie(response, lang)
 
 
 # =========================================================== EMPLEADO
@@ -177,7 +223,7 @@ def record_form(code: str, request: Request, ctx=Depends(require_user),
     tpl = (session.query(RecordTemplate)
            .filter_by(restaurant_id=user.restaurant_id, code=code, active=True).first())
     if tpl is None:
-        raise HTTPException(status_code=404, detail="Ese registro no existe o está desactivado")
+        raise HTTPException(status_code=404, detail=i18n.t(lang_for(request, session, user), "error.template_not_found"))
     return page(request, "record_form.html", user, auth_session, session, tpl=tpl,
                 FieldType=FieldType, error=error, errors={}, sent=False)
 
@@ -189,24 +235,25 @@ async def record_submit(code: str, request: Request, ctx=Depends(require_user),
     tpl = (session.query(RecordTemplate)
            .filter_by(restaurant_id=user.restaurant_id, code=code, active=True).first())
     if tpl is None:
-        raise HTTPException(status_code=404, detail="Ese registro no existe o está desactivado")
+        raise HTTPException(status_code=404, detail=i18n.t(lang_for(request, session, user), "error.template_not_found"))
 
     form = await request.form()
     try:
-        auth.check_csrf(auth_session, form.get("csrf"))
+        auth.check_csrf(auth_session, form.get("csrf"), lang_for(request, session, user))
     except auth.PermissionDenied as e:
         raise HTTPException(status_code=403, detail=str(e)) from None
 
+    lang = lang_for(request, session, user)
     data = {f.key: form.get(f.key) for f in tpl.fields}
     business_date = form.get("business_date") or None
     try:
         parsed_date = date.fromisoformat(business_date) if business_date else None
         result = service.submit_record(session, user, tpl, data, business_date=parsed_date,
                                        shift=form.get("shift") or None,
-                                       note=form.get("note") or None)
+                                       note=form.get("note") or None, lang=lang)
     except service.ValidationError as e:
         return page(request, "record_form.html", user, auth_session, session, tpl=tpl,
-                    FieldType=FieldType, error="Revisa los campos marcados",
+                    FieldType=FieldType, error=i18n.t(lang, "form.check_fields"),
                     errors=e.errors, sent=False, submitted=data)
     except ValueError as e:
         return page(request, "record_form.html", user, auth_session, session, tpl=tpl,
@@ -221,12 +268,12 @@ async def record_submit(code: str, request: Request, ctx=Depends(require_user),
         try:
             service.store_attachment(session, result.record, upload.filename,
                                      upload.content_type or "application/octet-stream",
-                                     payload, UPLOAD_DIR)
+                                     payload, UPLOAD_DIR, lang)
         except service.ValidationError as e:
             photo_errors.extend(e.errors.values())
 
     if tpl.requires_photo and not result.record.attachments:
-        photo_errors.append("Esta plantilla pide foto: el registro se guardó sin ella")
+        photo_errors.append(i18n.t(lang, "form.photo_missing"))
 
     return page(request, "record_form.html", user, auth_session, session, tpl=tpl, FieldType=FieldType,
                 error="", errors={}, sent=True, result=result, photo_errors=photo_errors)
@@ -239,7 +286,8 @@ def my_records(request: Request, ctx=Depends(require_user), session: Session = D
             .filter_by(restaurant_id=user.restaurant_id, created_by=user.id)
             .order_by(Record.created_at.desc()).limit(100).all())
     return page(request, "records_list.html", user, auth_session, session, rows=rows,
-                title="Mis registros", authors={user.id: user.name}, manager_view=False)
+                title=i18n.t(lang_for(request, session, user), "records.mine"),
+                authors={user.id: user.name}, manager_view=False)
 
 
 # ============================================================ MANAGER
@@ -272,7 +320,8 @@ def manager_records(request: Request, ctx=Depends(require_manager_user),
     authors = {u.id: u.name for u in session.query(User).filter_by(restaurant_id=user.restaurant_id)}
     tpls = session.query(RecordTemplate).filter_by(restaurant_id=user.restaurant_id).all()
     return page(request, "records_list.html", user, auth_session, session, rows=rows,
-                title="Todos los registros", authors=authors, manager_view=True,
+                title=i18n.t(lang_for(request, session, user), "records.all"),
+                authors=authors, manager_view=True,
                 templates_list=tpls, code=code, days=days)
 
 
@@ -294,7 +343,8 @@ def close_alert(alert_id: int, request: Request, resolution: str = Form(...), cs
     user, auth_session = ctx
     try:
         auth.check_csrf(auth_session, csrf)
-        service.acknowledge_alert(session, user, alert_id, resolution)
+        service.acknowledge_alert(session, user, alert_id, resolution,
+                                  lang_for(request, session, user))
     except (auth.PermissionDenied, PermissionError) as e:
         raise HTTPException(status_code=403, detail=str(e)) from None
     except service.ValidationError as e:
@@ -358,7 +408,7 @@ def toggle_template(tpl_id: int, request: Request, csrf: str = Form(""),
         raise HTTPException(status_code=403, detail=str(e)) from None
     tpl = session.get(RecordTemplate, tpl_id)
     if tpl is None or tpl.restaurant_id != user.restaurant_id:
-        raise HTTPException(status_code=404, detail="Plantilla no encontrada")
+        raise HTTPException(status_code=404, detail=i18n.t(lang_for(request, session, user), "error.tpl_not_found"))
     tpl.active = not tpl.active
     return RedirectResponse("/manager/plantillas", status_code=303)
 
@@ -383,9 +433,9 @@ def change_role(user_id: int, request: Request, role: str = Form(...), csrf: str
         raise HTTPException(status_code=403, detail=str(e)) from None
     target = session.get(User, user_id)
     if target is None or target.restaurant_id != user.restaurant_id:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(status_code=404, detail=i18n.t(lang_for(request, session, user), "error.user_not_found"))
     if target.id == user.id:
-        raise HTTPException(status_code=400, detail="No puedes cambiar tu propio rol")
+        raise HTTPException(status_code=400, detail=i18n.t(lang_for(request, session, user), "error.no_self_role"))
     if role in Role.__members__:
         target.role = Role[role]
     return RedirectResponse("/manager/equipo", status_code=303)
@@ -401,9 +451,9 @@ def toggle_user(user_id: int, request: Request, csrf: str = Form(""),
         raise HTTPException(status_code=403, detail=str(e)) from None
     target = session.get(User, user_id)
     if target is None or target.restaurant_id != user.restaurant_id:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(status_code=404, detail=i18n.t(lang_for(request, session, user), "error.user_not_found"))
     if target.id == user.id:
-        raise HTTPException(status_code=400, detail="No puedes desactivarte a ti mismo")
+        raise HTTPException(status_code=400, detail=i18n.t(lang_for(request, session, user), "error.no_self_disable"))
     target.active = not target.active
     return RedirectResponse("/manager/equipo", status_code=303)
 
@@ -417,6 +467,35 @@ def export_csv(request: Request, ctx=Depends(require_manager_user),
     body = service.export_records_csv(session, user.restaurant_id, since, until)
     return PlainTextResponse(body, media_type="text/csv", headers={
         "Content-Disposition": f'attachment; filename="registros_{since}_{until}.csv"'})
+
+
+# ====================================================== CONFIGURACIÓN
+@app.get("/configuracion", response_class=HTMLResponse)
+def settings_page(request: Request, ctx=Depends(require_user),
+                  session: Session = Depends(get_db), saved: int = 0):
+    user, auth_session = ctx
+    restaurant = session.get(Restaurant, user.restaurant_id)
+    return page(request, "settings.html", user, auth_session, session,
+                restaurant=restaurant, saved=bool(saved))
+
+
+@app.post("/configuracion")
+def save_settings(request: Request, language: str = Form(...),
+                  restaurant_language: str = Form(""), csrf: str = Form(""),
+                  ctx=Depends(require_user), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    try:
+        auth.check_csrf(auth_session, csrf, lang_for(request, session, user))
+    except auth.PermissionDenied as e:
+        raise HTTPException(status_code=403, detail=str(e)) from None
+    if i18n.is_supported(language):
+        user.language = language
+    if restaurant_language and user.role == Role.MANAGER and i18n.is_supported(restaurant_language):
+        restaurant = session.get(Restaurant, user.restaurant_id)
+        if restaurant is not None:
+            restaurant.language = restaurant_language
+    response = RedirectResponse("/configuracion?saved=1", status_code=303)
+    return set_lang_cookie(response, user.language or i18n.DEFAULT_LANG)
 
 
 # ====================================================== NOTIFICACIONES
@@ -455,14 +534,14 @@ def serve_photo(attachment_id: int, request: Request, ctx=Depends(require_user),
     user, _ = ctx
     att = session.get(Attachment, attachment_id)
     if att is None:
-        raise HTTPException(status_code=404, detail="Foto no encontrada")
+        raise HTTPException(status_code=404, detail=i18n.t(lang_for(request, session, user), "error.photo_not_found"))
     record = session.get(Record, att.record_id)
     if record is None or record.restaurant_id != user.restaurant_id:
-        raise HTTPException(status_code=403, detail="Esa foto pertenece a otro restaurante")
+        raise HTTPException(status_code=403, detail=i18n.t(lang_for(request, session, user), "error.photo_other_restaurant"))
     if user.role != Role.MANAGER and record.created_by != user.id:
-        raise HTTPException(status_code=403, detail="Solo puedes ver tus propias fotos")
+        raise HTTPException(status_code=403, detail=i18n.t(lang_for(request, session, user), "error.photo_only_yours"))
     if not os.path.exists(att.stored_path):
-        raise HTTPException(status_code=404, detail="El archivo ya no está en disco")
+        raise HTTPException(status_code=404, detail=i18n.t(lang_for(request, session, user), "error.photo_missing_file"))
     with open(att.stored_path, "rb") as fh:
         return Response(fh.read(), media_type=att.content_type)
 

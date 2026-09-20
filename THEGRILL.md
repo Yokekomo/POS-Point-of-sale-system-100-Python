@@ -8,6 +8,8 @@ auditoría.
 El programa recoge datos de los trabajadores y los presenta. No envía mensajes
 a nadie por fuera: los avisos viven dentro de la propia plataforma.
 
+Está en seis idiomas: español, inglés, francés, alemán, neerlandés y árabe.
+
 Incluye además los motores especializados de control de carne desarrollados
 para el proyecto The Grill (FEFO, stock por serial de primal, despieces y
 coste) como módulos opcionales sobre la misma base de datos.
@@ -37,6 +39,44 @@ CSV de auditoría. Reparte el código de acceso del restaurante.
 **Empleado.** Ve la pantalla de captura y rellena registros con fotos. Consulta
 solo lo que él mismo ha enviado. No entra en ninguna pantalla de gestión: cada
 ruta del área de manager le responde 403.
+
+## Idiomas
+
+Seis idiomas, con las tres lenguas oficiales de Bélgica cubiertas:
+
+| Código | Idioma | Escritura |
+|---|---|---|
+| es | Español | izquierda a derecha |
+| en | English | izquierda a derecha |
+| fr | Français | izquierda a derecha |
+| de | Deutsch | izquierda a derecha |
+| nl | Nederlands | izquierda a derecha |
+| ar | العربية | derecha a izquierda |
+
+**Dónde se elige.** En la pantalla de acceso, antes de entrar, con un selector
+que recuerda la elección en este navegador. Y dentro, en Configuración, donde
+cada persona fija su propio idioma. Un manager fija además el idioma del
+restaurante.
+
+**Qué idioma se usa**, por orden: el que la persona eligió, el elegido en el
+acceso, el que pide el navegador, el del restaurante y, si no, español. Un
+idioma desconocido se ignora en cada paso, nunca rompe la pantalla.
+
+**Qué se traduce y cuándo.** La interfaz, en el idioma de quien mira. Los
+errores de un formulario, en el idioma de quien lo rellena, porque los lee él
+en ese momento. Las alertas y los avisos se guardan en el idioma del
+restaurante, porque quedan almacenados y los lee todo el equipo. Las plantillas
+iniciales se crean en el idioma del restaurante al darlo de alta, y a partir de
+ahí son datos suyos que puede reescribir.
+
+**En árabe** la interfaz entera se voltea a derecha a izquierda, incluidas
+tablas, barras y el marcado de los avisos.
+
+**Añadir un idioma** es copiar el diccionario español en `web/i18n.py`,
+traducir los valores y registrarlo. Cuatro tests lo vigilan: ninguna clave sin
+traducir, ninguna de más, ningún texto vacío y ningún hueco de interpolación
+como `{label}` perdido por el camino. Un quinto barre todas las pantallas en
+inglés y falla si alguna deja texto en español.
 
 ## Avisos: la alerta va a buscar a quien debe actuar
 
@@ -101,11 +141,12 @@ thegrill/
   models.py              27 tablas: plataforma, módulos de carne, auditoría
   rules.py               Reglas del negocio de carne como funciones puras
   web/
+    i18n.py              Seis idiomas, resolución y escritura de derecha a izquierda
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
     service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV
     app.py               Rutas web de empleado y de manager
-    templates/           Trece pantallas, móvil primero, claro y oscuro
+    templates/           Catorce pantallas, móvil primero, claro y oscuro
   engine/
     fefo.py              Consumo por caducidad y valoración de merma
     stock.py             Motor v4: ledger, re-anclaje por conteo, genealogía por serial
@@ -114,7 +155,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   99 tests
+tests/                   132 tests
 ```
 
 ## Uso
@@ -154,3 +195,4 @@ desarrollo. Las fotos se guardan en la ruta de `GRILL_UPLOAD_DIR`.
 2. Importadores: PDFs del punto de venta, facturas y hojas manuscritas.
 3. Informe diario en PDF y parte de carne, para consultar y descargar desde la plataforma.
 4. Programador nocturno que ejecute la cadena diaria por restaurante.
+5. Más idiomas según haga falta en cada cocina.

@@ -400,3 +400,145 @@ def test_an_employee_is_told_how_his_alert_was_resolved(client):
     client.cookies.set(webapp.auth.COOKIE_NAME, employee_cookie)
     assert client.get("/api/notificaciones").json()["unread"] == 1
     assert "Vitrina reparada" in client.get("/notificaciones").text
+
+
+# --------------------------------------------------------------- idiomas
+def test_login_page_offers_every_language(client):
+    html = client.get("/login").text
+    for name in ("Español", "English", "Français", "Deutsch", "Nederlands", "العربية"):
+        assert name in html, name
+    assert 'href="/idioma/de?next=/login"' in html
+
+
+def test_choosing_a_language_on_login_changes_the_page_and_sticks(client):
+    assert "Entrar" in client.get("/login").text
+    r = client.get("/idioma/de?next=/login")
+    assert r.status_code == 303 and r.headers["location"] == "/login"
+    assert client.cookies.get(webapp.i18n.COOKIE_NAME) == "de"
+    html = client.get("/login").text
+    assert "Anmelden" in html and "Zum ersten Mal hier?" in html
+
+
+def test_arabic_switches_the_page_to_right_to_left(client):
+    client.get("/idioma/ar?next=/login")
+    html = client.get("/login").text
+    assert '<html lang="ar" dir="rtl">' in html
+    assert "تسجيل الدخول" in html
+
+
+def test_an_unknown_language_is_rejected(client):
+    assert client.get("/idioma/klingon").status_code == 404
+    assert webapp.i18n.COOKIE_NAME not in client.cookies
+
+
+def test_the_language_redirect_cannot_be_used_to_send_people_elsewhere(client):
+    for bad in ("https://evil.example/x", "//evil.example/x"):
+        r = client.get(f"/idioma/en?next={bad}")
+        assert r.headers["location"] == "/login"
+
+
+def test_the_browser_language_is_honoured_before_logging_in(client):
+    html = client.get("/login", headers={"accept-language": "nl-BE,nl;q=0.9,fr;q=0.8"}).text
+    assert "Aanmelden" in html
+    html = client.get("/login", headers={"accept-language": "ja,ko"}).text
+    assert "Entrar" in html            # ninguno disponible: español
+
+
+def test_signing_up_in_dutch_creates_dutch_forms(client):
+    r = client.post("/signup", data={"restaurant": "De Kombuis", "name": "Piet",
+                                     "email": "piet@kombuis.be", "password": "clave-larga-1",
+                                     "language": "nl"})
+    assert r.status_code == 303
+    panel = client.get("/manager").text
+    assert "Naleving" in panel and "Open waarschuwingen" in panel
+    assert "Koeltemperatuur" in client.get("/app").text
+
+
+def test_settings_change_only_my_language_not_my_colleagues(client):
+    signup(client, "Casa Pepe", "ana@casa.com", "Ana")       # se crea en español
+    manager_cookie = client.cookies.get(webapp.auth.COOKIE_NAME)
+    code = join_code()
+
+    client.cookies.clear()
+    join(client, code, "hans@casa.com", "Hans")
+    assert "¿Qué vas a registrar?" in client.get("/app").text
+    settings = client.get("/configuracion")
+    assert settings.status_code == 200
+    saved = client.post("/configuracion", data={"csrf": csrf_from(settings.text), "language": "de"})
+    assert saved.status_code == 303
+    assert "Was möchtest du erfassen?" in client.get("/app").text
+
+    client.cookies.set(webapp.auth.COOKIE_NAME, manager_cookie)
+    assert "Cumplimiento" in client.get("/manager").text     # la manager sigue en español
+
+
+def test_an_employee_cannot_change_the_restaurant_language(client):
+    signup(client, "Casa Pepe", "ana@casa.com", "Ana")
+    code = join_code()
+    client.cookies.clear()
+    join(client, code, "luis@casa.com")
+    settings = client.get("/configuracion")
+    assert "settings.restaurant_language" not in settings.text
+    assert 'name="restaurant_language"' not in settings.text     # ni siquiera se le ofrece
+    client.post("/configuracion", data={"csrf": csrf_from(settings.text),
+                                        "language": "fr", "restaurant_language": "fr"})
+    with db.session_scope() as s:
+        from thegrill.models import Restaurant
+        assert s.query(Restaurant).filter_by(slug="casa-pepe").one().language == "es"
+
+
+def test_a_manager_can_change_the_restaurant_language(client):
+    signup(client, "Casa Pepe", "ana@casa.com", "Ana")
+    settings = client.get("/configuracion")
+    client.post("/configuracion", data={"csrf": csrf_from(settings.text),
+                                        "language": "fr", "restaurant_language": "fr"})
+    with db.session_scope() as s:
+        from thegrill.models import Restaurant
+        assert s.query(Restaurant).filter_by(slug="casa-pepe").one().language == "fr"
+    assert "Conformité" in client.get("/manager").text
+
+
+def test_settings_need_a_csrf_token(client):
+    signup(client)
+    assert client.post("/configuracion", data={"language": "de"}).status_code == 403
+
+
+def test_alerts_stay_in_the_restaurant_language_whatever_the_reader_uses(client):
+    signup(client, "Casa Pepe", "ana@casa.com", "Ana")       # restaurante en español
+    code = join_code()
+    manager_cookie = client.cookies.get(webapp.auth.COOKIE_NAME)
+
+    client.cookies.clear()
+    join(client, code, "hans@casa.com", "Hans")
+    settings = client.get("/configuracion")
+    client.post("/configuracion", data={"csrf": csrf_from(settings.text), "language": "de"})
+    form = client.get("/app/registro/temp_refrigeracion")
+    assert "Eintrag speichern" in form.text                  # la pantalla, en alemán
+    sent = client.post("/app/registro/temp_refrigeracion",
+                       data={"csrf": csrf_from(form.text), "unidad": "Vitrina", "temperatura": "11"})
+    assert "Eintrag mit Warnung gespeichert" in sent.text    # el mensaje de pantalla, en alemán
+    assert "por encima del máximo 5°C" in sent.text          # la alerta guardada, en español
+
+    client.cookies.set(webapp.auth.COOKIE_NAME, manager_cookie)
+    assert "por encima del máximo 5°C" in client.get("/manager").text
+
+
+def test_no_screen_leaks_spanish_when_the_language_is_english(client):
+    """Barrido: ninguna pantalla se deja texto sin traducir."""
+    client.post("/signup", data={"restaurant": "The Kitchen", "name": "Ann",
+                                 "email": "ann@kitchen.com", "password": "clave-larga-1",
+                                 "language": "en"})
+    form = client.get("/app/registro/temp_refrigeracion")
+    client.post("/app/registro/temp_refrigeracion",
+                data={"csrf": csrf_from(form.text), "unidad": "Display unit", "temperatura": "11"})
+
+    spanish = ["Cumplimiento", "Registrar", "Alertas", "Plantillas", "Equipo", "Avisos",
+               "Configuración", "Salir", "Guardar", "Fecha", "Estado", "Descargar",
+               "¿Qué vas a registrar?", "Acción correctiva", "Último acceso", "Motivo"]
+    pages = ["/manager", "/manager/registros", "/manager/alertas", "/manager/plantillas",
+             "/manager/equipo", "/app", "/app/mis-registros", "/notificaciones",
+             "/configuracion", "/app/registro/temp_refrigeracion"]
+    for path in pages:
+        html = client.get(path).text
+        leaked = [w for w in spanish if w in html]
+        assert not leaked, f"{path} deja en español: {leaked}"

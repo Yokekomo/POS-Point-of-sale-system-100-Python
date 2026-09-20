@@ -103,6 +103,7 @@ class Restaurant(Base):
     join_code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     timezone: Mapped[str] = mapped_column(String(64), default="UTC")
     currency: Mapped[str] = mapped_column(String(3), default="USD")
+    language: Mapped[str] = mapped_column(String(5), default="es")   # idioma por defecto del local
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -115,6 +116,7 @@ class User(TenantMixin, Base):
     email: Mapped[str] = mapped_column(String(190), index=True)
     name: Mapped[str] = mapped_column(String(128))
     role: Mapped[Role] = mapped_column(Enum(Role), default=Role.EMPLOYEE)
+    language: Mapped[str | None] = mapped_column(String(5))          # None = usa el del restaurante
     password_hash: Mapped[str] = mapped_column(String(256))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
