@@ -527,3 +527,156 @@ class TestConsumption:
 
         assert en_playa.qty_remaining == pytest.approx(5.0)
         assert en_obrador.qty_remaining == 6.0
+
+
+# ============================== el obrador manda, el local madura y corta
+class TestWarehouseAndOutlets:
+    """Lo que el obrador guarda y lo que el local recibe.
+
+    En el obrador hay de todo: piezas frescas, congeladas y en curación, y una
+    mesa donde se despieza. Del obrador salen para el local tres cosas
+    distintas —un primal fresco para cortarlo allí, uno curado para seguir
+    madurando o venderlo al peso, y cortes ya hechos— y cada una sigue
+    contándose donde esté.
+    """
+
+    @pytest.fixture
+    def grupo(self, ctx):
+        from thegrill.models import Role
+
+        s, rest, ana, luis = ctx
+        obrador = sites.main(s, rest.id)
+        playa = sites.create(s, ana, "Playa")
+        luis.role = Role.BUTCHER
+        sites.assign(s, ana, luis, playa.id)
+        return s, rest, ana, luis, obrador, playa
+
+    def test_the_warehouse_holds_frozen_and_ageing_at_the_same_time(self, grupo):
+        from thegrill.models import Storage
+        from thegrill.web import aging
+
+        s, rest, ana, luis, obrador, playa = grupo
+        pieza(s, rest, serial="8017")
+        pieza(s, rest, serial="8018")
+        pieza(s, rest, serial="8019")
+        aging.move(s, ana, "8017", Storage.AGING, target_days=45, on=HOY)
+        aging.move(s, ana, "8018", Storage.FROZEN, on=HOY)
+
+        resumen = aging.summary(s, rest.id, on=HOY, site_id=obrador.id)
+        assert resumen.aging_pieces == 1 and resumen.frozen_pieces == 1
+        # Y la tercera sigue en cámara, esperando la mesa de despiece.
+        assert [p.serial for p in meat.primals_in_stock(s, rest.id, site_id=obrador.id)
+                if aging.where(p) == Storage.CHILLED] == ["8019"]
+
+    def test_an_ageing_piece_that_moves_is_counted_by_the_outlet(self, grupo):
+        """Se madura donde se sirve: la cuenta el que la tiene delante."""
+        from thegrill.models import Storage
+        from thegrill.web import aging
+
+        s, rest, ana, luis, obrador, playa = grupo
+        pieza(s, rest, serial="8017", kg=9.0)
+        aging.move(s, ana, "8017", Storage.AGING, target_days=45, on=HOY)
+        sites.send_primal(s, ana, "8017", playa.id, on=HOY)
+
+        assert aging.pending_today(s, rest.id, on=HOY, site_id=obrador.id) == []
+        assert aging.pending_today(s, rest.id, on=HOY, site_id=playa.id) == ["8017"]
+        assert [l.site for l in aging.to_count(s, rest.id, on=HOY, site_id=playa.id)] == ["Playa"]
+
+    def test_the_outlet_weighs_its_own_pieces_every_night(self, grupo):
+        from thegrill.models import Storage
+        from thegrill.web import aging
+
+        s, rest, ana, luis, obrador, playa = grupo
+        pieza(s, rest, serial="8017", kg=9.0)
+        pieza(s, rest, serial="8018", kg=9.0)
+        aging.move(s, ana, "8017", Storage.AGING, on=HOY)
+        aging.move(s, ana, "8018", Storage.AGING, on=HOY)
+        sites.send_primal(s, ana, "8017", playa.id, on=HOY)
+
+        conteo = aging.count_day(s, luis, [("8017", 8.7), ("8018", 8.6)], on=HOY, lang="es")
+
+        # Luis es de la playa: pesa la suya y la del obrador ni le aparece.
+        assert conteo.counted == 1 and conteo.missing == []
+        assert [l.serial for l in conteo.lines] == ["8017"]
+        assert aging.pending_today(s, rest.id, on=HOY, site_id=obrador.id) == ["8018"]
+
+    def test_the_shift_close_says_what_is_left_to_weigh(self, grupo):
+        """Lo que madura se pesa todas las noches: si falta, el cierre lo dice."""
+        from thegrill.models import Storage
+        from thegrill.web import aging, defrost
+
+        s, rest, ana, luis, obrador, playa = grupo
+        pieza(s, rest, serial="8017", kg=9.0)
+        aging.move(s, ana, "8017", Storage.AGING, on=HOY)
+        sites.send_primal(s, ana, "8017", playa.id, on=HOY)
+
+        cierre = defrost.close(s, luis, on=HOY, lang="es")
+
+        assert cierre.aging_pending == ["8017"]
+        assert any(a.code == "aging.uncounted" for a in cierre.alerts)
+
+        aging.count_day(s, luis, [("8017", 8.7)], on=HOY, lang="es")
+        assert defrost.close(s, luis, on=HOY, shift="noche", lang="es").aging_pending == []
+
+    def test_an_outlet_cuts_the_primal_it_received(self, grupo):
+        """El local también corta: lo que reciba se despieza allí y se queda allí."""
+        s, rest, ana, luis, obrador, playa = grupo
+        p = pieza(s, rest, serial="8017", kg=9.0, precio=30.0)
+        sites.send_primal(s, ana, "8017", playa.id, on=HOY)
+        cut = meat.create_cut(s, ana, "Lomo")
+        item = meat.add_article(s, ana, cut, "Lomo AUS")
+        p.expiry_label = HOY
+        s.flush()
+
+        meat.post_butchery(s, luis, tg="TG-0001", serials=["8017"], before_kg=9.0,
+                           rows=[meat.CutRow(name="Lomo", item_id=item.id,
+                                             pieces=6, grams=1200)],
+                           waste_kg=1.8, on=HOY)
+
+        assert {l.site_id for l in s.query(IngredientLot)} == {playa.id}
+
+    def test_nobody_cuts_a_piece_that_is_in_the_other_site(self, grupo):
+        s, rest, ana, luis, obrador, playa = grupo
+        p = pieza(s, rest, serial="8017", kg=9.0)
+        cut = meat.create_cut(s, ana, "Lomo")
+        item = meat.add_article(s, ana, cut, "Lomo AUS")
+        p.expiry_label = HOY
+        s.flush()
+
+        with pytest.raises(meat.MeatError):
+            meat.post_butchery(s, luis, tg="TG-0001", serials=["8017"], before_kg=9.0,
+                               rows=[meat.CutRow(name="Lomo", item_id=item.id,
+                                                 pieces=6, grams=1200)],
+                               waste_kg=1.8, on=HOY)
+
+    def test_one_table_does_not_mix_two_chillers(self, grupo):
+        s, rest, ana, luis, obrador, playa = grupo
+        uno = pieza(s, rest, serial="8017", kg=9.0)
+        dos = pieza(s, rest, serial="8018", kg=9.0)
+        sites.send_primal(s, ana, "8018", playa.id, on=HOY)
+        cut = meat.create_cut(s, ana, "Lomo")
+        item = meat.add_article(s, ana, cut, "Lomo AUS")
+        uno.expiry_label = dos.expiry_label = HOY
+        s.flush()
+
+        with pytest.raises(meat.MeatError):
+            meat.post_butchery(s, ana, tg="TG-0001", serials=["8017", "8018"],
+                               before_kg=18.0,
+                               rows=[meat.CutRow(name="Lomo", item_id=item.id,
+                                                 pieces=12, grams=1200)],
+                               waste_kg=3.6, on=HOY)
+
+    def test_an_aged_piece_at_the_outlet_is_sold_by_weight_there(self, grupo):
+        """Lo curado llega al local y se corta al peso delante del cliente."""
+        from thegrill.models import Storage
+        from thegrill.web import aging
+
+        s, rest, ana, luis, obrador, playa = grupo
+        pieza(s, rest, serial="8017", kg=9.0, precio=30.0)
+        aging.move(s, ana, "8017", Storage.AGING, target_days=45, on=HOY)
+        sites.send_primal(s, ana, "8017", playa.id, on=HOY)
+
+        venta = aging.sell_by_weight(s, luis, "8017", 400, price=60.0, on=HOY)
+
+        assert venta.kg_left == pytest.approx(8.6)
+        assert s.query(Primal).one().site_id == playa.id      # sigue siendo del local

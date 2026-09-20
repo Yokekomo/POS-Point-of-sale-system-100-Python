@@ -2,6 +2,7 @@
 {% block body %}
 <h1>{{ t("m.ag.title") }}</h1>
 <p class="sub">{{ t("m.ag.sub") }}</p>
+{% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
 {% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 
@@ -146,12 +147,14 @@
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="scroll"><table>
   <tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.sku") }}</th>
+      {% if not site %}<th>{{ t("m.tr.site") }}</th>{% endif %}
       <th class="num">{{ t("m.ag.days") }}</th><th class="num">{{ t("m.ag.yesterday") }}</th>
       <th class="num">{{ t("m.ag.weigh_kg") }}</th></tr>
   {% for l in to_count %}
   <tr>
     <td><b>{{ l.serial }}</b></td>
     <td>{{ l.sku }}</td>
+    {% if not site %}<td>{{ l.site }}</td>{% endif %}
     <td class="num">{{ l.days }}</td>
     <td class="num">{{ "%.3f"|format(l.yesterday_kg) }}
         {% if l.last_weighed %}<div class="muted">{{ l.last_weighed }}</div>{% endif %}</td>
@@ -160,7 +163,7 @@
   </tr>
   {% endfor %}
   </table></div>
-  <div class="help">{{ t("m.ag.daily_help") }}</div>
+  <div class="help">{{ t("m.ag.daily_help") }} {{ t("m.ag.where_help") }}</div>
   <button class="wide" type="submit">{{ t("m.ag.count_submit") }}</button>
 </form>
 </div>

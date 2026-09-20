@@ -2,6 +2,7 @@
 {% block body %}
 <h1>{{ t("m.tg.title") }}</h1>
 <p class="sub">{{ t("m.tg.sub") }}</p>
+{% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
 {% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
 {% if issues %}
 <div class="banner warn"><b>{{ t("m.tg.warnings") }}</b>

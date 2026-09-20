@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Alert, AlertSeverity, AuditLog, IngredientItem, IngredientLot,
                              IngredientMovement, LossKind, MovementKind, Primal,
                              PrimalStatus, PrimalWeighing, Storage, User, WeightSale)
-from thegrill.web import service
+from thegrill.web import service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -159,6 +159,7 @@ class BoardRow:
     grade: str | None = None
     origin: str | None = None
     last_weighed: date | None = None
+    site: str = ""                  # en qué sede está: se madura en el local también
 
     @property
     def yield_pct(self) -> float | None:
@@ -561,6 +562,7 @@ class DailyLine:
     kg: float | None = None      # lo de hoy, cuando ya se ha pesado
     loss_kg: float = 0.0
     cost: float | None = None    # lo que valían esos kilos que ya no se venden
+    site: str = ""               # la cámara donde está, que cada sede cuenta la suya
 
 
 @dataclass
@@ -584,33 +586,39 @@ class DailyCount:
         return len([l for l in self.lines if l.kg is not None])
 
 
-def to_count(session: Session, restaurant_id: int, on: date | None = None) -> list[DailyLine]:
+def to_count(session: Session, restaurant_id: int, on: date | None = None,
+             site_id: int | None = None) -> list[DailyLine]:
     """Lo que hay que pesar hoy: todo lo que madura, que es producto fresco.
 
     Una pieza madurando no está congelada: está en una cámara a dos grados
     perdiendo agua todos los días. Se cuenta como se cuenta lo descongelado,
     porque es lo mismo —carne fresca abierta— y porque así la merma se sabe
     cada día y no cuando alguien se acuerda.
+
+    Y se cuenta en cada sede: las piezas que maduran en el local las pesa el
+    local todas las noches, que es quien tiene la cámara delante.
     """
     on = on or date.today()
     ultimas = _last_weighings(session, restaurant_id)
     out = []
-    for row in board(session, restaurant_id, storage=Storage.AGING, on=on):
+    for row in board(session, restaurant_id, storage=Storage.AGING, on=on, site_id=site_id):
         cuando = ultimas.get(row.serial)
         out.append(DailyLine(serial=row.serial, sku=row.sku, days=row.days,
                              yesterday_kg=row.kg, last_weighed=cuando,
-                             kg=row.kg if cuando == on else None))
-    return sorted(out, key=lambda l: (l.kg is not None, l.serial))
+                             kg=row.kg if cuando == on else None, site=row.site))
+    return sorted(out, key=lambda l: (l.kg is not None, l.site, l.serial))
 
 
-def pending_today(session: Session, restaurant_id: int, on: date | None = None) -> list[str]:
-    """Las piezas que madurando se han quedado hoy sin pesar."""
+def pending_today(session: Session, restaurant_id: int, on: date | None = None,
+                  site_id: int | None = None) -> list[str]:
+    """Las piezas que madurando se han quedado hoy sin pesar, sede a sede."""
     on = on or date.today()
-    return [l.serial for l in to_count(session, restaurant_id, on) if l.kg is None]
+    return [l.serial for l in to_count(session, restaurant_id, on, site_id) if l.kg is None]
 
 
 def count_day(session: Session, user: User, readings: list[tuple[str, float]],
-              on: date | None = None, lang: str | None = None) -> DailyCount:
+              on: date | None = None, lang: str | None = None,
+              site_id: int | None = None) -> DailyCount:
     """Pesa de una vez todas las piezas que maduran, que es el conteo del día.
 
     Devuelve lo que se ha ido hoy en kilos y en dinero: esos kilos no se van a
@@ -621,8 +629,11 @@ def count_day(session: Session, user: User, readings: list[tuple[str, float]],
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     out = DailyCount(date=on)
     pesadas = {s.strip(): kg for s, kg in readings if s and s.strip() and kg and kg > 0}
+    if site_id is None:
+        mia = sites.of_user(session, user)
+        site_id = mia.id if mia else None
 
-    for line in to_count(session, user.restaurant_id, on):
+    for line in to_count(session, user.restaurant_id, on, site_id):
         kg = pesadas.get(line.serial)
         if kg is None:
             out.missing.append(line.serial)
@@ -641,17 +652,26 @@ def count_day(session: Session, user: User, readings: list[tuple[str, float]],
 
 # ---------------------------------------------------------------- la pizarra
 def board(session: Session, restaurant_id: int, storage: Storage | None = None,
-          on: date | None = None) -> list[BoardRow]:
-    """Lo que hay madurando y lo que hay congelado, pieza a pieza."""
+          on: date | None = None, site_id: int | None = None) -> list[BoardRow]:
+    """Lo que hay madurando y lo que hay congelado, pieza a pieza.
+
+    Se madura donde se sirve: una pieza puesta a madurar en el local es del
+    local, y es el local el que la pesa. Con `site_id` sale solo su cámara.
+    """
     on = on or date.today()
     query = (session.query(Primal)
              .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK))
+    principal = sites.main(session, restaurant_id)
+    nombres = {x.id: x.name for x in sites.all_sites(session, restaurant_id, active=False)}
     last = _last_weighings(session, restaurant_id)
     sold = _sold_kg(session, restaurant_id)
     trimmed = _trimmed_kg(session, restaurant_id)
 
     rows: list[BoardRow] = []
     for primal in query:
+        donde = primal.site_id or principal.id
+        if site_id and donde != site_id:
+            continue
         place = where(primal)
         if storage is not None and place != storage:
             continue
@@ -685,7 +705,8 @@ def board(session: Session, restaurant_id: int, storage: Storage | None = None,
             use_by=primal.frozen_use_by or primal.expiry_label, sold_kg=cut,
             received_kg=primal.received_kg,
             grade=primal.grade, origin=primal.origin,
-            last_weighed=last.get(primal.serial)))
+            last_weighed=last.get(primal.serial),
+            site=nombres.get(donde, "")))
     return sorted(rows, key=lambda r: (r.storage.value, -r.days, r.serial))
 
 
@@ -753,9 +774,10 @@ class Summary:
     ready: list[str] = field(default_factory=list)
 
 
-def summary(session: Session, restaurant_id: int, on: date | None = None) -> Summary:
+def summary(session: Session, restaurant_id: int, on: date | None = None,
+            site_id: int | None = None) -> Summary:
     out = Summary()
-    for row in board(session, restaurant_id, on=on):
+    for row in board(session, restaurant_id, on=on, site_id=site_id):
         if row.storage == Storage.AGING:
             out.aging_pieces += 1
             out.aging_kg = round(out.aging_kg + row.kg, 6)

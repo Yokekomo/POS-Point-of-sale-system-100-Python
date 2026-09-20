@@ -2,6 +2,7 @@
 {% block body %}
 <h1>{{ t("m.home.title") }}</h1>
 <p class="sub">{{ t("m.home.sub") }}</p>
+{% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
 
 {% if can("team") %}
   {% if trial_left is not none %}

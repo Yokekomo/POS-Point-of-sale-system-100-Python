@@ -90,11 +90,20 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
     return created
 
 
-def primals_in_stock(session: Session, restaurant_id: int) -> list[Primal]:
-    """Las piezas enteras que todavía se pueden despiezar."""
-    return (session.query(Primal)
+def primals_in_stock(session: Session, restaurant_id: int,
+                     site_id: int | None = None) -> list[Primal]:
+    """Las piezas enteras que todavía se pueden despiezar.
+
+    Con sede, las que están en esa sede: el local corta lo suyo, no lo que
+    está colgado en el obrador.
+    """
+    rows = (session.query(Primal)
             .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK)
             .order_by(Primal.sku, Primal.serial).all())
+    if not site_id:
+        return rows
+    principal = sites.main(session, restaurant_id).id
+    return [p for p in rows if (p.site_id or principal) == site_id]
 
 
 def recent_primals(session: Session, restaurant_id: int, limit: int = 50) -> list[Primal]:
@@ -293,6 +302,22 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
             .filter_by(restaurant_id=user.restaurant_id)}
     if any(r.item_id not in mine for r in rows):
         raise MeatError(t(lang, "m.tg.need_article"))
+    # Todas las piezas de un despiece tienen que estar donde se despieza: un
+    # despiece que mezcla la cámara del obrador con la del local no ha pasado
+    # por ninguna mesa, y los cortes que salen no sabrían de dónde son.
+    piezas = (session.query(Primal)
+              .filter(Primal.restaurant_id == user.restaurant_id,
+                      Primal.serial.in_(serials)).all())
+    principal = sites.main(session, user.restaurant_id).id
+    donde = {(p.site_id or principal) for p in piezas}
+    mia = sites.of_user(session, user)
+    if len(donde) > 1:
+        raise MeatError(t(lang, "m.tg.mixed_sites"))
+    if mia is not None and donde and mia.id not in donde:
+        nombres = {x.id: x.name for x in sites.all_sites(session, user.restaurant_id,
+                                                         active=False)}
+        raise MeatError(t(lang, "m.tg.other_site",
+                          site=nombres.get(next(iter(donde)), "")))
     tg = tg.strip()
     if not tg:
         raise MeatError("El despiece necesita su número")
@@ -557,14 +582,19 @@ class Today:
 
 
 def today(session: Session, restaurant_id: int, on: date | None = None,
-          lang: str = "es") -> Today:
-    """Lo que está pendiente en la carne, en una pantalla."""
+          lang: str = "es", site_id: int | None = None) -> Today:
+    """Lo que está pendiente en la carne, en una pantalla.
+
+    Con sede, lo pendiente de esa sede: el del local no arregla la cámara del
+    obrador, y las piezas que maduran en su local las pesa él.
+    """
     on = on or date.today()
-    status = butchery.status(session, restaurant_id, on=on)
+    status = butchery.status(session, restaurant_id, on=on, site_id=site_id)
     value = round(sum(lot.qty_remaining * lot.unit_cost for lot in
-                      session.query(IngredientLot)
-                      .filter(IngredientLot.restaurant_id == restaurant_id,
-                              IngredientLot.qty_remaining > 1e-9)), 2)
+                      costing.at_site(session.query(IngredientLot)
+                                      .filter(IngredientLot.restaurant_id == restaurant_id,
+                                              IngredientLot.qty_remaining > 1e-9),
+                                      session, restaurant_id, site_id)), 2)
 
     states = defrost.shift_states(session, restaurant_id, on)
     thawing = [s for s in states if s.opening_pieces or s.intake_pieces]
@@ -573,7 +603,7 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
 
     # Lo que madura: las que ya han cumplido sus días y las que llevan una
     # semana sin pesar, que es cuando la merma deja de estar controlada.
-    aging_rows = aging_mod.board(session, restaurant_id, on=on)
+    aging_rows = aging_mod.board(session, restaurant_id, on=on, site_id=site_id)
     ready = [r for r in aging_rows if r.storage == Storage.AGING and r.ready]
     # Lo que madura está fresco y abierto: se pesa todos los días, como se
     # cuenta lo descongelado. Sin ese peso, la merma del día no existe.
@@ -605,4 +635,4 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
     return Today(status=status, pending=pending, stock_value=value,
                  thawing=len(thawing), uncounted=len(uncounted),
                  open_count=open_count, month_due=not month.done,
-                 aging=aging_mod.summary(session, restaurant_id, on=on))
+                 aging=aging_mod.summary(session, restaurant_id, on=on, site_id=site_id))

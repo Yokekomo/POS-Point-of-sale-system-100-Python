@@ -663,6 +663,7 @@ ES = {
     'alert.stock_frozen': '{ingredient}: faltan {qty} {unit} para lo vendido. Hay {frozen} congelados, pero lo congelado está en espera: no se vende hasta sacarlo a descongelar.',
     'meat.frozen_waiting': 'congelados, en espera',
     'alert.stock_elsewhere': '{ingredient}: faltan {qty} {unit} aquí. Hay {there} en {sites}: no falta carne, falta traerla.',
+    'alert.aging_uncounted': 'El turno se ha cerrado con {n} piezas madurando sin pesar ({serials}). Esa agua es merma de hoy: mañana ya no se sabe de qué día era.',
 }
 
 
@@ -1217,6 +1218,7 @@ EN = {
     'alert.stock_frozen': '{ingredient}: {qty} {unit} short of what was sold. There are {frozen} frozen, but frozen stock is waiting: it does not sell until someone takes it out to thaw.',
     'meat.frozen_waiting': 'frozen, waiting',
     'alert.stock_elsewhere': '{ingredient}: {qty} {unit} short here. There are {there} at {sites}: the meat is not missing, it needs bringing over.',
+    'alert.aging_uncounted': "The shift closed with {n} ageing pieces unweighed ({serials}). That water is today's loss: tomorrow nobody knows which day it belonged to.",
 }
 
 
@@ -1771,6 +1773,7 @@ FR = {
     'alert.stock_frozen': '{ingredient} : il manque {qty} {unit} pour ce qui a été vendu. Il y a {frozen} congelés, mais le congelé attend : il ne se vend pas tant que personne ne le sort à décongeler.',
     'meat.frozen_waiting': 'congelés, en attente',
     'alert.stock_elsewhere': "{ingredient} : il manque {qty} {unit} ici. Il y en a {there} à {sites} : la viande ne manque pas, il faut l'amener.",
+    'alert.aging_uncounted': 'Le service a été clôturé avec {n} pièces en maturation non pesées ({serials}). Cette eau est la perte du jour : demain, on ne saura plus de quel jour elle était.',
 }
 
 
@@ -2325,6 +2328,7 @@ DE = {
     'alert.stock_frozen': '{ingredient}: {qty} {unit} fehlen für das Verkaufte. Es liegen {frozen} gefroren da, aber Gefrorenes wartet: Es wird erst verkauft, wenn es jemand zum Auftauen herausnimmt.',
     'meat.frozen_waiting': 'gefroren, wartend',
     'alert.stock_elsewhere': '{ingredient}: Hier fehlen {qty} {unit}. In {sites} liegen {there}: Das Fleisch fehlt nicht, es muss herkommen.',
+    'alert.aging_uncounted': 'Die Schicht wurde mit {n} ungewogenen Reifestücken geschlossen ({serials}). Dieses Wasser ist der Schwund von heute: Morgen weiß niemand mehr, von welchem Tag er war.',
 }
 
 
@@ -2879,6 +2883,7 @@ NL = {
     'alert.stock_frozen': '{ingredient}: {qty} {unit} tekort voor wat verkocht is. Er ligt {frozen} ingevroren, maar wat ingevroren is wacht: het verkoopt pas als iemand het eruit haalt om te ontdooien.',
     'meat.frozen_waiting': 'ingevroren, in afwachting',
     'alert.stock_elsewhere': '{ingredient}: hier {qty} {unit} tekort. Er ligt {there} in {sites}: het vlees ontbreekt niet, het moet hierheen.',
+    'alert.aging_uncounted': 'De dienst is afgesloten met {n} rijpende stukken ongewogen ({serials}). Dat vocht is de derving van vandaag: morgen weet niemand meer van welke dag het was.',
 }
 
 
@@ -3433,6 +3438,7 @@ AR = {
     'alert.stock_frozen': '{ingredient}: ينقص {qty} {unit} عمّا بيع. يوجد {frozen} مجمَّد، لكن المجمَّد في الانتظار: لا يُباع حتى يُخرَج للتذويب.',
     'meat.frozen_waiting': 'مجمَّد، في الانتظار',
     'alert.stock_elsewhere': '{ingredient}: ينقص هنا {qty} {unit}. يوجد {there} في {sites}: اللحم ليس ناقصاً، بل يحتاج نقلاً.',
+    'alert.aging_uncounted': 'أُغلقت الوردية و{n} من قطع التعتيق لم تُوزن ({serials}). ذلك الماء هو هدر اليوم: وغداً لن يُعرف من أي يوم كان.',
 }
 
 
@@ -3975,6 +3981,7 @@ HU = {
     'alert.stock_frozen': '{ingredient}: {qty} {unit} hiányzik az eladotthoz. Van {frozen} fagyasztva, de a fagyasztott vár: nem kerül eladásra, amíg valaki ki nem veszi kiolvasztani.',
     'meat.frozen_waiting': 'fagyasztva, várakozik',
     'alert.stock_elsewhere': '{ingredient}: itt {qty} {unit} hiányzik. {sites} helyen van {there}: nem a hús hiányzik, át kell hozni.',
+    'alert.aging_uncounted': 'A műszak úgy zárt, hogy {n} érlelődő darab mérés nélkül maradt ({serials}). Ez a víz a mai veszteség: holnap már nem tudni, melyik napé volt.',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

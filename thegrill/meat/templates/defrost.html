@@ -15,6 +15,11 @@
     {% if can("money") %}<div class="muted">{{ "%.2f"|format(closed.drip_cost) }}</div>{% endif %}</div>
 </div>
 {% if closed.drip_kg %}<p class="help">{{ t("defrost.drip_help") }}</p>{% endif %}
+{% if closed.aging_pending %}
+<div class="banner warn">{{ t("m.ag.pending_tonight", n=closed.aging_pending|length,
+    serials=closed.aging_pending[:6]|join(", ")) }}
+  <div><a href="/maduracion">{{ t("m.ag.daily") }}</a></div></div>
+{% endif %}
 {% if closed.variances %}
 <div class="card scroll">
 <table>

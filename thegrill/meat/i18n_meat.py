@@ -444,7 +444,7 @@ ES = {
     'm.tr.none': 'Todavía no se ha movido carne de una sede a otra.',
     'm.tr.what': 'Qué',
     'm.tr.new_serial': 'Número nuevo',
-    'm.tr.not_yet': 'La venta, la merma, la cámara y el descongelado ya miran la sede: cada local gasta de sus números. El inventario y la maduración siguen mirando la casa entera.',
+    'm.tr.not_yet': 'La venta, la merma, la cámara, el despiece, el descongelado y la maduración ya miran la sede: cada local gasta, corta y pesa lo suyo. El inventario sigue contándose de la casa entera.',
     'm.si.title': 'Sedes',
     'm.si.sub': 'El obrador recibe las piezas, las madura y las despieza. Los locales consumen de él: piezas enteras o cortes ya hechos.',
     'm.si.kind': 'Tipo',
@@ -468,6 +468,11 @@ ES = {
     'm.tr.only_here': 'Esto es lo de {site}. Lo que hay en las otras sedes no sale aquí.',
     'm.tr.sales_here': 'Estas ventas descuentan de {site}: de los números que están ahí.',
     'm.tr.sales_pick': 'Elige de qué sede son estas ventas. Sin elegir, descuentan de la casa entera.',
+    'm.ag.pending_tonight': 'Quedan {n} piezas madurando sin pesar esta noche: {serials}. Lo que madura es carne fresca abierta y se cuenta todas las noches, como lo descongelado.',
+    'm.ag.where_help': 'Se madura donde se sirve: una pieza puesta a madurar en el local es del local, y es el local quien la pesa cada noche.',
+    'm.tr.what_travels': 'Al local le puede ir de todo: un primal fresco para cortarlo allí, uno curado para seguir madurando o venderlo al peso, y uno congelado que espera su turno. Viaja como está.',
+    'm.tg.mixed_sites': 'Ese despiece mezcla piezas de sedes distintas. En una mesa solo se corta lo que está en esa cámara.',
+    'm.tg.other_site': 'Esa pieza está en {site}: primero hay que traerla.',
 }
 
 EN = {
@@ -897,7 +902,7 @@ EN = {
     'm.tr.none': 'No meat has moved between sites yet.',
     'm.tr.what': 'What',
     'm.tr.new_serial': 'New number',
-    'm.tr.not_yet': 'Sales, waste, the chiller and thawing already look at the site: each outlet spends its own numbers. Stocktakes and ageing still look at the whole house.',
+    'm.tr.not_yet': 'Sales, waste, the chiller, butchery, thawing and ageing already look at the site: each outlet spends, cuts and weighs its own. Stocktakes are still counted for the whole house.',
     'm.si.title': 'Sites',
     'm.si.sub': 'The butchery room takes the primals in, ages them and breaks them down. The outlets consume from it: whole primals or ready cuts.',
     'm.si.kind': 'Type',
@@ -921,6 +926,11 @@ EN = {
     'm.tr.only_here': 'This is what {site} has. What the other sites hold is not shown here.',
     'm.tr.sales_here': 'These sales come out of {site}: out of the numbers that are there.',
     'm.tr.sales_pick': 'Pick which site these sales belong to. With none picked, they come out of the whole house.',
+    'm.ag.pending_tonight': '{n} ageing pieces are still unweighed tonight: {serials}. What is ageing is fresh open meat and gets counted every night, the same as thawed meat.',
+    'm.ag.where_help': 'Meat ages where it is served: a piece set to age at the outlet belongs to the outlet, and the outlet weighs it every night.',
+    'm.tr.what_travels': 'Anything can go to the outlet: a fresh primal to break down there, an aged one to keep ageing or sell by weight, and a frozen one waiting its turn. It travels as it is.',
+    'm.tg.mixed_sites': 'That butchery mixes pieces from different sites. One table only cuts what is in that chiller.',
+    'm.tg.other_site': 'That piece is at {site}: it has to be brought over first.',
 }
 
 FR = {
@@ -1350,7 +1360,7 @@ FR = {
     'm.tr.none': "Aucune viande n'a encore bougé d'un site à l'autre.",
     'm.tr.what': 'Quoi',
     'm.tr.new_serial': 'Nouveau numéro',
-    'm.tr.not_yet': "Les ventes, les pertes, la chambre et la décongélation regardent déjà le site : chaque point de vente consomme ses propres numéros. L'inventaire et la maturation regardent encore toute la maison.",
+    'm.tr.not_yet': "Les ventes, les pertes, la chambre, la découpe, la décongélation et la maturation regardent déjà le site : chaque point de vente consomme, découpe et pèse le sien. L'inventaire se compte encore sur toute la maison.",
     'm.si.title': 'Sites',
     'm.si.sub': "L'atelier reçoit les pièces, les fait maturer et les découpe. Les points de vente consomment de lui : pièces entières ou découpes prêtes.",
     'm.si.kind': 'Type',
@@ -1374,6 +1384,11 @@ FR = {
     'm.tr.only_here': "Voici ce qu'il y a à {site}. Ce que détiennent les autres sites n'apparaît pas ici.",
     'm.tr.sales_here': "Ces ventes sont décomptées de {site} : des numéros qui s'y trouvent.",
     'm.tr.sales_pick': 'Choisissez de quel site sont ces ventes. Sans choix, elles sont décomptées de toute la maison.',
+    'm.ag.pending_tonight': 'Il reste {n} pièces en maturation non pesées ce soir : {serials}. Ce qui mature est de la viande fraîche ouverte et se compte chaque soir, comme le décongelé.',
+    'm.ag.where_help': "On mature là où l'on sert : une pièce mise à maturer au point de vente est au point de vente, et c'est lui qui la pèse chaque soir.",
+    'm.tr.what_travels': 'Tout peut partir au point de vente : une pièce fraîche à découper là-bas, une pièce maturée pour continuer la maturation ou la vendre au poids, et une pièce congelée qui attend son tour. Elle voyage telle quelle.',
+    'm.tg.mixed_sites': 'Cette découpe mélange des pièces de sites différents. Sur une table on ne découpe que ce qui est dans cette chambre.',
+    'm.tg.other_site': "Cette pièce est à {site} : il faut d'abord l'amener.",
 }
 
 DE = {
@@ -1803,7 +1818,7 @@ DE = {
     'm.tr.none': 'Es wurde noch kein Fleisch zwischen Standorten bewegt.',
     'm.tr.what': 'Was',
     'm.tr.new_serial': 'Neue Nummer',
-    'm.tr.not_yet': 'Verkauf, Schwund, Kühlraum und Auftauen schauen bereits auf den Standort: Jeder Betrieb verbraucht seine eigenen Nummern. Inventur und Reifung schauen noch auf das ganze Haus.',
+    'm.tr.not_yet': 'Verkauf, Schwund, Kühlraum, Zerlegung, Auftauen und Reifung schauen bereits auf den Standort: Jeder Betrieb verbraucht, zerlegt und wiegt das Seine. Die Inventur wird noch fürs ganze Haus gezählt.',
     'm.si.title': 'Standorte',
     'm.si.sub': 'Die Zerlegerei nimmt die Stücke an, reift sie und zerlegt sie. Die Betriebe verbrauchen von ihr: ganze Stücke oder fertige Teilstücke.',
     'm.si.kind': 'Art',
@@ -1827,6 +1842,11 @@ DE = {
     'm.tr.only_here': 'Das ist, was in {site} liegt. Was die anderen Standorte haben, steht hier nicht.',
     'm.tr.sales_here': 'Diese Verkäufe gehen von {site} ab: von den Nummern, die dort liegen.',
     'm.tr.sales_pick': 'Wähle, zu welchem Standort diese Verkäufe gehören. Ohne Auswahl gehen sie vom ganzen Haus ab.',
+    'm.ag.pending_tonight': 'Heute Abend sind noch {n} Reifestücke ungewogen: {serials}. Was reift, ist offenes Frischfleisch und wird jeden Abend gezählt, wie Aufgetautes.',
+    'm.ag.where_help': 'Gereift wird dort, wo serviert wird: Ein Stück, das im Betrieb zum Reifen liegt, gehört dem Betrieb, und der Betrieb wiegt es jeden Abend.',
+    'm.tr.what_travels': 'In den Betrieb kann alles gehen: ein frisches Stück zum Zerlegen dort, ein gereiftes zum Weiterreifen oder für den Verkauf nach Gewicht, und ein gefrorenes, das wartet. Es reist, wie es ist.',
+    'm.tg.mixed_sites': 'Diese Zerlegung mischt Stücke aus verschiedenen Standorten. An einem Tisch wird nur zerlegt, was in diesem Kühlraum liegt.',
+    'm.tg.other_site': 'Dieses Stück liegt in {site}: Es muss erst herkommen.',
 }
 
 NL = {
@@ -2256,7 +2276,7 @@ NL = {
     'm.tr.none': 'Er is nog geen vlees tussen vestigingen verplaatst.',
     'm.tr.what': 'Wat',
     'm.tr.new_serial': 'Nieuw nummer',
-    'm.tr.not_yet': 'Verkoop, derving, de koeling en het ontdooien kijken al naar de vestiging: elke zaak verbruikt haar eigen nummers. De telling en de rijping kijken nog naar het hele huis.',
+    'm.tr.not_yet': 'Verkoop, derving, de koeling, het uitsnijden, het ontdooien en de rijping kijken al naar de vestiging: elke zaak verbruikt, snijdt en weegt het hare. De telling gaat nog over het hele huis.',
     'm.si.title': 'Vestigingen',
     'm.si.sub': 'De uitsnijderij neemt de stukken aan, rijpt ze en snijdt ze uit. De zaken verbruiken ervan: hele stukken of kant-en-klare delen.',
     'm.si.kind': 'Soort',
@@ -2280,6 +2300,11 @@ NL = {
     'm.tr.only_here': 'Dit is wat er in {site} ligt. Wat de andere vestigingen hebben staat hier niet.',
     'm.tr.sales_here': 'Deze verkopen gaan van {site} af: van de nummers die daar liggen.',
     'm.tr.sales_pick': 'Kies van welke vestiging deze verkopen zijn. Zonder keuze gaan ze van het hele huis af.',
+    'm.ag.pending_tonight': 'Er staan vanavond nog {n} rijpende stukken ongewogen: {serials}. Wat rijpt is vers open vlees en wordt elke avond geteld, net als ontdooid vlees.',
+    'm.ag.where_help': 'Er wordt gerijpt waar wordt geserveerd: een stuk dat in de zaak ligt te rijpen is van de zaak, en de zaak weegt het elke avond.',
+    'm.tr.what_travels': 'Naar de zaak kan alles: een vers stuk om daar uit te snijden, een gerijpt stuk om verder te rijpen of op gewicht te verkopen, en een ingevroren stuk dat wacht. Het reist zoals het is.',
+    'm.tg.mixed_sites': 'Die uitsnijding mengt stukken van verschillende vestigingen. Aan één tafel snijd je alleen wat in die koeling ligt.',
+    'm.tg.other_site': 'Dat stuk ligt in {site}: het moet eerst hierheen.',
 }
 
 AR = {
@@ -2709,7 +2734,7 @@ AR = {
     'm.tr.none': 'لم يتحرك لحم بين المواقع بعد.',
     'm.tr.what': 'ماذا',
     'm.tr.new_serial': 'رقم جديد',
-    'm.tr.not_yet': 'البيع والهدر والبراد والتذويب تنظر الآن إلى الموقع: كل محل يصرف من أرقامه. أما الجرد والتعتيق فما زالا ينظران إلى البيت كله.',
+    'm.tr.not_yet': 'البيع والهدر والبراد والتقطيع والتذويب والتعتيق تنظر الآن إلى الموقع: كل محل يصرف ويقطّع ويزن ما له. أما الجرد فما زال يُحسب للبيت كله.',
     'm.si.title': 'المواقع',
     'm.si.sub': 'المسلخ يستلم القطع ويعتّقها ويقطّعها. والمحلات تستهلك منه: قطعاً كاملة أو تقطيعات جاهزة.',
     'm.si.kind': 'النوع',
@@ -2733,6 +2758,11 @@ AR = {
     'm.tr.only_here': 'هذا ما في {site}. وما في المواقع الأخرى لا يظهر هنا.',
     'm.tr.sales_here': 'هذه المبيعات تُخصم من {site}: من الأرقام الموجودة هناك.',
     'm.tr.sales_pick': 'اختر من أي موقع هذه المبيعات. وبلا اختيار تُخصم من البيت كله.',
+    'm.ag.pending_tonight': 'بقيت الليلة {n} قطع تعتيق بلا وزن: {serials}. ما يُعتَّق لحم طازج مفتوح ويُعدّ كل ليلة، مثل المذوَّب.',
+    'm.ag.where_help': 'يُعتَّق حيث يُقدَّم: القطعة الموضوعة للتعتيق في المحل هي للمحل، والمحل هو من يزنها كل ليلة.',
+    'm.tr.what_travels': 'يمكن أن يذهب إلى المحل كل شيء: قطعة طازجة لتُقطَّع هناك، وقطعة معتَّقة لتواصل التعتيق أو تُباع بالوزن، وقطعة مجمَّدة تنتظر دورها. تسافر كما هي.',
+    'm.tg.mixed_sites': 'هذا التقطيع يخلط قطعاً من مواقع مختلفة. على الطاولة الواحدة يُقطَّع ما في ذلك البراد فقط.',
+    'm.tg.other_site': 'تلك القطعة في {site}: يجب نقلها أولاً.',
 }
 
 
@@ -3164,7 +3194,7 @@ HU = {
     'm.tr.none': 'Még nem mozgott hús telephelyek között.',
     'm.tr.what': 'Mi',
     'm.tr.new_serial': 'Új szám',
-    'm.tr.not_yet': 'Az eladás, a selejt, a hűtő és a kiolvasztás már a telephelyet nézi: minden üzlet a saját számaiból fogyaszt. A leltár és az érlelés még az egész házat nézi.',
+    'm.tr.not_yet': 'Az eladás, a selejt, a hűtő, a bontás, a kiolvasztás és az érlelés már a telephelyet nézi: minden üzlet a sajátjából fogyaszt, a sajátját bontja és méri. A leltár még az egész házra készül.',
     'm.si.title': 'Telephelyek',
     'm.si.sub': 'A feldolgozó veszi át a darabokat, érleli és bontja őket. Az üzletek onnan fogyasztanak: egész darabot vagy kész húsokat.',
     'm.si.kind': 'Típus',
@@ -3188,6 +3218,11 @@ HU = {
     'm.tr.only_here': 'Ez az, ami {site} telephelyen van. A többi telephelyé itt nem látszik.',
     'm.tr.sales_here': 'Ezek az eladások {site} telephelyről fogynak: az ott lévő számokról.',
     'm.tr.sales_pick': 'Válaszd ki, melyik telephely eladásai ezek. Választás nélkül az egész házról fogynak.',
+    'm.ag.pending_tonight': 'Ma este még {n} érlelődő darab maradt mérés nélkül: {serials}. Ami érlelődik, az nyitott friss hús, és minden este meg kell számolni, akárcsak a kiolvasztottat.',
+    'm.ag.where_help': 'Ott érlelnek, ahol felszolgálnak: az üzletben érlelésre tett darab az üzleté, és az üzlet méri meg minden este.',
+    'm.tr.what_travels': 'Az üzletbe bármi mehet: friss darab, hogy ott bontsák, érlelt darab, hogy tovább érlelődjön vagy kimérve keljen el, és fagyasztott, amely a sorára vár. Úgy utazik, ahogy van.',
+    'm.tg.mixed_sites': 'Ez a bontás különböző telephelyek darabjait keveri. Egy asztalon csak azt bontják, ami abban a hűtőben van.',
+    'm.tg.other_site': 'Az a darab {site} telephelyen van: előbb át kell hozni.',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

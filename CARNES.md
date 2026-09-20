@@ -587,9 +587,24 @@ Y cuando falta carne se dice por qué falta, que no es lo mismo en los tres
 casos: **está en otra sede** —hace falta un traslado—, **está congelada** —hace
 falta sacarla— o **no está** —alguien no registró una entrada—.
 
-**Lo que todavía mira la casa entera:** el inventario y la maduración. El
-inventario se cuenta de toda la casa, y las piezas maduran donde maduran, que es
-el obrador. Está dicho en la propia pantalla en vez de escondido.
+**Se madura donde se sirve.** En el obrador hay de todo: piezas frescas
+esperando la mesa, piezas congeladas esperando turno y piezas en curación. Y al
+local le puede ir de todo también: un primal fresco para cortarlo allí, uno
+curado para seguir madurando o venderlo al peso delante del cliente, uno
+congelado que espera, y cortes ya hechos. Viaja como está.
+
+Una pieza en curación es carne fresca abierta —no está congelada, está a dos
+grados perdiendo agua todos los días—, así que **se cuenta todas las noches**,
+igual que lo descongelado, y la cuenta quien la tiene delante: si madura en la
+playa, la pesa la playa. El cierre de turno lo dice cuando queda alguna sin
+pesar, porque esa agua es la merma de hoy y mañana ya no se sabe de qué día era.
+
+El local también corta. Lo que despieza se queda en su cámara, y una mesa no
+mezcla dos cámaras: un despiece con piezas de dos sedes no ha pasado por ninguna
+mesa.
+
+**Lo que todavía mira la casa entera:** el inventario, que se cuenta de toda la
+casa de una vez. Está dicho en la propia pantalla en vez de escondido.
 
 En el recibo el grupo ya existía desde antes: las casas de la misma empresa
 comparten grupo, se ven juntas en la pantalla de la plataforma con sus locales

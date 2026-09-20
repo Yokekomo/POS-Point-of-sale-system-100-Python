@@ -35,7 +35,7 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <label for="sp_serial">{{ t("m.rec.serial") }}</label>
       <select id="sp_serial" name="serial" required>
-        {% for p in primals %}<option value="{{ p.serial }}">{{ p.serial }} · {{ p.sku }} · {{ "%.3f"|format(p.weight_kg or 0) }} kg</option>{% endfor %}
+        {% for p in primals %}<option value="{{ p.serial }}">{{ p.serial }} · {{ p.sku }} · {{ "%.3f"|format(p.weight_kg or 0) }} kg · {{ t("m.st." ~ storage_of(p).value) }}</option>{% endfor %}
       </select>
       <label for="sp_site">{{ t("m.tr.to") }}</label>
       <select id="sp_site" name="site" required>
@@ -45,7 +45,7 @@
       <input id="sp_note" name="note">
       <button type="submit">{{ t("m.tr.send") }}</button>
     </form>
-    <p class="help">{{ t("m.tr.send_primal_help") }}</p>
+    <p class="help">{{ t("m.tr.send_primal_help") }} {{ t("m.tr.what_travels") }}</p>
   </div>
 
   <div class="card">

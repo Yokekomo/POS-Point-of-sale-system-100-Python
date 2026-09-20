@@ -24,7 +24,7 @@ from thegrill.engine.recipes import explode
 from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, DefrostEntry, DefrostKind,
                              Ingredient, IngredientLot, IngredientMovement, MovementKind,
                              SalesByProduct, User)
-from thegrill.web import costing, service
+from thegrill.web import aging, costing, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-6
@@ -45,6 +45,9 @@ class ShiftClose:
     drip_cost: float = 0.0
     missing_counts: list[str] = field(default_factory=list)
     not_by_count: list[str] = field(default_factory=list)   # cortes que descuentan al vender
+    # Las piezas que maduran y hoy no se han pesado. Maduran en el local, son
+    # carne fresca abierta y se cuentan todas las noches, como lo descongelado.
+    aging_pending: list[str] = field(default_factory=list)
     alerts: list[Alert] = field(default_factory=list)
 
     @property
@@ -313,6 +316,12 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
     result.variances = variances(real_by_name, theoretical_by_name, units_by_name,
                                  cost_by_name)
 
+    # El turno no está contado del todo si quedan piezas madurando sin pesar:
+    # esa agua es merma del día, y mañana ya no se sabe de qué día era.
+    mia = sites.of_user(session, user)
+    result.aging_pending = aging.pending_today(session, user.restaurant_id, on,
+                                               site_id=mia.id if mia else None)
+
     session.flush()
     _raise_alerts(session, user, result, lang)
     return result
@@ -336,6 +345,14 @@ def _raise_alerts(session: Session, user: User, result: ShiftClose, lang: str) -
             message=t(lang, "alert.defrost_pieces", n=row.piece_gap,
                       ingredient=row.ingredient, serial=row.serial,
                       sold=row.sold_pieces, out=row.pieces),
+            severity=AlertSeverity.WARNING, created_at=now))
+    if result.aging_pending:
+        # Lo que madura se pesa cada noche: si el turno se cierra sin eso, la
+        # merma de hoy se pierde y mañana no se sabe de qué día era.
+        result.alerts.append(Alert(
+            restaurant_id=user.restaurant_id, code="aging.uncounted",
+            message=t(lang, "alert.aging_uncounted", n=len(result.aging_pending),
+                      serials=", ".join(result.aging_pending[:6])),
             severity=AlertSeverity.WARNING, created_at=now))
     if result.not_by_count:
         result.alerts.append(Alert(

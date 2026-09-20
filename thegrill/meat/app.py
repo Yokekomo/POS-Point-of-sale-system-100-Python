@@ -466,10 +466,12 @@ def home(request: Request, ctx=Depends(require_user), session: Session = Depends
     user, auth_session = ctx
     lang = lang_for(request, session, user)
     restaurant = session.get(Restaurant, user.restaurant_id)
+    mia = sites.of_user(session, user)
     return page(request, "home.html", user, auth_session, session, lang=lang,
                 restaurant=restaurant, trial_left=billing.trial_left(restaurant),
-                free_cancel=billing.free_cancellation(restaurant),
-                info=meat.today(session, user.restaurant_id, lang=lang))
+                free_cancel=billing.free_cancellation(restaurant), site=mia,
+                info=meat.today(session, user.restaurant_id, lang=lang,
+                                site_id=mia.id if mia else None))
 
 
 @app.post("/cuenta/cancelar")
@@ -542,10 +544,12 @@ def butchery_page(request: Request, ctx=Depends(needs(perms.BUTCHER)),
 
 
 def _butchery(request, user, auth_session, session, *, done=None, issues=(), error=""):
+    mia = sites.of_user(session, user)
     return page(request, "butchery.html", user, auth_session, session, done=done,
-                issues=list(issues), error=error, rows=range(meat.MAX_CUTS),
+                issues=list(issues), error=error, rows=range(meat.MAX_CUTS), site=mia,
                 tg=meat.next_tg(session, user.restaurant_id),
-                primals=meat.primals_in_stock(session, user.restaurant_id),
+                primals=meat.primals_in_stock(session, user.restaurant_id,
+                                              site_id=mia.id if mia else None),
                 articles=meat.articles(session, user.restaurant_id),
                 recent=meat.recent_butchery(session, user.restaurant_id))
 
@@ -708,16 +712,23 @@ def aging_page(request: Request, ctx=Depends(needs(perms.STOCK)),
 
 def _aging(request, user, auth_session, session, *, done="", error="", weighed=None,
            sold=None, trimmed=None, counted=None):
+    # Se madura donde se sirve: quien tiene sede pesa la suya, que es la cámara
+    # que tiene delante.
+    mia = sites.of_user(session, user)
+    suya = mia.id if mia else None
+    principal = sites.main(session, user.restaurant_id).id
     return page(request, "aging.html", user, auth_session, session, done=done, error=error,
-                weighed=weighed, sold=sold, trimmed=trimmed, counted=counted,
-                to_count=aging.to_count(session, user.restaurant_id), storages=list(Storage),
+                weighed=weighed, sold=sold, trimmed=trimmed, counted=counted, site=mia,
+                to_count=aging.to_count(session, user.restaurant_id, site_id=suya),
+                storages=list(Storage),
                 articles=meat.articles(session, user.restaurant_id),
-                rows=aging.board(session, user.restaurant_id),
-                summary=aging.summary(session, user.restaurant_id),
+                rows=aging.board(session, user.restaurant_id, site_id=suya),
+                summary=aging.summary(session, user.restaurant_id, site_id=suya),
                 bands=aging.yield_by_days(session, user.restaurant_id),
                 sales=aging.sales(session, user.restaurant_id),
                 chilled=[p for p in meat.primals_in_stock(session, user.restaurant_id)
-                         if aging.where(p) == Storage.CHILLED])
+                         if aging.where(p) == Storage.CHILLED
+                         and (not suya or (p.site_id or principal) == suya)])
 
 
 @app.post("/maduracion/mover", response_class=HTMLResponse)
@@ -858,6 +869,7 @@ def _transfers(request, user, auth_session, session, *, done="", error=""):
                 sites=sites.all_sites(session, user.restaurant_id),
                 stock=sites.stock(session, user.restaurant_id),
                 primals=meat.primals_in_stock(session, user.restaurant_id),
+                storage_of=aging.where,
                 lots=(session.query(IngredientLot)
                       .filter(IngredientLot.restaurant_id == user.restaurant_id,
                               IngredientLot.qty_remaining > 0)
