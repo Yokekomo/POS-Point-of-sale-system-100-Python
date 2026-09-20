@@ -537,6 +537,7 @@ class Ingredient(TenantMixin, Base):
     rotation: Mapped[Rotation] = mapped_column(Enum(Rotation), default=Rotation.FEFO)
     consumption: Mapped[ConsumptionMode] = mapped_column(Enum(ConsumptionMode),
                                                          default=ConsumptionMode.RECIPE)
+    min_stock: Mapped[float | None] = mapped_column(Float)   # mínimo para avisar
     category: Mapped[str | None] = mapped_column(String(48))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text)
@@ -652,6 +653,17 @@ class RecipeLine(Base):
     recipe: Mapped["Recipe"] = relationship(back_populates="lines", foreign_keys=[recipe_id])
     ingredient: Mapped["Ingredient"] = relationship()
     sub_recipe: Mapped["Recipe"] = relationship(foreign_keys=[sub_recipe_id])
+
+
+class PrimalPar(TenantMixin, Base):
+    """Mínimo de primales por SKU. Si al cerrar el día quedan menos, se avisa."""
+    __tablename__ = "primal_pars"
+    __table_args__ = (UniqueConstraint("restaurant_id", "sku", name="uq_par_restaurant_sku"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    sku: Mapped[str] = mapped_column(String(64), index=True)
+    min_pieces: Mapped[int] = mapped_column(Integer, default=0)
+    note: Mapped[str | None] = mapped_column(Text)
 
 
 class DefrostEntry(TenantMixin, Base):

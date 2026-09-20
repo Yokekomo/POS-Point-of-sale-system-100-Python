@@ -119,6 +119,36 @@ recetas y emplatados igual que cualquier otro ingrediente. El recorte de
 striploin y el de cube roll caen los dos en «Beef for burger» y se gastan en
 una sola cola.
 
+## Descongelado y consumo real de la carne
+
+Un entrecot no pesa siempre lo mismo, así que la carne al corte no se puede
+descontar por escandallo. Se mide físicamente y por serial:
+
+    consumido = lo que había + lo que se sacó a descongelar − lo que queda
+
+Cada ingrediente madre dice cómo se descuenta: al vender según la receta, o al
+cerrar turno por conteo. La carne marcada por conteo no se descuenta al vender,
+para no contarla dos veces; su cifra teórica se guarda y se compara.
+
+El cierre de turno descuenta de esa pieza concreta y dice el **peso real por
+pieza vendida**. Comparado con el teórico, ese número es el que revela si se
+está cortando de más. Pasado el desvío configurado, avisa.
+
+Sin recuento no hay consumo: no se inventa nada, el stock se queda quieto y se
+nombran los seriales que faltan por contar. Contar más de lo que había es
+imposible y se dice: falta apuntar una salida a descongelar.
+
+## Stock de carne al cerrar el día
+
+Una pantalla dice cuántos kilos de cada corte quedan en cámara, con cuántos
+seriales abiertos y cuánto hay descongelado ahora mismo, y cuántos primales sin
+despiezar quedan por SKU.
+
+Cada corte puede llevar un mínimo, y cada SKU de primal un mínimo de piezas. Al
+cerrar el día se avisa de lo que baja del mínimo, de los primales que hay que
+pedir y de los cortes que caducan pronto. Un SKU a cero con mínimo definido sale
+igualmente, porque cero es justo el caso que hay que gritar.
+
 ## Hojas para imprimir
 
 Hay un apartado de descargas, abierto a todo el equipo, con una hoja de Excel
@@ -247,13 +277,14 @@ propio límite legal y un solo campo numérico no puede validar los dos.
 thegrill/
   config.py              FX, límites HACCP, umbrales de precio, tolerancias de despiece
   db.py                  SQLAlchemy; SQLite por defecto, PostgreSQL cambiando la URL
-  models.py              31 tablas: plataforma, módulos de carne, auditoría
+  models.py              34 tablas: plataforma, módulos de carne, auditoría
   rules.py               Reglas del negocio de carne como funciones puras
   web/
     i18n.py              Seis idiomas, resolución y escritura de derecha a izquierda
     sheets.py            Hojas de registro en Excel, listas para imprimir
     costing.py           Precios reales, rotación de lotes y descuento por venta
-    butchery.py          Del primal a los cortes, con reparto de coste y serial propio
+    butchery.py          Del primal a los cortes, con reparto de coste, serial propio y stock diario
+    defrost.py           Descongelado, recuento de cierre y peso real por pieza
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
     service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV
@@ -264,11 +295,12 @@ thegrill/
     stock.py             Motor v4: ledger, re-anclaje por conteo, genealogía por serial
     cost.py              Landed por kg, coste por corte, food cost
     recipes.py           Escandallo: explosión, árbol de costes y food cost
+    defrost.py           Cuadre del descongelado y desvío contra la receta
   orchestrator/chain.py  Cadena diaria idempotente con checkpoints y reintentos
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   211 tests
+tests/                   242 tests
 ```
 
 ## Uso

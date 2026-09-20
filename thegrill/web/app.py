@@ -23,7 +23,7 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, FieldType, Ingr
                              RecipeKind, RecipeLine, Restaurant, Role, Rotation,
                              TemplateField, Unit, User)
 
-from thegrill.web import auth, costing, i18n, service, sheets
+from thegrill.web import auth, butchery, costing, i18n, service, sheets
 from thegrill.web.seed import seed_templates
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
@@ -557,6 +557,25 @@ def add_lot(ingredient_id: int, request: Request, item_id: int = Form(...),
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
     return RedirectResponse(f"/ingredientes/{ingredient_id}", status_code=303)
+
+
+# ============================================================ CARNE
+@app.get("/carne", response_class=HTMLResponse)
+def meat_page(request: Request, ctx=Depends(require_user),
+              session: Session = Depends(get_db), closed: str = ""):
+    """Cuánta carne queda: cortes en cámara y primales sin despiezar."""
+    user, auth_session = ctx
+    return page(request, "meat.html", user, auth_session, session, closed=closed,
+                status=butchery.status(session, user.restaurant_id))
+
+
+@app.post("/carne/cierre")
+def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(require_user),
+                   session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    result = butchery.close_day(session, user)
+    return RedirectResponse(f"/carne?closed={len(result.alerts)}", status_code=303)
 
 
 # ========================================================== RECETAS

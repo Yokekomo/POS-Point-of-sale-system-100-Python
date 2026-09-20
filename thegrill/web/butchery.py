@@ -261,3 +261,171 @@ def cut_summary(result: PostResult) -> list[tuple[str, float, float, float]]:
     """(corte, kg, coste, precio por kg) de mayor a menor coste."""
     rows = [(a.cut.cut_name, a.kg, a.cost, a.unit_cost) for a in result.allocations]
     return sorted(rows, key=lambda r: -r[2])
+
+
+# ============================================ cuánta carne queda al cerrar
+@dataclass
+class CutStock:
+    """Lo que queda de un corte: kilos, seriales abiertos y piezas descongeladas."""
+    ingredient_id: int
+    name: str
+    unit: str
+    kg: float
+    open_serials: int
+    thawed_pieces: int
+    thawed_kg: float
+    min_stock: float | None
+    days_to_expiry: int | None
+
+    @property
+    def below_par(self) -> bool:
+        return self.min_stock is not None and self.kg < self.min_stock
+
+
+@dataclass
+class PrimalStock:
+    sku: str
+    pieces: int
+    kg: float
+    min_pieces: int | None
+
+    @property
+    def below_par(self) -> bool:
+        return self.min_pieces is not None and self.pieces < self.min_pieces
+
+
+@dataclass
+class MeatStatus:
+    date: date
+    cuts: list[CutStock] = field(default_factory=list)
+    primals: list[PrimalStock] = field(default_factory=list)
+    expiring: list[CutStock] = field(default_factory=list)
+    alerts: list = field(default_factory=list)
+
+    @property
+    def cuts_below(self) -> list[CutStock]:
+        return [c for c in self.cuts if c.below_par]
+
+    @property
+    def primals_below(self) -> list[PrimalStock]:
+        return [p for p in self.primals if p.below_par]
+
+    @property
+    def total_primals(self) -> int:
+        return sum(p.pieces for p in self.primals)
+
+    @property
+    def total_cut_kg(self) -> float:
+        return round(sum(c.kg for c in self.cuts), 3)
+
+
+def status(session: Session, restaurant_id: int, on: date | None = None,
+           expiry_days: int = 3) -> MeatStatus:
+    """Foto de la carne al cerrar el día: cortes y primales que quedan."""
+    from thegrill.models import (ConsumptionMode, DefrostEntry, DefrostKind, Ingredient,
+                                 PrimalPar)
+    on = on or date.today()
+    result = MeatStatus(date=on)
+
+    pars = {p.sku: p.min_pieces for p in session.query(PrimalPar)
+            .filter_by(restaurant_id=restaurant_id)}
+    by_sku: dict[str, list[Primal]] = {}
+    for primal in (session.query(Primal)
+                   .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK)):
+        by_sku.setdefault(primal.sku, []).append(primal)
+    for sku in sorted(set(by_sku) | set(pars)):
+        pieces = by_sku.get(sku, [])
+        result.primals.append(PrimalStock(
+            sku=sku, pieces=len(pieces),
+            kg=round(sum(p.weight_kg or 0 for p in pieces), 3),
+            min_pieces=pars.get(sku)))
+
+    # Cortes: solo lo que sale de un despiece, es decir lo que tiene serial.
+    lots = (session.query(IngredientLot)
+            .filter(IngredientLot.restaurant_id == restaurant_id,
+                    IngredientLot.serial.isnot(None),
+                    IngredientLot.qty_remaining > EPSILON).all())
+    ingredients = {i.id: i for i in session.query(Ingredient)
+                   .filter_by(restaurant_id=restaurant_id)}
+    grouped: dict[int, list[IngredientLot]] = {}
+    for lot in lots:
+        grouped.setdefault(lot.ingredient_id, []).append(lot)
+
+    for ingredient_id, rows in grouped.items():
+        ing = ingredients.get(ingredient_id)
+        if ing is None:
+            continue
+        thawed_pieces, thawed_kg = _thawed(session, restaurant_id, [l.serial for l in rows], on)
+        soonest = min(l.expiry for l in rows)
+        result.cuts.append(CutStock(
+            ingredient_id=ingredient_id, name=ing.name, unit=ing.unit.value,
+            kg=round(sum(l.qty_remaining for l in rows), 3), open_serials=len(rows),
+            thawed_pieces=thawed_pieces, thawed_kg=thawed_kg, min_stock=ing.min_stock,
+            days_to_expiry=(soonest - on).days))
+    result.cuts.sort(key=lambda c: c.name)
+    result.expiring = sorted((c for c in result.cuts
+                              if c.days_to_expiry is not None and c.days_to_expiry <= expiry_days),
+                             key=lambda c: c.days_to_expiry)
+    return result
+
+
+def _thawed(session: Session, restaurant_id: int, serials: list[str],
+            on: date) -> tuple[int, float]:
+    """Piezas descongeladas que quedan, según el último recuento de cada serial."""
+    from thegrill.models import DefrostEntry, DefrostKind
+    pieces = kg = 0
+    for serial in serials:
+        last = (session.query(DefrostEntry)
+                .filter(DefrostEntry.restaurant_id == restaurant_id,
+                        DefrostEntry.lot_serial == serial,
+                        DefrostEntry.kind == DefrostKind.COUNT,
+                        DefrostEntry.date <= on)
+                .order_by(DefrostEntry.date.desc(), DefrostEntry.shift.desc(),
+                          DefrostEntry.id.desc()).first())
+        if last:
+            pieces += last.pieces
+            kg = round(kg + last.total_kg, 6)
+    return pieces, kg
+
+
+def close_day(session: Session, user: User, on: date | None = None,
+              expiry_days: int = 3, lang: str | None = None) -> MeatStatus:
+    """Cierra el día de carne y avisa de lo que se está acabando."""
+    from thegrill.models import Alert, AlertSeverity
+    from thegrill.web import service
+    from thegrill.web.i18n import t
+
+    on = on or date.today()
+    lang = lang or service.restaurant_language(session, user.restaurant_id)
+    result = status(session, user.restaurant_id, on, expiry_days)
+    now = datetime.utcnow()
+
+    for cut in result.cuts_below:
+        result.alerts.append(Alert(
+            restaurant_id=user.restaurant_id, code="meat.cut_low",
+            message=t(lang, "alert.cut_low", cut=cut.name, kg=f"{cut.kg:.10g}",
+                      unit=cut.unit, min=f"{cut.min_stock:.10g}"),
+            severity=AlertSeverity.WARNING, created_at=now))
+    for primal in result.primals_below:
+        result.alerts.append(Alert(
+            restaurant_id=user.restaurant_id, code="meat.primal_low",
+            message=t(lang, "alert.primal_low", sku=primal.sku, pieces=primal.pieces,
+                      min=primal.min_pieces),
+            severity=AlertSeverity.WARNING, created_at=now))
+    for cut in result.expiring:
+        result.alerts.append(Alert(
+            restaurant_id=user.restaurant_id, code="meat.expiring",
+            message=t(lang, "alert.cut_expiring", cut=cut.name, days=cut.days_to_expiry,
+                      kg=f"{cut.kg:.10g}", unit=cut.unit),
+            severity=AlertSeverity.CRITICAL if cut.days_to_expiry <= 0 else AlertSeverity.WARNING,
+            created_at=now))
+
+    for alert in result.alerts:
+        session.add(alert)
+    session.flush()
+    targets = [uid for uid in service.manager_ids(session, user.restaurant_id) if uid != user.id]
+    for alert in result.alerts:
+        service.notify(session, user.restaurant_id, targets,
+                       title=t(lang, "alert.meat_title"), body=alert.message,
+                       severity=alert.severity, alert_id=alert.id, now=now)
+    return result
