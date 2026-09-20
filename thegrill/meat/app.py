@@ -21,7 +21,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from thegrill import db
-from thegrill.meat import billing, mailer, perms, privacy, security
+from thegrill.meat import billing, gateway, mailer, perms, privacy, security
 from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
 from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, CountPeriod,
@@ -29,7 +29,7 @@ from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, Cou
                              PosMatch, PosProduct, Primal, PrimalStatus, Recipe,
                              RequestStatus, Restaurant, Role, Rotation, Storage, Unit, User)
 from thegrill.web import (aging, auth, butchery, costing, defrost, i18n, inventory,
-                          pos_import, service, tracing, waste)
+                          pos_import, service, tracing, twofactor, waste)
 
 log = logging.getLogger(__name__)
 
@@ -250,6 +250,27 @@ def root(request: Request, session: Session = Depends(get_db)):
                 photos=landing_photos())
 
 
+@app.post("/pasarela/stripe")
+async def gateway_webhook(request: Request, session: Session = Depends(get_db)):
+    """Lo que cuenta la pasarela de pago: recibos cobrados, fallados y bajas.
+
+    Es pública porque la llama la pasarela, así que aquí no manda la sesión
+    sino la firma: sin firma buena no se toca nada. Y cada evento se aplica una
+    sola vez, porque la pasarela reintenta hasta que se le contesta bien.
+    """
+    if gateway.secret() is None:
+        return JSONResponse({"error": "gateway not configured"}, status_code=503)
+    payload = await request.body()
+    try:
+        result = gateway.apply(session, payload, request.headers.get("stripe-signature", ""))
+    except gateway.GatewayError as e:
+        log.warning("pasarela: evento rechazado (%s)", e)
+        return JSONResponse({"error": str(e)}, status_code=400)
+    log.info("pasarela: %s %s -> %s", result.kind, result.event_id,
+             result.ignored or (result.now.value if result.now else "sin cambio"))
+    return JSONResponse({"ok": True, "applied": not result.ignored})
+
+
 @app.get("/cookies", response_class=HTMLResponse)
 def cookies_page(request: Request, session: Session = Depends(get_db)):
     """Qué cookies hay, para qué y cuánto duran. Solo técnicas."""
@@ -338,9 +359,73 @@ def login(request: Request, email: str = Form(...), password: str = Form(...),
                     client_ip(request))
         return page(request, "login.html", error=str(e), lang=lang)
     security.clear(key, session=session)
-    token, _ = auth.start_session(session, user)
+    # Con dos pasos, la contraseña solo abre la puerta de los seis dígitos: la
+    # sesión queda a medias hasta que se teclean.
+    pendiente = auth.needs_second_step(user)
+    token, _ = auth.start_session(session, user, pending_2fa=pendiente)
+    if pendiente:
+        return set_session_cookie(
+            RedirectResponse("/acceso/verificacion", status_code=303), token)
     destino = "/admin" if user.role == Role.OWNER else "/hoy"
     return set_session_cookie(RedirectResponse(destino, status_code=303), token)
+
+
+def _pending(request: Request, session: Session):
+    """La sesión que ha pasado la contraseña y espera los seis dígitos."""
+    found = auth.resolve_session(session, request.cookies.get(auth.COOKIE_NAME),
+                                 allow_pending=True)
+    if found is None or not found[1].pending_2fa:
+        return None
+    return found
+
+
+@app.get("/acceso/verificacion", response_class=HTMLResponse)
+def second_step_form(request: Request, session: Session = Depends(get_db), error: str = ""):
+    """Los seis dígitos del teléfono, después de la contraseña."""
+    found = _pending(request, session)
+    if found is None:
+        return RedirectResponse("/login", status_code=303)
+    user, auth_session = found
+    lang = lang_for(request, session, user)
+    return page(request, "second_step.html", lang=lang, error=error, csrf=auth_session.csrf,
+                left=twofactor.recovery_left(user.recovery_codes))
+
+
+@app.post("/acceso/verificacion", response_class=HTMLResponse)
+def second_step(request: Request, code: str = Form(...), csrf: str = Form(""),
+                session: Session = Depends(get_db)):
+    user_and_session = _pending(request, session)
+    if user_and_session is None:
+        return RedirectResponse("/login", status_code=303)
+    user, auth_session = user_and_session
+    lang = lang_for(request, session, user)
+    try:
+        auth.check_csrf(auth_session, csrf, lang)
+    except auth.PermissionDenied as e:
+        raise HTTPException(status_code=403, detail=str(e)) from None
+
+    # El freno también aquí: seis dígitos se prueban muy deprisa.
+    key = f"2fa:{user.id}|{client_ip(request)}"
+    espera = security.locked_for(key, session=session)
+    if espera:
+        return second_step_form(request, session,
+                                error=i18n.t(lang, "auth.too_many",
+                                             minutes=max(1, espera // 60)))
+
+    if twofactor.verify(user.totp_secret or "", code):
+        security.clear(key, session=session)
+        auth.finish_second_step(session, auth_session)
+    else:
+        gastado, quedan = twofactor.spend_recovery(user.recovery_codes, code)
+        if not gastado:
+            security.note_failure(key, session=session)
+            log.warning("segundo paso fallido para %s", user.email)
+            return second_step_form(request, session, error=i18n.t(lang, "tfa.bad_code"))
+        user.recovery_codes = quedan
+        security.clear(key, session=session)
+        auth.finish_second_step(session, auth_session)
+    destino = "/admin" if user.role == Role.OWNER else "/hoy"
+    return RedirectResponse(destino, status_code=303)
 
 
 @app.post("/logout")
@@ -603,6 +688,7 @@ def _aging(request, user, auth_session, session, *, done="", error="", weighed=N
                 articles=meat.articles(session, user.restaurant_id),
                 rows=aging.board(session, user.restaurant_id),
                 summary=aging.summary(session, user.restaurant_id),
+                bands=aging.yield_by_days(session, user.restaurant_id),
                 sales=aging.sales(session, user.restaurant_id),
                 chilled=[p for p in meat.primals_in_stock(session, user.restaurant_id)
                          if aging.where(p) == Storage.CHILLED])
@@ -1416,13 +1502,23 @@ def notifications_api(request: Request, ctx=Depends(require_user),
 # ========================================================= CONFIGURACIÓN
 @app.get("/configuracion", response_class=HTMLResponse)
 def settings_page(request: Request, ctx=Depends(require_user),
-                  session: Session = Depends(get_db), saved: int = 0,
-                  changed: int = 0, error: str = ""):
+                  session: Session = Depends(get_db), saved: int = 0, changed: int = 0,
+                  off: int = 0, codes: str = "", error: str = ""):
     user, auth_session = ctx
     restaurant = session.get(Restaurant, user.restaurant_id)
+    # Si aún no la tiene puesta, se le propone un secreto para que lo meta en
+    # el teléfono. Hasta que teclee un código no queda activada.
+    if not user.totp_enabled and not user.totp_secret:
+        user.totp_secret = twofactor.new_secret()
+        session.flush()
     return page(request, "settings.html", user, auth_session, session,
                 restaurant=restaurant, saved=bool(saved), changed=bool(changed),
-                error=error, pos_modes=list(PosMatch))
+                off=bool(off), error=error, pos_modes=list(PosMatch),
+                codes=[c for c in (codes or "").split("-") if c],
+                tfa_uri=twofactor.uri(user.totp_secret or "", user.email,
+                                      issuer=i18n.t(lang_for(request, session, user),
+                                                    "m.app.title")),
+                tfa_left=twofactor.recovery_left(user.recovery_codes))
 
 
 @app.post("/configuracion")
@@ -1462,6 +1558,60 @@ def change_my_password(request: Request, current: str = Form(...), new: str = Fo
     except (auth.AuthError, ValueError) as e:
         return RedirectResponse(f"/configuracion?error={e}", status_code=303)
     return RedirectResponse("/configuracion?changed=1", status_code=303)
+
+
+@app.post("/configuracion/2fa/activar")
+def enable_second_step(request: Request, code: str = Form(...), csrf: str = Form(""),
+                       ctx=Depends(require_user), session: Session = Depends(get_db)):
+    """Se activa tecleando un código: así se sabe que el teléfono ya lo tiene."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    if not user.totp_secret or not twofactor.verify(user.totp_secret, code):
+        return RedirectResponse(f"/configuracion?error={i18n.t(lang, 'tfa.bad_code')}",
+                                status_code=303)
+    codigos = twofactor.new_recovery_codes()
+    user.totp_enabled = True
+    user.recovery_codes = twofactor.store_recovery(codigos)
+    session.flush()
+    return RedirectResponse(f"/configuracion?codes={'-'.join(codigos)}", status_code=303)
+
+
+@app.post("/configuracion/2fa/quitar")
+def disable_second_step(request: Request, password: str = Form(...), csrf: str = Form(""),
+                        ctx=Depends(require_user), session: Session = Depends(get_db)):
+    """Quitarla pide la contraseña: si alguien te deja la sesión abierta, no basta."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    if not auth.verify_password(password, user.password_hash or ""):
+        return RedirectResponse(f"/configuracion?error={i18n.t(lang, 'auth.wrong_current')}",
+                                status_code=303)
+    user.totp_enabled = False
+    user.totp_secret = None
+    user.recovery_codes = None
+    session.flush()
+    return RedirectResponse("/configuracion?off=1", status_code=303)
+
+
+@app.post("/manager/equipo/{user_id}/2fa")
+def clear_team_second_step(user_id: int, request: Request, csrf: str = Form(""),
+                           ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
+    """Quien pierde el teléfono no puede quedarse fuera para siempre."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    target = _own(session, user, User, user_id, request)
+    if user.role != Role.OWNER and target.role in (Role.OWNER, Role.MANAGER) \
+            and target.id != user.id:
+        raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
+    target.totp_enabled = False
+    target.totp_secret = None
+    target.recovery_codes = None
+    session.flush()
+    return RedirectResponse(
+        f"/manager/equipo?done={i18n.t(lang, 'tfa.cleared', name=target.name)}",
+        status_code=303)
 
 
 @app.post("/manager/equipo/{user_id}/contrasena")

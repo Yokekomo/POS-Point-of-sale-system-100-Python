@@ -169,26 +169,51 @@ def authenticate(session: Session, email: str, password: str,
     raise AuthError(t(lang, "login.bad_credentials"))
 
 
-def start_session(session: Session, user: User, days: int = SESSION_DAYS) -> tuple[str, AuthSession]:
+def needs_second_step(user: User) -> bool:
+    """Si esa persona entra con contraseña y además con los seis dígitos."""
+    return bool(getattr(user, "totp_enabled", False) and user.totp_secret)
+
+
+def start_session(session: Session, user: User, days: int = SESSION_DAYS,
+                  pending_2fa: bool = False) -> tuple[str, AuthSession]:
     token = secrets.token_urlsafe(32)
     auth = AuthSession(token_hash=_token_hash(token), csrf=secrets.token_urlsafe(24),
-                       user_id=user.id, expires_at=datetime.utcnow() + timedelta(days=days))
+                       user_id=user.id, expires_at=datetime.utcnow() + timedelta(days=days),
+                       pending_2fa=bool(pending_2fa))
     session.add(auth)
-    user.last_login = datetime.utcnow()
+    if not pending_2fa:
+        user.last_login = datetime.utcnow()
     session.flush()
     return token, auth
 
 
-def resolve_session(session: Session, token: str | None) -> tuple[User, AuthSession] | None:
+def resolve_session(session: Session, token: str | None,
+                    allow_pending: bool = False) -> tuple[User, AuthSession] | None:
+    """Quién es el de esta sesión, si la sesión vale.
+
+    Una sesión a la espera de los seis dígitos no vale para nada más que para
+    la pantalla que los pide: hasta que se teclean, esa persona no ha entrado.
+    """
     if not token:
         return None
     auth = session.query(AuthSession).filter_by(token_hash=_token_hash(token), revoked=False).first()
     if auth is None or auth.expires_at < datetime.utcnow():
         return None
+    if auth.pending_2fa and not allow_pending:
+        return None
     user = session.get(User, auth.user_id)
     if user is None or not user.active:
         return None
     return user, auth
+
+
+def finish_second_step(session: Session, auth: AuthSession) -> None:
+    """Los seis dígitos han valido: la sesión pasa a ser una sesión de verdad."""
+    auth.pending_2fa = False
+    user = session.get(User, auth.user_id)
+    if user is not None:
+        user.last_login = datetime.utcnow()
+    session.flush()
 
 
 def end_session(session: Session, token: str | None) -> None:

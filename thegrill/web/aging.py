@@ -677,6 +677,67 @@ def summary(session: Session, restaurant_id: int, on: date | None = None) -> Sum
     return out
 
 
+@dataclass
+class YieldBand:
+    """El rendimiento medio de las piezas que se maduraron tantos días."""
+    days: int                    # el tramo: 30, 45, 60…
+    pieces: int
+    yield_pct: float             # cuánto queda de lo que entró, de media
+    water_pct: float             # cuánto se fue en agua
+    trim_pct: float              # y cuánto por el cuchillo
+    kg: float = 0.0              # kilos que han pasado por ahí
+
+
+def yield_by_days(session: Session, restaurant_id: int, minimum: int = 3,
+                  band: int = 15) -> list[YieldBand]:
+    """Qué rendimiento deja cada tramo de días, para decidir cuántos madurar.
+
+    La pregunta que se hace un asador no es cuánto pierde una pieza, sino si
+    los quince días de más le salen a cuenta: la costra crece con el tiempo y
+    llega un punto en que los días cuestan más de lo que pagan. Esto lo dice
+    con las piezas que ya han pasado por la casa, agrupadas por tramos.
+
+    Con menos de `minimum` piezas en un tramo no se dice nada: una media de dos
+    piezas no es una media, es una anécdota.
+    """
+    piezas: dict[str, dict] = {}
+    for row in (session.query(PrimalWeighing)
+                .filter_by(restaurant_id=restaurant_id)
+                .order_by(PrimalWeighing.date.asc(), PrimalWeighing.id.asc())):
+        if row.storage != Storage.AGING:
+            continue
+        dato = piezas.setdefault(row.serial, {"days": 0, "water": 0.0, "trim": 0.0,
+                                              "start": row.previous_kg, "end": row.kg})
+        dato["days"] = max(dato["days"], row.days or 0)
+        dato["end"] = row.kg
+        if row.kind == LossKind.TRIM:
+            dato["trim"] = round(dato["trim"] + (row.loss_kg or 0.0), 6)
+        else:
+            dato["water"] = round(dato["water"] + (row.loss_kg or 0.0), 6)
+
+    bandas: dict[int, list[dict]] = {}
+    for serial, dato in piezas.items():
+        if dato["days"] <= 0 or dato["start"] <= EPSILON:
+            continue
+        tramo = max(band, int(round(dato["days"] / band)) * band)
+        bandas.setdefault(tramo, []).append(dato)
+
+    out = []
+    for tramo, datos in sorted(bandas.items()):
+        if len(datos) < minimum:
+            continue
+        entrada = sum(d["start"] for d in datos)
+        agua = sum(d["water"] for d in datos)
+        cuchillo = sum(d["trim"] for d in datos)
+        out.append(YieldBand(
+            days=tramo, pieces=len(datos),
+            yield_pct=round((entrada - agua - cuchillo) / entrada * 100, 1),
+            water_pct=round(agua / entrada * 100, 1),
+            trim_pct=round(cuchillo / entrada * 100, 1),
+            kg=round(entrada, 3)))
+    return out
+
+
 def _audit(session: Session, user: User, serial: str, move: str,
            note: str | None = None) -> None:
     """Un traslado se firma: quién movió la pieza, de dónde a dónde y por qué."""

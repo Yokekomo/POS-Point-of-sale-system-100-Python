@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}{{ t("tfa.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("tfa.title") }}</h1>
+<p class="sub">{{ t("tfa.sub") }}</p>
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+<div class="card">
+<form method="post" action="/acceso/verificacion">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="code">{{ t("tfa.code") }}</label>
+  <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code"
+         autofocus required>
+  <div class="help">{{ t("tfa.code_help") }}</div>
+  <button class="wide" type="submit">{{ t("login.submit") }}</button>
+</form>
+{% if left %}<p class="help">{{ t("tfa.recovery_left", n=left) }}</p>{% endif %}
+</div>
+<div class="card">
+  <p class="muted" style="margin:0"><a href="/login">{{ t("common.back") }}</a></p>
+</div>
+{% endblock %}

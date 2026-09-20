@@ -33,7 +33,13 @@
       <input name="password" type="text" autocomplete="off" style="max-width:150px"
              placeholder="{{ t('pass.new') }}" required>
       <button class="ghost" style="padding:6px 12px">{{ t("pass.reset") }}</button>
-    </form>{% endif %}</td>
+    </form>
+    {% if u.totp_enabled %}
+    <form method="post" action="/manager/equipo/{{ u.id }}/2fa" style="margin:6px 0 0">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="ghost" style="padding:6px 12px">{{ t("tfa.clear") }}</button>
+    </form>
+    {% endif %}{% endif %}</td>
   <td>{% if u.id != user.id %}
     <form method="post" action="/manager/equipo/{{ u.id }}/activar" style="margin:0">
       <input type="hidden" name="csrf" value="{{ csrf }}">

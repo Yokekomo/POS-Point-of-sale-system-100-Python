@@ -228,6 +228,27 @@
   {% endif %}
 </div>
 
+{% if bands %}
+<h2>{{ t("m.ag.bands") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("m.ag.days") }}</th><th class="num">{{ t("meat.pieces") }}</th>
+    <th class="num">{{ t("m.ag.water") }}</th><th class="num">{{ t("m.ag.trim") }}</th>
+    <th class="num">{{ t("m.ag.yield") }}</th></tr>
+{% for b in bands %}
+<tr>
+  <td><b>{{ b.days }}</b> {{ t("m.ag.days")|lower }}</td>
+  <td class="num">{{ b.pieces }}<div class="muted">{{ "%.0f"|format(b.kg) }} kg</div></td>
+  <td class="num">{{ "%.1f"|format(b.water_pct) }} %</td>
+  <td class="num">{{ "%.1f"|format(b.trim_pct) }} %</td>
+  <td class="num"><b>{{ "%.1f"|format(b.yield_pct) }} %</b></td>
+</tr>
+{% endfor %}
+</table>
+</div>
+<p class="help">{{ t("m.ag.bands_help") }}</p>
+{% endif %}
+
 {% if sales and can("money") %}
 <h2>{{ t("m.ag.sales") }}</h2>
 <div class="card scroll">

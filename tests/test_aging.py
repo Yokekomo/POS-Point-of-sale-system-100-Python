@@ -594,3 +594,40 @@ def test_the_board_counts_what_was_reused_apart_from_what_was_thrown(ctx):
     resumen = aging.summary(s, rest.id, on=HOY)
     assert resumen.trimmed_kg == 1.5
     assert resumen.kept_kg == 0.5 and resumen.thrown_kg == 1.0
+
+
+# --------------------------------------------- ¿compensan los días de más?
+def test_the_yield_by_days_says_where_the_extra_days_stop_paying(ctx):
+    """Cuarenta y cinco días o sesenta: la pregunta se contesta con las piezas."""
+    s, rest, ana, _ = ctx
+
+    def madurada(serial, dias, agua, costra, kg=10.0):
+        p = pieza(s, rest, serial=serial, kg=kg, precio=30.0)
+        p.expiry_label = HOY + timedelta(days=90)
+        s.flush()
+        aging.move(s, ana, serial, Storage.AGING, target_days=dias,
+                   on=HOY - timedelta(days=dias))
+        aging.weigh(s, ana, serial, kg - agua, on=HOY)
+        aging.trim(s, ana, serial, removed_kg=costra, on=HOY)
+
+    for n in range(3):                       # tres piezas de cuarenta y cinco días
+        madurada(f"90{n}", 45, 1.5, 1.0)
+    for n in range(3):                       # y tres de sesenta, que pierden más
+        madurada(f"91{n}", 60, 2.0, 1.8)
+    madurada("9200", 30, 0.8, 0.5)           # una sola de treinta: no hace media
+
+    tramos = {b.days: b for b in aging.yield_by_days(s, rest.id)}
+    assert set(tramos) == {45, 60}           # con una pieza no se dice nada
+    assert tramos[45].pieces == 3 and tramos[60].pieces == 3
+    assert tramos[45].water_pct == 15.0 and tramos[45].trim_pct == 10.0
+    assert tramos[45].yield_pct == 75.0
+    assert tramos[60].yield_pct == 62.0      # quince días más, trece puntos menos
+    assert tramos[60].yield_pct < tramos[45].yield_pct
+
+
+def test_without_enough_pieces_it_says_nothing(ctx):
+    s, rest, ana, _ = ctx
+    pieza(s, rest, kg=9.0)
+    aging.move(s, ana, "8017", Storage.AGING, target_days=45, on=HOY - timedelta(days=45))
+    aging.weigh(s, ana, "8017", 7.6, on=HOY)
+    assert aging.yield_by_days(s, rest.id) == []

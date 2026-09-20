@@ -286,6 +286,12 @@ class User(TenantMixin, Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_login: Mapped[datetime | None] = mapped_column(DateTime)
+    # Verificación en dos pasos: el secreto de los seis dígitos, si la tiene
+    # puesta, y las huellas de los códigos de repuesto —los códigos mismos no
+    # se guardan—.
+    totp_secret: Mapped[str | None] = mapped_column(String(64))
+    totp_enabled: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    recovery_codes: Mapped[str | None] = mapped_column(Text)
 
 
 class AuthSession(Base):
@@ -298,6 +304,9 @@ class AuthSession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+    # La sesión que ha pasado la contraseña pero aún no los seis dígitos: existe
+    # para nada más que enseñar esa pantalla.
+    pending_2fa: Mapped[bool | None] = mapped_column(Boolean, default=False)
 
 
 class RecordTemplate(TenantMixin, Base):
@@ -999,6 +1008,24 @@ class ChainCheckpoint(TenantMixin, Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)
     detail: Mapped[str | None] = mapped_column(Text)
+
+
+class GatewayEvent(Base):
+    """Un evento de la pasarela de pago, ya procesado.
+
+    La pasarela reintenta hasta que le contestas bien, así que el mismo evento
+    llega varias veces. Aquí queda su número para no aplicarlo dos: cobrar dos
+    veces el mismo recibo no se arregla con una disculpa.
+    """
+    __tablename__ = "gateway_events"
+    __table_args__ = (UniqueConstraint("provider", "event_id", name="uq_gateway_event"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String(32), index=True)
+    event_id: Mapped[str] = mapped_column(String(128), index=True)
+    kind: Mapped[str] = mapped_column(String(64))
+    restaurant_id: Mapped[int | None] = mapped_column(ForeignKey("restaurants.id"), index=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class AccessBrake(Base):

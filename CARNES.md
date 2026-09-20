@@ -60,7 +60,18 @@ antes de escribir nada. Lo que no entra no se puede filtrar.
 Queda pendiente, y hay que decirlo: **falta conectar la pasarela de verdad**.
 Hoy la referencia se apunta a mano después de darla de alta en el panel del
 proveedor. El cobro recurrente automático y el aviso de recibo devuelto los da
-la pasarela por webhook, y ese enganche está por hacer.
+la pasarela por webhook, y ese enganche ya está: la pasarela llama a
+`/pasarela/stripe` con el evento firmado, se comprueba la firma —sin firma
+buena no se toca nada, que esa dirección es pública—, se mira que no sea un
+evento repetido y se aplica: un recibo cobrado deja la cuenta al día hasta el
+final del periodo, uno fallado la pone en aviso, una suscripción cancelada la
+cierra, y la tarjeta puesta arranca la prueba. El manager se entera por un
+aviso, porque le cambia el día.
+
+El secreto va en `STRIPE_WEBHOOK_SECRET`; sin él, esa dirección contesta que no
+está puesta en marcha en vez de fingir que sí. Y el número de la tarjeta sigue
+sin pasar por aquí: de la pasarela solo se guarda su referencia y los cuatro
+últimos dígitos.
 
 ## Datos personales y reglamento europeo
 
@@ -146,6 +157,24 @@ de contraseña; los frenos viven en memoria del proceso, así que detrás de un
 balanceador hacen falta en un sitio compartido —o un WAF delante—; no hay
 protección de bots más allá del freno, que contra un bot que imita a una persona
 se queda corto; y las dependencias no están fijadas a una versión exacta.
+
+## Verificación en dos pasos
+
+Quien puede bloquear una casa entera o ver el dinero de todas no debería entrar
+solo con una contraseña: una contraseña se apunta en un papel, se repite en
+otra web y se la lleva quien mire por encima del hombro. Por eso cualquiera
+puede activar en su configuración los seis dígitos que cambian cada medio
+minuto —el TOTP de siempre, el que leen Google Authenticator, Aegis o
+1Password—, y desde ese momento la contraseña solo abre la puerta de los
+dígitos: la sesión existe pero no sirve para nada más hasta que se teclean.
+
+Al activarla salen seis **códigos de repuesto**, de un solo uso, que se enseñan
+una vez. Son los que dejan entrar el día que el teléfono se pierde. Y si
+también se pierden, el manager puede quitarle los dos pasos a su gente y la
+plataforma a un manager: nadie se queda fuera para siempre.
+
+Los seis dígitos se prueban muy deprisa, así que tienen el mismo freno que las
+contraseñas: cinco intentos y a esperar.
 
 ## Lo que protege la puerta
 
