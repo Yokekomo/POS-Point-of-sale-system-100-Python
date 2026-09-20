@@ -490,7 +490,8 @@ qué dejar montado antes de abrir— está en **[DESPLIEGUE.md](DESPLIEGUE.md)**
 
 1. Varias cámaras o varios puntos de venta dentro del mismo hotel, para saber
    qué carne está en cada sitio.
-2. Importar el parte de ventas del POS desde un fichero, en vez de a mano.
+2. Cambiar la contraseña: hoy nadie puede, ni uno la suya ni el manager la de
+   su gente.
 3. Parte de carne diario en PDF, para el pase.
 4. Guardar el cuadre de cada turno, para ver la pérdida acumulada del mes sin
    tener que ir aviso por aviso.
