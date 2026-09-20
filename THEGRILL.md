@@ -107,11 +107,22 @@ absorben los cortes. Por eso un striploin comprado a veinte sale a veinticinco
 el kilo cuando el despiece rinde al ochenta por ciento, y a treinta y tres si
 rinde al sesenta. Eso es lo que hay que ver.
 
-**La etiqueta del corte.** Cada lote que sale del despiece guarda su peso por
-pieza, cuántas piezas salieron, la calidad y la procedencia, para poder leer
-«330 g · MB9+ · AUS» sin ir a buscar el despiece. Con eso, los kilos que quedan
-se traducen a piezas. Si dos calidades distintas entran en el mismo despiece no
-se afirma ninguna; el origen sí, si coincide.
+**La etiqueta del corte.** Cada lote guarda cuántas piezas salieron, el peso de
+carta, la calidad y la procedencia, y se lee «330 g (~352 g) · MB9+ · AUS» sin
+ir a buscar el despiece.
+
+Delante va el peso de carta, el que se vende y con el que se hace el
+escandallo. Entre paréntesis, el promedio real: los kilos pesados entre las
+piezas que salieron. Cortando a mano no hay precisión de gramo, así que lo
+único fiable es el total y el recuento, y el peso por pieza es un promedio que
+se deduce de ambos. Si el corte sale clavado, el paréntesis no aparece.
+
+Ese promedio contra el objetivo dice si se está cortando de más: un despiece
+que se pasa del diez por ciento lo avisa al volcarlo. Y con él, los kilos que
+quedan se estiman en piezas.
+
+Si dos calidades distintas entran en el mismo despiece no se afirma ninguna; el
+origen sí, si coincide.
 
 **Trazabilidad.** Cada corte y cada recorte recibe un serial nuevo al salir del
 despiece, atado a la pieza de la que salió y al envío en que llegó. Desde una
@@ -377,7 +388,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   307 tests
+tests/                   314 tests
 ```
 
 ## Uso

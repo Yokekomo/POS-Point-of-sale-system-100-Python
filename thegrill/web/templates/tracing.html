@@ -63,6 +63,18 @@
       {% if cut.is_trim %}<span class="tag warn">{{ t("trace.trim") }}</span>{% endif %}</b>
     <span class="muted">{{ "%.4f"|format(cut.unit_cost) }} / {{ cut.unit }}</span>
   </div>
+  {% if cut.pieces %}
+  <p class="muted" style="margin:4px 0 0">
+    {{ t("trace.produced") }}: {{ cut.pieces }} {{ t("meat.pieces") | lower }} ·
+    {{ "%.3f"|format(cut.produced_kg) }} kg ·
+    {{ t("trace.avg_piece") }} {{ "%.10g"|format(cut.avg_piece_g) }} g
+    {% if cut.piece_gap_pct is not none and cut.piece_gap_pct|abs >= 10 %}
+      <span class="tag bad">{{ "%+.1f"|format(cut.piece_gap_pct) }}% {{ t("trace.nominal") | lower }}</span>
+    {% elif cut.piece_gap_pct %}
+      <span class="muted">({{ "%+.1f"|format(cut.piece_gap_pct) }}% {{ t("trace.nominal") | lower }})</span>
+    {% endif %}
+  </p>
+  {% endif %}
   <div class="scroll"><table>
   <tr><th class="num">{{ t("trace.produced") }}</th><th class="num">{{ t("trace.sold") }}</th>
       <th class="num">{{ t("trace.remaining") }}</th><th class="num">{{ t("trace.waste_kg") }}</th>
@@ -72,7 +84,7 @@
     <td class="num">{{ "%.3f"|format(cut.produced_kg) }}</td>
     <td class="num">{{ "%.3f"|format(cut.sold_kg) }}</td>
     <td class="num">{{ "%.3f"|format(cut.remaining_kg) }}{% if cut.remaining_pieces is not none %}
-        <div class="muted">{{ cut.remaining_pieces }} {{ t("meat.pieces") | lower }}</div>{% endif %}</td>
+        <div class="muted">~{{ cut.remaining_pieces }} {{ t("meat.pieces") | lower }}</div>{% endif %}</td>
     <td class="num">{{ "%.3f"|format(cut.waste_kg) }}</td>
     <td class="num">{{ "%.2f"|format(cut.revenue) }}</td>
     <td class="num">{% if cut.food_cost_pct is not none %}{{ "%.1f"|format(cut.food_cost_pct) }}%{% endif %}</td>
@@ -100,6 +112,7 @@
 {% endfor %}
 {% endif %}
 
+<p class="muted">{{ t("trace.avg_help") }}</p>
 <p class="muted">{{ t("trace.attribution") }}</p>
 {% endif %}
 {% endblock %}

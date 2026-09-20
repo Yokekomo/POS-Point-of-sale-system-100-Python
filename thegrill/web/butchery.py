@@ -198,6 +198,14 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
     if not mass.ok:
         result.issues.append(
             f"{despiece.tg}: descuadre de masa de {mass.drift_kg} kg ({mass.drift_pct} %)")
+    for alloc in allocations:
+        gap = piece_gap_pct(avg_piece_g(alloc.kg, alloc.cut.pieces),
+                            alloc.cut.weight_per_piece_g)
+        if gap is not None and abs(gap) >= config.PORTION_VARIANCE_PCT:
+            real = avg_piece_g(alloc.kg, alloc.cut.pieces)
+            result.issues.append(
+                f"{despiece.tg}/{alloc.cut.cut_name}: piezas de {real:.10g} g de media "
+                f"frente a {alloc.cut.weight_per_piece_g:.10g} g de objetivo ({gap:+.1f} %)")
 
     for position, alloc in enumerate(allocations, start=1):
         item = session.get(IngredientItem, alloc.cut.item_id)
@@ -209,7 +217,9 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
                             expiry=use_by, received=despiece.date, qty=alloc.kg,
                             qty_remaining=alloc.kg, unit_cost=alloc.unit_cost,
                             pieces=alloc.cut.pieces,
-                            piece_weight_g=alloc.cut.weight_per_piece_g,
+                            piece_weight_g=avg_piece_g(alloc.kg, alloc.cut.pieces)
+                            or alloc.cut.weight_per_piece_g,
+                            nominal_piece_g=alloc.cut.weight_per_piece_g,
                             grade=grade, origin=origin)
         session.add(lot)
         session.flush()
@@ -260,6 +270,24 @@ def trace(session: Session, restaurant_id: int, serial: str) -> dict:
                        "cost": m.cost, "source": m.source, "ref": m.source_ref}
                       for m in movements],
     }
+
+
+def avg_piece_g(total_kg: float, pieces: int | None) -> float | None:
+    """Peso medio real por pieza: los kilos pesados entre las piezas contadas.
+
+    Es lo único fiable. El peso «objetivo» de la hoja es a lo que se apunta, no
+    lo que sale: un corte a mano varía pieza a pieza.
+    """
+    if not pieces or pieces <= 0 or total_kg <= 0:
+        return None
+    return round(total_kg * 1000 / pieces, 1)
+
+
+def piece_gap_pct(real_g: float | None, nominal_g: float | None) -> float | None:
+    """Cuánto se desvía el corte real del objetivo. Positivo es cortar de más."""
+    if not real_g or not nominal_g:
+        return None
+    return round((real_g - nominal_g) / nominal_g * 100, 1)
 
 
 def _shared(primals: list[Primal], field_name: str) -> str | None:
@@ -382,11 +410,28 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
     return result
 
 
+def piece_label(nominal_g: float | None, real_g: float | None) -> str:
+    """«330 g (~354 g)»: lo que se vende en carta y lo que sale de verdad.
+
+    Delante va el peso de la carta, que es el que ve el cliente y con el que se
+    hace el escandallo. Entre paréntesis, el promedio real del despiece: los
+    kilos pesados entre las piezas que salieron. Solo se muestra si difiere,
+    porque un paréntesis que repite el mismo número no dice nada.
+    """
+    if not nominal_g:
+        return f"~{real_g:.10g} g" if real_g else ""
+    if not real_g or abs(real_g - nominal_g) / nominal_g < 0.005:
+        return f"{nominal_g:.10g} g"
+    return f"{nominal_g:.10g} g (~{real_g:.10g} g)"
+
+
 def lot_label(lot) -> str:
-    """«330 g · MB9+ · AUS», lo que hay que leer de un vistazo."""
+    """«330 g (~354 g) · MB9+ · AUS», lo que hay que leer de un vistazo."""
     bits = []
-    if lot.piece_weight_g:
-        bits.append(f"{lot.piece_weight_g:.10g} g")
+    live = avg_piece_g(lot.qty, lot.pieces) or lot.piece_weight_g
+    weight = piece_label(lot.nominal_piece_g, live)
+    if weight:
+        bits.append(weight)
     if lot.grade:
         bits.append(lot.grade)
     if lot.origin:

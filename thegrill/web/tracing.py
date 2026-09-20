@@ -52,7 +52,8 @@ class CutNode:
     name: str
     unit: str
     pieces: int | None = None
-    piece_weight_g: float | None = None
+    piece_weight_g: float | None = None      # medio real, no declarado
+    nominal_piece_g: float | None = None     # a lo que se apuntaba
     grade: str | None = None
     origin: str | None = None
     produced_kg: float = 0.0
@@ -68,11 +69,32 @@ class CutNode:
     sales: list[SaleLine] = field(default_factory=list)
 
     @property
+    def avg_piece_g(self) -> float | None:
+        """Peso medio real: los kilos que salieron entre las piezas contadas."""
+        if not self.pieces or self.pieces <= 0 or self.produced_kg <= 0:
+            return self.piece_weight_g
+        return round(self.produced_kg * 1000 / self.pieces, 1)
+
+    @property
+    def piece_gap_pct(self) -> float | None:
+        """Cuánto se desvía el corte real del objetivo de la hoja."""
+        real, target = self.avg_piece_g, self.nominal_piece_g
+        if not real or not target:
+            return None
+        return round((real - target) / target * 100, 1)
+
+    @property
     def label(self) -> str:
-        """Lo que pone la etiqueta: «330 g · MB9+ · AUS»."""
+        """«330 g (~354 g) · MB9+ · AUS».
+
+        Delante el peso de carta, que es lo que se vende y lo que manda en el
+        escandallo. Entre paréntesis el promedio real que salió del despiece.
+        """
+        from thegrill.web.butchery import piece_label
         bits = []
-        if self.piece_weight_g:
-            bits.append(f"{self.piece_weight_g:.10g} g")
+        weight = piece_label(self.nominal_piece_g, self.avg_piece_g)
+        if weight:
+            bits.append(weight)
         if self.grade:
             bits.append(self.grade)
         if self.origin:
@@ -81,10 +103,11 @@ class CutNode:
 
     @property
     def remaining_pieces(self) -> int | None:
-        """Cuántas piezas quedan, al peso de la etiqueta."""
-        if not self.piece_weight_g:
+        """Piezas que quedan, al peso medio. Es una estimación, no un recuento."""
+        average = self.avg_piece_g
+        if not average:
             return None
-        return int(round(self.remaining_kg * 1000 / self.piece_weight_g))
+        return int(round(self.remaining_kg * 1000 / average))
 
     @property
     def food_cost_pct(self) -> float | None:
@@ -258,6 +281,7 @@ def history(session: Session, restaurant_id: int, serial: str) -> PrimalHistory:
                        name=ingredient.name if ingredient else cut.cut_name,
                        unit=ingredient.unit.value if ingredient else "KG",
                        pieces=lot.pieces, piece_weight_g=lot.piece_weight_g,
+                       nominal_piece_g=lot.nominal_piece_g,
                        grade=lot.grade, origin=lot.origin,
                        produced_kg=round(lot.qty, 4), cost=round(lot.qty * lot.unit_cost, 4),
                        unit_cost=lot.unit_cost, remaining_kg=round(lot.qty_remaining, 4),

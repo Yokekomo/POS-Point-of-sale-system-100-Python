@@ -593,7 +593,10 @@ class IngredientLot(TenantMixin, Base):
     stage: Mapped[FefoStage] = mapped_column(Enum(FefoStage), default=FefoStage.MASTER)
     # La etiqueta de la pieza: lo que hay que leer sin ir a buscar el despiece.
     pieces: Mapped[int | None] = mapped_column(Integer)          # cuántas piezas salieron
-    piece_weight_g: Mapped[float | None] = mapped_column(Float)  # peso por pieza
+    # Peso MEDIO por pieza: los kilos reales entre las piezas. Un corte a mano
+    # nunca sale exacto, así que lo que vale es el total pesado y el recuento.
+    piece_weight_g: Mapped[float | None] = mapped_column(Float)
+    nominal_piece_g: Mapped[float | None] = mapped_column(Float)  # el peso al que se apunta
     grade: Mapped[str | None] = mapped_column(String(32))        # MB9+, Prime, Choice…
     origin: Mapped[str | None] = mapped_column(String(32))       # AUS, USA, JPN…
 

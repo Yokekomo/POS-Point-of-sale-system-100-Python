@@ -482,3 +482,72 @@ def test_a_purchased_lot_has_no_label_and_that_is_fine(ctx):
     lot = costing.receive(s, ana, item, qty=25, unit_cost=1.2,
                           expiry=HOY + timedelta(days=200), on=HOY)
     assert butchery.lot_label(lot) == ""
+
+
+def test_the_piece_weight_is_the_real_average_not_the_target(ctx):
+    """El carnicero apunta a 330 g pero pesa 5,9 kg en 17 piezas: salen a 347."""
+    s, rest, ana, _ = ctx
+    filete, *_ = striploin_setup(s, rest)
+    p = primal(s, rest, "8017", kg=10.0)
+    p.grade, p.origin = "MB9+", "AUS"
+    s.flush()
+    d = Despiece(restaurant_id=rest.id, tg="TG-0200", date=HOY, weight_before_kg=10.0,
+                 waste_kg=4.1, country="AUS")
+    d.primals.append(DespiecePrimal(serial="8017"))
+    d.cuts.append(DespieceCut(cut_name="Steak", item_id=filete.id, pieces=17,
+                              weight_per_piece_g=330, total_kg=5.9, value_index=1.0))
+    s.add(d)
+    s.flush()
+    result = butchery.post(s, ana, d)
+
+    lot = s.query(IngredientLot).one()
+    assert lot.pieces == 17
+    assert lot.piece_weight_g == 347.1              # 5,9 kg entre 17
+    assert lot.nominal_piece_g == 330               # lo que decía la hoja
+    assert butchery.lot_label(lot) == "330 g (~347.1 g) · MB9+ · AUS"
+    assert butchery.piece_gap_pct(347.1, 330) == 5.2
+
+
+def test_cutting_well_over_the_target_is_reported(ctx):
+    s, rest, ana, _ = ctx
+    filete, *_ = striploin_setup(s, rest)
+    primal(s, rest, "8017", kg=10.0)
+    d = Despiece(restaurant_id=rest.id, tg="TG-0201", date=HOY, weight_before_kg=10.0,
+                 waste_kg=2.0, country="AUS")
+    d.primals.append(DespiecePrimal(serial="8017"))
+    d.cuts.append(DespieceCut(cut_name="Steak", item_id=filete.id, pieces=20,
+                              weight_per_piece_g=330, total_kg=8.0, value_index=1.0))
+    s.add(d)
+    s.flush()
+    result = butchery.post(s, ana, d)
+    assert any("400 g de media" in i and "330 g de objetivo" in i for i in result.issues)
+
+
+def test_cutting_to_the_target_says_nothing(ctx):
+    s, rest, ana, _ = ctx
+    filete, *_ = striploin_setup(s, rest)
+    primal(s, rest, "8017", kg=10.0)
+    d = despiece(s, rest, "TG-0202", ["8017"], 10.0,
+                 [("Steak", filete, 20, 330, 1.0, False)], waste_kg=3.4)
+    result = butchery.post(s, ana, d)
+    assert result.issues == []
+
+
+def test_without_a_piece_count_there_is_no_average(ctx):
+    assert butchery.avg_piece_g(5.9, None) is None
+    assert butchery.avg_piece_g(5.9, 0) is None
+    assert butchery.avg_piece_g(0, 17) is None
+    assert butchery.piece_gap_pct(None, 330) is None
+    assert butchery.piece_gap_pct(347.1, None) is None
+
+
+def test_the_label_leads_with_the_menu_weight(ctx):
+    """En carta se vende 330 g; entre paréntesis, lo que sale de verdad."""
+    assert butchery.piece_label(330, 354.5) == "330 g (~354.5 g)"
+    # si el corte sale clavado, el paréntesis sobra
+    assert butchery.piece_label(330, 330) == "330 g"
+    assert butchery.piece_label(330, 331) == "330 g"
+    # sin peso de carta, queda el promedio con su tilde
+    assert butchery.piece_label(None, 354.5) == "~354.5 g"
+    assert butchery.piece_label(330, None) == "330 g"
+    assert butchery.piece_label(None, None) == ""

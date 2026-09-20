@@ -298,8 +298,8 @@ def test_it_says_how_many_pieces_are_left(ctx):
     p, filete_m, burger_m = montar_burger(s, rest, ana)
     h = tracing.history(s, rest.id, "8017")
     filete = next(c for c in h.butchery.cuts if not c.is_trim)
-    assert filete.piece_weight_g == 250
-    assert filete.remaining_pieces == 20                 # 5 kg a 250 g
+    assert filete.avg_piece_g == 250                     # 5 kg entre 20 piezas
+    assert filete.remaining_pieces == 20
     costing.consume_sales(s, luis, [("ENTRECOT", 4)], on=HOY)
     h = tracing.history(s, rest.id, "8017")
     filete = next(c for c in h.butchery.cuts if not c.is_trim)
@@ -312,12 +312,12 @@ def test_without_a_piece_weight_it_does_not_guess_the_count(ctx):
     from thegrill.models import IngredientLot
     montar_burger(s, rest, ana)
     lote = s.query(IngredientLot).filter_by(serial="8017-01").one()
-    lote.piece_weight_g = None
+    lote.piece_weight_g = lote.pieces = None
     s.flush()
     h = tracing.history(s, rest.id, "8017")
     corte = next(c for c in h.butchery.cuts if c.serial == "8017-01")
-    assert corte.remaining_pieces is None
-    assert corte.label == "AUS"                  # sigue diciendo la procedencia
+    assert corte.remaining_pieces is None        # sin recuento no se estiman piezas
+    assert corte.label == "250 g · AUS"          # el peso de carta se sigue sabiendo
 
 
 def test_a_cut_with_nothing_on_its_label_says_nothing(ctx):
@@ -325,8 +325,52 @@ def test_a_cut_with_nothing_on_its_label_says_nothing(ctx):
     from thegrill.models import IngredientLot
     montar_burger(s, rest, ana)
     lote = s.query(IngredientLot).filter_by(serial="8017-01").one()
-    lote.piece_weight_g = lote.grade = lote.origin = None
+    lote.piece_weight_g = lote.pieces = None
+    lote.nominal_piece_g = lote.grade = lote.origin = None
     s.flush()
     h = tracing.history(s, rest.id, "8017")
     corte = next(c for c in h.butchery.cuts if c.serial == "8017-01")
     assert corte.label == ""
+
+
+def test_the_history_compares_the_real_cut_with_the_target(ctx):
+    """Lo que dice si el carnicero está cortando de más."""
+    s, rest, ana, luis = ctx
+    from thegrill.models import Despiece as D, DespiecePrimal as DP, DespieceCut as DC
+    filete_m = madre(s, rest, "Striploin steak")
+    item = articulo(s, rest, filete_m, "Filete")
+    primal(s, rest, "8017", kg=10.0)
+    d = D(restaurant_id=rest.id, tg="TG-0030", date=HOY, weight_before_kg=10.0,
+          waste_kg=2.2, country="AUS")
+    d.primals.append(DP(serial="8017"))
+    d.cuts.append(DC(cut_name="Steak", item_id=item.id, pieces=22,
+                     weight_per_piece_g=330, total_kg=7.8, value_index=1.0))
+    s.add(d)
+    s.flush()
+    butchery.post(s, ana, d)
+
+    corte = tracing.history(s, rest.id, "8017").butchery.cuts[0]
+    assert corte.pieces == 22
+    assert corte.avg_piece_g == 354.5                 # 7,8 kg entre 22
+    assert corte.nominal_piece_g == 330
+    assert corte.piece_gap_pct == 7.4                 # se corta un 7 % de más
+    assert corte.label.startswith("330 g (~354.5 g)")
+
+
+def test_the_pieces_left_follow_the_real_average(ctx):
+    s, rest, ana, luis = ctx
+    from thegrill.models import Despiece as D, DespiecePrimal as DP, DespieceCut as DC
+    filete_m = madre(s, rest, "Striploin steak")
+    item = articulo(s, rest, filete_m, "Filete")
+    primal(s, rest, "8017", kg=10.0)
+    d = D(restaurant_id=rest.id, tg="TG-0031", date=HOY, weight_before_kg=10.0,
+          waste_kg=2.2, country="AUS")
+    d.primals.append(DP(serial="8017"))
+    d.cuts.append(DC(cut_name="Steak", item_id=item.id, pieces=20,
+                     weight_per_piece_g=330, total_kg=7.8, value_index=1.0))
+    s.add(d)
+    s.flush()
+    butchery.post(s, ana, d)
+    corte = tracing.history(s, rest.id, "8017").butchery.cuts[0]
+    assert corte.avg_piece_g == 390
+    assert corte.remaining_pieces == 20               # nada vendido todavía
