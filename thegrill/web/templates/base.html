@@ -69,6 +69,10 @@ input[type=file]{padding:9px}
 .bar i{display:block;height:100%;background:var(--accent)}
 .rowflex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .muted{color:var(--muted);font-size:13px}
+.tree td:first-child{white-space:nowrap}
+.lvl{display:inline-block}
+.num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowrap}
+[dir="rtl"] .num{text-align:start}
 .code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--bg);border:1px solid var(--line);
   padding:4px 10px;border-radius:8px;letter-spacing:.08em;font-weight:650}
 .bell{position:relative;white-space:nowrap}
@@ -103,6 +107,9 @@ input[type=file]{padding:9px}
   {% else %}
     <a href="/app">{{ t("nav.capture") }}</a><a href="/app/mis-registros">{{ t("nav.my_records") }}</a>
   {% endif %}
+    <a href="/ingredientes">{{ t("nav.ingredients") }}</a>
+    <a href="/recetas">{{ t("nav.recipes") }}</a>
+    <a href="/ventas">{{ t("nav.sales") }}</a>
     <a class="bell" href="/notificaciones">{{ t("nav.notifications") }}<span class="badge" id="navbadge"
        {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
     <a href="/descargas">{{ t("nav.downloads") }}</a>

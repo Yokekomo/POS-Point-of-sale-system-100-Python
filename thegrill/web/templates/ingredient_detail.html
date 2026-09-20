@@ -1,0 +1,83 @@
+{% extends "base.html" %}{% block title %}{{ ing.name }}{% endblock %}
+{% block body %}
+<h1>{{ ing.name }}</h1>
+<p class="sub">{{ ing.unit.value }} · {{ ing.rotation.value }} ·
+  {{ t("ing.stock") }}: <b>{{ "%.3f"|format(stock.get(ing.id, 0)) }}</b> ·
+  {{ t("ing.avg_cost") }}:
+  {% if costs.get(ing.id) %}<b>{{ "%.4f"|format(costs[ing.id]) }}</b>{% else %}{{ t("ing.no_price") }}{% endif %}</p>
+
+<h2>{{ t("ing.items") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("ing.item_name") }}</th><th>{{ t("ing.brand") }}</th><th>{{ t("ing.supplier") }}</th>
+    <th class="num">{{ t("ing.unit_cost") }}</th></tr>
+{% for it in ing.items %}
+<tr><td>{{ it.name }}</td><td class="muted">{{ it.brand or "" }}</td>
+    <td class="muted">{{ it.supplier or "" }}</td>
+    <td class="num">{% if it.last_cost %}{{ "%.4f"|format(it.last_cost) }}{% endif %}</td></tr>
+{% else %}
+<tr><td colspan="4" class="muted">{{ t("ing.no_items") }}</td></tr>
+{% endfor %}
+</table>
+</div>
+
+<h2>{{ t("ing.lots") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>#</th><th>{{ t("ing.brand") }}</th><th>{{ t("ing.lot_code") }}</th><th>{{ t("ing.expiry") }}</th>
+    <th class="num">{{ t("ing.remaining") }}</th><th class="num">{{ t("ing.unit_cost") }}</th></tr>
+{% for lot in order %}
+<tr>
+  <td>{{ loop.index }}</td>
+  <td>{{ lot.item.brand or lot.item.name }}</td>
+  <td class="muted">{{ lot.lot_code or "" }}</td>
+  <td>{{ lot.expiry }}</td>
+  <td class="num">{{ "%.3f"|format(lot.qty_remaining) }}</td>
+  <td class="num">{{ "%.4f"|format(lot.unit_cost) }}</td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="muted">—</td></tr>
+{% endfor %}
+</table>
+<p class="muted" style="margin:10px 0 0">{{ t("ing.rotation_help") }}</p>
+</div>
+
+{% if ing.items %}
+<h2>{{ t("ing.add_lot") }}</h2>
+<div class="card">
+<form method="post" action="/ingredientes/{{ ing.id }}/entrada">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="item_id">{{ t("ing.item_name") }}</label>
+  <select id="item_id" name="item_id">
+    {% for it in ing.items %}<option value="{{ it.id }}">{{ it.brand or it.name }}</option>{% endfor %}
+  </select>
+  <label for="qty">{{ t("ing.qty") }} ({{ ing.unit.value }})</label>
+  <input id="qty" name="qty" type="number" step="any" required>
+  <label for="unit_cost">{{ t("ing.unit_cost") }}</label>
+  <input id="unit_cost" name="unit_cost" type="number" step="any" required>
+  <label for="expiry">{{ t("ing.expiry") }}</label>
+  <input id="expiry" name="expiry" type="date" required>
+  <label for="lot_code">{{ t("ing.lot_code") }}</label>
+  <input id="lot_code" name="lot_code">
+  <button class="wide" type="submit">{{ t("ing.add_lot") }}</button>
+</form>
+</div>
+{% endif %}
+
+{% if user.role.value == "MANAGER" %}
+<h2>{{ t("ing.add_item") }}</h2>
+<div class="card">
+<form method="post" action="/ingredientes/{{ ing.id }}/articulo">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="iname">{{ t("ing.item_name") }}</label>
+  <input id="iname" name="name" required>
+  <label for="brand">{{ t("ing.brand") }}</label>
+  <input id="brand" name="brand">
+  <label for="supplier">{{ t("ing.supplier") }}</label>
+  <input id="supplier" name="supplier">
+  <button class="wide" type="submit">{{ t("ing.add_item") }}</button>
+</form>
+</div>
+{% endif %}
+<p class="muted"><a href="/ingredientes">← {{ t("ing.title") }}</a></p>
+{% endblock %}

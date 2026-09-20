@@ -1,0 +1,109 @@
+{% extends "base.html" %}{% block title %}{{ recipe.name }}{% endblock %}
+{% block body %}
+<h1>{{ recipe.name }}</h1>
+<p class="sub">
+  {{ t("rec.dish") if recipe.kind.value == "DISH" else t("rec.prep") }}
+  {% if recipe.kind.value == "DISH" %} · {{ t("rec.portions") }}: {{ recipe.portions }}
+  {% elif recipe.yield_qty %} · {{ t("rec.yield") }}: {{ recipe.yield_qty }} {{ recipe.yield_unit.value if recipe.yield_unit }}{% endif %}
+</p>
+
+{% if not cost.complete %}
+<div class="banner bad">{{ t("rec.missing_price", items=cost.missing | join(", ")) }}</div>
+{% endif %}
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+  <div class="kpi"><b>{{ "%.4f"|format(cost.total_cost) }}</b><span>{{ t("rec.total_cost") }}</span></div>
+  <div class="kpi"><b>{{ "%.4f"|format(cost.cost_per_portion) }}</b><span>{{ t("rec.cost_portion") }}</span></div>
+  {% if cost.food_cost_pct is not none %}
+  <div class="kpi"><b>{{ "%.1f"|format(cost.food_cost_pct) }}%</b><span>{{ t("rec.food_cost") }}</span>
+    <div class="bar"><i style="width:{{ [cost.food_cost_pct, 100] | min }}%"></i></div></div>
+  <div class="kpi"><b>{{ "%.2f"|format(cost.margin_per_portion) }}</b><span>{{ t("rec.margin") }}</span></div>
+  {% endif %}
+  <div class="kpi"><b>{{ "%.4f"|format(cost.waste_cost) }}</b><span>{{ t("rec.waste_cost") }}</span></div>
+</div>
+
+<h2>{{ t("rec.where_money") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("rec.component") }}</th><th class="num">{{ t("rec.gross") }}</th>
+    <th class="num">{{ t("rec.line_cost") }}</th><th class="num">{{ t("rec.share") }}</th>
+    <th class="num">{{ t("rec.waste_cost") }}</th></tr>
+{% for r in rollup %}
+<tr>
+  <td>{{ r.name }}{% if r.paths > 1 %} <span class="muted">×{{ r.paths }}</span>{% endif %}</td>
+  <td class="num">{{ "%.4f"|format(r.gross_qty) }} {{ r.unit }}</td>
+  <td class="num">{{ "%.4f"|format(r.cost) }}</td>
+  <td class="num" style="min-width:110px">{{ "%.1f"|format(r.share_pct) }}%
+    <div class="bar"><i style="width:{{ r.share_pct }}%"></i></div></td>
+  <td class="num">{{ "%.4f"|format(r.waste_cost) }}</td>
+</tr>
+{% else %}
+<tr><td colspan="5" class="muted">{{ t("rec.no_lines") }}</td></tr>
+{% endfor %}
+</table>
+</div>
+
+<h2>{{ t("rec.lines") }}</h2>
+<div class="card scroll">
+<table class="tree">
+<tr><th>{{ t("rec.component") }}</th><th class="num">{{ t("rec.net_qty") }}</th>
+    <th class="num">{{ t("rec.waste") }}</th><th class="num">{{ t("rec.gross") }}</th>
+    <th class="num">{{ t("ing.unit_cost") }}</th><th class="num">{{ t("rec.line_cost") }}</th>
+    <th class="num">{{ t("rec.share") }}</th></tr>
+{% for n in tree %}
+<tr>
+  <td><span class="lvl" style="padding-inline-start:{{ n.depth * 18 }}px">
+      {% if n.depth %}└ {% endif %}{{ n.label }}</span>
+      {% if n.kind == "prep" %} <span class="tag warn">{{ t("rec.prep") }}</span>{% endif %}</td>
+  <td class="num">{{ "%.4f"|format(n.net_qty) }} {{ n.unit }}</td>
+  <td class="num">{% if n.waste_pct %}{{ "%.0f"|format(n.waste_pct) }}%{% endif %}</td>
+  <td class="num">{% if n.depth %}{{ "%.4f"|format(n.gross_qty) }}{% endif %}</td>
+  <td class="num">{% if n.unit_cost is not none %}{{ "%.4f"|format(n.unit_cost) }}
+      {% elif n.depth %}<span class="tag bad">{{ t("ing.no_price") }}</span>{% endif %}</td>
+  <td class="num">{{ "%.4f"|format(n.cost) }}</td>
+  <td class="num">{{ "%.1f"|format(n.share_pct) }}%</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+{% if user.role.value == "MANAGER" %}
+<h2>{{ t("rec.add_line") }}</h2>
+<div class="card">
+<form method="post" action="/recetas/{{ recipe.code }}/linea">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="component">{{ t("rec.component") }}</label>
+  <select id="component" name="component" required>
+    <optgroup label="{{ t("ing.title") }}">
+      {% for i in ingredients %}<option value="ing:{{ i.id }}">{{ i.name }} ({{ i.unit.value }})</option>{% endfor %}
+    </optgroup>
+    <optgroup label="{{ t("rec.prep") }}">
+      {% for r in subrecipes %}<option value="rec:{{ r.id }}">{{ r.name }}</option>{% endfor %}
+    </optgroup>
+  </select>
+  <label for="qty">{{ t("rec.net_qty") }}</label>
+  <input id="qty" name="qty" type="number" step="any" required>
+  <label for="waste_pct">{{ t("rec.waste") }}</label>
+  <input id="waste_pct" name="waste_pct" type="number" step="any" value="0">
+  <div class="help">{{ t("rec.net_help") }}</div>
+  <button class="wide" type="submit">{{ t("rec.add_line") }}</button>
+</form>
+</div>
+
+<div class="card scroll">
+<table>
+{% for line in recipe.lines %}
+<tr>
+  <td>{{ line.ingredient.name if line.ingredient else line.sub_recipe.name }}</td>
+  <td class="num">{{ line.qty }}</td>
+  <td class="num">{{ line.waste_pct }}%</td>
+  <td><form method="post" action="/recetas/{{ recipe.code }}/linea/{{ line.id }}/borrar" style="margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="ghost" style="padding:4px 10px">✕</button></form></td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endif %}
+<p class="muted"><a href="/recetas">← {{ t("rec.title") }}</a></p>
+{% endblock %}

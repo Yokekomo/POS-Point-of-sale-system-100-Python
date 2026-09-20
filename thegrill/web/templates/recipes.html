@@ -1,0 +1,82 @@
+{% extends "base.html" %}{% block title %}{{ t("rec.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("rec.title") }}</h1>
+<p class="sub">{{ t("rec.sub") }}</p>
+
+{% if menu %}
+<h2>{{ t("rec.menu") }}</h2>
+<p class="sub">{{ t("rec.menu_help") }}</p>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("form.record") }}</th><th class="num">{{ t("rec.cost_portion") }}</th>
+    <th class="num">{{ t("rec.price") }}</th><th class="num">{{ t("rec.food_cost") }}</th>
+    <th class="num">{{ t("rec.margin") }}</th></tr>
+{% for m in menu %}
+<tr>
+  <td><a href="/recetas/{{ m.code }}">{{ m.name }}</a>
+      {% if not m.complete %} <span class="tag bad">!</span>{% endif %}</td>
+  <td class="num">{{ "%.2f"|format(m.cost_per_portion) }}</td>
+  <td class="num">{% if m.sale_price %}{{ "%.2f"|format(m.sale_price) }}{% endif %}</td>
+  <td class="num">{% if m.food_cost_pct is not none %}
+      <span class="tag {{ 'bad' if m.food_cost_pct > 35 else ('warn' if m.food_cost_pct > 28 else 'ok') }}">
+      {{ "%.1f"|format(m.food_cost_pct) }}%</span>{% else %}—{% endif %}</td>
+  <td class="num">{% if m.margin is not none %}{{ "%.2f"|format(m.margin) }}{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endif %}
+
+<h2>{{ t("rec.title") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("common.name") }}</th><th>{{ t("rec.kind") }}</th><th class="num">{{ t("rec.total_cost") }}</th>
+    <th class="num">{{ t("rec.cost_portion") }}</th><th>{{ t("rec.lines") }}</th></tr>
+{% for r in rows %}
+{% set c = costed[r.id] %}
+<tr>
+  <td><a href="/recetas/{{ r.code }}"><b>{{ r.name }}</b></a></td>
+  <td><span class="tag {{ 'ok' if r.kind.value == 'DISH' else 'warn' }}">
+      {{ t("rec.dish") if r.kind.value == "DISH" else t("rec.prep") }}</span></td>
+  <td class="num">{{ "%.4f"|format(c.total_cost) }}</td>
+  <td class="num">{% if r.kind.value == "DISH" %}{{ "%.4f"|format(c.cost_per_portion) }}
+      {% elif r.yield_qty %}{{ "%.4f"|format(c.total_cost / r.yield_qty) }} / {{ r.yield_unit.value if r.yield_unit }}{% endif %}</td>
+  <td class="muted">{{ r.lines | length }}</td>
+</tr>
+{% else %}
+<tr><td colspan="5" class="muted">{{ t("rec.empty") }}</td></tr>
+{% endfor %}
+</table>
+</div>
+
+{% if user.role.value == "MANAGER" %}
+<h2>{{ t("rec.new") }}</h2>
+<div class="card">
+<form method="post" action="/recetas/nueva">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="name">{{ t("common.name") }}</label>
+  <input id="name" name="name" required placeholder="Cheese burger">
+  <label for="kind">{{ t("rec.kind") }}</label>
+  <select id="kind" name="kind">
+    <option value="DISH">{{ t("rec.dish") }}</option>
+    <option value="PREP">{{ t("rec.prep") }}</option>
+  </select>
+  <label for="portions">{{ t("rec.portions") }}</label>
+  <input id="portions" name="portions" type="number" min="1" value="1">
+  <label for="yield_qty">{{ t("rec.yield") }}</label>
+  <div class="rowflex">
+    <input id="yield_qty" name="yield_qty" type="number" step="any" style="flex:1">
+    <select name="yield_unit" style="width:auto">
+      {% for u in units %}<option value="{{ u.value }}">{{ u.value }}</option>{% endfor %}
+    </select>
+  </div>
+  <label for="sale_price">{{ t("rec.price") }}</label>
+  <input id="sale_price" name="sale_price" type="number" step="any">
+  <label for="vat_pct">{{ t("rec.vat") }}</label>
+  <input id="vat_pct" name="vat_pct" type="number" step="any" value="10">
+  <div class="help">{{ t("rec.vat_help") }}</div>
+  <button class="wide" type="submit">{{ t("rec.new") }}</button>
+</form>
+</div>
+{% endif %}
+{% endblock %}

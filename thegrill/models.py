@@ -79,6 +79,32 @@ class HaccpKind(str, enum.Enum):
     FROZEN = "FROZEN"
 
 
+class Unit(str, enum.Enum):
+    """Unidad base del ingrediente. Las recetas se escriben en esta unidad."""
+    KG = "KG"
+    L = "L"
+    UNIT = "UNIT"
+
+
+class Rotation(str, enum.Enum):
+    """Cómo salen los lotes de un ingrediente madre."""
+    FEFO = "FEFO"   # antes lo que antes caduca (por defecto, lo correcto en fresco)
+    FIFO = "FIFO"   # antes lo que antes entró (seco y no perecedero)
+
+
+class RecipeKind(str, enum.Enum):
+    DISH = "DISH"    # plato que se vende: rinde raciones y tiene precio
+    PREP = "PREP"    # elaboración intermedia: rinde kg/l y se usa en otras recetas
+
+
+class MovementKind(str, enum.Enum):
+    IN = "IN"            # compra o entrada
+    SALE = "SALE"        # consumo por venta en el POS
+    WASTE = "WASTE"      # merma
+    PRODUCTION = "PRODUCTION"   # consumo por elaborar una producción
+    ADJUST = "ADJUST"    # ajuste por conteo físico
+
+
 class FefoStage(str, enum.Enum):
     MASTER = "MASTER"
     TO_ADD = "TO_ADD"
@@ -419,25 +445,6 @@ class SalesByProduct(TenantMixin, Base):
     unit_price: Mapped[float | None] = mapped_column(Float)
 
 
-class PortionMap(TenantMixin, Base):
-    __tablename__ = "portion_map"
-    __table_args__ = (UniqueConstraint("restaurant_id", "dish", name="uq_portion_restaurant_dish"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    dish: Mapped[str] = mapped_column(String(128), index=True)
-    sku: Mapped[str] = mapped_column(String(64), index=True)
-    kg_per_portion: Mapped[float] = mapped_column(Float)
-
-
-class ProductMaster(TenantMixin, Base):
-    __tablename__ = "product_master"
-    __table_args__ = (UniqueConstraint("restaurant_id", "pos_name", name="uq_product_restaurant_name"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    pos_name: Mapped[str] = mapped_column(String(128), index=True)
-    sku: Mapped[str] = mapped_column(String(64), index=True)
-
-
 class Bill(TenantMixin, Base):
     __tablename__ = "bills"
     __table_args__ = (UniqueConstraint("restaurant_id", "supplier", "number", name="uq_bill_restaurant_supplier_number"),)
@@ -480,17 +487,145 @@ class HaccpCheck(TenantMixin, Base):
     corrective_action: Mapped[str | None] = mapped_column(Text)
 
 
-class FefoLot(TenantMixin, Base):
-    __tablename__ = "fefo_stock"
+# ============================================ Ingredientes, lotes y recetas
+class Ingredient(TenantMixin, Base):
+    """Ingrediente MADRE: «leche». Es lo que se escribe en las recetas.
+
+    Debajo cuelgan los artículos concretos que se compran («leche entera marca
+    X»), y debajo de cada artículo sus lotes con caducidad y precio. Así la
+    receta no se toca cuando cambia la marca, y el stock sigue siendo el mismo
+    ingrediente.
+    """
+    __tablename__ = "ingredients"
+    __table_args__ = (UniqueConstraint("restaurant_id", "name", name="uq_ingredient_restaurant_name"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    ingredient: Mapped[str] = mapped_column(String(64), index=True)
-    lot: Mapped[str | None] = mapped_column(String(32))
+    name: Mapped[str] = mapped_column(String(128), index=True)
+    unit: Mapped[Unit] = mapped_column(Enum(Unit), default=Unit.KG)
+    rotation: Mapped[Rotation] = mapped_column(Enum(Rotation), default=Rotation.FEFO)
+    category: Mapped[str | None] = mapped_column(String(48))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    items: Mapped[list["IngredientItem"]] = relationship(
+        back_populates="ingredient", cascade="all, delete-orphan", order_by="IngredientItem.name")
+
+
+class IngredientItem(TenantMixin, Base):
+    """Artículo concreto atado a un ingrediente madre: la marca que se compra.
+
+    Cambiar de proveedor es dar de alta otro artículo bajo la misma madre. Las
+    recetas ni se enteran.
+    """
+    __tablename__ = "ingredient_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ingredient_id: Mapped[int] = mapped_column(ForeignKey("ingredients.id"), index=True)
+    name: Mapped[str] = mapped_column(String(160))
+    brand: Mapped[str | None] = mapped_column(String(96))
+    supplier: Mapped[str | None] = mapped_column(String(128))
+    reference: Mapped[str | None] = mapped_column(String(64))       # código del proveedor
+    pack_qty: Mapped[float] = mapped_column(Float, default=1.0)     # unidades base por envase
+    last_cost: Mapped[float | None] = mapped_column(Float)          # último precio por unidad base
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    ingredient: Mapped["Ingredient"] = relationship(back_populates="items")
+    lots: Mapped[list["IngredientLot"]] = relationship(
+        back_populates="item", cascade="all, delete-orphan", order_by="IngredientLot.expiry")
+
+
+class IngredientLot(TenantMixin, Base):
+    """Una entrada concreta de un artículo: su caducidad, su cantidad y su precio.
+
+    El consumo FEFO compite entre todos los lotes de la misma madre, sea cual
+    sea la marca: sale antes lo que antes caduca.
+    """
+    __tablename__ = "ingredient_lots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("ingredient_items.id"), index=True)
+    ingredient_id: Mapped[int] = mapped_column(ForeignKey("ingredients.id"), index=True)
+    lot_code: Mapped[str | None] = mapped_column(String(48))
     expiry: Mapped[date] = mapped_column(Date, index=True)
     received: Mapped[date | None] = mapped_column(Date)
-    kg: Mapped[float] = mapped_column(Float)
-    unit_cost_usd: Mapped[float] = mapped_column(Float)
-    stage: Mapped[FefoStage] = mapped_column(Enum(FefoStage), default=FefoStage.TO_ADD)
+    qty: Mapped[float] = mapped_column(Float)                  # cantidad recibida, en unidad base
+    qty_remaining: Mapped[float] = mapped_column(Float)        # lo que queda
+    unit_cost: Mapped[float] = mapped_column(Float)            # precio por unidad base
+    stage: Mapped[FefoStage] = mapped_column(Enum(FefoStage), default=FefoStage.MASTER)
+
+    item: Mapped["IngredientItem"] = relationship(back_populates="lots")
+    ingredient: Mapped["Ingredient"] = relationship()
+
+
+class IngredientMovement(TenantMixin, Base):
+    """Libro de movimientos: de dónde sale y adónde va cada gramo."""
+    __tablename__ = "ingredient_movements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ingredient_id: Mapped[int] = mapped_column(ForeignKey("ingredients.id"), index=True)
+    lot_id: Mapped[int | None] = mapped_column(ForeignKey("ingredient_lots.id"))
+    date: Mapped[date] = mapped_column(Date, index=True)
+    kind: Mapped[MovementKind] = mapped_column(Enum(MovementKind))
+    qty: Mapped[float] = mapped_column(Float)                  # positiva entra, negativa sale
+    cost: Mapped[float | None] = mapped_column(Float)          # valor del movimiento
+    source: Mapped[str] = mapped_column(String(32))            # pos / manual / count / purchase
+    source_ref: Mapped[str | None] = mapped_column(String(96))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+
+
+class Recipe(TenantMixin, Base):
+    """Escandallo. Un plato que se vende, o una elaboración que usan otras recetas."""
+    __tablename__ = "recipes"
+    __table_args__ = (UniqueConstraint("restaurant_id", "code", name="uq_recipe_restaurant_code"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(64), index=True)
+    name: Mapped[str] = mapped_column(String(160))
+    kind: Mapped[RecipeKind] = mapped_column(Enum(RecipeKind), default=RecipeKind.DISH)
+    category: Mapped[str | None] = mapped_column(String(48))
+    portions: Mapped[int] = mapped_column(Integer, default=1)        # raciones que salen (DISH)
+    yield_qty: Mapped[float | None] = mapped_column(Float)           # cuánto produce (PREP)
+    yield_unit: Mapped[Unit | None] = mapped_column(Enum(Unit))
+    sale_price: Mapped[float | None] = mapped_column(Float)          # PVP con impuestos
+    vat_pct: Mapped[float] = mapped_column(Float, default=0.0)       # para el food cost neto
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    # dos claves apuntan a `recipes` (la receta y su elaboración), hay que decir cuál
+    lines: Mapped[list["RecipeLine"]] = relationship(
+        back_populates="recipe", cascade="all, delete-orphan",
+        foreign_keys="RecipeLine.recipe_id", order_by="RecipeLine.sort_order")
+
+
+class RecipeLine(Base):
+    """Una línea del escandallo: un ingrediente base o una elaboración."""
+    __tablename__ = "recipe_lines"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id"), index=True)
+    ingredient_id: Mapped[int | None] = mapped_column(ForeignKey("ingredients.id"), index=True)
+    sub_recipe_id: Mapped[int | None] = mapped_column(ForeignKey("recipes.id"), index=True)
+    qty: Mapped[float] = mapped_column(Float)                  # peso NETO, el que va al plato
+    waste_pct: Mapped[float] = mapped_column(Float, default=0.0)   # merma de limpieza sobre el bruto
+    note: Mapped[str | None] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    recipe: Mapped["Recipe"] = relationship(back_populates="lines", foreign_keys=[recipe_id])
+    ingredient: Mapped["Ingredient"] = relationship()
+    sub_recipe: Mapped["Recipe"] = relationship(foreign_keys=[sub_recipe_id])
+
+
+class PosProduct(TenantMixin, Base):
+    """Nombre del producto en el POS → receta. Fuente única del mapeo."""
+    __tablename__ = "pos_products"
+    __table_args__ = (UniqueConstraint("restaurant_id", "pos_name", name="uq_pos_restaurant_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    pos_name: Mapped[str] = mapped_column(String(160), index=True)
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id"), index=True)
+
+    recipe: Mapped["Recipe"] = relationship()
 
 
 # ==================================== Orquestación y trazabilidad

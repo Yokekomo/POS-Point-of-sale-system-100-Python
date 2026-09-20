@@ -42,6 +42,46 @@ CSV de auditoría. Reparte el código de acceso del restaurante.
 solo lo que él mismo ha enviado. No entra en ninguna pantalla de gestión: cada
 ruta del área de manager le responde 403.
 
+## Recetas, escandallos y stock en tiempo real
+
+Cuatro niveles, de abajo arriba:
+
+1. **Artículos**: lo que compras de verdad, con su marca y su proveedor. Dos
+   tipos de chunk beef son dos artículos.
+2. **Ingrediente madre**: «Beef for burger». Los artículos cuelgan de él y sus
+   lotes se gastan en una sola cola. Cambiar de proveedor es dar de alta otro
+   artículo; la receta no se toca.
+3. **Elaboraciones**: Burger patty, Salsa burger, Burger. Una elaboración dice
+   cuánto produce, y por tanto cuánto cuesta su unidad.
+4. **Platos**: Cheese burger. Se componen de elaboraciones e ingredientes.
+
+**Rotación.** Cada madre elige FEFO, que saca antes lo que antes caduca, o FIFO
+estricto para seco y no perecedero. Compiten los lotes de todas sus marcas.
+
+**Precio real.** El precio de una madre es la media ponderada de lo que queda
+en sus lotes. Sin stock, el último precio conocido. Sin ninguno de los dos, el
+precio es desconocido y se dice: nunca se cuenta como cero.
+
+**Peso neto y merma.** Cada línea lleva lo que acaba en el plato y el porcentaje
+que se pierde al limpiar. Del almacén sale el bruto, `neto / (1 - merma)`. Así
+se ve lo que cuesta lo que se tira.
+
+**Food cost.** Se mide contra el precio sin impuestos. Sobre el PVP saldría un
+número más bonito y falso.
+
+**Descuento de stock.** Lo vendido se explota hasta ingredientes madre y se
+descuenta de los lotes por rotación, dejando un movimiento por cada salida con
+su coste. Si falta stock se descuenta lo que hay, se registra el faltante y
+salta una alerta: alguien no registró una entrada. Nunca queda stock negativo.
+
+**Tres vistas del dinero** en cada escandallo:
+
+- **Dónde se va el dinero**: total por ingrediente madre sumando todos los
+  caminos por los que entra al plato, de mayor a menor.
+- **Composición**: el árbol entero con el coste y el porcentaje de cada nivel,
+  del plato hasta el ingrediente.
+- **La carta por food cost**: todos los platos ordenados por el peor margen.
+
 ## Hojas para imprimir
 
 Hay un apartado de descargas, abierto a todo el equipo, con una hoja de Excel
@@ -170,25 +210,27 @@ propio límite legal y un solo campo numérico no puede validar los dos.
 thegrill/
   config.py              FX, límites HACCP, umbrales de precio, tolerancias de despiece
   db.py                  SQLAlchemy; SQLite por defecto, PostgreSQL cambiando la URL
-  models.py              27 tablas: plataforma, módulos de carne, auditoría
+  models.py              31 tablas: plataforma, módulos de carne, auditoría
   rules.py               Reglas del negocio de carne como funciones puras
   web/
     i18n.py              Seis idiomas, resolución y escritura de derecha a izquierda
     sheets.py            Hojas de registro en Excel, listas para imprimir
+    costing.py           Precios reales, rotación de lotes y descuento por venta
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
     service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV
     app.py               Rutas web de empleado y de manager
-    templates/           Quince pantallas, móvil primero, claro y oscuro
+    templates/           Veinte pantallas, móvil primero, claro y oscuro
   engine/
     fefo.py              Consumo por caducidad y valoración de merma
     stock.py             Motor v4: ledger, re-anclaje por conteo, genealogía por serial
     cost.py              Landed por kg, coste por corte, food cost
+    recipes.py           Escandallo: explosión, árbol de costes y food cost
   orchestrator/chain.py  Cadena diaria idempotente con checkpoints y reintentos
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   155 tests
+tests/                   190 tests
 ```
 
 ## Uso

@@ -1,0 +1,47 @@
+{% extends "base.html" %}{% block title %}{{ t("ing.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("ing.title") }}</h1>
+<p class="sub">{{ t("ing.sub") }}</p>
+
+<div class="card scroll">
+<table>
+<tr><th>{{ t("common.name") }}</th><th>{{ t("ing.unit") }}</th><th>{{ t("ing.rotation") }}</th>
+    <th class="num">{{ t("ing.stock") }}</th><th class="num">{{ t("ing.avg_cost") }}</th>
+    <th>{{ t("ing.items") }}</th></tr>
+{% for i in rows %}
+<tr>
+  <td><a href="/ingredientes/{{ i.id }}"><b>{{ i.name }}</b></a>
+      {% if i.category %}<div class="muted">{{ i.category }}</div>{% endif %}</td>
+  <td class="muted">{{ i.unit.value }}</td>
+  <td><span class="tag {{ 'ok' if i.rotation.value == 'FEFO' else 'warn' }}">{{ i.rotation.value }}</span></td>
+  <td class="num">{{ "%.3f"|format(stock.get(i.id, 0)) }}</td>
+  <td class="num">{% if costs.get(i.id) %}{{ "%.4f"|format(costs[i.id]) }}
+      {% else %}<span class="tag bad">{{ t("ing.no_price") }}</span>{% endif %}</td>
+  <td class="muted">{% for it in i.items %}{{ it.brand or it.name }}{% if not loop.last %} · {% endif %}
+      {% else %}<span class="tag warn">{{ t("ing.no_items") }}</span>{% endfor %}</td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="muted">{{ t("ing.empty") }}</td></tr>
+{% endfor %}
+</table>
+</div>
+
+{% if user.role.value == "MANAGER" %}
+<h2>{{ t("ing.new") }}</h2>
+<div class="card">
+<form method="post" action="/ingredientes/nuevo">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="name">{{ t("common.name") }}</label>
+  <input id="name" name="name" required placeholder="Beef for burger">
+  <label for="unit">{{ t("ing.unit") }}</label>
+  <select id="unit" name="unit">{% for u in units %}<option value="{{ u.value }}">{{ u.value }}</option>{% endfor %}</select>
+  <label for="rotation">{{ t("ing.rotation") }}</label>
+  <select id="rotation" name="rotation">{% for r in rotations %}<option value="{{ r.value }}">{{ r.value }}</option>{% endfor %}</select>
+  <div class="help">{{ t("ing.rotation_help") }}</div>
+  <label for="category">{{ t("dash.category") }}</label>
+  <input id="category" name="category">
+  <button class="wide" type="submit">{{ t("ing.new") }}</button>
+</form>
+</div>
+{% endif %}
+{% endblock %}

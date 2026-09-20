@@ -50,7 +50,17 @@ class FefoResult:
 
 
 def order_fefo(lots: list[Lot]) -> list[Lot]:
+    """Antes lo que antes caduca; a igual caducidad, lo que antes entró."""
     return sorted(lots, key=lambda l: (l.expiry, l.received or date.min, l.lot_id))
+
+
+def order_fifo(lots: list[Lot]) -> list[Lot]:
+    """Antes lo que antes entró; a igual entrada, lo que antes caduca."""
+    return sorted(lots, key=lambda l: (l.received or date.min, l.expiry, l.lot_id))
+
+
+def order_by(lots: list[Lot], rotation: str = "FEFO") -> list[Lot]:
+    return order_fifo(lots) if str(rotation).upper().endswith("FIFO") else order_fefo(lots)
 
 
 def consume(lots: list[Lot], ingredient: str, kg: float, allow_shortfall: bool = False) -> FefoResult:

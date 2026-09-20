@@ -18,10 +18,12 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile   # el que devuelve request.form(), no el de FastAPI
 
 from thegrill import db
-from thegrill.models import (Alert, Attachment, FieldType, Notification, Record,
-                             RecordTemplate, Restaurant, Role, TemplateField, User)
+from thegrill.models import (Alert, Attachment, FieldType, Ingredient, IngredientItem,
+                             Notification, PosProduct, Record, RecordTemplate, Recipe,
+                             RecipeKind, RecipeLine, Restaurant, Role, Rotation,
+                             TemplateField, Unit, User)
 
-from thegrill.web import auth, i18n, service, sheets
+from thegrill.web import auth, costing, i18n, service, sheets
 from thegrill.web.seed import seed_templates
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
@@ -87,6 +89,22 @@ def set_session_cookie(response: Response, token: str) -> Response:
     response.set_cookie(auth.COOKIE_NAME, token, httponly=True, samesite="lax",
                         secure=secure, max_age=auth.SESSION_DAYS * 86400, path="/")
     return response
+
+
+def _guard(request, session, user, auth_session, csrf: str) -> None:
+    try:
+        auth.check_csrf(auth_session, csrf, lang_for(request, session, user))
+    except auth.PermissionDenied as e:
+        raise HTTPException(status_code=403, detail=str(e)) from None
+
+
+def _own(session: Session, user: User, model, obj_id: int, request: Request):
+    """Trae una fila comprobando que es de este restaurante."""
+    row = session.get(model, obj_id)
+    if row is None or row.restaurant_id != user.restaurant_id:
+        raise HTTPException(status_code=404,
+                            detail=i18n.t(lang_for(request, session, user), "error.other_restaurant"))
+    return row
 
 
 def home_for(user: User) -> str:
@@ -467,6 +485,235 @@ def export_csv(request: Request, ctx=Depends(require_manager_user),
     body = service.export_records_csv(session, user.restaurant_id, since, until)
     return PlainTextResponse(body, media_type="text/csv", headers={
         "Content-Disposition": f'attachment; filename="registros_{since}_{until}.csv"'})
+
+
+# ====================================================== INGREDIENTES
+@app.get("/ingredientes", response_class=HTMLResponse)
+def ingredients_page(request: Request, ctx=Depends(require_user),
+                     session: Session = Depends(get_db)):
+    """Ingredientes madre con sus marcas, su stock y su precio real."""
+    user, auth_session = ctx
+    rows = (session.query(Ingredient).filter_by(restaurant_id=user.restaurant_id)
+            .order_by(Ingredient.name).all())
+    return page(request, "ingredients.html", user, auth_session, session, rows=rows,
+                stock=costing.stock_on_hand(session, user.restaurant_id),
+                costs=costing.unit_costs(session, user.restaurant_id),
+                units=list(Unit), rotations=list(Rotation))
+
+
+@app.post("/ingredientes/nuevo")
+def create_ingredient(request: Request, name: str = Form(...), unit: str = Form("KG"),
+                      rotation: str = Form("FEFO"), category: str = Form(""),
+                      csrf: str = Form(""), ctx=Depends(require_manager_user),
+                      session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    session.add(Ingredient(restaurant_id=user.restaurant_id, name=name.strip(),
+                           unit=Unit[unit] if unit in Unit.__members__ else Unit.KG,
+                           rotation=Rotation[rotation] if rotation in Rotation.__members__
+                           else Rotation.FEFO,
+                           category=category.strip() or None))
+    return RedirectResponse("/ingredientes", status_code=303)
+
+
+@app.get("/ingredientes/{ingredient_id}", response_class=HTMLResponse)
+def ingredient_detail(ingredient_id: int, request: Request, ctx=Depends(require_user),
+                      session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    ing = _own(session, user, Ingredient, ingredient_id, request)
+    return page(request, "ingredient_detail.html", user, auth_session, session, ing=ing,
+                stock=costing.stock_on_hand(session, user.restaurant_id),
+                costs=costing.unit_costs(session, user.restaurant_id),
+                order=costing.rotation_order(session, user.restaurant_id, ing))
+
+
+@app.post("/ingredientes/{ingredient_id}/articulo")
+def add_item(ingredient_id: int, request: Request, name: str = Form(...), brand: str = Form(""),
+             supplier: str = Form(""), csrf: str = Form(""), ctx=Depends(require_manager_user),
+             session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    ing = _own(session, user, Ingredient, ingredient_id, request)
+    session.add(IngredientItem(restaurant_id=user.restaurant_id, ingredient_id=ing.id,
+                               name=name.strip(), brand=brand.strip() or None,
+                               supplier=supplier.strip() or None))
+    return RedirectResponse(f"/ingredientes/{ingredient_id}", status_code=303)
+
+
+@app.post("/ingredientes/{ingredient_id}/entrada")
+def add_lot(ingredient_id: int, request: Request, item_id: int = Form(...),
+            qty: float = Form(...), unit_cost: float = Form(...), expiry: str = Form(...),
+            lot_code: str = Form(""), csrf: str = Form(""), ctx=Depends(require_user),
+            session: Session = Depends(get_db)):
+    """Registrar una entrada lo puede hacer cualquiera: se hace en el muelle."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    item = _own(session, user, IngredientItem, item_id, request)
+    try:
+        costing.receive(session, user, item, qty=qty, unit_cost=unit_cost,
+                        expiry=date.fromisoformat(expiry), lot_code=lot_code.strip() or None)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return RedirectResponse(f"/ingredientes/{ingredient_id}", status_code=303)
+
+
+# ========================================================== RECETAS
+@app.get("/recetas", response_class=HTMLResponse)
+def recipes_page(request: Request, ctx=Depends(require_user),
+                 session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    rows = (session.query(Recipe).filter_by(restaurant_id=user.restaurant_id)
+            .order_by(Recipe.kind, Recipe.name).all())
+    costs = costing.unit_costs(session, user.restaurant_id)
+    from thegrill.engine.recipes import cost_recipe
+    costed = {r.id: cost_recipe(r, costs) for r in rows}
+    return page(request, "recipes.html", user, auth_session, session, rows=rows,
+                costed=costed, menu=costing.menu(session, user.restaurant_id),
+                kinds=list(RecipeKind), units=list(Unit))
+
+
+@app.post("/recetas/nueva")
+def create_recipe(request: Request, name: str = Form(...), kind: str = Form("DISH"),
+                  portions: int = Form(1), yield_qty: str = Form(""), yield_unit: str = Form("KG"),
+                  sale_price: str = Form(""), vat_pct: float = Form(0.0), csrf: str = Form(""),
+                  ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    import re as _re
+    code = _re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:64] or "receta"
+    if session.query(Recipe).filter_by(restaurant_id=user.restaurant_id, code=code).first():
+        code = f"{code}_{int(datetime.utcnow().timestamp())}"
+    recipe = Recipe(restaurant_id=user.restaurant_id, code=code, name=name.strip(),
+                    kind=RecipeKind[kind] if kind in RecipeKind.__members__ else RecipeKind.DISH,
+                    portions=max(1, portions), vat_pct=vat_pct,
+                    yield_qty=float(yield_qty) if yield_qty else None,
+                    yield_unit=Unit[yield_unit] if yield_unit in Unit.__members__ else None,
+                    sale_price=float(sale_price) if sale_price else None)
+    session.add(recipe)
+    session.flush()
+    return RedirectResponse(f"/recetas/{recipe.code}", status_code=303)
+
+
+@app.get("/recetas/{code}", response_class=HTMLResponse)
+def recipe_detail(code: str, request: Request, ctx=Depends(require_user),
+                  session: Session = Depends(get_db)):
+    """El escandallo: el árbol entero, el coste de cada nivel y el food cost."""
+    user, auth_session = ctx
+    recipe = (session.query(Recipe)
+              .filter_by(restaurant_id=user.restaurant_id, code=code).first())
+    lang = lang_for(request, session, user)
+    if recipe is None:
+        raise HTTPException(status_code=404, detail=i18n.t(lang, "error.tpl_not_found"))
+    from thegrill.engine.recipes import cost_recipe, cost_tree, ingredient_rollup, prep_costs
+    costs = costing.unit_costs(session, user.restaurant_id)
+    tree = cost_tree(recipe, costs)
+    return page(request, "recipe_detail.html", user, auth_session, session, recipe=recipe,
+                cost=cost_recipe(recipe, costs), tree=list(tree.walk()),
+                rollup=ingredient_rollup(tree), preps=prep_costs(tree),
+                ingredients=(session.query(Ingredient)
+                             .filter_by(restaurant_id=user.restaurant_id, active=True)
+                             .order_by(Ingredient.name).all()),
+                subrecipes=(session.query(Recipe)
+                            .filter(Recipe.restaurant_id == user.restaurant_id,
+                                    Recipe.kind == RecipeKind.PREP,
+                                    Recipe.id != recipe.id)
+                            .order_by(Recipe.name).all()))
+
+
+@app.post("/recetas/{code}/linea")
+def add_recipe_line(code: str, request: Request, component: str = Form(...),
+                    qty: float = Form(...), waste_pct: float = Form(0.0),
+                    csrf: str = Form(""), ctx=Depends(require_manager_user),
+                    session: Session = Depends(get_db)):
+    """`component` llega como «ing:3» o «rec:7»."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    recipe = (session.query(Recipe)
+              .filter_by(restaurant_id=user.restaurant_id, code=code).first())
+    if recipe is None:
+        raise HTTPException(status_code=404, detail="")
+    kind, _, raw = component.partition(":")
+    line = RecipeLine(recipe_id=recipe.id, qty=qty, waste_pct=waste_pct,
+                      sort_order=len(recipe.lines) * 10)
+    if kind == "ing":
+        line.ingredient_id = _own(session, user, Ingredient, int(raw), request).id
+    elif kind == "rec":
+        line.sub_recipe_id = _own(session, user, Recipe, int(raw), request).id
+    else:
+        raise HTTPException(status_code=400, detail="")
+    session.add(line)
+    return RedirectResponse(f"/recetas/{code}", status_code=303)
+
+
+@app.post("/recetas/{code}/linea/{line_id}/borrar")
+def delete_recipe_line(code: str, line_id: int, request: Request, csrf: str = Form(""),
+                       ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    line = session.get(RecipeLine, line_id)
+    if line is not None:
+        recipe = session.get(Recipe, line.recipe_id)
+        if recipe is not None and recipe.restaurant_id == user.restaurant_id:
+            session.delete(line)
+    return RedirectResponse(f"/recetas/{code}", status_code=303)
+
+
+# ============================================================ VENTAS
+@app.get("/ventas", response_class=HTMLResponse)
+def sales_page(request: Request, ctx=Depends(require_user),
+               session: Session = Depends(get_db), done: str = ""):
+    user, auth_session = ctx
+    return page(request, "sales.html", user, auth_session, session, done=done,
+                mapping=(session.query(PosProduct).filter_by(restaurant_id=user.restaurant_id)
+                         .order_by(PosProduct.pos_name).all()),
+                dishes=(session.query(Recipe)
+                        .filter_by(restaurant_id=user.restaurant_id, kind=RecipeKind.DISH,
+                                   active=True).order_by(Recipe.name).all()))
+
+
+@app.post("/ventas/mapeo")
+def map_pos_product(request: Request, pos_name: str = Form(...), recipe_id: int = Form(...),
+                    csrf: str = Form(""), ctx=Depends(require_manager_user),
+                    session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    recipe = _own(session, user, Recipe, recipe_id, request)
+    existing = (session.query(PosProduct)
+                .filter_by(restaurant_id=user.restaurant_id, pos_name=pos_name.strip()).first())
+    if existing:
+        existing.recipe_id = recipe.id
+    else:
+        session.add(PosProduct(restaurant_id=user.restaurant_id,
+                               pos_name=pos_name.strip(), recipe_id=recipe.id))
+    return RedirectResponse("/ventas", status_code=303)
+
+
+@app.post("/ventas")
+async def register_sales(request: Request, ctx=Depends(require_user),
+                         session: Session = Depends(get_db)):
+    """Descuenta del almacén lo vendido. Cualquiera del equipo puede cargarlo."""
+    user, auth_session = ctx
+    form = await request.form()
+    lang = lang_for(request, session, user)
+    try:
+        auth.check_csrf(auth_session, form.get("csrf"), lang)
+    except auth.PermissionDenied as e:
+        raise HTTPException(status_code=403, detail=str(e)) from None
+
+    sales: list[tuple[str, float]] = []
+    for key, value in form.multi_items():
+        if key.startswith("units:") and str(value).strip():
+            try:
+                units = float(str(value).replace(",", "."))
+            except ValueError:
+                continue
+            if units > 0:
+                sales.append((key.split(":", 1)[1], units))
+    on = form.get("business_date")
+    result = costing.consume_sales(session, user, sales,
+                                   on=date.fromisoformat(on) if on else None, lang=lang)
+    summary = i18n.t(lang, "sale.done", n=result.lines, cost=f"{result.cost:.2f}")
+    return RedirectResponse(f"/ventas?done={summary}", status_code=303)
 
 
 # ========================================================= DESCARGAS
