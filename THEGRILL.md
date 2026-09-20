@@ -456,7 +456,7 @@ propio límite legal y un solo campo numérico no puede validar los dos.
 thegrill/
   config.py              FX, límites HACCP, umbrales de precio, tolerancias de despiece
   db.py                  SQLAlchemy; SQLite por defecto, PostgreSQL cambiando la URL
-  models.py              38 tablas: plataforma, módulos de carne, auditoría
+  models.py              41 tablas: plataforma, módulos de carne, auditoría
   rules.py               Reglas del negocio de carne como funciones puras
   web/
     i18n.py              Siete idiomas, resolución y escritura de derecha a izquierda
@@ -465,10 +465,11 @@ thegrill/
     butchery.py          Del primal a los cortes, con reparto de coste, serial propio y stock diario
     defrost.py           Descongelado, recuento de cierre y peso real por pieza
     inventory.py         Inventario mensual que re-ancla el stock, y recuperación de piezas
-    pos_import.py        El parte de ventas del POS: lee el fichero que salga y dice qué ha entendido
     tracing.py           Historia de un primal y reparto del ingreso
     waste.py             Merma de cámara: queda escrita y la paga lo que queda del lote
     aging.py             Maduración, congelador y venta a peso: el agua se va y el dinero no
+    twofactor.py         Los seis dígitos del segundo paso, y sus códigos de repuesto
+    pos_import.py        El parte de ventas del POS: lee el fichero que salga y dice qué ha entendido
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
     service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV
@@ -486,7 +487,7 @@ thegrill/
   importers/             Pendiente: facturas y hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   564 tests
+tests/                   606 tests
 ```
 
 ## Uso

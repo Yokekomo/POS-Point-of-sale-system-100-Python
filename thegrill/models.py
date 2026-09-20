@@ -205,6 +205,10 @@ class Restaurant(Base):
     # --- la cuenta: quién es la casa y cómo está con el recibo del mes
     platform: Mapped[bool | None] = mapped_column(Boolean, default=False)  # la casa del dueño
     plan: Mapped[Plan | None] = mapped_column(Enum(Plan))
+    # Varias casas de la misma empresa comparten grupo: se facturan juntas y se
+    # ven juntas. Cada una sigue teniendo su cámara y su gente, que es lo que
+    # una cocina espera; lo que se junta es el recibo.
+    group_name: Mapped[str | None] = mapped_column(String(96), index=True)
     outlets: Mapped[int | None] = mapped_column(Integer)          # locales contratados
     monthly_fee: Mapped[float | None] = mapped_column(Float)      # lo que paga al mes
     billing: Mapped[Billing | None] = mapped_column(Enum(Billing))

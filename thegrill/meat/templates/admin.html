@@ -57,6 +57,33 @@
 </form>
 
 <h2>{{ t("adm.accounts") }}</h2>
+{% for g in groups if g.name %}
+<div class="card">
+  <div class="rowflex">
+    <div style="flex:1">
+      <b>{{ g.name }}</b>
+      <div class="muted">{{ t("adm.outlets", n=g.outlets) }} ·
+        {{ "%.2f"|format(g.monthly) }} {{ t("adm.fee")|lower }}</div>
+    </div>
+    {% if g.needs_attention %}<span class="tag bad">{{ t("billing.PAST_DUE") }}</span>{% endif %}
+  </div>
+  <form method="post" action="/admin/grupo/pago" class="rowflex" style="margin-top:10px">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="group" value="{{ g.name }}">
+    <input name="paid_until" type="date" style="max-width:170px" aria-label="{{ t("adm.paid_until") }}">
+    <input name="note" placeholder="{{ t("acct.note") }}" style="flex:1">
+    <button name="action" value="paid" type="submit">{{ t("adm.group_paid") }}</button>
+    <button name="action" value="past_due" class="ghost" type="submit">{{ t("adm.mark_past_due") }}</button>
+  </form>
+  <div class="muted" style="margin-top:8px">
+    {% for h in g.houses %}{{ h.restaurant.name }}
+      <span class="tag {{ 'bad' if h.blocked else ('warn' if h.restaurant.needs_attention else 'ok') }}">
+      {{ t("billing." ~ h.restaurant.billing.value) if h.restaurant.billing else "—" }}</span>{% if not loop.last %} · {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+
 {% for a in accounts %}
 <div class="card">
   <div class="rowflex">

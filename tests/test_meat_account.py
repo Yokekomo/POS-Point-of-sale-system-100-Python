@@ -729,3 +729,48 @@ def test_the_landing_works_with_and_without_photos(client, tmp_path, monkeypatch
     assert 'id="fotos"' in con.text
     assert "/static/fotos/primal.jpg" in con.text
     assert "cortes.jpg" not in con.text          # la que no está, no se inventa
+
+
+# ------------------------------------------------- varios locales, un recibo
+def test_several_outlets_of_one_company_are_billed_together(client):
+    """El plan de varios locales, por lo menos en el recibo: una empresa, un cobro."""
+    from datetime import date as _date
+
+    from thegrill.meat import billing as facturacion
+    from thegrill.models import Billing as Estado
+
+    with db.session_scope() as s:
+        dueño = s.query(User).filter_by(role=Role.OWNER).one()
+        for n, nombre in enumerate(("Marina Centro", "Marina Puerto", "Marina Norte")):
+            casa, _ = facturacion.create_account(
+                s, name=nombre, manager_name=f"Jefe {n}",
+                manager_email=f"jefe{n}@marina.com", password="clave-larga-3",
+                plan=Plan.MULTI, monthly_fee=89.0, group="Grupo Marina", language="es")
+            casa.billing = Estado.PAST_DUE
+        facturacion.create_account(s, name="Otro Asador", manager_name="Sara",
+                                   manager_email="sara@otro.com", password="clave-larga-4",
+                                   plan=Plan.SINGLE, monthly_fee=89.0, language="es")
+        s.flush()
+
+        grupos = {g.name: g for g in facturacion.grouped(s)}
+        assert grupos["Grupo Marina"].outlets == 3
+        assert grupos["Grupo Marina"].monthly == 267.0
+        assert grupos["Grupo Marina"].needs_attention
+        assert None in grupos and grupos[None].outlets >= 1     # las que van solas
+
+    como_dueno(client)
+    pantalla = client.get("/admin")
+    assert "Grupo Marina" in pantalla.text and "3 locales" in pantalla.text
+
+    r = client.post("/admin/grupo/pago", data={
+        "csrf": csrf_from(pantalla.text), "group": "Grupo Marina", "action": "paid",
+        "paid_until": "2026-12-31", "note": "transferencia"})
+    assert r.status_code == 303
+
+    with db.session_scope() as s:
+        for nombre in ("Marina Centro", "Marina Puerto", "Marina Norte"):
+            casa = s.query(Restaurant).filter_by(name=nombre).one()
+            assert casa.billing == Estado.ACTIVE
+            assert casa.paid_until == _date(2026, 12, 31)
+        otro = s.query(Restaurant).filter_by(name="Otro Asador").one()
+        assert otro.billing != Estado.ACTIVE          # esa no es del grupo

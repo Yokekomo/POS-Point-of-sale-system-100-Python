@@ -515,12 +515,23 @@ pequeña y un dominio, la plataforma queda sirviendo con su certificado en veint
 minutos. El detalle —qué hosting hace falta, qué significa «a nivel mundial» y
 qué dejar montado antes de abrir— está en **[DESPLIEGUE.md](DESPLIEGUE.md)**.
 
+## Varios locales
+
+El plan de varios locales existe en el recibo: las casas de la misma empresa
+comparten grupo, se ven juntas en la pantalla de la plataforma con sus locales
+y su cuota total, y se cobran de una vez —una empresa, un recibo, no cinco—.
+
+Lo que **no** está: cada local sigue siendo una casa con su cámara, su gente y
+su acceso. Quien lleve tres locales entra tres veces, y no hay una pantalla que
+sume la carne de los tres. Eso es lo siguiente de verdad, y es un trabajo de
+fondo: una persona tendría que poder pertenecer a varias casas y elegir en cuál
+está, y los números tendrían que saber sumarse sin mezclar cámaras.
+
 ## Por dónde seguir
 
-1. Varias cámaras o varios puntos de venta dentro del mismo hotel, para saber
-   qué carne está en cada sitio.
-2. Cambiar la contraseña: hoy nadie puede, ni uno la suya ni el manager la de
-   su gente.
+1. Varios locales de verdad: una persona en varias casas, y los números del
+   grupo sumados sin mezclar cámaras. Hoy el grupo solo existe en el recibo.
+2. Varias cámaras dentro del mismo local, para saber en cuál está cada pieza.
 3. Parte de carne diario en PDF, para el pase.
 4. Guardar el cuadre de cada turno, para ver la pérdida acumulada del mes sin
    tener que ir aviso por aviso.

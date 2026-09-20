@@ -1249,11 +1249,35 @@ def admin_home(request: Request, ctx=Depends(require_owner),
     return page(request, "admin.html", user, auth_session, session, done=done,
                 requests=privacy.readable(rows),
                 accounts=billing.accounts(session),
+                groups=billing.grouped(session),
                 statuses=list(RequestStatus), plans=list(Plan),
                 trial_left=billing.trial_left,
                 mail_ready=mailer.configured(),
                 encryption_on=privacy.encryption_on(),
                 retention_days=privacy.RETENTION_DAYS)
+
+
+@app.post("/admin/grupo/pago")
+def group_payment(request: Request, group: str = Form(...), action: str = Form("paid"),
+                  paid_until: str = Form(""), note: str = Form(""), csrf: str = Form(""),
+                  ctx=Depends(require_owner), session: Session = Depends(get_db)):
+    """Un grupo se cobra de una vez: es una empresa y un recibo, no cinco."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    casas = (session.query(Restaurant)
+             .filter(Restaurant.group_name == group.strip(),
+                     Restaurant.platform.isnot(True)).all())
+    if not casas:
+        raise HTTPException(status_code=404, detail="Ese grupo no existe")
+    hasta = date.fromisoformat(paid_until) if paid_until.strip() else None
+    for casa in casas:
+        if action == "paid":
+            billing.mark_paid(session, user, casa, until=hasta, note=note.strip() or None)
+        elif action == "past_due":
+            billing.mark_unpaid(session, user, casa, note=note.strip() or None)
+        elif action == "block":
+            billing.mark_unpaid(session, user, casa, block=True, note=note.strip() or None)
+    return RedirectResponse("/admin?done=1", status_code=303)
 
 
 @app.post("/admin/solicitud/{request_id}/borrar")
@@ -1314,6 +1338,7 @@ async def create_account(request: Request, ctx=Depends(require_owner),
             manager_name=(form.get("manager_name") or "").strip(),
             manager_email=(form.get("manager_email") or "").strip(),
             password=form.get("password") or "",
+            group=form.get("group") or None,
             plan=Plan[plan] if plan in Plan.__members__ else Plan.SINGLE,
             outlets=int(_num(form.get("outlets"), 1) or 1),
             monthly_fee=_num(form.get("monthly_fee")),

@@ -11,7 +11,7 @@ La cadena es corta y a propósito:
 
 Nadie se da de alta solo: no hay registro abierto en esta edición.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from sqlalchemy.orm import Session
@@ -139,7 +139,8 @@ def set_request_status(session: Session, request_id: int,
 def create_account(session: Session, *, name: str, manager_name: str, manager_email: str,
                    password: str, plan: Plan = Plan.SINGLE, outlets: int = 1,
                    monthly_fee: float | None = None, language: str = "es",
-                   request_id: int | None = None, **fiscal) -> tuple[Restaurant, User]:
+                   request_id: int | None = None, group: str | None = None,
+                   **fiscal) -> tuple[Restaurant, User]:
     """Da de alta el restaurante y la cuenta de su manager.
 
     Es el único camino: en esta edición nadie se registra solo.
@@ -147,6 +148,7 @@ def create_account(session: Session, *, name: str, manager_name: str, manager_em
     restaurant, manager = auth.create_restaurant(session, name, manager_email,
                                                  manager_name, password, language=language)
     restaurant.plan = plan
+    restaurant.group_name = (group or "").strip() or None
     restaurant.outlets = max(1, outlets or 1)
     restaurant.monthly_fee = monthly_fee
     # Sin método de pago no empieza la prueba: primero la tarjeta en la pasarela.
@@ -269,6 +271,36 @@ class Account:
     @property
     def blocked(self) -> bool:
         return self.restaurant.blocked
+
+
+@dataclass
+class Group:
+    """Varias casas de la misma empresa, para verlas y cobrarlas juntas."""
+    name: str | None
+    houses: list["Account"] = field(default_factory=list)
+
+    @property
+    def outlets(self) -> int:
+        return len(self.houses)
+
+    @property
+    def monthly(self) -> float:
+        return round(sum(h.restaurant.monthly_fee or 0.0 for h in self.houses), 2)
+
+    @property
+    def needs_attention(self) -> bool:
+        return any(h.restaurant.needs_attention or h.blocked for h in self.houses)
+
+
+def grouped(session: Session) -> list[Group]:
+    """Las casas por grupo. Las que van solas quedan en un grupo de una."""
+    groups: dict[str | None, Group] = {}
+    for account in accounts(session):
+        key = account.restaurant.group_name or None
+        groups.setdefault(key, Group(name=key)).houses.append(account)
+    # Primero los grupos de verdad, y dentro por nombre de casa.
+    return sorted(groups.values(),
+                  key=lambda g: (g.name is None, g.name or "",))
 
 
 def accounts(session: Session) -> list[Account]:
