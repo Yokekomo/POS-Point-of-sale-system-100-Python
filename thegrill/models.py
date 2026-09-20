@@ -438,32 +438,6 @@ class MeatEntry(TenantMixin, Base):
     bill_id: Mapped[int | None] = mapped_column(ForeignKey("bills.id"))
 
 
-class Order(TenantMixin, Base):
-    __tablename__ = "orders"
-    __table_args__ = (UniqueConstraint("restaurant_id", "order_ref", name="uq_order_restaurant_ref"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    order_ref: Mapped[str] = mapped_column(String(16), index=True)
-    date: Mapped[date] = mapped_column(Date, index=True)
-    outlet: Mapped[str] = mapped_column(String(128), index=True)
-    route: Mapped[str] = mapped_column(String(16))
-    status: Mapped[str] = mapped_column(String(16), default="COMPILED")
-
-    lines: Mapped[list["OrderLine"]] = relationship(back_populates="order", cascade="all, delete-orphan")
-
-
-class OrderLine(Base):
-    __tablename__ = "order_lines"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), index=True)
-    product: Mapped[str] = mapped_column(String(128))
-    qty: Mapped[float] = mapped_column(Float)
-    unit: Mapped[str | None] = mapped_column(String(16))
-
-    order: Mapped["Order"] = relationship(back_populates="lines")
-
-
 class HaccpCheck(TenantMixin, Base):
     __tablename__ = "haccp_checks"
 

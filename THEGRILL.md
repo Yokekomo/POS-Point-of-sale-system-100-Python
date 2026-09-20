@@ -77,7 +77,7 @@ propio límite legal y un solo campo numérico no puede validar los dos.
 thegrill/
   config.py              FX, límites HACCP, umbrales de precio, tolerancias de despiece
   db.py                  SQLAlchemy; SQLite por defecto, PostgreSQL cambiando la URL
-  models.py              28 tablas: plataforma, módulos de carne, auditoría
+  models.py              26 tablas: plataforma, módulos de carne, auditoría
   rules.py               Reglas del negocio de carne como funciones puras
   web/
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles

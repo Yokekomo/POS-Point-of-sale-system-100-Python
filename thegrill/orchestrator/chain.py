@@ -142,9 +142,9 @@ class Chain:
 
 
 # Los nombres conservan la numeración de la especificación de negocio (§6) para
-# que cada paso siga siendo rastreable en una auditoría. El paso 1 era el
-# fichaje de personal y se retiró: la cadena empieza en el 2. El paso 9 solo
-# compila pedidos; el programa no envía mensajes a nadie.
+# que cada paso siga siendo rastreable en una auditoría. Se retiraron el paso 1
+# (fichaje de personal) y el 9 (pedidos a locales), así que la cadena empieza en
+# el 2 y salta del 8b al 10.
 STEP_ORDER = [
     ("02_produccion_merma", None),
     ("03_despiece", None),
@@ -156,7 +156,6 @@ STEP_ORDER = [
     ("07c_haccp_walkin", None),
     ("08_inventario_semanal", 0),     # lunes
     ("08b_plan_pan", 1),              # martes
-    ("09_pedidos", None),
     ("10_daily_report", None),
 ]
 
