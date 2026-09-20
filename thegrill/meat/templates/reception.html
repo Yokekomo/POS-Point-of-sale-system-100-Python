@@ -45,7 +45,9 @@
 <div class="card scroll">
 <table>
 <tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.sku") }}</th><th>{{ t("m.rec.lot") }}</th>
-    <th class="num">kg</th><th class="num">{{ t("m.rec.cost") }}</th><th>{{ t("common.status") }}</th></tr>
+    <th class="num">kg</th>
+    {% if can("money") %}<th class="num">{{ t("m.rec.cost") }}</th>{% endif %}
+    <th>{{ t("common.status") }}</th></tr>
 {% for p in recent %}
 <tr>
   <td><a href="/trazabilidad?serial={{ p.serial }}">{{ p.serial }}</a></td>
@@ -53,7 +55,9 @@
       {% if p.origin %} <span class="muted">{{ p.origin }}</span>{% endif %}</td>
   <td class="muted">{{ p.lot or "" }}</td>
   <td class="num">{{ "%.2f"|format(p.weight_kg) }}</td>
+  {% if can("money") %}
   <td class="num">{% if p.piece_cost_usd %}{{ "%.2f"|format(p.piece_cost_usd) }}{% endif %}</td>
+  {% endif %}
   <td><span class="tag {{ 'ok' if p.status.value == 'IN_STOCK' else '' }}">{{ p.status.value }}</span></td>
 </tr>
 {% else %}

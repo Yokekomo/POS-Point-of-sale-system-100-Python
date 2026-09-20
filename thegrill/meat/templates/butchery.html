@@ -35,14 +35,17 @@
   <div class="card scroll" style="margin:0 0 14px">
   <table>
   <tr><th></th><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.sku") }}</th>
-      <th class="num">kg</th><th class="num">{{ t("m.rec.cost") }}</th></tr>
+      <th class="num">kg</th>
+      {% if can("money") %}<th class="num">{{ t("m.rec.cost") }}</th>{% endif %}</tr>
   {% for p in primals %}
   <tr>
     <td><input type="checkbox" name="primal" value="{{ p.serial }}" id="p{{ p.id }}"></td>
     <td><label for="p{{ p.id }}" style="margin:0">{{ p.serial }}</label></td>
     <td>{{ p.sku }}</td>
     <td class="num">{{ "%.2f"|format(p.weight_kg) }}</td>
+    {% if can("money") %}
     <td class="num">{% if p.piece_cost_usd %}{{ "%.2f"|format(p.piece_cost_usd) }}{% endif %}</td>
+    {% endif %}
   </tr>
   {% endfor %}
   </table>

@@ -75,11 +75,27 @@ def require_manager_user(request: Request, session: Session = Depends(get_db)):
     return user, auth_session
 
 
+MANAGER_ONLY = {"inventory", "fix", "catalogue", "menu", "team"}
+
+
+def kitchen_can(user: User | None):
+    def can(capability: str) -> bool:
+        if capability in MANAGER_ONLY:
+            return bool(user) and user.role == Role.MANAGER
+        return user is not None
+    return can
+
+
 def page(request: Request, name: str, user: User | None = None, auth_session=None,
          session: Session | None = None, **ctx):
     lang = ctx.pop("lang", None) or lang_for(request, session, user)
     base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
             "today": date.today().isoformat(),
+            # La plataforma de cocina no tiene niveles de carne: las plantillas
+            # que comparte con esa edición preguntan, y aquí se responde con lo
+            # que la cocina ya hacía: el manager manda, el dinero lo ve todo el
+            # equipo y los datos del día los mete cualquiera.
+            "can": kitchen_can(user),
             "unread": service.unread_count(session, user.id) if (user and session) else 0,
             "t": i18n.translator(lang), "lang": lang, "dir": i18n.direction(lang),
             "languages": i18n.LANGUAGES}

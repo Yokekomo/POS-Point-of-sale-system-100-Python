@@ -25,6 +25,7 @@ from thegrill.db import Base
 # =============================================================== Enums
 class Role(str, enum.Enum):
     MANAGER = "MANAGER"      # acceso total: estadísticas, configuración, usuarios
+    BUTCHER = "BUTCHER"      # la carne entera: recibir, despiezar, contar. Sin dinero
     EMPLOYEE = "EMPLOYEE"    # solo meter datos y fotos, y ver lo que él mismo metió
 
 

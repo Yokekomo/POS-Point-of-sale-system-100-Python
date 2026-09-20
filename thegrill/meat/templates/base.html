@@ -101,18 +101,20 @@ input[type=file]{padding:9px}
   <div class="brand">{{ t("m.app.title") }}<small>{{ user.name }} · {{ t("role." ~ user.role.value) }}</small></div>
   <nav>
     <a href="/hoy">{{ t("m.nav.today") }}</a>
-    <a href="/recepcion">{{ t("m.nav.reception") }}</a>
-    <a href="/despiece">{{ t("m.nav.butchery") }}</a>
-    <a href="/carne">{{ t("m.nav.chamber") }}</a>
-    <a href="/descongelado">{{ t("m.nav.defrost") }}</a>
-    <a href="/inventario">{{ t("nav.inventory") }}</a>
-    <a href="/merma">{{ t("nav.waste") }}</a>
-    <a href="/trazabilidad">{{ t("nav.tracing") }}</a>
-    <a href="/cortes">{{ t("m.nav.cuts") }}</a>
+    {% if can("receive") %}<a href="/recepcion">{{ t("m.nav.reception") }}</a>{% endif %}
+    {% if can("butcher") %}<a href="/despiece">{{ t("m.nav.butchery") }}</a>{% endif %}
+    {% if can("stock") %}<a href="/carne">{{ t("m.nav.chamber") }}</a>{% endif %}
+    {% if can("defrost") %}<a href="/descongelado">{{ t("m.nav.defrost") }}</a>{% endif %}
+    {% if can("count") %}<a href="/inventario">{{ t("nav.inventory") }}</a>{% endif %}
+    {% if can("waste") %}<a href="/merma">{{ t("nav.waste") }}</a>{% endif %}
+    {% if can("stock") %}<a href="/trazabilidad">{{ t("nav.tracing") }}</a>
+    <a href="/cortes">{{ t("m.nav.cuts") }}</a>{% endif %}
+  {% if can("menu") %}
     <a href="/carta">{{ t("m.nav.menu") }}</a>
     <a href="/ingredientes">{{ t("m.nav.extras") }}</a>
     <a href="/ventas">{{ t("nav.sales") }}</a>
-  {% if user.role.value == "MANAGER" %}
+  {% endif %}
+  {% if can("team") %}
     <a href="/manager/alertas">{{ t("nav.alerts") }}</a>
     <a href="/manager/equipo">{{ t("nav.team") }}</a>
   {% endif %}

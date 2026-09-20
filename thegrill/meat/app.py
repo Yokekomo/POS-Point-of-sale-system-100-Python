@@ -18,6 +18,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from thegrill import db
+from thegrill.meat import perms
 from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
 from thegrill.models import (Alert, ConsumptionMode, CountPeriod, CountStatus, Ingredient,
@@ -73,11 +74,27 @@ def require_manager_user(request: Request, session: Session = Depends(get_db)):
     return user, auth_session
 
 
+def needs(capability: str):
+    """Depende de poder hacer eso. La puerta se cierra aquí, no en la plantilla.
+
+    Una barra sin enlace no es una puerta cerrada: si no se comprueba en la
+    ruta, basta escribir la dirección a mano para entrar.
+    """
+    def dependency(request: Request, session: Session = Depends(get_db)):
+        user, auth_session = require_user(request, session)
+        if not perms.can(user, capability):
+            raise HTTPException(
+                status_code=403,
+                detail=i18n.t(lang_for(request, session, user), "error.not_your_level"))
+        return user, auth_session
+    return dependency
+
+
 def page(request: Request, name: str, user: User | None = None, auth_session=None,
          session: Session | None = None, **ctx):
     lang = ctx.pop("lang", None) or lang_for(request, session, user)
     base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
-            "today": date.today().isoformat(),
+            "today": date.today().isoformat(), "can": perms.checker(user),
             "unread": service.unread_count(session, user.id) if (user and session) else 0,
             "t": i18n.translator(lang), "lang": lang, "dir": i18n.direction(lang),
             "languages": i18n.LANGUAGES}
@@ -228,7 +245,7 @@ def home(request: Request, ctx=Depends(require_user), session: Session = Depends
 
 # ========================================================== RECEPCIÓN
 @app.get("/recepcion", response_class=HTMLResponse)
-def reception_page(request: Request, ctx=Depends(require_user),
+def reception_page(request: Request, ctx=Depends(needs(perms.RECEIVE)),
                    session: Session = Depends(get_db)):
     user, auth_session = ctx
     return _reception(request, user, auth_session, session)
@@ -240,7 +257,7 @@ def _reception(request, user, auth_session, session, *, done=None, error=""):
 
 
 @app.post("/recepcion", response_class=HTMLResponse)
-async def receive(request: Request, ctx=Depends(require_user),
+async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
                   session: Session = Depends(get_db)):
     """Un lote de recepción: cada pieza con su número, su peso y su precio."""
     user, auth_session = ctx
@@ -276,7 +293,7 @@ async def receive(request: Request, ctx=Depends(require_user),
 
 # ============================================================ DESPIECE
 @app.get("/despiece", response_class=HTMLResponse)
-def butchery_page(request: Request, ctx=Depends(require_user),
+def butchery_page(request: Request, ctx=Depends(needs(perms.BUTCHER)),
                   session: Session = Depends(get_db)):
     user, auth_session = ctx
     return _butchery(request, user, auth_session, session)
@@ -292,7 +309,7 @@ def _butchery(request, user, auth_session, session, *, done=None, issues=(), err
 
 
 @app.post("/despiece", response_class=HTMLResponse)
-async def post_butchery(request: Request, ctx=Depends(require_user),
+async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
                         session: Session = Depends(get_db)):
     """Vuelca el despiece a cámara: cada corte, con su serial y su coste."""
     user, auth_session = ctx
@@ -329,7 +346,7 @@ async def post_butchery(request: Request, ctx=Depends(require_user),
 
 # ============================================================== CÁMARA
 @app.get("/carne", response_class=HTMLResponse)
-def chamber(request: Request, ctx=Depends(require_user),
+def chamber(request: Request, ctx=Depends(needs(perms.STOCK)),
             session: Session = Depends(get_db), closed: str = ""):
     """Lo que queda: cortes en cámara y primales sin despiezar."""
     user, auth_session = ctx
@@ -338,7 +355,7 @@ def chamber(request: Request, ctx=Depends(require_user),
 
 
 @app.post("/carne/cierre")
-def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(require_user),
+def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(needs(perms.STOCK)),
                    session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -348,7 +365,7 @@ def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(require_u
 
 # ======================================================== DESCONGELADO
 @app.get("/descongelado", response_class=HTMLResponse)
-def defrost_page(request: Request, ctx=Depends(require_user),
+def defrost_page(request: Request, ctx=Depends(needs(perms.DEFROST)),
                  session: Session = Depends(get_db), shift: str = "", done: str = ""):
     user, auth_session = ctx
     return _defrost(request, user, auth_session, session, shift=shift, done=done)
@@ -369,7 +386,7 @@ def _defrost(request, user, auth_session, session, *, shift="", done="", error="
 @app.post("/descongelado/salida", response_class=HTMLResponse)
 def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form(...),
                    total_kg: str = Form(...), shift: str = Form(""), note: str = Form(""),
-                   csrf: str = Form(""), ctx=Depends(require_user),
+                   csrf: str = Form(""), ctx=Depends(needs(perms.DEFROST)),
                    session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -384,7 +401,7 @@ def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form
 @app.post("/descongelado/recuento", response_class=HTMLResponse)
 def defrost_count(request: Request, serial: str = Form(...), pieces: int = Form(...),
                   total_kg: str = Form(...), shift: str = Form(""), note: str = Form(""),
-                  csrf: str = Form(""), ctx=Depends(require_user),
+                  csrf: str = Form(""), ctx=Depends(needs(perms.DEFROST)),
                   session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -398,7 +415,7 @@ def defrost_count(request: Request, serial: str = Form(...), pieces: int = Form(
 
 @app.post("/descongelado/cierre", response_class=HTMLResponse)
 def defrost_close(request: Request, shift: str = Form(""), csrf: str = Form(""),
-                  ctx=Depends(require_user), session: Session = Depends(get_db)):
+                  ctx=Depends(needs(perms.CLOSE_SHIFT)), session: Session = Depends(get_db)):
     """El cierre convierte el recuento en consumo real y lo descuenta."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -413,7 +430,7 @@ def defrost_close(request: Request, shift: str = Form(""), csrf: str = Form(""),
 
 # =============================================================== CORTES
 @app.get("/cortes", response_class=HTMLResponse)
-def cuts_page(request: Request, ctx=Depends(require_user),
+def cuts_page(request: Request, ctx=Depends(needs(perms.STOCK)),
               session: Session = Depends(get_db), error: str = ""):
     user, auth_session = ctx
     return page(request, "cuts.html", user, auth_session, session, error=error,
@@ -426,7 +443,7 @@ def cuts_page(request: Request, ctx=Depends(require_user),
 @app.post("/cortes/nuevo")
 def new_cut(request: Request, name: str = Form(...), min_stock: str = Form(""),
             rotation: str = Form("FEFO"), consumption: str = Form("RECIPE"),
-            csrf: str = Form(""), ctx=Depends(require_manager_user),
+            csrf: str = Form(""), ctx=Depends(needs(perms.CATALOGUE)),
             session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -445,7 +462,7 @@ def new_cut(request: Request, name: str = Form(...), min_stock: str = Form(""),
 @app.post("/cortes/{cut_id}/articulo")
 def new_article(cut_id: int, request: Request, name: str = Form(...),
                 supplier: str = Form(""), csrf: str = Form(""),
-                ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+                ctx=Depends(needs(perms.CATALOGUE)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     cut = _own(session, user, Ingredient, cut_id, request)
@@ -458,7 +475,7 @@ def new_article(cut_id: int, request: Request, name: str = Form(...),
 
 # ================================================================ CARTA
 @app.get("/carta", response_class=HTMLResponse)
-def menu_page(request: Request, ctx=Depends(require_user),
+def menu_page(request: Request, ctx=Depends(needs(perms.MENU)),
               session: Session = Depends(get_db), error: str = ""):
     user, auth_session = ctx
     return page(request, "menu.html", user, auth_session, session, error=error,
@@ -470,7 +487,7 @@ def menu_page(request: Request, ctx=Depends(require_user),
 def new_dish(request: Request, name: str = Form(...), cut_id: int = Form(...),
              grams: str = Form(...), sale_price: str = Form(""), vat_pct: str = Form("0"),
              pos_code: str = Form(""), pos_name: str = Form(""), csrf: str = Form(""),
-             ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+             ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -485,7 +502,7 @@ def new_dish(request: Request, name: str = Form(...), cut_id: int = Form(...),
 
 # =============================================== OTROS INGREDIENTES DEL PLATO
 @app.get("/ingredientes", response_class=HTMLResponse)
-def extras_page(request: Request, ctx=Depends(require_user),
+def extras_page(request: Request, ctx=Depends(needs(perms.MENU)),
                 session: Session = Depends(get_db), saved: int = 0, error: str = ""):
     """Lo que acompaña a la carne. Aquí solo se configura su coste."""
     user, auth_session = ctx
@@ -501,7 +518,7 @@ def extras_page(request: Request, ctx=Depends(require_user),
 @app.post("/ingredientes/nuevo")
 def new_extra(request: Request, name: str = Form(...), unit: str = Form("KG"),
               cost: str = Form(""), portion: str = Form(""), csrf: str = Form(""),
-              ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+              ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -516,7 +533,7 @@ def new_extra(request: Request, name: str = Form(...), unit: str = Form("KG"),
 @app.post("/ingredientes/{ingredient_id}/coste")
 def update_extra_cost(ingredient_id: int, request: Request, cost: str = Form(...),
                       portion: str = Form(""), csrf: str = Form(""),
-                      ctx=Depends(require_manager_user),
+                      ctx=Depends(needs(perms.MENU)),
                       session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -539,7 +556,7 @@ def _dish(session: Session, user: User, code: str, request: Request) -> Recipe:
 
 
 @app.get("/carta/{code}", response_class=HTMLResponse)
-def plate_page(code: str, request: Request, ctx=Depends(require_user),
+def plate_page(code: str, request: Request, ctx=Depends(needs(perms.MENU)),
                session: Session = Depends(get_db), error: str = ""):
     """El emplatado: todo lo que va en el plato y lo que cuesta cada cosa."""
     user, auth_session = ctx
@@ -555,7 +572,7 @@ def plate_page(code: str, request: Request, ctx=Depends(require_user),
 @app.post("/carta/{code}/linea")
 def add_plate_line(code: str, request: Request, ingredient_id: int = Form(...),
                    qty: str = Form(...), waste_pct: str = Form("0"), csrf: str = Form(""),
-                   ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+                   ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     dish = _dish(session, user, code, request)
@@ -570,7 +587,7 @@ def add_plate_line(code: str, request: Request, ingredient_id: int = Form(...),
 
 @app.post("/carta/{code}/linea/{line_id}/quitar")
 def remove_plate_line(code: str, line_id: int, request: Request, csrf: str = Form(""),
-                      ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+                      ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     dish = _dish(session, user, code, request)
@@ -584,7 +601,7 @@ def remove_plate_line(code: str, line_id: int, request: Request, csrf: str = For
 
 @app.post("/carta/{code}/gramos")
 def set_plate_grams(code: str, request: Request, grams: str = Form(...), csrf: str = Form(""),
-                    ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+                    ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     dish = _dish(session, user, code, request)
@@ -598,7 +615,7 @@ def set_plate_grams(code: str, request: Request, grams: str = Form(...), csrf: s
 
 # =============================================================== VENTAS
 @app.get("/ventas", response_class=HTMLResponse)
-def sales_page(request: Request, ctx=Depends(require_user),
+def sales_page(request: Request, ctx=Depends(needs(perms.MENU)),
                session: Session = Depends(get_db), done: str = ""):
     user, auth_session = ctx
     return page(request, "sales.html", user, auth_session, session, done=done,
@@ -607,7 +624,7 @@ def sales_page(request: Request, ctx=Depends(require_user),
 
 
 @app.post("/ventas")
-async def import_sales(request: Request, ctx=Depends(require_user),
+async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
                        session: Session = Depends(get_db)):
     """Lo vendido en el POS descuenta de cámara por rotación, plato a plato."""
     user, auth_session = ctx
@@ -634,7 +651,7 @@ async def import_sales(request: Request, ctx=Depends(require_user),
 
 # =========================================================== INVENTARIO
 @app.get("/inventario", response_class=HTMLResponse)
-def inventory_page(request: Request, ctx=Depends(require_user),
+def inventory_page(request: Request, ctx=Depends(needs(perms.COUNT)),
                    session: Session = Depends(get_db), done: str = ""):
     user, auth_session = ctx
     open_count = (session.query(MeatCount)
@@ -650,7 +667,7 @@ def inventory_page(request: Request, ctx=Depends(require_user),
 
 @app.post("/inventario/abrir")
 def open_inventory(request: Request, period: str = Form("MONTHLY"), csrf: str = Form(""),
-                   ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+                   ctx=Depends(needs(perms.INVENTORY)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -663,7 +680,7 @@ def open_inventory(request: Request, period: str = Form("MONTHLY"), csrf: str = 
 
 
 @app.post("/inventario/contar")
-async def record_count(request: Request, ctx=Depends(require_user),
+async def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
                        session: Session = Depends(get_db)):
     """Contar lo puede hacer cualquiera: se hace en la cámara, con la balanza."""
     user, auth_session = ctx
@@ -686,7 +703,7 @@ async def record_count(request: Request, ctx=Depends(require_user),
 
 
 @app.post("/inventario/cerrar")
-def close_inventory(request: Request, csrf: str = Form(""), ctx=Depends(require_manager_user),
+def close_inventory(request: Request, csrf: str = Form(""), ctx=Depends(needs(perms.INVENTORY)),
                     session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -700,7 +717,7 @@ def close_inventory(request: Request, csrf: str = Form(""), ctx=Depends(require_
 
 @app.post("/inventario/cancelar")
 def cancel_inventory(request: Request, reason: str = Form(""), csrf: str = Form(""),
-                     ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+                     ctx=Depends(needs(perms.INVENTORY)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     count = (session.query(MeatCount)
@@ -714,7 +731,7 @@ def cancel_inventory(request: Request, reason: str = Form(""), csrf: str = Form(
 @app.post("/inventario/recuperar")
 def recover_piece(request: Request, serial: str = Form(...), kg: str = Form(""),
                   note: str = Form(""), csrf: str = Form(""),
-                  ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+                  ctx=Depends(needs(perms.FIX)), session: Session = Depends(get_db)):
     """La pieza ha aparecido: vuelve al stock, con quién y por qué."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -731,7 +748,7 @@ def recover_piece(request: Request, serial: str = Form(...), kg: str = Form(""),
 def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(...),
                 kg: float = Form(...), unit_cost: float = Form(...), expiry: str = Form(...),
                 note: str = Form(""), csrf: str = Form(""),
-                ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+                ctx=Depends(needs(perms.FIX)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -754,7 +771,7 @@ def _waste_page(request, user, auth_session, session, *, result=None, error="", 
 
 
 @app.get("/merma", response_class=HTMLResponse)
-def waste_page(request: Request, ctx=Depends(require_user),
+def waste_page(request: Request, ctx=Depends(needs(perms.WASTE)),
                session: Session = Depends(get_db), serial: str = ""):
     user, auth_session = ctx
     return _waste_page(request, user, auth_session, session, serial=serial)
@@ -763,7 +780,7 @@ def waste_page(request: Request, ctx=Depends(require_user),
 @app.post("/merma", response_class=HTMLResponse)
 def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
                  ingredient_id: str = Form(""), pieces: str = Form(""), reason: str = Form(""),
-                 csrf: str = Form(""), ctx=Depends(require_user),
+                 csrf: str = Form(""), ctx=Depends(needs(perms.WASTE)),
                  session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -781,7 +798,7 @@ def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
 
 # ========================================================= TRAZABILIDAD
 @app.get("/trazabilidad", response_class=HTMLResponse)
-def tracing_page(request: Request, ctx=Depends(require_user),
+def tracing_page(request: Request, ctx=Depends(needs(perms.STOCK)),
                  session: Session = Depends(get_db), serial: str = ""):
     """La historia de una pieza, de la recepción al plato."""
     user, auth_session = ctx
@@ -834,7 +851,7 @@ def team_page(request: Request, ctx=Depends(require_manager_user),
     rows = (session.query(User).filter_by(restaurant_id=user.restaurant_id)
             .order_by(User.name).all())
     return page(request, "team.html", user, auth_session, session,
-                restaurant=restaurant, members=rows, roles=list(Role))
+                restaurant=restaurant, rows=rows, roles=list(Role))
 
 
 @app.post("/manager/equipo/{user_id}/rol")

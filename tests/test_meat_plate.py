@@ -281,7 +281,8 @@ def test_the_plate_can_be_built_from_the_screen(client):
     assert "+1" in client.get("/carta").text              # la carta lo dice
 
 
-def test_an_employee_cannot_reprice_the_garnish(client):
+def test_the_garnish_costs_are_not_for_the_kitchen_floor(client):
+    """Los precios de compra son cosa de dirección, ni verlos ni tocarlos."""
     form = client.get("/ingredientes")
     client.post("/ingredientes/nuevo", data={"csrf": csrf_from(form.text), "name": "Patata",
                                              "unit": "KG", "cost": "1,20"})
@@ -292,9 +293,8 @@ def test_an_employee_cannot_reprice_the_garnish(client):
     client.post("/join", data={"join_code": code, "name": "Marta", "email": "m@marina.com",
                                "password": "clave-larga-2"})
 
-    pagina = client.get("/ingredientes")
-    assert pagina.status_code == 200 and "Patata" in pagina.text     # verlo sí
-    assert 'action="/ingredientes/nuevo"' not in pagina.text          # tocarlo no
+    assert client.get("/ingredientes").status_code == 403
+    assert 'href="/ingredientes"' not in client.get("/hoy").text      # ni en la barra
     token = csrf_from(client.get("/merma").text)
     assert client.post(f"/ingredientes/{patata_id}/coste",
                        data={"csrf": token, "cost": "9"}).status_code == 403

@@ -18,6 +18,32 @@ Corre por su cuenta, con su propia base de datos y su propio acceso:
 python -m thegrill.cli --db sqlite:///carnes.db serve-carne --port 8001
 ```
 
+## Tres niveles de acceso
+
+| | Manager | Carnicero | Ayudante |
+|---|---|---|---|
+| Recibir primales · despiezar | ✓ | ✓ | — |
+| Descongelar · contar · apuntar merma | ✓ | ✓ | ✓ |
+| Abrir y cerrar inventarios · cerrar turno | ✓ | ✓ | — |
+| Ver cámara, cortes y la historia de una pieza | ✓ | ✓ | ✓ |
+| Ver el dinero: costes, food cost, valor de la cámara | ✓ | — | — |
+| Carta, ingredientes y ventas | ✓ | — | — |
+| Catálogo de cortes, recuperar piezas, equipo | ✓ | — | — |
+
+El carnicero ve **lo que queda de primales y los cortes de cada pieza**, en
+kilos y en piezas. El dinero no: ni el coste del primal, ni el precio por kilo,
+ni el valor de la cámara, ni el food cost de la trazabilidad.
+
+Lo que no se puede tocar tampoco se enseña —quien no puede abrir una pantalla no
+la ve en la barra—, y **la puerta se cierra en la ruta, no solo en la
+plantilla**: una barra sin enlace no es una puerta cerrada, basta escribir la
+dirección a mano. Los tres niveles son una escalera: todo lo que puede el
+ayudante lo puede el carnicero, y el manager lo puede todo.
+
+Una excepción por comodidad, dicha para que se sepa: el carnicero **sí escribe
+el precio del albarán** al recibir primales, porque lo tiene delante y sin coste
+no se puede despiezar. Lo que no hace es verlo después en ninguna pantalla.
+
 ## Las pantallas
 
 **Hoy.** Lo que está pendiente y lo que queda: piezas descongelando sin
@@ -146,6 +172,7 @@ thegrill/meat/
                    cortes, ingredientes con su coste, carta y emplatado, y el
                    resumen de hoy
   sheets_meat.py   Las cinco hojas imprimibles
+  perms.py         Quién puede hacer qué: tres niveles y el dinero aparte
   i18n_meat.py     137 textos propios × seis idiomas
   templates/       Las pantallas propias; lo demás se hereda de la cocina
 ```

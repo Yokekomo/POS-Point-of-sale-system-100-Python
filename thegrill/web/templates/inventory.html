@@ -41,7 +41,7 @@
 </form>
 </div>
 
-{% if user.role.value == "MANAGER" %}
+{% if can("inventory") %}
 <div class="card">
 <form method="post" action="/inventario/cerrar">
   <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -76,7 +76,8 @@
   <table>
   <tr><th>{{ t("rec.component") }}</th><th>Serial</th><th class="num">{{ t("inv.expected") }}</th>
       <th class="num">{{ t("inv.counted") }}</th><th class="num">{{ t("inv.gap") }}</th>
-      <th class="num">{{ t("inv.value") }}</th><th>{{ t("common.status") }}</th></tr>
+      {% if can("money") %}<th class="num">{{ t("inv.value") }}</th>{% endif %}
+      <th>{{ t("common.status") }}</th></tr>
   {% for line in last.lines %}
   {% set gap = (line.counted_kg - line.expected_kg) if line.counted_kg is not none else 0 %}
   <tr>
@@ -85,7 +86,9 @@
     <td class="num">{{ "%.3f"|format(line.expected_kg) }}</td>
     <td class="num">{% if line.counted_kg is not none %}{{ "%.3f"|format(line.counted_kg) }}{% endif %}</td>
     <td class="num">{% if gap %}{{ "%+.3f"|format(gap) }}{% endif %}</td>
+    {% if can("money") %}
     <td class="num">{% if gap and line.unit_cost %}{{ "%+.2f"|format(gap * line.unit_cost) }}{% endif %}</td>
+    {% endif %}
     <td><span class="tag {{ 'ok' if line.outcome == 'MATCH' else ('warn' if line.outcome in ['OVER','UNCOUNTED','UNKNOWN'] else 'bad') }}">
         {{ t("inv.outcome." ~ line.outcome) }}</span></td>
   </tr>
@@ -96,7 +99,7 @@
   <div class="card"><p class="muted" style="margin:0">{{ t("inv.none") }}</p></div>
   {% endif %}
 
-  {% if user.role.value == "MANAGER" %}
+  {% if can("inventory") %}
   <div class="card">
   <form method="post" action="/inventario/abrir">
     <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -109,7 +112,7 @@
   </div>
   {% endif %}
 {% endif %}
-{% if user.role.value == "MANAGER" %}
+{% if can("fix") %}
 <h2>{{ t("inv.recover") }}</h2>
 <div class="card">
 <form method="post" action="/inventario/recuperar">
