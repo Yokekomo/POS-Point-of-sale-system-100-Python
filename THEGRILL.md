@@ -280,8 +280,12 @@ arriba, crítico.
 Se limpia dos veces y no son lo mismo: antes de madurar, para quitar lo que
 sobra, y al cabo de las semanas, para quitar la costra seca, que crece con los
 días. Las dos se apuntan aparte del agua —si no, la merma de maduración sale
-inflada— y las dos suben el precio del kilo que queda. Si los recortes se
-guardan, entran en cámara con su propio lote y se llevan solo lo que valen. De
+inflada— y las dos suben el precio del kilo que queda. De una limpieza salen siempre las dos cosas, y se dicen las dos: los
+kilos que vuelven a cámara —hasta tres destinos, cada uno con su artículo y su
+índice de valor— y los que se tiran. Lo guardado más lo tirado tiene que ser lo
+quitado, o no se apunta. Lo que vuelve entra con su propio lote colgando de la
+pieza y se lleva solo lo que vale; lo tirado no se lleva nada y lo pagan los
+kilos que quedan. De
 ahí sale el **rendimiento**: lo que queda de lo que entró, que es el número que
 dice si compensan cuarenta y cinco días o sesenta.
 
@@ -473,7 +477,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   543 tests
+tests/                   547 tests
 ```
 
 ## Uso

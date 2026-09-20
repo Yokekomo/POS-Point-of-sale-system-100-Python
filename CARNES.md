@@ -241,11 +241,21 @@ partir del 30 % es crítico, porque eso ya no es maduración.
 **Se limpia dos veces, y no son lo mismo.** Antes de madurar se le quita lo
 que sobra —grasa suelta, telillas— para que entre limpia. Y cuando lleva
 semanas hay que quitarle la costra seca, que es mucha más cuanto más tiempo
-lleva. Las dos se apuntan en la pantalla de maduración, y las dos suben el
+lleva. Las dos se apuntan en la pantalla de maduración y las dos suben el
 precio del kilo que queda, porque el dinero de la pieza no se va con el
-recorte. Si los recortes se aprovechan se dice a qué artículo entran y se
-llevan solo lo que valen —un recorte no vale lo que un lomo—; si se tiran, el
-coste entero se queda en la pieza.
+recorte.
+
+**De una limpieza salen siempre las dos cosas**: lo que se tira —costra,
+telilla, grasa sucia— y lo que se aprovecha —recortes para picada, grasa para
+fondo—. Por eso se dicen los kilos que se han quitado y, de esos, cuáles
+entran en cámara y a qué artículo, hasta tres destinos. Lo que no se reparte
+es lo que se tira, y si los números no cuadran no se apunta nada: lo quitado
+es lo guardado más lo tirado.
+
+Lo aprovechado sale con su propio lote colgando de la pieza —`8017-90`— y se
+lleva solo lo que vale, con su índice: 0,25 para un recorte, 0,10 para la
+grasa. Lo tirado no se lleva nada, así que su coste se queda en los kilos que
+quedan, igual que la merma de cámara de toda la vida.
 
 Lo importante es que la limpieza **no se cuenta como agua**. Una pieza que
 pierde 1,4 kg evaporando y 1,2 de costra tiene dos columnas distintas, porque
@@ -388,7 +398,7 @@ thegrill/meat/
   billing.py       La cuenta: solicitudes, altas, la prueba y el recibo del mes
   mailer.py        El aviso por correo de cada solicitud
   security.py      Cabeceras, freno a las contraseñas y freno al formulario
-  i18n_meat.py     387 textos propios × siete idiomas
+  i18n_meat.py     389 textos propios × siete idiomas
   templates/       Las pantallas propias; lo demás se hereda de la cocina
   static/fotos/    Las tres fotos de la portada, si se ponen (LEEME.md dentro)
 ```

@@ -648,27 +648,36 @@ def aging_weigh(request: Request, serial: str = Form(...), kg: str = Form(...),
 
 
 @app.post("/maduracion/limpiar", response_class=HTMLResponse)
-def aging_trim(request: Request, serial: str = Form(...), removed_kg: str = Form(""),
-               new_kg: str = Form(""), item_id: str = Form(""), value_index: str = Form(""),
-               note: str = Form(""), csrf: str = Form(""),
-               ctx=Depends(needs(perms.AGE)), session: Session = Depends(get_db)):
-    """Limpia la pieza: la costra o la grasa dejan de estar en ella."""
+async def aging_trim(request: Request, ctx=Depends(needs(perms.AGE)),
+                     session: Session = Depends(get_db)):
+    """Limpia la pieza: parte se aprovecha, parte se tira, y el resto sube de precio."""
     user, auth_session = ctx
-    _guard(request, session, user, auth_session, csrf)
+    form = await request.form()
+    _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
     try:
-        result = aging.trim(session, user, serial.strip(),
-                            removed_kg=_num(removed_kg), new_kg=_num(new_kg),
-                            item_id=int(item_id) if item_id.strip() else None,
-                            value_index=_num(value_index, aging.TRIM_VALUE_INDEX)
-                            or aging.TRIM_VALUE_INDEX,
-                            note=note.strip() or None, lang=lang)
+        partes = []
+        for i in range(aging.MAX_TRIM_PARTS):
+            item = (form.get(f"item:{i}") or "").strip()
+            kg = _num(form.get(f"part_kg:{i}"))
+            if not item or not kg:
+                continue
+            partes.append(aging.TrimPart(
+                item_id=int(item), kg=kg,
+                value_index=_num(form.get(f"index:{i}"), aging.TRIM_VALUE_INDEX)
+                or aging.TRIM_VALUE_INDEX))
+        result = aging.trim(session, user, (form.get("serial") or "").strip(),
+                            removed_kg=_num(form.get("removed_kg")),
+                            new_kg=_num(form.get("new_kg")), parts=partes,
+                            waste_kg=_num(form.get("waste_kg")),
+                            note=(form.get("note") or "").strip() or None, lang=lang)
     except (aging.AgingError, ValueError) as e:
         return _aging(request, user, auth_session, session, error=str(e))
     return _aging(request, user, auth_session, session, trimmed=result,
                   done=i18n.t(lang, "m.ag.trimmed", serial=result.serial,
                               kg=f"{result.removed_kg:.10g}",
-                              pct=f"{result.removed_pct:.10g}",
+                              kept=f"{result.kept_kg:.10g}",
+                              waste=f"{result.waste_kg:.10g}",
                               left=f"{result.kg:.10g}"))
 
 

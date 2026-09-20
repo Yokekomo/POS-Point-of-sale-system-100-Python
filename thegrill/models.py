@@ -900,7 +900,11 @@ class PrimalWeighing(TenantMixin, Base):
     date: Mapped[date] = mapped_column(Date, index=True)
     storage: Mapped[Storage] = mapped_column(Enum(Storage), default=Storage.AGING)
     kind: Mapped[LossKind | None] = mapped_column(Enum(LossKind), default=LossKind.EVAPORATION)
-    trim_serial: Mapped[str | None] = mapped_column(String(48))   # los recortes, si se guardaron
+    # De lo que se quitó limpiando: lo que se ha aprovechado y lo que se tira.
+    # Una limpieza casi nunca es todo lo uno o todo lo otro.
+    kept_kg: Mapped[float | None] = mapped_column(Float)
+    waste_kg: Mapped[float | None] = mapped_column(Float)
+    trim_serial: Mapped[str | None] = mapped_column(String(96))   # los lotes de recortes
     previous_kg: Mapped[float] = mapped_column(Float)
     kg: Mapped[float] = mapped_column(Float)
     loss_kg: Mapped[float] = mapped_column(Float, default=0.0)
