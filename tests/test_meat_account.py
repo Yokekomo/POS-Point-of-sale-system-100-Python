@@ -22,6 +22,10 @@ from fastapi.testclient import TestClient
 from thegrill import db
 from thegrill.meat import app as meatapp
 from thegrill.meat import billing, security
+
+# El navegador de estas pruebas habla español: los textos que se comprueban
+# abajo son los españoles. Quien llega sin decir nada recibe inglés.
+SPANISH = {"accept-language": "es"}
 from thegrill.models import (AccessRequest, AuditLog, Billing, Plan, RequestStatus,
                              Restaurant, Role, User)
 
@@ -45,7 +49,7 @@ def client(tmp_path, monkeypatch):
     db.create_all()
     with db.session_scope() as s:
         billing.bootstrap_owner(s, "yo@plataforma.com", "Albano", "clave-larga-1")
-    with TestClient(meatapp.app, follow_redirects=False) as c:
+    with TestClient(meatapp.app, follow_redirects=False, headers=SPANISH) as c:
         yield c
 
 
@@ -75,7 +79,7 @@ def alta_de_casa(client, name="Hotel Marina", email="manager@marina.com"):
 
 
 def sesion(email, password="clave-larga-2"):
-    c = TestClient(meatapp.app, follow_redirects=False)
+    c = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
     r = c.post("/login", data={"email": email, "password": password})
     assert r.status_code == 303, r.text[:200]
     return c
@@ -431,7 +435,7 @@ def test_two_people_cannot_share_an_email_in_the_same_house(client):
 def test_guessing_passwords_gets_you_locked_out(client):
     como_dueno(client)
     alta_de_casa(client)
-    ladron = TestClient(meatapp.app, follow_redirects=False)
+    ladron = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
     for _ in range(security.LOGIN_ATTEMPTS):
         r = ladron.post("/login", data={"email": "manager@marina.com", "password": "mala"})
         assert r.status_code == 200
@@ -446,7 +450,7 @@ def test_guessing_passwords_gets_you_locked_out(client):
 def test_getting_it_right_clears_the_count(client):
     como_dueno(client)
     alta_de_casa(client)
-    puerta = TestClient(meatapp.app, follow_redirects=False)
+    puerta = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
     for _ in range(security.LOGIN_ATTEMPTS - 1):
         puerta.post("/login", data={"email": "manager@marina.com", "password": "mala"})
     assert puerta.post("/login", data={"email": "manager@marina.com",
@@ -604,7 +608,7 @@ PUBLICAS = {"/", "/precios", "/solicitar", "/cookies", "/login", "/signup", "/jo
 def test_no_screen_opens_without_logging_in(client):
     """Barrido por todas las rutas: la que no es pública, pide entrar."""
     from thegrill.meat import app as meatapp
-    fuera = TestClient(meatapp.app, follow_redirects=False)
+    fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
     revisadas = 0
     for route in meatapp.app.routes:
         path = getattr(route, "path", "")
@@ -651,7 +655,7 @@ def test_the_scripts_carry_a_number_that_changes_every_time(client):
 
 
 def test_the_session_cookie_does_not_travel_to_other_sites(client):
-    puerta = TestClient(meatapp.app, follow_redirects=False)
+    puerta = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
     r = puerta.post("/login", data={"email": "yo@plataforma.com",
                                     "password": "clave-larga-1"})
     puesta = r.headers["set-cookie"].lower()
@@ -669,7 +673,7 @@ def test_the_login_takes_the_same_whether_the_email_exists_or_not(client):
     security.reset()
 
     def tarda(email):
-        fuera = TestClient(meatapp.app, follow_redirects=False)
+        fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
         inicio = time.perf_counter()
         fuera.post("/login", data={"email": email, "password": "mala-de-verdad"})
         return time.perf_counter() - inicio
@@ -708,3 +712,20 @@ def test_behind_a_proxy_the_platform_knows_it_is_on_https(client):
 
     detras = client.get("/login", headers={"x-forwarded-proto": "https"})
     assert "max-age=31536000" in detras.headers["Strict-Transport-Security"]
+
+
+# --------------------------------------------------------------- las fotos
+def test_the_landing_works_with_and_without_photos(client, tmp_path, monkeypatch):
+    """La portada no depende de las fotos: con ellas las enseña, sin ellas no deja hueco."""
+    sin = client.get("/")
+    assert sin.status_code == 200 and 'id="fotos"' not in sin.text
+
+    carpeta = tmp_path / "fotos"
+    carpeta.mkdir()
+    (carpeta / "primal.jpg").write_bytes(b"\xff\xd8foto")
+    monkeypatch.setattr(meatapp, "PHOTO_DIR", str(carpeta))
+
+    con = client.get("/")
+    assert 'id="fotos"' in con.text
+    assert "/static/fotos/primal.jpg" in con.text
+    assert "cortes.jpg" not in con.text          # la que no está, no se inventa

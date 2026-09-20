@@ -15,6 +15,7 @@ from datetime import date, datetime, timedelta
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import (HTMLResponse, JSONResponse, RedirectResponse, Response)
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -35,6 +36,11 @@ MEAT_TEMPLATES = os.path.join(os.path.dirname(__file__), "templates")
 KITCHEN_TEMPLATES = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                                  "web", "templates")
 XLSX_MEDIA = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+PHOTO_DIR = os.path.join(STATIC_DIR, "fotos")
+# Las fotos de la portada. Se llaman así y se dejan caer en esa carpeta; la
+# portada usa las que encuentre y se arregla sin las que falten.
+PHOTO_SLOTS = ("primal", "cortes", "plato")
 
 # Las plantillas propias mandan; lo que no esté aquí se hereda de la cocina.
 templates = Jinja2Templates(directory=[MEAT_TEMPLATES, KITCHEN_TEMPLATES])
@@ -42,6 +48,8 @@ templates.env.filters["ceil_pct"] = butchery.ceil_pct
 # Sin documentación automática: /docs y /openapi.json enseñaban el mapa entero
 # de la aplicación a cualquiera que pasara por ahí.
 app = FastAPI(title="Control de carnes", docs_url=None, redoc_url=None, openapi_url=None)
+os.makedirs(PHOTO_DIR, exist_ok=True)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # --------------------------------------------------------------- utilidades
@@ -215,13 +223,30 @@ def choose_language(lang: str, next: str = "/login"):
     return set_lang_cookie(RedirectResponse(target, status_code=303), lang)
 
 
+def landing_photos() -> dict[str, str]:
+    """Las fotos que hay puestas, por su sitio en la portada.
+
+    No hay foto que buscar en internet ni foto de relleno: si el archivo está,
+    se usa; si no está, la portada se ve igual de terminada sin él.
+    """
+    found = {}
+    for slot in PHOTO_SLOTS:
+        for ext in ("webp", "jpg", "jpeg", "png"):
+            name = f"{slot}.{ext}"
+            if os.path.exists(os.path.join(PHOTO_DIR, name)):
+                found[slot] = f"/static/fotos/{name}"
+                break
+    return found
+
+
 @app.get("/", response_class=HTMLResponse)
 def root(request: Request, session: Session = Depends(get_db)):
     """La portada: quien ya tiene cuenta entra, quien no, se entera de qué es."""
     if current(request, session):
         return RedirectResponse("/hoy", status_code=303)
     return page(request, "public_home.html", lang=lang_for(request, session),
-                retention_days=privacy.RETENTION_DAYS, trial_days=billing.TRIAL_DAYS)
+                retention_days=privacy.RETENTION_DAYS, trial_days=billing.TRIAL_DAYS,
+                photos=landing_photos())
 
 
 @app.get("/cookies", response_class=HTMLResponse)

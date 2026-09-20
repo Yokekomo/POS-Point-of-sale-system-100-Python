@@ -61,7 +61,13 @@ def test_resolution_order():
     assert i18n.resolve(cookie="fr", accept_header="ar", restaurant_lang="nl") == "fr"
     assert i18n.resolve(accept_header="ar", restaurant_lang="nl") == "ar"
     assert i18n.resolve(restaurant_lang="nl") == "nl"
-    assert i18n.resolve() == "es"
+    assert i18n.resolve() == "en"                    # a quien no dice nada, en inglés
+
+
+def test_a_stranger_gets_english_and_a_known_browser_gets_its_own():
+    assert i18n.resolve(accept_header="ja-JP,ja;q=0.9") == "en"     # no lo hablamos: inglés
+    assert i18n.resolve(accept_header="hu-HU,hu;q=0.9") == "hu"     # sí lo hablamos: húngaro
+    assert i18n.resolve(accept_header=None) == "en"
 
 
 def test_unknown_language_is_ignored_at_every_step():

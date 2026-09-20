@@ -26,11 +26,15 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("GRILL_INSECURE_COOKIE", "1")
     db.init_engine(f"sqlite:///{tmp_path/'carne.db'}")
     db.create_all()
-    with TestClient(meatapp.app, follow_redirects=False) as c:
+    with TestClient(meatapp.app, follow_redirects=False, headers=SPANISH) as c:
         yield c
 
 
 from tests.meat_helpers import add_user, csrf_from, join_code, login  # noqa: E402
+
+# El navegador de estas pruebas habla español: los textos que se comprueban
+# abajo son los españoles. Quien llega sin decir nada recibe inglés.
+SPANISH = {"accept-language": "es"}
 
 
 def signup(client, restaurant="Hotel Marina", email="albano@marina.com", name="Albano",

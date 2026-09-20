@@ -13,6 +13,10 @@ from thegrill.meat import app as meatapp
 from thegrill.meat import billing
 from thegrill.models import Billing, Restaurant, Role, User
 
+# El navegador de estas pruebas habla español: los textos que se comprueban
+# abajo son los españoles. Quien llega sin decir nada recibe inglés.
+SPANISH = {"accept-language": "es"}
+
 
 def csrf_from(html: str) -> str:
     match = re.search(r'name="csrf" value="([^"]+)"', html)
@@ -64,7 +68,7 @@ def add_user(client_or_email, email="marta@marina.com", name="Marta",
         if role == Role.MANAGER:
             session.query(User).filter_by(email=email).one().role = Role.MANAGER
 
-    session_client = TestClient(meatapp.app, follow_redirects=False)
+    session_client = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
     login(session_client, email, password)
     return session_client
 

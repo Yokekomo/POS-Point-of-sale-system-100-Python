@@ -8,6 +8,10 @@ from thegrill import db
 from thegrill.models import Record, Restaurant, Role, User
 from thegrill.web import app as webapp
 
+# El navegador de estas pruebas habla español: los textos que se comprueban
+# abajo son los españoles. Quien llega sin decir nada recibe inglés.
+SPANISH = {"accept-language": "es"}
+
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
@@ -15,7 +19,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(webapp, "UPLOAD_DIR", str(tmp_path / "uploads"))
     db.init_engine(f"sqlite:///{tmp_path/'w.db'}")
     db.create_all()
-    with TestClient(webapp.app, follow_redirects=False) as c:
+    with TestClient(webapp.app, follow_redirects=False, headers=SPANISH) as c:
         yield c
 
 
@@ -440,8 +444,10 @@ def test_the_language_redirect_cannot_be_used_to_send_people_elsewhere(client):
 def test_the_browser_language_is_honoured_before_logging_in(client):
     html = client.get("/login", headers={"accept-language": "nl-BE,nl;q=0.9,fr;q=0.8"}).text
     assert "Aanmelden" in html
+    html = client.get("/login", headers={"accept-language": "hu-HU,hu;q=0.9"}).text
+    assert "Belépés" in html
     html = client.get("/login", headers={"accept-language": "ja,ko"}).text
-    assert "Entrar" in html            # ninguno disponible: español
+    assert "Log in" in html            # ninguno disponible: inglés
 
 
 def test_signing_up_in_dutch_creates_dutch_forms(client):

@@ -8,7 +8,8 @@ auditoría.
 El programa recoge datos de los trabajadores y los presenta. No envía mensajes
 a nadie por fuera: los avisos viven dentro de la propia plataforma.
 
-Está en seis idiomas: español, inglés, francés, alemán, neerlandés y árabe. Y
+Está en siete idiomas: español, inglés, francés, alemán, neerlandés, árabe y
+húngaro. Y
 trae las mismas hojas en Excel para imprimir y rellenar a mano cuando hace
 falta.
 
@@ -303,7 +304,9 @@ estadísticas.
 
 ## Idiomas
 
-Seis idiomas, con las tres lenguas oficiales de Bélgica cubiertas:
+Siete idiomas, con las tres lenguas oficiales de Bélgica cubiertas. A quien
+llega sin decir nada se le habla en inglés; si su navegador pide un idioma que
+sabemos, ese. El español sigue siendo el catálogo de referencia por dentro.
 
 | Código | Idioma | Escritura |
 |---|---|---|
@@ -313,6 +316,7 @@ Seis idiomas, con las tres lenguas oficiales de Bélgica cubiertas:
 | de | Deutsch | izquierda a derecha |
 | nl | Nederlands | izquierda a derecha |
 | ar | العربية | derecha a izquierda |
+| hu | Magyar | izquierda a derecha |
 
 **Dónde se elige.** En la pantalla de acceso, antes de entrar, con un selector
 que recuerda la elección en este navegador. Y dentro, en Configuración, donde
@@ -402,7 +406,7 @@ thegrill/
   models.py              36 tablas: plataforma, módulos de carne, auditoría
   rules.py               Reglas del negocio de carne como funciones puras
   web/
-    i18n.py              Seis idiomas, resolución y escritura de derecha a izquierda
+    i18n.py              Siete idiomas, resolución y escritura de derecha a izquierda
     sheets.py            Hojas de registro en Excel, listas para imprimir
     costing.py           Precios reales, rotación de lotes y descuento por venta
     butchery.py          Del primal a los cortes, con reparto de coste, serial propio y stock diario

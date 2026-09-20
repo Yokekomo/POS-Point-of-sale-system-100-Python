@@ -37,13 +37,17 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("GRILL_INSECURE_COOKIE", "1")
     db.init_engine(f"sqlite:///{tmp_path/'web.db'}")
     db.create_all()
-    with TestClient(meatapp.app, follow_redirects=False) as c:
+    with TestClient(meatapp.app, follow_redirects=False, headers=SPANISH) as c:
         helpers.signup(c)
         yield c
 
 
 from tests import meat_helpers as helpers  # noqa: E402
 from tests.meat_helpers import csrf_from  # noqa: E402
+
+# El navegador de estas pruebas habla español: los textos que se comprueban
+# abajo son los españoles. Quien llega sin decir nada recibe inglés.
+SPANISH = {"accept-language": "es"}
 
 
 def entrecot(s, rest, ana, precio_kg=43.0, pvp=29.50):

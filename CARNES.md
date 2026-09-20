@@ -293,7 +293,7 @@ colgar al lado de la balanza.
 | | Cocina | Carne |
 |---|---|---|
 | Motor de despiece, coste, FEFO, descongelado, inventario, trazabilidad, merma | ✓ | ✓ (el mismo código) |
-| Acceso, roles, avisos, seis idiomas | ✓ | ✓ |
+| Acceso, roles, avisos, siete idiomas | ✓ | ✓ |
 | Recetas, subrecetas y escandallos de cocina | ✓ | — |
 | Emplatado con guarnición y food cost del plato entero | ✓ | ✓ (con su propia pantalla) |
 | Plantillas HACCP y registros generales | ✓ | — |
@@ -329,9 +329,20 @@ thegrill/meat/
   billing.py       La cuenta: solicitudes, altas, la prueba y el recibo del mes
   mailer.py        El aviso por correo de cada solicitud
   security.py      Cabeceras, freno a las contraseñas y freno al formulario
-  i18n_meat.py     137 textos propios × seis idiomas
+  i18n_meat.py     322 textos propios × siete idiomas
   templates/       Las pantallas propias; lo demás se hereda de la cocina
+  static/fotos/    Las tres fotos de la portada, si se ponen (LEEME.md dentro)
 ```
+
+La portada va de dinero: lo que se escapa hoy, lo que eso hace al año y las
+seis cosas que se saben de cada euro. Admite tres fotos —la pieza entera, los
+cortes y el plato— que se dejan caer en `thegrill/meat/static/fotos` con esos
+nombres; las que no estén, no dejan hueco. La política de contenido solo
+permite imágenes del propio sitio, así que tienen que estar ahí.
+
+A quien llega sin decir nada se le habla en inglés, o en el idioma que pida su
+navegador si lo sabemos hablar. El español queda de catálogo de referencia por
+dentro.
 
 Las plantillas se buscan primero en `thegrill/meat/templates` y luego en
 `thegrill/web/templates`: lo que es igual no se copia, y lo que cambia se

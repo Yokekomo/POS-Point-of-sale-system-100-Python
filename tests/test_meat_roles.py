@@ -54,7 +54,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("GRILL_INSECURE_COOKIE", "1")
     db.init_engine(f"sqlite:///{tmp_path/'roles.db'}")
     db.create_all()
-    with TestClient(meatapp.app, follow_redirects=False) as c:
+    with TestClient(meatapp.app, follow_redirects=False, headers=SPANISH) as c:
         helpers.signup(c)
         yield c
 
@@ -62,11 +62,15 @@ def client(tmp_path, monkeypatch):
 from tests import meat_helpers as helpers  # noqa: E402
 from tests.meat_helpers import csrf_from  # noqa: E402
 
+# El navegador de estas pruebas habla español: los textos que se comprueban
+# abajo son los españoles. Quien llega sin decir nada recibe inglés.
+SPANISH = {"accept-language": "es"}
+
 
 def alta(client, email, name, role: Role):
     """Da de alta a alguien con el nivel que toca y devuelve su sesión."""
     if role == Role.MANAGER:        # el manager de la casa ya existe: es Albano
-        sesion = TestClient(meatapp.app, follow_redirects=False)
+        sesion = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
         helpers.login(sesion)
         return sesion
     return helpers.add_user(client, email=email, name=name, role=role)
