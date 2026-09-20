@@ -18,17 +18,170 @@ Corre por su cuenta, con su propia base de datos y su propio acceso:
 python -m thegrill.cli --db sqlite:///carnes.db serve-carne --port 8001
 ```
 
+## Cómo se entra: la cuenta
+
+Nadie se registra solo. La cadena es corta y a propósito:
+
+1. Una casa entra en la web pública, lee **cómo funciona** y **los precios**, y
+   deja una **solicitud** con quién es: nombre del restaurante, nombre y número
+   fiscal, dirección, país, persona a cargo y su cargo, correo, teléfono,
+   cuántos cocineros y cuántos locales. La solicitud **se guarda siempre** y,
+   si el correo está configurado, sale un aviso a la plataforma. El registro
+   manda; el correo solo avisa.
+2. La plataforma la ve en su consola y **da de alta la casa** creando de paso
+   la cuenta de su manager.
+3. Se pone el **método de pago** en la pasarela y arrancan los **quince días de
+   prueba**, con su reloj. Sin método de pago no empieza la prueba.
+4. El **manager crea las cuentas de su gente**: carniceros y ayudantes, cada uno
+   con su nivel y su contraseña. Managers, no: eso es de la plataforma.
+5. Si se **cancela antes de que termine la prueba, no se paga nada**, y así lo
+   dice la pantalla y lo deja escrito el registro de auditoría.
+6. Si el recibo del mes falla, la plataforma lo marca. Primero avisa y se sigue
+   trabajando; si se bloquea, **se para la casa entera**.
+
+**El reloj de la prueba lo ven el manager y la plataforma, y nadie más.** La
+cocina no tiene por qué enterarse de cómo va el recibo.
+
+**Cuando la cuenta está parada**, cada quien ve lo suyo: el manager, que el pago
+del mes no ha entrado y la nota de por qué; la cocina, que hable con su manager.
+El motivo del bloqueo no es cosa del carnicero.
+
+## Los pagos, fuera de aquí
+
+Esta plataforma **no pide, no guarda y no ve números de tarjeta**. El método de
+pago se da de alta en una pasarela certificada —Stripe, Adyen o la que se
+elija—, y aquí solo se apunta lo que esa pasarela devuelve: su referencia, la
+marca, los cuatro últimos dígitos y la caducidad.
+
+No es una promesa: el formulario público y la consola **rechazan** cualquier
+campo que contenga algo con forma de número de tarjeta, comprobado con Luhn,
+antes de escribir nada. Lo que no entra no se puede filtrar.
+
+Queda pendiente, y hay que decirlo: **falta conectar la pasarela de verdad**.
+Hoy la referencia se apunta a mano después de darla de alta en el panel del
+proveedor. El cobro recurrente automático y el aviso de recibo devuelto los da
+la pasarela por webhook, y ese enganche está por hacer.
+
+## Datos personales y reglamento europeo
+
+Una solicitud de acceso trae nombre, correo, teléfono, dirección y número fiscal
+de una persona identificable. En la Unión Europea eso no es un formulario
+cualquiera, así que el programa trae las reglas puestas:
+
+- **Se guarda lo justo**: lo que hace falta para dar de alta y facturar. Ni
+  tarjetas, ni nada que no se use.
+- **No se guarda para siempre**: una solicitud que no llegó a cuenta se borra a
+  los 180 días, con su botón en la consola y su comando para dejarlo en un cron
+  (`purgar-solicitudes`). Las aceptadas no se tocan ahí: esas ya son una casa.
+- **Se puede entregar y se puede borrar**: cada solicitud tiene su descarga de
+  datos —derecho de portabilidad— y su botón de borrar —derecho de supresión—, y
+  el borrado deja constancia de que se borró.
+- **Queda escrito quién mira**: abrir la bandeja de solicitudes deja huella en el
+  registro de auditoría, igual que exportarlas o borrarlas.
+- **El formulario dice lo que hay que decir**: quién es el responsable, para qué
+  se usan los datos, cuánto se guardan y cómo pedir verlos, corregirlos o
+  borrarlos.
+- **Cifrado de los datos de contacto**: si se define `GRILL_DATA_KEY` y está
+  instalada la biblioteca `cryptography`, nombre, correo, teléfono, dirección y
+  número fiscal se guardan cifrados. Si no, se guardan en claro **y la consola
+  lo dice en rojo**: es mejor saberlo que creerse protegido.
+
+Lo que sigue siendo tuyo y no lo arregla el código: el registro de actividades
+de tratamiento, el contrato con cada encargado (el proveedor de hosting, el de
+correo, la pasarela de pago), el procedimiento de brecha —72 horas—, y cifrar el
+disco o el motor de base de datos, que es donde el cifrado en reposo tiene su
+sitio de verdad. Esto no es asesoramiento legal.
+
+## Cookies
+
+Dos, y ninguna sirve para seguir a nadie:
+
+| Cookie | Para qué | Cuánto |
+|---|---|---|
+| `grill_session` | mantener la sesión abierta | catorce días o hasta salir |
+| `grill_lang` | recordar el idioma, y solo cuando lo eliges tú | un año |
+
+Ni analítica, ni publicidad, ni nada de terceros: **la web no carga ni una
+tipografía de fuera**, que es lo que permite que la política de contenido sea
+estricta de verdad.
+
+El reglamento **no pide consentimiento para las cookies estrictamente
+necesarias**, y estas dos lo son, así que no hay ventana de consentimiento: hay
+un aviso que informa y una página `/cookies` que las lista con su plazo. El
+aviso sale en la web de venta y en la pantalla de acceso —donde llega quien
+todavía no nos conoce— y no dentro del programa.
+
+**Ojo con esto**: el día que se añada analítica, un píxel o cualquier cosa de un
+tercero a la web de venta, ese aviso deja de valer y hace falta un
+consentimiento de verdad —rechazar por defecto y no escribir nada antes de que
+lo acepten—. Hoy no hace falta porque no hay nada que consentir.
+
+## Repaso contra los ataques conocidos
+
+Lo de abajo es una pasada contra el **OWASP Top 10 de 2025** —que subió la mala
+configuración al número dos, metió la cadena de suministro y añadió el mal
+manejo de errores— y contra lo que traen los informes de 2026: bots que imitan
+a personas, relleno de credenciales y abuso de API. Lo que estaba mal, se
+arregló; lo que falta, está dicho.
+
+| Ataque | Qué hay puesto |
+|---|---|
+| **Control de acceso roto** (A01) | Cuatro niveles comprobados en la ruta, no en la plantilla, y un barrido que recorre todas las rutas y exige sesión. Cada objeto se busca filtrando por el restaurante de quien pregunta: cambiar un número en la dirección no abre lo de otro. |
+| **Mala configuración** (A02) | `/docs` y `/openapi.json` cerrados; cabeceras en todas las respuestas; cookie `httponly`, `secure` y `samesite=strict`; sin documentación de API publicada. |
+| **Cadena de suministro** (A03) | Seis dependencias, todas conocidas, y la web no carga **nada** de fuera: ni una tipografía. Falta fijar versiones exactas con un fichero de bloqueo. |
+| **Inyección** (SQL, comandos) | Todo va por el ORM con parámetros; no hay SQL construido con texto del usuario ni se ejecutan comandos. |
+| **XSS** | Las plantillas escapan por defecto y no hay un solo `\|safe`. La política de contenido marca nuestros scripts con un número distinto en cada respuesta, así que un script colado en la página no se ejecuta. |
+| **CSRF** | Un token por sesión en cada formulario, y la cookie con `samesite=strict` no viaja en peticiones que vengan de fuera. |
+| **Clickjacking** | `X-Frame-Options: DENY` y `frame-ancestors 'none'`. |
+| **Relleno de credenciales y fuerza bruta** | Ocho fallos por correo y dirección, y a esperar cinco minutos. Los fallos quedan en el registro. |
+| **Enumeración de usuarios** | El error de acceso es el mismo exista el correo o no, **y tarda lo mismo**: si no existe se gasta igualmente una comprobación de contraseña, porque si no el reloj delata quién tiene cuenta. |
+| **Redirección abierta** | El cambio de idioma solo acepta destinos que empiecen por una barra y no por dos. |
+| **Datos de tarjeta** | No entran: el formulario y la consola rechazan cualquier cosa con forma de número de tarjeta, comprobada con Luhn. |
+| **Fallos criptográficos** | Contraseñas con PBKDF2-SHA256 y 240.000 vueltas; datos de contacto cifrados si hay clave; HSTS cuando se sirve por HTTPS. |
+| **Registro y alerta** (A08) | Auditoría de todo lo que toca una cuenta o los datos personales, y aviso de cada acceso fallido. |
+| **Mal manejo de errores** (A10) | Toda operación va en una transacción que se deshace entera si algo falla, y las pantallas de error no enseñan trazas. |
+
+**Lo que falta, y conviene saberlo:** no hay segundo factor; no hay recuperación
+de contraseña; los frenos viven en memoria del proceso, así que detrás de un
+balanceador hacen falta en un sitio compartido —o un WAF delante—; no hay
+protección de bots más allá del freno, que contra un bot que imita a una persona
+se queda corto; y las dependencias no están fijadas a una versión exacta.
+
+## Lo que protege la puerta
+
+- **Cabeceras** en todas las respuestas: la web no se deja embeber, el navegador
+  no adivina tipos de contenido, la dirección no se filtra a terceros y no se
+  carga nada de fuera. La política de contenido puede ser estricta de verdad
+  porque esta web no carga ni tipografías externas.
+- **Freno al probar contraseñas**: ocho fallos seguidos por correo y dirección, y
+  a esperar. Sin freno, una contraseña corta se adivina en una tarde.
+- **Freno al formulario público**: es la única puerta abierta a internet.
+- **Contraseñas** con PBKDF2-SHA256 y 240.000 vueltas, con su sal por usuario.
+- **Sesiones** en cookie httponly y `secure` salvo en desarrollo, con su token
+  CSRF en cada formulario.
+- **Aislamiento entre casas**, probado: ninguna ve los datos de otra.
+- **Registro de auditoría** de todo lo que toca una cuenta: quién, qué y por qué.
+- **Sin documentación de API publicada**: `/docs` y `/openapi.json` están
+  cerrados, que enseñaban el mapa entero de la aplicación a cualquiera.
+- **Nada se abre sin haber entrado**: hay un barrido que recorre todas las rutas
+  y comprueba que la que no es pública manda a la pantalla de acceso.
+
+Los frenos viven en memoria del proceso: con varios procesos detrás de un
+balanceador, el freno es por proceso. Conviene saberlo antes que creerse
+protegido.
+
 ## Tres niveles de acceso
 
-| | Manager | Carnicero | Ayudante |
-|---|---|---|---|
-| Recibir primales · despiezar | ✓ | ✓ | — |
-| Descongelar · contar · apuntar merma | ✓ | ✓ | ✓ |
-| Abrir y cerrar inventarios · cerrar turno | ✓ | ✓ | — |
-| Ver cámara, cortes y la historia de una pieza | ✓ | ✓ | ✓ |
-| Ver el dinero: costes, food cost, valor de la cámara | ✓ | — | — |
-| Carta, ingredientes y ventas | ✓ | — | — |
-| Catálogo de cortes, recuperar piezas, equipo | ✓ | — | — |
+| | Plataforma | Manager | Carnicero | Ayudante |
+|---|---|---|---|---|
+| Dar de alta casas, cobrar y bloquear cuentas | ✓ | — | — | — |
+| Recibir primales · despiezar | ✓ | ✓ | ✓ | — |
+| Descongelar · contar · apuntar merma | ✓ | ✓ | ✓ | ✓ |
+| Abrir y cerrar inventarios · cerrar turno | ✓ | ✓ | ✓ | — |
+| Ver cámara, cortes y la historia de una pieza | ✓ | ✓ | ✓ | ✓ |
+| Ver el dinero: costes, food cost, valor de la cámara | ✓ | ✓ | — | — |
+| Carta, ingredientes y ventas | ✓ | ✓ | — | — |
+| Catálogo de cortes, recuperar piezas, equipo | ✓ | ✓ | — | — |
 
 El carnicero ve **lo que queda de primales y los cortes de cada pieza**, en
 kilos y en piezas. El dinero no: ni el coste del primal, ni el precio por kilo,
@@ -172,7 +325,10 @@ thegrill/meat/
                    cortes, ingredientes con su coste, carta y emplatado, y el
                    resumen de hoy
   sheets_meat.py   Las cinco hojas imprimibles
-  perms.py         Quién puede hacer qué: tres niveles y el dinero aparte
+  perms.py         Quién puede hacer qué: cuatro niveles y el dinero aparte
+  billing.py       La cuenta: solicitudes, altas, la prueba y el recibo del mes
+  mailer.py        El aviso por correo de cada solicitud
+  security.py      Cabeceras, freno a las contraseñas y freno al formulario
   i18n_meat.py     137 textos propios × seis idiomas
   templates/       Las pantallas propias; lo demás se hereda de la cocina
 ```
@@ -187,13 +343,31 @@ pantalla en las dos ediciones.
 ```bash
 pip install -r requirements.txt
 python -m pytest -q
+python -m thegrill.cli --db sqlite:///carnes.db crear-dueno \
+    --email tu@correo.com --nombre "Tu nombre" --password "una-clave-larga"
 python -m thegrill.cli --db sqlite:///carnes.db serve-carne --host 0.0.0.0 --port 8001
 ```
 
-Abre el navegador, pulsa **Dar de alta mi restaurante** y comparte con tu equipo
-el código de ocho caracteres. En producción hay que servir por HTTPS, porque la
-cookie de sesión se marca como segura salvo que se defina
-`GRILL_INSECURE_COOKIE=1`, que es solo para desarrollo.
+El primer comando da de alta al dueño de la plataforma, y solo funciona una vez.
+Con esa cuenta se entra en `/admin`, que es donde llegan las solicitudes y desde
+donde se dan de alta las casas.
+
+Para que salga el aviso por correo de cada solicitud:
+
+```bash
+export GRILL_SMTP_HOST=smtp.tu-proveedor.com
+export GRILL_SMTP_USER=avisos@tu-dominio.com
+export GRILL_SMTP_PASSWORD=...
+export GRILL_MAIL_FROM=avisos@tu-dominio.com
+export GRILL_MAIL_TO=tu@correo.com
+```
+
+Sin esas variables la plataforma funciona igual: las solicitudes se guardan y se
+leen en la consola, solo que no sale el aviso.
+
+En producción hay que servir por HTTPS, porque la cookie de sesión se marca como
+segura salvo que se defina `GRILL_INSECURE_COOKIE=1`, que es solo para
+desarrollo.
 
 ## Dos cosas que conviene entender
 

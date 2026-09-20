@@ -1,0 +1,23 @@
+{% extends "public_base.html" %}{% block title %}{{ t("m.app.title") }}{% endblock %}
+{% block public %}
+<h1>{{ t("pub.tagline") }}</h1>
+<p class="sub">{{ t("pub.lead") }}</p>
+<div class="rowflex" style="margin-bottom:20px">
+  <a class="btn" href="/solicitar">{{ t("pub.request") }}</a>
+  <a class="btn ghost" href="/precios">{{ t("pub.pricing") }}</a>
+</div>
+
+<h2>{{ t("pub.how") }}</h2>
+<div class="grid">
+  {% for n in [1, 2, 3, 4] %}
+  <div class="card"><b>{{ n }}</b><div class="muted">{{ t("pub.step" ~ n) }}</div></div>
+  {% endfor %}
+</div>
+
+<h2>{{ t("pub.why") }}</h2>
+<div class="card">
+  <ul style="margin:0;padding-inline-start:18px">
+    {% for n in [1, 2, 3, 4] %}<li>{{ t("pub.why" ~ n) }}</li>{% endfor %}
+  </ul>
+</div>
+{% endblock %}

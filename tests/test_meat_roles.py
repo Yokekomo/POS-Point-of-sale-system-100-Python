@@ -27,7 +27,10 @@ from thegrill.web import auth, costing
 
 HOY = date.today()
 
-# Cada pantalla con el nivel más bajo que puede abrirla.
+# Los niveles de la casa. El de la plataforma va por su cuenta, en su prueba.
+ROLES_CASA = [Role.MANAGER, Role.BUTCHER, Role.EMPLOYEE]
+
+# Cada pantalla con los niveles que pueden abrirla.
 PANTALLAS = {
     "/hoy": {Role.MANAGER, Role.BUTCHER, Role.EMPLOYEE},
     "/carne": {Role.MANAGER, Role.BUTCHER, Role.EMPLOYEE},
@@ -52,36 +55,28 @@ def client(tmp_path, monkeypatch):
     db.init_engine(f"sqlite:///{tmp_path/'roles.db'}")
     db.create_all()
     with TestClient(meatapp.app, follow_redirects=False) as c:
-        c.post("/signup", data={"restaurant": "Hotel Marina", "name": "Albano",
-                                "email": "albano@marina.com", "password": "clave-larga-1",
-                                "language": "es"})
+        helpers.signup(c)
         yield c
 
 
-def csrf_from(html):
-    m = re.search(r'name="csrf" value="([^"]+)"', html)
-    assert m, "la página no trae token CSRF"
-    return m.group(1)
+from tests import meat_helpers as helpers  # noqa: E402
+from tests.meat_helpers import csrf_from  # noqa: E402
 
 
 def alta(client, email, name, role: Role):
-    """Da de alta a alguien con el nivel que toca y devuelve su cookie."""
-    with db.session_scope() as s:
-        code = s.query(Restaurant).one().join_code
-    fuera = TestClient(meatapp.app, follow_redirects=False)
-    r = fuera.post("/join", data={"join_code": code, "name": name, "email": email,
-                                  "password": "clave-larga-2"})
-    assert r.status_code == 303
-    with db.session_scope() as s:
-        s.query(User).filter_by(email=email).one().role = role
-    return fuera
+    """Da de alta a alguien con el nivel que toca y devuelve su sesión."""
+    if role == Role.MANAGER:        # el manager de la casa ya existe: es Albano
+        sesion = TestClient(meatapp.app, follow_redirects=False)
+        helpers.login(sesion)
+        return sesion
+    return helpers.add_user(client, email=email, name=name, role=role)
 
 
 def con_carne(client):
     """Un primal recibido y despiezado, para que haya algo que mirar."""
     with db.session_scope() as s:
-        rest = s.query(Restaurant).one()
-        ana = s.query(User).filter_by(role=Role.MANAGER).one()
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        ana = s.query(User).filter_by(restaurant_id=rest.id, role=Role.MANAGER).one()
         corte = Ingredient(restaurant_id=rest.id, name="Striploin steak", unit=Unit.KG,
                            rotation=Rotation.FEFO)
         s.add(corte); s.flush()
@@ -112,7 +107,7 @@ def con_carne(client):
 @pytest.mark.parametrize("path,permitidos", sorted(PANTALLAS.items()))
 def test_every_screen_opens_only_for_its_level(client, path, permitidos):
     con_carne(client)
-    for role in Role:
+    for role in ROLES_CASA:
         sesion = alta(client, f"{role.value.lower()}@marina.com", role.value, role)
         r = sesion.get(path)
         esperado = 200 if role in permitidos else 403
@@ -134,8 +129,8 @@ def test_the_butcher_can_do_the_whole_meat_round(client):
     form = luis.get("/cortes")
     assert form.status_code == 200
     with db.session_scope() as s:
-        rest = s.query(Restaurant).one()
-        ana = s.query(User).filter_by(role=Role.MANAGER).one()
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        ana = s.query(User).filter_by(restaurant_id=rest.id, role=Role.MANAGER).one()
         corte = Ingredient(restaurant_id=rest.id, name="Striploin steak", unit=Unit.KG)
         s.add(corte); s.flush()
         item = IngredientItem(restaurant_id=rest.id, ingredient_id=corte.id, name="AUS")
@@ -272,7 +267,7 @@ def test_a_manager_can_hand_someone_the_butchers_level(client):
 def test_nobody_can_hand_themselves_a_level(client):
     token = csrf_from(client.get("/configuracion").text)
     with db.session_scope() as s:
-        propio = s.query(User).filter_by(role=Role.MANAGER).one().id
+        propio = s.query(User).filter_by(email="albano@marina.com").one().id
     r = client.post(f"/manager/equipo/{propio}/rol", data={"csrf": token, "role": "EMPLOYEE"})
     assert r.status_code == 400
     with db.session_scope() as s:

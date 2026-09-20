@@ -36,6 +36,27 @@
 </table>
 </div>
 <p class="muted">{{ t("team.note") }}</p>
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+<h2>{{ t("team.new_user") }}</h2>
+<div class="card">
+<form method="post" action="/manager/equipo/nueva">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid">
+    <div><label for="nname">{{ t("common.name") }}</label><input id="nname" name="name" required></div>
+    <div><label for="nemail">{{ t("common.email") }}</label><input id="nemail" name="email" type="email" required></div>
+    <div><label for="npass">{{ t("common.password") }}</label>
+      <input id="npass" name="password" required minlength="8">
+      <div class="help">{{ t("common.password_hint") }}</div></div>
+    <div><label for="nrole">{{ t("team.role") }}</label>
+      <select id="nrole" name="role">
+        {% for r in roles %}<option value="{{ r.value }}">{{ t("role." ~ r.value) }}</option>{% endfor %}
+      </select></div>
+  </div>
+  <div class="help">{{ t("team.new_help") }}</div>
+  <button class="wide" type="submit">{{ t("team.new_user") }}</button>
+</form>
+</div>
+
 <div class="card">
   <b>{{ t("team.role") }}</b>
   <ul style="margin:8px 0 0;padding-inline-start:18px" class="muted">

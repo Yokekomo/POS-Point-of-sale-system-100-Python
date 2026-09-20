@@ -1,0 +1,33 @@
+{% extends "public_base.html" %}{% block title %}{{ t("price.title") }}{% endblock %}
+{% block public %}
+<h1>{{ t("price.title") }}</h1>
+<p class="sub">{{ t("price.sub") }}</p>
+
+<div class="banner ok"><b>{{ t("price.trial", days=trial_days) }}</b> ·
+  {{ t("price.trial_help") }}</div>
+
+<div class="grid">
+  <div class="card">
+    <b>{{ t("price.single") }}</b>
+    <div class="kpi" style="border:0;padding:10px 0"><b>{{ t("price.ask") }}</b>
+      <span>{{ t("price.per_outlet") }}</span></div>
+    <div class="muted">{{ t("plan.SINGLE") }}</div>
+    <a class="btn ghost" style="margin-top:12px" href="/solicitar?plan=SINGLE">{{ t("price.contact") }}</a>
+  </div>
+  <div class="card">
+    <b>{{ t("price.multi") }}</b>
+    <div class="kpi" style="border:0;padding:10px 0"><b>{{ t("price.ask") }}</b>
+      <span>{{ t("price.per_outlet") }}</span></div>
+    <div class="muted">{{ t("plan.MULTI") }}</div>
+    <a class="btn ghost" style="margin-top:12px" href="/solicitar?plan=MULTI">{{ t("price.contact") }}</a>
+  </div>
+</div>
+
+<h2>{{ t("price.included") }}</h2>
+<div class="card">
+  <ul style="margin:0;padding-inline-start:18px">
+    {% for n in [1, 2, 3, 4] %}<li>{{ t("pub.why" ~ n) }}</li>{% endfor %}
+  </ul>
+</div>
+<p class="help">{{ t("pub.f.no_card") }}</p>
+{% endblock %}

@@ -2,7 +2,10 @@
 
 Tres niveles, pensados desde el trabajo y no desde el organigrama:
 
-- **Manager**: todo. Es el único que ve el dinero —costes, food cost, el valor
+- **Dueño de la plataforma**: da de alta las casas, cobra el recibo y puede
+  bloquear una cuenta entera. Es el único que toca la configuración del
+  restaurante.
+- **Manager**: su casa entera. Es el único de la casa que ve el dinero —costes, food cost, el valor
   de la cámara, lo que se pierde al día— y el único que toca la carta, las
   ventas y el equipo.
 - **Carnicero**: la carne entera. Recibe primales, los despieza, saca a
@@ -31,14 +34,18 @@ MENU = "menu"              # carta, ingredientes del plato y ventas
 MONEY = "money"            # ver costes, food cost y valor
 TEAM = "team"              # equipo, alertas y configuración de la casa
 FIX = "fix"                # recuperar piezas y dar de alta lo que apareció
+PLATFORM = "platform"      # la plataforma: altas de casas y el recibo del mes
+SETTINGS = "settings"      # la configuración del restaurante
 
 BUTCHER_CAPS = frozenset({RECEIVE, BUTCHER, DEFROST, CLOSE_SHIFT, COUNT,
                           INVENTORY, WASTE, STOCK})
 EMPLOYEE_CAPS = frozenset({DEFROST, COUNT, WASTE, STOCK})
 MANAGER_CAPS = frozenset({RECEIVE, BUTCHER, DEFROST, CLOSE_SHIFT, COUNT, INVENTORY,
                           WASTE, STOCK, CATALOGUE, MENU, MONEY, TEAM, FIX})
+OWNER_CAPS = MANAGER_CAPS | {PLATFORM, SETTINGS}
 
 CAPS: dict[Role, frozenset[str]] = {
+    Role.OWNER: OWNER_CAPS,
     Role.MANAGER: MANAGER_CAPS,
     Role.BUTCHER: BUTCHER_CAPS,
     Role.EMPLOYEE: EMPLOYEE_CAPS,

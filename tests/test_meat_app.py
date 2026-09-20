@@ -30,35 +30,25 @@ def client(tmp_path, monkeypatch):
         yield c
 
 
-def csrf_from(html):
-    m = re.search(r'name="csrf" value="([^"]+)"', html)
-    assert m, "la página no trae token CSRF"
-    return m.group(1)
+from tests.meat_helpers import add_user, csrf_from, join_code, login  # noqa: E402
 
 
 def signup(client, restaurant="Hotel Marina", email="albano@marina.com", name="Albano",
            language=""):
-    r = client.post("/signup", data={"restaurant": restaurant, "name": name, "email": email,
-                                     "password": "clave-larga-1", "language": language})
-    assert r.status_code == 303 and r.headers["location"] == "/hoy"
-    return r
+    """La casa la da de alta la plataforma; aquí entra su manager."""
+    from tests.meat_helpers import signup as alta
+    return alta(client, restaurant, email, name, language or "es")
 
 
-def join_code(slug="hotel-marina"):
-    with db.session_scope() as s:
-        return s.query(Restaurant).filter_by(slug=slug).one().join_code
-
-
-def join(client, code, email="marta@marina.com", name="Marta"):
-    r = client.post("/join", data={"join_code": code, "name": name, "email": email,
-                                   "password": "clave-larga-2"})
-    assert r.status_code == 303 and r.headers["location"] == "/hoy"
-    return r
+def join(client, code=None, email="marta@marina.com", name="Marta"):
+    """Ya no se entra con código: el manager crea la cuenta y se entra con ella."""
+    add_user(client, email=email, name=name)
+    return login(client, email, "clave-larga-2")
 
 
 # ------------------------------------------------------ puertas y encuadre
 def test_the_front_door_leads_to_today_not_to_the_kitchen(client):
-    assert client.get("/").headers["location"] == "/login"
+    assert client.get("/").status_code == 200          # la portada pública
     signup(client)
     assert client.get("/").headers["location"] == "/hoy"
     assert client.get("/hoy").status_code == 200
@@ -607,14 +597,21 @@ def test_a_placeholder_in_one_language_is_a_placeholder_in_all_of_them():
 
 
 def test_the_meat_texts_do_not_step_on_the_kitchen_ones():
-    """Las claves de carne van con su prefijo: no pisan nada de la cocina."""
+    """Los textos de carne se añaden a los de cocina, no los reescriben."""
+    import pathlib
+
     from thegrill.meat import i18n_meat
-    assert all(k.startswith("m.") for k in i18n_meat.ES)
+    # Las claves de la cocina se leen del fichero: en memoria ya están mezcladas.
+    fuente = pathlib.Path("thegrill/web/i18n.py").read_text(encoding="utf-8")
+    trozo = fuente[fuente.index("ES = {"):fuente.index("\n}", fuente.index("ES = {"))]
+    cocina = set(re.findall(r'^\s{4}"([^"]+)":', trozo, re.M))
+    pisadas = cocina & set(i18n_meat.ES)
+    assert not pisadas, f"la edición de carne reescribe textos de cocina: {pisadas}"
 
 
 def test_the_front_page_says_which_program_this_is_before_logging_in(client):
     """Quien abre el enlace tiene que saber dónde entra, y en su idioma."""
-    for path in ("/login", "/signup", "/join"):
+    for path in ("/login", "/", "/precios", "/solicitar"):
         html = client.get(path).text
         assert "Control de carnes" in html, path
         assert "Gestión de cocina" not in html, path

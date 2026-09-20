@@ -24,9 +24,33 @@ from thegrill.db import Base
 
 # =============================================================== Enums
 class Role(str, enum.Enum):
+    OWNER = "OWNER"          # la plataforma: da de alta restaurantes y cobra
     MANAGER = "MANAGER"      # acceso total: estadísticas, configuración, usuarios
     BUTCHER = "BUTCHER"      # la carne entera: recibir, despiezar, contar. Sin dinero
     EMPLOYEE = "EMPLOYEE"    # solo meter datos y fotos, y ver lo que él mismo metió
+
+
+class Plan(str, enum.Enum):
+    """Lo que tiene contratado la casa."""
+    SINGLE = "SINGLE"        # un local
+    MULTI = "MULTI"          # varios locales bajo la misma cuenta
+
+
+class Billing(str, enum.Enum):
+    """Cómo está la cuenta con el recibo del mes."""
+    SETUP = "SETUP"          # dada de alta, sin método de pago todavía
+    TRIAL = "TRIAL"          # de prueba, con tarjeta puesta y sin cobrar
+    ACTIVE = "ACTIVE"        # al día
+    PAST_DUE = "PAST_DUE"    # el recibo ha fallado; avisa pero deja trabajar
+    CANCELLED = "CANCELLED"  # cancelada por la casa; si fue en prueba, sin cobrar
+    BLOCKED = "BLOCKED"      # cuenta bloqueada: nadie entra hasta que se arregle
+
+
+class RequestStatus(str, enum.Enum):
+    NEW = "NEW"              # recién llegada
+    CONTACTED = "CONTACTED"  # hablado con ellos
+    ACCEPTED = "ACCEPTED"    # cuenta creada
+    REJECTED = "REJECTED"
 
 
 class FieldType(str, enum.Enum):
@@ -152,6 +176,76 @@ class Restaurant(Base):
     pos_match: Mapped[PosMatch] = mapped_column(Enum(PosMatch), default=PosMatch.BOTH)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # --- la cuenta: quién es la casa y cómo está con el recibo del mes
+    platform: Mapped[bool | None] = mapped_column(Boolean, default=False)  # la casa del dueño
+    plan: Mapped[Plan | None] = mapped_column(Enum(Plan))
+    outlets: Mapped[int | None] = mapped_column(Integer)          # locales contratados
+    monthly_fee: Mapped[float | None] = mapped_column(Float)      # lo que paga al mes
+    billing: Mapped[Billing | None] = mapped_column(Enum(Billing))
+    paid_until: Mapped[date | None] = mapped_column(Date)         # hasta cuándo está pagado
+    billing_note: Mapped[str | None] = mapped_column(Text)        # por qué se bloqueó, o qué falta
+    trial_ends: Mapped[date | None] = mapped_column(Date)         # hasta cuándo dura la prueba
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # --- el método de pago: lo guarda la pasarela, aquí solo su referencia.
+    # En esta plataforma no entra un número de tarjeta: ni se pide ni se guarda.
+    payment_provider: Mapped[str | None] = mapped_column(String(32))
+    payment_ref: Mapped[str | None] = mapped_column(String(190))   # cliente en la pasarela
+    payment_brand: Mapped[str | None] = mapped_column(String(32))  # VISA, MASTERCARD…
+    payment_last4: Mapped[str | None] = mapped_column(String(4))
+    payment_expiry: Mapped[str | None] = mapped_column(String(7))  # MM/AAAA
+    # --- datos fiscales, los que hacen falta para facturar
+    legal_name: Mapped[str | None] = mapped_column(String(190))
+    tax_number: Mapped[str | None] = mapped_column(String(64))
+    address: Mapped[str | None] = mapped_column(Text)
+    country: Mapped[str | None] = mapped_column(String(64))
+    contact_name: Mapped[str | None] = mapped_column(String(128))
+    contact_role: Mapped[str | None] = mapped_column(String(96))
+    contact_phone: Mapped[str | None] = mapped_column(String(48))
+    billing_email: Mapped[str | None] = mapped_column(String(190))
+    cooks: Mapped[int | None] = mapped_column(Integer)
+
+    @property
+    def blocked(self) -> bool:
+        return self.billing in (Billing.BLOCKED, Billing.CANCELLED) or not self.active
+
+    @property
+    def has_payment_method(self) -> bool:
+        return bool(self.payment_ref)
+
+    @property
+    def needs_attention(self) -> bool:
+        return self.billing in (Billing.PAST_DUE, Billing.BLOCKED)
+
+
+class AccessRequest(Base):
+    """Una casa que pide acceso desde la web pública.
+
+    Se guarda siempre, se avise o no por correo: una solicitud que se pierde es
+    un cliente que no vuelve. Lleva datos personales y fiscales, así que no sale
+    de aquí más que al correo que la casa tenga configurado.
+    """
+    __tablename__ = "access_requests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    status: Mapped[RequestStatus] = mapped_column(Enum(RequestStatus),
+                                                  default=RequestStatus.NEW, index=True)
+    restaurant_name: Mapped[str] = mapped_column(String(190))
+    legal_name: Mapped[str | None] = mapped_column(String(190))
+    tax_number: Mapped[str | None] = mapped_column(String(64))
+    country: Mapped[str | None] = mapped_column(String(64))
+    address: Mapped[str | None] = mapped_column(Text)
+    contact_name: Mapped[str] = mapped_column(String(128))
+    contact_role: Mapped[str | None] = mapped_column(String(96))
+    email: Mapped[str] = mapped_column(String(190), index=True)
+    phone: Mapped[str | None] = mapped_column(String(48))
+    cooks: Mapped[int | None] = mapped_column(Integer)
+    outlets: Mapped[int | None] = mapped_column(Integer)
+    plan: Mapped[Plan | None] = mapped_column(Enum(Plan))
+    message: Mapped[str | None] = mapped_column(Text)
+    notified: Mapped[bool] = mapped_column(Boolean, default=False)   # si salió el correo
+    restaurant_id: Mapped[int | None] = mapped_column(ForeignKey("restaurants.id"))
 
 
 class User(TenantMixin, Base):

@@ -1,0 +1,142 @@
+{% extends "base.html" %}{% block title %}{{ t("adm.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("adm.title") }}</h1>
+<p class="sub">{{ t("adm.sub") }}</p>
+{% if done %}<div class="banner ok">{{ t("adm.saved") }}</div>{% endif %}
+{% if not mail_ready %}<div class="banner warn">{{ t("adm.mail_off") }}</div>{% endif %}
+{% if not encryption_on %}<div class="banner bad">{{ t("priv.encryption_off") }}</div>
+{% else %}<div class="banner ok">{{ t("priv.encryption_on") }}</div>{% endif %}
+
+<h2>{{ t("adm.requests") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("common.date") }}</th><th>{{ t("pub.f.restaurant") }}</th>
+    <th>{{ t("pub.f.contact") }}</th><th class="num">{{ t("pub.f.cooks") }}</th>
+    <th class="num">{{ t("pub.f.outlets") }}</th><th>{{ t("common.status") }}</th></tr>
+{% for r in requests %}
+<tr>
+  <td class="when">{{ r.created_at.strftime("%d/%m/%Y") }}</td>
+  <td><b>{{ r.restaurant_name }}</b>
+    <div class="muted">{{ r.legal_name or "" }} {{ r.tax_number or "" }} · {{ r.country or "" }}</div>
+    {% if r.address %}<div class="muted">{{ r.address }}</div>{% endif %}
+    {% if r.message %}<div class="muted">“{{ r.message }}”</div>{% endif %}</td>
+  <td>{{ r.contact_name }}<div class="muted">{{ r.contact_role or "" }}</div>
+    <div class="muted">{{ r.email }} {{ r.phone or "" }}</div></td>
+  <td class="num">{{ r.cooks if r.cooks is not none else "" }}</td>
+  <td class="num">{{ r.outlets or 1 }}
+    <div class="muted">{{ t("plan." ~ r.plan.value) if r.plan else "" }}</div></td>
+  <td>
+    <form method="post" action="/admin/solicitud/{{ r.id }}/estado" class="rowflex" style="margin:0">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <select name="status" style="width:auto">
+        {% for st in statuses %}
+        <option value="{{ st.value }}" {% if r.status == st %}selected{% endif %}>{{ st.value }}</option>
+        {% endfor %}
+      </select>
+      <button class="ghost" style="padding:6px 12px">{{ t("common.save") }}</button>
+    </form>
+    {% if not r.notified %}<div class="muted">correo no enviado</div>{% endif %}
+    <div class="rowflex" style="margin-top:6px">
+      <a class="btn ghost" style="padding:4px 10px" href="/admin/solicitud/{{ r.id }}/datos">{{ t("priv.export") }}</a>
+      <form method="post" action="/admin/solicitud/{{ r.id }}/borrar" style="margin:0">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="ghost" style="padding:4px 10px">{{ t("priv.erase") }}</button>
+      </form>
+    </div>
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="muted">{{ t("adm.no_requests") }}</td></tr>
+{% endfor %}
+</table>
+</div>
+
+<form method="post" action="/admin/solicitudes/purgar" style="margin:0 0 20px">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button class="ghost">{{ t("priv.purge", days=retention_days) }}</button>
+</form>
+
+<h2>{{ t("adm.accounts") }}</h2>
+{% for a in accounts %}
+<div class="card">
+  <div class="rowflex">
+    <div style="flex:1">
+      <b>{{ a.restaurant.name }}</b>
+      <div class="muted">{{ a.restaurant.legal_name or "" }} {{ a.restaurant.tax_number or "" }}
+        · {{ a.restaurant.country or "" }} · {{ a.users }} {{ t("adm.users") | lower }}</div>
+      <div style="margin-top:6px">
+        <span class="tag {{ 'bad' if a.blocked else ('warn' if a.restaurant.needs_attention else 'ok') }}">
+          {{ t("billing." ~ a.restaurant.billing.value) if a.restaurant.billing else "—" }}</span>
+        {% set quedan = trial_left(a.restaurant) %}
+        {% if quedan is not none %}
+          <span class="tag warn">{% if quedan > 0 %}{{ t("acct.trial_left", days=quedan) }}
+            {% elif quedan == 0 %}{{ t("acct.trial_last") }}
+            {% else %}{{ t("acct.trial_over") }}{% endif %}</span>
+        {% endif %}
+        {% if a.restaurant.payment_last4 %}
+          <span class="muted">{{ a.restaurant.payment_brand or "" }} ····{{ a.restaurant.payment_last4 }}</span>
+        {% else %}<span class="tag bad">{{ t("billing.SETUP") }}</span>{% endif %}
+        {% if a.restaurant.monthly_fee %}<span class="muted">· {{ "%.2f"|format(a.restaurant.monthly_fee) }}</span>{% endif %}
+        {% if a.restaurant.paid_until %}<span class="muted">· {{ t("adm.paid_until") | lower }} {{ a.restaurant.paid_until }}</span>{% endif %}
+      </div>
+      {% if a.restaurant.billing_note %}<div class="muted">{{ a.restaurant.billing_note }}</div>{% endif %}
+    </div>
+  </div>
+
+  <form method="post" action="/admin/casa/{{ a.restaurant.id }}/pago" class="rowflex" style="margin-top:10px">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input name="paid_until" type="date" style="max-width:170px" aria-label="{{ t("adm.paid_until") }}">
+    <input name="note" placeholder="{{ t("acct.note") }}" style="flex:1">
+    <button name="action" value="paid" type="submit">{{ t("adm.mark_paid") }}</button>
+    <button name="action" value="past_due" class="ghost" type="submit">{{ t("adm.mark_past_due") }}</button>
+    <button name="action" value="block" class="ghost" type="submit">{{ t("adm.block") }}</button>
+  </form>
+
+  <details style="margin-top:10px">
+    <summary class="muted">{{ t("adm.gateway") }}</summary>
+    <form method="post" action="/admin/casa/{{ a.restaurant.id }}/pasarela">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="grid">
+        <div><label>{{ t("adm.reference") }}</label><input name="reference" required placeholder="cus_..."></div>
+        <div><label>{{ t("adm.brand") }}</label><input name="brand" placeholder="VISA"></div>
+        <div><label>{{ t("adm.last4") }}</label><input name="last4" inputmode="numeric" maxlength="4" placeholder="4242"></div>
+        <div><label>{{ t("adm.expiry") }}</label><input name="expiry" placeholder="05/2029"></div>
+      </div>
+      <div class="help">{{ t("adm.gateway_help") }}</div>
+      <button class="wide" type="submit">{{ t("common.save") }}</button>
+    </form>
+  </details>
+</div>
+{% else %}
+<div class="card"><p class="muted" style="margin:0">{{ t("adm.no_accounts") }}</p></div>
+{% endfor %}
+
+<h2>{{ t("adm.new_account") }}</h2>
+<div class="card">
+<form method="post" action="/admin/casa">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid">
+    <div><label for="name">{{ t("pub.f.restaurant") }}</label><input id="name" name="name" required></div>
+    <div><label for="legal_name">{{ t("pub.f.legal") }}</label><input id="legal_name" name="legal_name"></div>
+    <div><label for="tax_number">{{ t("pub.f.tax") }}</label><input id="tax_number" name="tax_number"></div>
+    <div><label for="country">{{ t("pub.f.country") }}</label><input id="country" name="country"></div>
+    <div><label for="manager_name">{{ t("adm.manager") }}</label><input id="manager_name" name="manager_name" required></div>
+    <div><label for="manager_email">{{ t("pub.f.email") }}</label><input id="manager_email" name="manager_email" type="email" required></div>
+    <div><label for="password">{{ t("adm.password") }}</label><input id="password" name="password" required minlength="8"></div>
+    <div><label for="plan">{{ t("pub.f.plan") }}</label>
+      <select id="plan" name="plan">
+        {% for p in plans %}<option value="{{ p.value }}">{{ t("plan." ~ p.value) }}</option>{% endfor %}
+      </select></div>
+    <div><label for="outlets">{{ t("pub.f.outlets") }}</label><input id="outlets" name="outlets" inputmode="numeric" value="1"></div>
+    <div><label for="monthly_fee">{{ t("adm.fee") }}</label><input id="monthly_fee" name="monthly_fee" inputmode="decimal"></div>
+    <div><label for="language">{{ t("common.language") }}</label>
+      <select id="language" name="language">
+        {% for code, l in languages.items() %}<option value="{{ code }}">{{ l.name }}</option>{% endfor %}
+      </select></div>
+  </div>
+  <label for="address">{{ t("pub.f.address") }}</label>
+  <textarea id="address" name="address" rows="2"></textarea>
+  <button class="wide" type="submit">{{ t("adm.new_account") }}</button>
+</form>
+</div>
+{% endblock %}

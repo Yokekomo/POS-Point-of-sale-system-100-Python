@@ -92,7 +92,7 @@
 {% endif %}
 
 <p class="muted"><a href="/carta">← {{ t("m.menu.title") }}</a></p>
-<script>
+<script nonce="{{ nonce }}">
 // La porción configurada se propone sola al elegir el ingrediente: en cocina
 // ese gramaje ya está decidido, no hay que volver a escribirlo.
 (function () {

@@ -38,16 +38,12 @@ def client(tmp_path, monkeypatch):
     db.init_engine(f"sqlite:///{tmp_path/'web.db'}")
     db.create_all()
     with TestClient(meatapp.app, follow_redirects=False) as c:
-        c.post("/signup", data={"restaurant": "Hotel Marina", "name": "Albano",
-                                "email": "albano@marina.com", "password": "clave-larga-1",
-                                "language": "es"})
+        helpers.signup(c)
         yield c
 
 
-def csrf_from(html):
-    m = re.search(r'name="csrf" value="([^"]+)"', html)
-    assert m, "la página no trae token CSRF"
-    return m.group(1)
+from tests import meat_helpers as helpers  # noqa: E402
+from tests.meat_helpers import csrf_from  # noqa: E402
 
 
 def entrecot(s, rest, ana, precio_kg=43.0, pvp=29.50):
@@ -287,11 +283,8 @@ def test_the_garnish_costs_are_not_for_the_kitchen_floor(client):
     client.post("/ingredientes/nuevo", data={"csrf": csrf_from(form.text), "name": "Patata",
                                              "unit": "KG", "cost": "1,20"})
     with db.session_scope() as s:
-        rest = s.query(Restaurant).one()
-        code, patata_id = rest.join_code, s.query(Ingredient).one().id
-    client.cookies.clear()
-    client.post("/join", data={"join_code": code, "name": "Marta", "email": "m@marina.com",
-                               "password": "clave-larga-2"})
+        patata_id = s.query(Ingredient).one().id
+    client = helpers.add_user(client, email="m@marina.com", name="Marta")
 
     assert client.get("/ingredientes").status_code == 403
     assert 'href="/ingredientes"' not in client.get("/hoy").text      # ni en la barra

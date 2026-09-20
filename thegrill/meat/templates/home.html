@@ -3,6 +3,31 @@
 <h1>{{ t("m.home.title") }}</h1>
 <p class="sub">{{ t("m.home.sub") }}</p>
 
+{% if can("team") %}
+  {% if trial_left is not none %}
+  <div class="banner warn">
+    {% if trial_left > 0 %}<b>{{ t("acct.trial_left", days=trial_left) }}</b>
+    {% elif trial_left == 0 %}<b>{{ t("acct.trial_last") }}</b>
+    {% else %}<b>{{ t("acct.trial_over") }}</b>{% endif %}
+    {% if free_cancel %} · {{ t("acct.cancel_free") }}{% endif %}
+  </div>
+  <details class="card">
+    <summary class="muted">{{ t("acct.cancel") }}</summary>
+    <form method="post" action="/cuenta/cancelar" style="margin-top:10px">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label for="reason">{{ t("acct.cancel_reason") }}</label>
+      <input id="reason" name="reason">
+      <div class="help">{% if free_cancel %}{{ t("acct.cancel_free") }}{% endif %}</div>
+      <button class="ghost" type="submit">{{ t("acct.cancel") }}</button>
+    </form>
+  </details>
+  {% elif restaurant.billing and restaurant.billing.value == "SETUP" %}
+  <div class="banner warn">{{ t("acct.needs_payment") }}</div>
+  {% elif restaurant.needs_attention %}
+  <div class="banner bad">{{ t("acct.blocked_manager") }}</div>
+  {% endif %}
+{% endif %}
+
 {% if info.pending %}
 <div class="card">
   <b>{{ t("m.home.todo") }}</b>

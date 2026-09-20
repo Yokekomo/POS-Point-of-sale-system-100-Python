@@ -9,6 +9,7 @@ Corre por su cuenta, con su propia base de datos:
 
     python -m thegrill.cli --db sqlite:///carnes.db serve-carne --port 8001
 """
+import logging
 import os
 from datetime import date, datetime, timedelta
 
@@ -18,14 +19,17 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from thegrill import db
-from thegrill.meat import perms
+from thegrill.meat import billing, mailer, perms, privacy, security
 from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
-from thegrill.models import (Alert, ConsumptionMode, CountPeriod, CountStatus, Ingredient,
-                             IngredientItem, MeatCount, PosMatch, PosProduct, Primal, Recipe,
+from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, CountPeriod,
+                             CountStatus, Ingredient, IngredientItem, MeatCount, Plan,
+                             PosMatch, PosProduct, Primal, Recipe, RequestStatus,
                              Restaurant, Role, Rotation, Unit, User)
 from thegrill.web import (auth, butchery, costing, defrost, i18n, inventory, service,
                           tracing, waste)
+
+log = logging.getLogger(__name__)
 
 MEAT_TEMPLATES = os.path.join(os.path.dirname(__file__), "templates")
 KITCHEN_TEMPLATES = os.path.join(os.path.dirname(os.path.dirname(__file__)),
@@ -35,7 +39,9 @@ XLSX_MEDIA = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 # Las plantillas propias mandan; lo que no esté aquí se hereda de la cocina.
 templates = Jinja2Templates(directory=[MEAT_TEMPLATES, KITCHEN_TEMPLATES])
 templates.env.filters["ceil_pct"] = butchery.ceil_pct
-app = FastAPI(title="Control de carnes")
+# Sin documentación automática: /docs y /openapi.json enseñaban el mapa entero
+# de la aplicación a cualquiera que pasara por ahí.
+app = FastAPI(title="Control de carnes", docs_url=None, redoc_url=None, openapi_url=None)
 
 
 # --------------------------------------------------------------- utilidades
@@ -63,6 +69,11 @@ def require_user(request: Request, session: Session = Depends(get_db)):
     found = current(request, session)
     if found is None:
         raise HTTPException(status_code=303, headers={"Location": "/login"})
+    user, _ = found
+    restaurant = session.get(Restaurant, user.restaurant_id)
+    # Una cuenta bloqueada no trabaja. Se puede entrar, ver por qué y salir.
+    if restaurant is not None and restaurant.blocked and user.role != Role.OWNER:
+        raise HTTPException(status_code=303, headers={"Location": "/cuenta"})
     return found
 
 
@@ -71,6 +82,16 @@ def require_manager_user(request: Request, session: Session = Depends(get_db)):
     if user.role != Role.MANAGER:
         raise HTTPException(status_code=403,
                             detail=i18n.t(lang_for(request, session, user), "error.managers_only"))
+    return user, auth_session
+
+
+def require_owner(request: Request, session: Session = Depends(get_db)):
+    found = current(request, session)
+    if found is None:
+        raise HTTPException(status_code=303, headers={"Location": "/login"})
+    user, auth_session = found
+    if user.role != Role.OWNER:
+        raise HTTPException(status_code=404, detail="")   # ni se insinúa que existe
     return user, auth_session
 
 
@@ -95,6 +116,8 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
     lang = ctx.pop("lang", None) or lang_for(request, session, user)
     base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
             "today": date.today().isoformat(), "can": perms.checker(user),
+            "here": request.url.path,
+            "nonce": getattr(request.state, "nonce", ""),
             "unread": service.unread_count(session, user.id) if (user and session) else 0,
             "t": i18n.translator(lang), "lang": lang, "dir": i18n.direction(lang),
             "languages": i18n.LANGUAGES}
@@ -104,7 +127,10 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
 
 def set_session_cookie(response: Response, token: str) -> Response:
     secure = os.environ.get("GRILL_INSECURE_COOKIE") != "1"
-    response.set_cookie(auth.COOKIE_NAME, token, httponly=True, samesite="lax",
+    # `strict`: la cookie no viaja en peticiones que vengan de otro sitio, ni
+    # siquiera al pinchar un enlace. Es un programa de trabajo, no una red
+    # social: nadie llega aquí desde fuera y necesita estar dentro al llegar.
+    response.set_cookie(auth.COOKIE_NAME, token, httponly=True, samesite="strict",
                         secure=secure, max_age=auth.SESSION_DAYS * 86400, path="/")
     return response
 
@@ -137,6 +163,25 @@ def _num(raw: str | None, default: float | None = None) -> float | None:
     return float(str(raw).replace(",", "."))
 
 
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Las cabeceras van en todas las respuestas, también en las de error."""
+    request.state.nonce = security.new_nonce()
+    response = await call_next(request)
+    for header, value in security.SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
+    response.headers.setdefault("Content-Security-Policy",
+                                security.content_policy(request.state.nonce))
+    if request.url.scheme == "https":
+        response.headers.setdefault("Strict-Transport-Security",
+                                    "max-age=31536000; includeSubDomains")
+    return response
+
+
+def client_ip(request: Request) -> str:
+    return (request.client.host if request.client else "") or "desconocido"
+
+
 @app.exception_handler(HTTPException)
 async def redirect_handler(request: Request, exc: HTTPException):
     if exc.status_code == 303 and "Location" in (exc.headers or {}):
@@ -147,7 +192,10 @@ async def redirect_handler(request: Request, exc: HTTPException):
                                       {"user": None, "csrf": "", "unread": 0,
                                        "t": i18n.translator(lang), "lang": lang,
                                        "dir": i18n.direction(lang), "languages": i18n.LANGUAGES,
-                                       "code": exc.status_code, "detail": exc.detail},
+                                       "code": exc.status_code, "detail": exc.detail,
+                                       "nonce": getattr(request.state, "nonce", ""),
+                                       "can": lambda capability: False,
+                                       "here": request.url.path},
                                       status_code=exc.status_code)
 
 
@@ -162,8 +210,73 @@ def choose_language(lang: str, next: str = "/login"):
 
 @app.get("/", response_class=HTMLResponse)
 def root(request: Request, session: Session = Depends(get_db)):
+    """La portada: quien ya tiene cuenta entra, quien no, se entera de qué es."""
+    if current(request, session):
+        return RedirectResponse("/hoy", status_code=303)
+    return page(request, "public_home.html", lang=lang_for(request, session),
+                retention_days=privacy.RETENTION_DAYS)
+
+
+@app.get("/cookies", response_class=HTMLResponse)
+def cookies_page(request: Request, session: Session = Depends(get_db)):
+    """Qué cookies hay, para qué y cuánto duran. Solo técnicas."""
+    return page(request, "public_cookies.html", lang=lang_for(request, session),
+                retention_days=privacy.RETENTION_DAYS)
+
+
+@app.get("/precios", response_class=HTMLResponse)
+def pricing(request: Request, session: Session = Depends(get_db)):
+    return page(request, "public_pricing.html", lang=lang_for(request, session),
+                trial_days=billing.TRIAL_DAYS, retention_days=privacy.RETENTION_DAYS)
+
+
+@app.get("/solicitar", response_class=HTMLResponse)
+def request_form(request: Request, session: Session = Depends(get_db), sent: int = 0):
+    return page(request, "public_request.html", lang=lang_for(request, session),
+                sent=bool(sent), error="", plans=list(Plan), sub={},
+                trial_days=billing.TRIAL_DAYS, retention_days=privacy.RETENTION_DAYS)
+
+
+@app.post("/solicitar", response_class=HTMLResponse)
+async def submit_request(request: Request, session: Session = Depends(get_db)):
+    """La única puerta abierta a internet. Con freno y sin datos de pago."""
+    form = await request.form()
+    lang = lang_for(request, session)
+    data = {k: (form.get(k) or "").strip() for k in
+            ("restaurant_name", "legal_name", "tax_number", "country", "address",
+             "contact_name", "contact_role", "email", "phone", "message")}
+
+    def again(error: str):
+        return page(request, "public_request.html", lang=lang, sent=False, error=error,
+                    plans=list(Plan), sub=data, trial_days=billing.TRIAL_DAYS,
+                    retention_days=privacy.RETENTION_DAYS)
+
+    if not security.form_allowed(client_ip(request)):
+        return again(i18n.t(lang, "pub.too_many"))
+    plan = form.get("plan")
+    try:
+        billing.request_access(
+            session, plan=Plan[plan] if plan in Plan.__members__ else Plan.SINGLE,
+            outlets=int(_num(form.get("outlets"), 1) or 1),
+            cooks=int(_num(form.get("cooks"), 0) or 0) or None,
+            **data)
+    except (billing.BillingError, ValueError) as e:
+        return again(str(e))
+    return RedirectResponse("/solicitar?sent=1", status_code=303)
+
+
+@app.get("/cuenta", response_class=HTMLResponse)
+def account_notice(request: Request, session: Session = Depends(get_db)):
+    """Lo que ve cada quien cuando la cuenta está parada."""
     found = current(request, session)
-    return RedirectResponse("/hoy" if found else "/login", status_code=303)
+    if found is None:
+        return RedirectResponse("/login", status_code=303)
+    user, auth_session = found
+    restaurant = session.get(Restaurant, user.restaurant_id)
+    if restaurant is None or not restaurant.blocked:
+        return RedirectResponse("/hoy", status_code=303)
+    return page(request, "account_blocked.html", user, auth_session, session,
+                restaurant=restaurant)
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -177,12 +290,24 @@ def login_form(request: Request, session: Session = Depends(get_db)):
 def login(request: Request, email: str = Form(...), password: str = Form(...),
           session: Session = Depends(get_db)):
     lang = lang_for(request, session)
+    # El freno va por correo y por dirección: ni se castiga a una casa entera
+    # por una dirección, ni se prueban mil contraseñas desde la misma.
+    key = f"{(email or '').strip().lower()}|{client_ip(request)}"
+    espera = security.locked_for(key)
+    if espera:
+        return page(request, "login.html", lang=lang,
+                    error=i18n.t(lang, "auth.too_many", minutes=max(1, espera // 60)))
     try:
         user = auth.authenticate(session, email, password, lang=lang)
     except auth.AuthError as e:
+        security.note_failure(key)
+        log.warning("acceso fallido para %s desde %s", (email or "").strip().lower(),
+                    client_ip(request))
         return page(request, "login.html", error=str(e), lang=lang)
+    security.clear(key)
     token, _ = auth.start_session(session, user)
-    return set_session_cookie(RedirectResponse("/hoy", status_code=303), token)
+    destino = "/admin" if user.role == Role.OWNER else "/hoy"
+    return set_session_cookie(RedirectResponse(destino, status_code=303), token)
 
 
 @app.post("/logout")
@@ -193,42 +318,26 @@ def logout(request: Request, session: Session = Depends(get_db)):
     return response
 
 
-@app.get("/signup", response_class=HTMLResponse)
-def signup_form(request: Request, session: Session = Depends(get_db)):
-    return page(request, "signup.html", error="")
+@app.get("/signup")
+def signup_form():
+    """Aquí no hay registro abierto: las cuentas las crea la plataforma."""
+    return RedirectResponse("/solicitar", status_code=303)
 
 
 @app.post("/signup")
-def signup(request: Request, restaurant: str = Form(...), name: str = Form(...),
-           email: str = Form(...), password: str = Form(...), language: str = Form(""),
-           session: Session = Depends(get_db)):
-    lang = language if i18n.is_supported(language) else lang_for(request, session)
-    try:
-        _, user = auth.create_restaurant(session, restaurant, email, name, password,
-                                         language=lang)
-    except (auth.AuthError, ValueError) as e:
-        return page(request, "signup.html", error=str(e), lang=lang)
-    token, _ = auth.start_session(session, user)
-    response = set_session_cookie(RedirectResponse("/hoy", status_code=303), token)
-    return set_lang_cookie(response, lang)
+def signup_closed():
+    return RedirectResponse("/solicitar", status_code=303)
 
 
-@app.get("/join", response_class=HTMLResponse)
-def join_form(request: Request, session: Session = Depends(get_db)):
-    return page(request, "join.html", error="")
+@app.get("/join")
+def join_form():
+    """Las cuentas de la casa las crea su manager, una a una y con su nivel."""
+    return RedirectResponse("/login", status_code=303)
 
 
 @app.post("/join")
-def join(request: Request, join_code: str = Form(...), name: str = Form(...),
-         email: str = Form(...), password: str = Form(...),
-         session: Session = Depends(get_db)):
-    lang = lang_for(request, session)
-    try:
-        user = auth.join_restaurant(session, join_code, email, name, password, language=lang)
-    except (auth.AuthError, ValueError) as e:
-        return page(request, "join.html", error=str(e), lang=lang)
-    token, _ = auth.start_session(session, user)
-    return set_session_cookie(RedirectResponse("/hoy", status_code=303), token)
+def join_closed():
+    return RedirectResponse("/login", status_code=303)
 
 
 # ================================================================= HOY
@@ -239,8 +348,22 @@ def home(request: Request, ctx=Depends(require_user), session: Session = Depends
     lang = lang_for(request, session, user)
     restaurant = session.get(Restaurant, user.restaurant_id)
     return page(request, "home.html", user, auth_session, session, lang=lang,
-                restaurant=restaurant,
+                restaurant=restaurant, trial_left=billing.trial_left(restaurant),
+                free_cancel=billing.free_cancellation(restaurant),
                 info=meat.today(session, user.restaurant_id, lang=lang))
+
+
+@app.post("/cuenta/cancelar")
+def cancel_own_account(request: Request, reason: str = Form(""), csrf: str = Form(""),
+                       ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
+    """La casa cancela su cuenta. En prueba y antes de tiempo, sin pagar nada."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    restaurant = session.get(Restaurant, user.restaurant_id)
+    if restaurant is None or restaurant.platform:
+        raise HTTPException(status_code=404, detail="")
+    billing.cancel(session, user, restaurant, reason.strip() or None)
+    return RedirectResponse("/cuenta", status_code=303)
 
 
 # ========================================================== RECEPCIÓN
@@ -815,6 +938,159 @@ def tracing_page(request: Request, ctx=Depends(needs(perms.STOCK)),
                 serial=serial, history=history, matches=matches, error=error)
 
 
+# ====================================================== LA PLATAFORMA
+@app.get("/admin", response_class=HTMLResponse)
+def admin_home(request: Request, ctx=Depends(require_owner),
+               session: Session = Depends(get_db), done: str = ""):
+    """La consola del dueño: solicitudes, casas y el recibo del mes."""
+    user, auth_session = ctx
+    rows = billing.requests(session)
+    privacy.note_access(session, user, len(rows))     # mirar datos deja huella
+    return page(request, "admin.html", user, auth_session, session, done=done,
+                requests=privacy.readable(rows),
+                accounts=billing.accounts(session),
+                statuses=list(RequestStatus), plans=list(Plan),
+                trial_left=billing.trial_left,
+                mail_ready=mailer.configured(),
+                encryption_on=privacy.encryption_on(),
+                retention_days=privacy.RETENTION_DAYS)
+
+
+@app.post("/admin/solicitud/{request_id}/borrar")
+def erase_request(request_id: int, request: Request, csrf: str = Form(""),
+                  ctx=Depends(require_owner), session: Session = Depends(get_db)):
+    """Derecho de supresión: se borra la solicitud y queda que se borró."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    privacy.erase_request(session, user, request_id)
+    return RedirectResponse("/admin?done=1", status_code=303)
+
+
+@app.get("/admin/solicitud/{request_id}/datos")
+def export_request(request_id: int, request: Request, ctx=Depends(require_owner),
+                   session: Session = Depends(get_db)):
+    """Derecho de portabilidad: todo lo que guardamos de esa persona."""
+    user, auth_session = ctx
+    row = session.get(AccessRequest, request_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="")
+    privacy.audit(session, user, f"request:{request_id}", "EXPORTED", row.restaurant_name)
+    return JSONResponse(privacy.export_request(row))
+
+
+@app.post("/admin/solicitudes/purgar")
+def purge_requests(request: Request, csrf: str = Form(""), ctx=Depends(require_owner),
+                   session: Session = Depends(get_db)):
+    """Lo que no llegó a cuenta no se guarda para siempre."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    privacy.purge(session, user)
+    return RedirectResponse("/admin?done=1", status_code=303)
+
+
+@app.post("/admin/solicitud/{request_id}/estado")
+def set_request_status(request_id: int, request: Request, status: str = Form(...),
+                       csrf: str = Form(""), ctx=Depends(require_owner),
+                       session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    if status in RequestStatus.__members__:
+        billing.set_request_status(session, request_id, RequestStatus[status])
+    return RedirectResponse("/admin", status_code=303)
+
+
+@app.post("/admin/casa")
+async def create_account(request: Request, ctx=Depends(require_owner),
+                         session: Session = Depends(get_db)):
+    """Da de alta la casa y la cuenta de su manager. Es el único camino."""
+    user, auth_session = ctx
+    form = await request.form()
+    _guard(request, session, user, auth_session, form.get("csrf"))
+    plan = form.get("plan")
+    try:
+        restaurant, _ = billing.create_account(
+            session,
+            name=(form.get("name") or "").strip(),
+            manager_name=(form.get("manager_name") or "").strip(),
+            manager_email=(form.get("manager_email") or "").strip(),
+            password=form.get("password") or "",
+            plan=Plan[plan] if plan in Plan.__members__ else Plan.SINGLE,
+            outlets=int(_num(form.get("outlets"), 1) or 1),
+            monthly_fee=_num(form.get("monthly_fee")),
+            language=(form.get("language") or "es"),
+            request_id=int(form.get("request_id")) if (form.get("request_id") or "").strip() else None,
+            legal_name=(form.get("legal_name") or "").strip(),
+            tax_number=(form.get("tax_number") or "").strip(),
+            address=(form.get("address") or "").strip(),
+            country=(form.get("country") or "").strip(),
+            contact_name=(form.get("contact_name") or "").strip(),
+            contact_phone=(form.get("contact_phone") or "").strip(),
+            billing_email=(form.get("billing_email") or "").strip())
+    except (billing.BillingError, auth.AuthError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    billing.audit(session, user, restaurant.id, restaurant.slug, "CREATED", restaurant.name)
+    return RedirectResponse("/admin?done=1", status_code=303)
+
+
+@app.post("/admin/casa/{restaurant_id}/pago")
+def set_billing(restaurant_id: int, request: Request, action: str = Form(...),
+                note: str = Form(""), paid_until: str = Form(""), csrf: str = Form(""),
+                ctx=Depends(require_owner), session: Session = Depends(get_db)):
+    """La pestaña del recibo: pagado, fallado o bloqueado."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    restaurant = session.get(Restaurant, restaurant_id)
+    if restaurant is None or restaurant.platform:
+        raise HTTPException(status_code=404, detail="")
+    try:
+        if action == "paid":
+            billing.mark_paid(session, user, restaurant,
+                              until=date.fromisoformat(paid_until) if paid_until.strip() else None,
+                              note=note.strip() or None)
+        elif action == "past_due":
+            billing.mark_unpaid(session, user, restaurant, block=False, note=note.strip() or None)
+        elif action == "block":
+            billing.mark_unpaid(session, user, restaurant, block=True, note=note.strip() or None)
+        else:
+            raise HTTPException(status_code=400, detail="")
+    except (billing.BillingError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return RedirectResponse("/admin?done=1", status_code=303)
+
+
+@app.post("/admin/casa/{restaurant_id}/pasarela")
+def attach_payment(restaurant_id: int, request: Request, provider: str = Form("stripe"),
+                   reference: str = Form(...), brand: str = Form(""), last4: str = Form(""),
+                   expiry: str = Form(""), csrf: str = Form(""),
+                   ctx=Depends(require_owner), session: Session = Depends(get_db)):
+    """Apunta el método de pago que devolvió la pasarela y arranca la prueba."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    restaurant = session.get(Restaurant, restaurant_id)
+    if restaurant is None or restaurant.platform:
+        raise HTTPException(status_code=404, detail="")
+    try:
+        billing.attach_payment_method(session, user, restaurant, provider=provider,
+                                      reference=reference, brand=brand, last4=last4,
+                                      expiry=expiry)
+    except billing.BillingError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return RedirectResponse("/admin?done=1", status_code=303)
+
+
+@app.post("/admin/casa/{restaurant_id}/cancelar")
+def cancel_account(restaurant_id: int, request: Request, reason: str = Form(""),
+                   csrf: str = Form(""), ctx=Depends(require_owner),
+                   session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    restaurant = session.get(Restaurant, restaurant_id)
+    if restaurant is None or restaurant.platform:
+        raise HTTPException(status_code=404, detail="")
+    billing.cancel(session, user, restaurant, reason.strip() or None)
+    return RedirectResponse("/admin?done=1", status_code=303)
+
+
 # ======================================================== AVISOS Y EQUIPO
 @app.get("/manager/alertas", response_class=HTMLResponse)
 def alerts_page(request: Request, ctx=Depends(require_manager_user),
@@ -844,14 +1120,34 @@ def close_alert(alert_id: int, request: Request, resolution: str = Form(...),
 
 
 @app.get("/manager/equipo", response_class=HTMLResponse)
-def team_page(request: Request, ctx=Depends(require_manager_user),
-              session: Session = Depends(get_db)):
+def team_page(request: Request, ctx=Depends(needs(perms.TEAM)),
+              session: Session = Depends(get_db), error: str = ""):
     user, auth_session = ctx
     restaurant = session.get(Restaurant, user.restaurant_id)
     rows = (session.query(User).filter_by(restaurant_id=user.restaurant_id)
             .order_by(User.name).all())
-    return page(request, "team.html", user, auth_session, session,
-                restaurant=restaurant, rows=rows, roles=list(Role))
+    # Un manager no reparte su propio nivel ni el de la plataforma.
+    roles = [r for r in Role if r not in (Role.OWNER, Role.MANAGER)] \
+        if user.role != Role.OWNER else list(Role)
+    return page(request, "team.html", user, auth_session, session, error=error,
+                restaurant=restaurant, rows=rows, roles=roles)
+
+
+@app.post("/manager/equipo/nueva")
+def create_team_user(request: Request, name: str = Form(...), email: str = Form(...),
+                     password: str = Form(...), role: str = Form("BUTCHER"),
+                     csrf: str = Form(""), ctx=Depends(needs(perms.TEAM)),
+                     session: Session = Depends(get_db)):
+    """El manager da de alta a su gente: una cuenta, un nivel, una contraseña."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    try:
+        billing.create_user(session, user, name=name, email=email, password=password,
+                            role=Role[role] if role in Role.__members__ else Role.BUTCHER,
+                            language=lang_for(request, session, user))
+    except (billing.BillingError, auth.AuthError, ValueError) as e:
+        return RedirectResponse(f"/manager/equipo?error={e}", status_code=303)
+    return RedirectResponse("/manager/equipo", status_code=303)
 
 
 @app.post("/manager/equipo/{user_id}/rol")

@@ -20,6 +20,14 @@ def main(argv=None):
     m = sub.add_parser("serve-carne", help="arranca la edición de control de carnes")
     m.add_argument("--host", default="127.0.0.1")
     m.add_argument("--port", type=int, default=8001)
+    o = sub.add_parser("crear-dueno", help="da de alta al dueño de la plataforma (solo la primera vez)")
+    o.add_argument("--email", required=True)
+    o.add_argument("--nombre", required=True)
+    o.add_argument("--password", required=True)
+    o.add_argument("--idioma", default="es")
+    g = sub.add_parser("purgar-solicitudes",
+                       help="borra las solicitudes viejas que no llegaron a cuenta")
+    g.add_argument("--dias", type=int, default=180)
     args = p.parse_args(argv)
 
     db.init_engine(args.db)
@@ -39,6 +47,22 @@ def main(argv=None):
 
         from thegrill.web.app import create_app
         uvicorn.run(create_app(args.db), host=args.host, port=args.port)
+    elif args.cmd == "crear-dueno":
+        db.create_all()
+        from thegrill.meat import billing
+        with db.session_scope() as session:
+            try:
+                owner = billing.bootstrap_owner(session, args.email, args.nombre,
+                                                args.password, args.idioma)
+            except billing.BillingError as e:
+                print(e)
+                return 1
+            print(f"dueño de la plataforma: {owner.name} <{owner.email}>")
+    elif args.cmd == "purgar-solicitudes":
+        db.create_all()
+        from thegrill.meat import privacy
+        with db.session_scope() as session:
+            print(f"borradas {privacy.purge(session, days=args.dias)} solicitudes")
     elif args.cmd == "serve-carne":
         import uvicorn
 

@@ -1,0 +1,29 @@
+{% extends "public_base.html" %}{% block title %}{{ t("cook.title") }}{% endblock %}
+{% block public %}
+<h1>{{ t("cook.title") }}</h1>
+<p class="sub">{{ t("cook.sub") }}</p>
+
+<div class="card scroll">
+<table>
+<tr><th>{{ t("cook.name") }}</th><th>{{ t("cook.purpose") }}</th><th>{{ t("cook.life") }}</th></tr>
+<tr><td><code>grill_session</code></td><td>{{ t("cook.session_purpose") }}</td>
+    <td>{{ t("cook.session_life") }}</td></tr>
+<tr><td><code>grill_lang</code></td><td>{{ t("cook.lang_purpose") }}</td>
+    <td>{{ t("cook.lang_life") }}</td></tr>
+</table>
+</div>
+
+<div class="card">
+  <b>{{ t("cook.third") }}</b>
+  <div class="muted" style="margin-top:6px">{{ t("cook.third_none") }}</div>
+</div>
+
+<div class="card">
+  <p style="margin:0">{{ t("cook.why_no_banner") }}</p>
+</div>
+
+<h2>{{ t("priv.page") }}</h2>
+<div class="card">
+  <p style="margin:0">{{ t("priv.notice", days=retention_days) }}</p>
+</div>
+{% endblock %}

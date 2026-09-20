@@ -40,6 +40,12 @@ def hash_password(password: str, *, rounds: int = PBKDF2_ROUNDS, lang: str = DEF
     return f"pbkdf2_sha256${rounds}${salt}${dk.hex()}"
 
 
+# Una contraseña que no vale para nadie, para gastar el mismo tiempo cuando el
+# correo no existe.
+DUMMY_HASH = ("pbkdf2_sha256$240000$0000000000000000000000000000000000000000000000000000000000000000$"
+              "0000000000000000000000000000000000000000000000000000000000000000")
+
+
 def verify_password(password: str, stored: str) -> bool:
     try:
         algo, rounds, salt, digest = stored.split("$")
@@ -133,6 +139,11 @@ def authenticate(session: Session, email: str, password: str,
             if not user.active:
                 raise AuthError(t(user.language or lang, "login.inactive"))
             return user
+    if not candidates:
+        # Sin esto, un correo que no existe responde al instante y uno que sí
+        # tarda lo que tarda comprobar la contraseña. Esa diferencia dice quién
+        # tiene cuenta aquí, así que se gasta el mismo trabajo en ambos casos.
+        verify_password(password, DUMMY_HASH)
     raise AuthError(t(lang, "login.bad_credentials"))
 
 

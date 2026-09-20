@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="top" style="position:static;margin:-20px -16px 20px">
+  <div class="topwrap">
+    <div class="brand">{{ t("m.app.title") }}<small>{{ t("m.app.tagline") }}</small></div>
+    <nav>
+      <a href="/">{{ t("pub.how") }}</a>
+      <a href="/precios">{{ t("pub.pricing") }}</a>
+      <a href="/solicitar">{{ t("pub.request") }}</a>
+      <a href="/login">{{ t("pub.enter") }}</a>
+      <a href="/cookies">{{ t("cook.title") }}</a>
+    </nav>
+  </div>
+</header>
+{% block public %}{% endblock %}
+
+
+<div class="card">
+  <p class="muted" style="margin:0 0 10px">{{ t("common.language") }}</p>
+  <div class="langbar">
+    {% for code, l in languages.items() %}
+      <a href="/idioma/{{ code }}?next={{ here }}" class="{{ 'on' if code == lang }}"
+         hreflang="{{ code }}">{{ l.name }}</a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

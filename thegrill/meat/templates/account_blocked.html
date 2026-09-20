@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block title %}{{ t("acct.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("acct.title") }}</h1>
+<div class="banner bad">
+  {% if restaurant.billing and restaurant.billing.value == "CANCELLED" %}{{ t("acct.cancelled") }}
+  {% elif can("team") %}{{ t("acct.blocked_manager") }}
+  {% else %}{{ t("acct.blocked_staff") }}{% endif %}
+</div>
+{% if can("team") %}
+<div class="card">
+  <div><b>{{ t("acct.state") }}:</b>
+    {{ t("billing." ~ restaurant.billing.value) if restaurant.billing else "—" }}</div>
+  {% if restaurant.billing_note %}
+  <div class="muted" style="margin-top:6px">{{ t("acct.note") }}: {{ restaurant.billing_note }}</div>
+  {% endif %}
+</div>
+{% endif %}
+<form method="post" action="/logout" style="margin:0">
+  <button class="ghost">{{ t("nav.logout") }}</button>
+</form>
+{% endblock %}

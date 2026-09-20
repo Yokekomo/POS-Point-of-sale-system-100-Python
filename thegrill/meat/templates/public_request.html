@@ -1,0 +1,46 @@
+{% extends "public_base.html" %}{% block title %}{{ t("pub.f.title") }}{% endblock %}
+{% block public %}
+<h1>{{ t("pub.f.title") }}</h1>
+<p class="sub">{{ t("pub.f.sub") }}</p>
+{% if sent %}<div class="banner ok">{{ t("pub.f.sent") }}</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+<div class="card">
+<form method="post" action="/solicitar">
+  <div class="grid">
+    <div><label for="restaurant_name">{{ t("pub.f.restaurant") }} <span class="req">*</span></label>
+      <input id="restaurant_name" name="restaurant_name" required value="{{ sub.restaurant_name or '' }}"></div>
+    <div><label for="legal_name">{{ t("pub.f.legal") }}</label>
+      <input id="legal_name" name="legal_name" value="{{ sub.legal_name or '' }}"></div>
+    <div><label for="tax_number">{{ t("pub.f.tax") }}</label>
+      <input id="tax_number" name="tax_number" value="{{ sub.tax_number or '' }}"></div>
+    <div><label for="country">{{ t("pub.f.country") }}</label>
+      <input id="country" name="country" value="{{ sub.country or '' }}"></div>
+    <div><label for="contact_name">{{ t("pub.f.contact") }} <span class="req">*</span></label>
+      <input id="contact_name" name="contact_name" required value="{{ sub.contact_name or '' }}"></div>
+    <div><label for="contact_role">{{ t("pub.f.role") }}</label>
+      <input id="contact_role" name="contact_role" value="{{ sub.contact_role or '' }}"></div>
+    <div><label for="email">{{ t("pub.f.email") }} <span class="req">*</span></label>
+      <input id="email" name="email" type="email" required value="{{ sub.email or '' }}"></div>
+    <div><label for="phone">{{ t("pub.f.phone") }}</label>
+      <input id="phone" name="phone" value="{{ sub.phone or '' }}"></div>
+    <div><label for="cooks">{{ t("pub.f.cooks") }}</label>
+      <input id="cooks" name="cooks" inputmode="numeric"></div>
+    <div><label for="outlets">{{ t("pub.f.outlets") }}</label>
+      <input id="outlets" name="outlets" inputmode="numeric" value="1"></div>
+    <div><label for="plan">{{ t("pub.f.plan") }}</label>
+      <select id="plan" name="plan">
+        {% for p in plans %}<option value="{{ p.value }}">{{ t("plan." ~ p.value) }}</option>{% endfor %}
+      </select></div>
+  </div>
+  <label for="address">{{ t("pub.f.address") }}</label>
+  <textarea id="address" name="address" rows="2">{{ sub.address or '' }}</textarea>
+  <label for="message">{{ t("pub.f.message") }}</label>
+  <textarea id="message" name="message" rows="3">{{ sub.message or '' }}</textarea>
+  <div class="help">{{ t("pub.f.privacy") }}</div>
+  <div class="help">{{ t("priv.notice", days=retention_days) }}</div>
+  <div class="help">{{ t("pub.f.no_card") }}</div>
+  <button class="wide" type="submit">{{ t("pub.f.submit") }}</button>
+</form>
+</div>
+{% endblock %}
