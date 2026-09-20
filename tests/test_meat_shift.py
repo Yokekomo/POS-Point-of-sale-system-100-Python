@@ -262,3 +262,121 @@ def test_a_cut_measured_by_count_is_not_deducted_when_it_is_sold(ctx):
     assert lot.qty_remaining == pytest.approx(6.8 - 2.11, abs=0.001)   # el conteo sí
     salidas = s.query(IngredientMovement).filter_by(kind=MovementKind.SALE).all()
     assert [m.source for m in salidas] == ["defrost"]   # una sola salida, la de verdad
+
+
+# ------------------------- la diferencia se apunta como merma de descongelado
+def test_the_difference_is_booked_as_thawing_loss_not_as_a_sale(ctx):
+    """La carne pierde agua al descongelar: esa diferencia no la ha pagado nadie."""
+    s, rest, ana, luis = ctx
+    corte, lot, plato = entrecot(s, rest, ana, precio=43.0, gramos_carta=330)
+    turno(s, luis)                                   # salió 2,81; queda 0,70
+    costing.consume_sales(s, luis, [("ENTRECOT", 6)], on=HOY)
+
+    result = defrost.close(s, luis, on=HOY)
+
+    venta = s.query(IngredientMovement).filter_by(kind=MovementKind.SALE).one()
+    merma = s.query(IngredientMovement).filter_by(kind=MovementKind.WASTE).one()
+    assert -venta.qty == pytest.approx(1.98, abs=0.001)    # 6 × 330 g, lo que se vendió
+    assert -merma.qty == pytest.approx(0.13, abs=0.001)    # y lo que se fue por el camino
+    assert merma.source == "defrost"
+    assert "descongelado" in merma.source_ref.lower()
+    assert merma.cost == pytest.approx(0.13 * 43.0, abs=0.01)
+    assert result.drip_kg == pytest.approx(0.13, abs=0.001)
+    assert result.drip_cost == pytest.approx(5.59, abs=0.01)
+
+
+def test_the_kilos_never_go_missing_between_the_two_movements(ctx):
+    """Venta más merma tienen que ser exactamente lo que falta de la cámara."""
+    s, rest, ana, luis = ctx
+    corte, lot, plato = entrecot(s, rest, ana, kg=6.8)
+    turno(s, luis)
+    costing.consume_sales(s, luis, [("ENTRECOT", 6)], on=HOY)
+
+    defrost.close(s, luis, on=HOY)
+
+    movimientos = s.query(IngredientMovement).filter(
+        IngredientMovement.source == "defrost").all()
+    assert round(-sum(m.qty for m in movimientos), 6) == pytest.approx(2.11, abs=0.001)
+    assert lot.qty_remaining == pytest.approx(6.8 - 2.11, abs=0.001)
+
+
+def test_a_small_difference_is_booked_and_nobody_is_woken_up(ctx):
+    """Unos gramos de agua son lo normal: se apuntan y no se molesta a nadie."""
+    s, rest, ana, luis = ctx
+    entrecot(s, rest, ana, precio=43.0, gramos_carta=348)
+    turno(s, luis)                                   # real 351,7 g contra 348 de carta
+    costing.consume_sales(s, luis, [("ENTRECOT", 6)], on=HOY)
+
+    result = defrost.close(s, luis, on=HOY)
+    assert result.drip_kg > 0                        # se apunta
+    assert result.variances[0].gap_pct < 10          # pero está dentro de lo razonable
+    assert not [a for a in result.alerts if a.code == "portion.variance"]
+
+
+def test_a_big_difference_is_booked_and_raises_the_alarm(ctx):
+    """Cuarenta gramos de más por pieza no es agua: es que se corta ancho."""
+    s, rest, ana, luis = ctx
+    entrecot(s, rest, ana, precio=43.0, gramos_carta=300)
+    turno(s, luis)                                   # real 351,7 g contra 300 de carta
+
+    costing.consume_sales(s, luis, [("ENTRECOT", 6)], on=HOY)
+    result = defrost.close(s, luis, on=HOY)
+
+    assert result.drip_kg == pytest.approx(0.31, abs=0.001)   # se apunta igual
+    aviso = next(a for a in result.alerts if a.code == "portion.variance")
+    assert "352" in aviso.message and "300" in aviso.message
+    assert result.variances[0].gap_pct > 10
+
+
+def test_without_sales_there_is_nothing_to_call_waste(ctx):
+    """Sin ventas no se sabe qué parte era venta: todo sale como consumo."""
+    s, rest, ana, luis = ctx
+    corte, lot, plato = entrecot(s, rest, ana)
+    turno(s, luis)
+
+    result = defrost.close(s, luis, on=HOY)
+    assert result.drip_kg == 0
+    assert not s.query(IngredientMovement).filter_by(kind=MovementKind.WASTE).all()
+    venta = s.query(IngredientMovement).filter_by(kind=MovementKind.SALE).one()
+    assert -venta.qty == pytest.approx(2.11, abs=0.001)
+
+
+def test_cutting_short_leaves_no_waste_to_book(ctx):
+    """Si se ha gastado menos de lo que dice la carta, no hay merma que apuntar."""
+    s, rest, ana, luis = ctx
+    entrecot(s, rest, ana, gramos_carta=400)
+    turno(s, luis)
+    costing.consume_sales(s, luis, [("ENTRECOT", 6)], on=HOY)
+
+    result = defrost.close(s, luis, on=HOY)
+    assert result.drip_kg == 0
+    assert not s.query(IngredientMovement).filter_by(kind=MovementKind.WASTE).all()
+    assert result.loss_kg < 0                        # el desvío sí se dice, en negativo
+
+
+def test_the_thawing_loss_shows_up_in_the_waste_book(ctx):
+    """Lo apuntado aquí tiene que salir donde se miran todas las mermas."""
+    from thegrill.web import waste
+    s, rest, ana, luis = ctx
+    entrecot(s, rest, ana)
+    turno(s, luis)
+    costing.consume_sales(s, luis, [("ENTRECOT", 6)], on=HOY)
+    defrost.close(s, luis, on=HOY)
+
+    mermas = waste.recent(s, rest.id, days=3650)
+    assert len(mermas) == 1
+    assert mermas[0].source == "defrost"
+
+
+def test_the_thawing_loss_is_written_in_the_house_language(ctx):
+    """Lo que queda en el libro se lee en el idioma del restaurante."""
+    s, rest, ana, luis = ctx
+    rest.language = "nl"
+    s.flush()
+    entrecot(s, rest, ana)
+    turno(s, luis)
+    costing.consume_sales(s, luis, [("ENTRECOT", 6)], on=HOY)
+    defrost.close(s, luis, on=HOY)
+
+    merma = s.query(IngredientMovement).filter_by(kind=MovementKind.WASTE).one()
+    assert "Ontdooiverlies" in merma.source_ref

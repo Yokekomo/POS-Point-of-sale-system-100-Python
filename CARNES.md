@@ -57,6 +57,14 @@ queda al cerrar el turno. Las tres cosas juntas son el cuadre del día:
   hoy por cortar ancho. En negativo también avisa: o se corta corto, o falta un
   apunte.
 
+Esa diferencia no se queda en un número de pantalla: al cerrar, lo vendido sale
+como venta al peso de la carta y **la diferencia se apunta como merma de
+descongelado**, con su coste y su lote, porque la carne pierde agua al
+descongelar y el corte nunca sale exacto. Si se pasa de lo razonable —más de un
+10 % contra la carta— salta la alerta además de apuntarse. Los dos movimientos
+suman exactamente lo que falta de la cámara: ni un gramo se queda sin explicar,
+y la merma sale en el libro de mermas con todas las demás.
+
 Sin recuento no hay cierre.
 
 **Cortes.** El catálogo. Un corte es lo que se cuenta, se vende y se descuenta;

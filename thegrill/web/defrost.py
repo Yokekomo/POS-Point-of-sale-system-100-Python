@@ -41,6 +41,8 @@ class ShiftClose:
     consumed: list[Consumed] = field(default_factory=list)
     variances: list[Variance] = field(default_factory=list)
     cost: float = 0.0                 # lo que se ha gastado de verdad, en dinero
+    drip_kg: float = 0.0              # la diferencia, anotada como merma de descongelado
+    drip_cost: float = 0.0
     missing_counts: list[str] = field(default_factory=list)
     not_by_count: list[str] = field(default_factory=list)   # cortes que descuentan al vender
     alerts: list[Alert] = field(default_factory=list)
@@ -191,6 +193,12 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
     states = shift_states(session, user.restaurant_id, on, shift)
     result.consumed = reconcile(states)
 
+    # Lo que la carta dice que debería haberse gastado por lo vendido. Hace
+    # falta antes de tocar el almacén: lo que sobre de ahí es merma, no venta.
+    needed, units = theoretical_for(session, user.restaurant_id, on)
+    per_unit = {ingredient_id: needed[ingredient_id] / units[ingredient_id]
+                for ingredient_id in needed if units.get(ingredient_id)}
+
     real_by_name: dict[str, float] = {}
     units_by_name: dict[str, int] = {}
     cost_by_name: dict[str, float] = {}
@@ -212,14 +220,33 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
         lot.qty_remaining = round(lot.qty_remaining - take, 6)
         cost = round(take * lot.unit_cost, 6)
         result.cost = round(result.cost + cost, 6)
-        session.add(IngredientMovement(
-            restaurant_id=user.restaurant_id, ingredient_id=lot.ingredient_id, lot_id=lot.id,
-            date=on, kind=MovementKind.SALE, qty=-take, cost=cost, source="defrost",
-            source_ref=f"{row.serial} {shift or ''}".strip(), created_by=user.id))
+
+        # Lo que se vendió de verdad, al peso de la carta, y lo que se fue por
+        # el camino: la carne pierde agua al descongelar y el corte nunca sale
+        # exacto. Esa diferencia no es una venta, es merma de descongelado, y
+        # se apunta como tal para que se pueda mirar y sumar.
+        expected = round(row.sold_pieces * per_unit.get(lot.ingredient_id, 0.0), 6)
+        sold_part = round(min(take, expected), 6) if expected > EPSILON else take
+        drip = round(take - sold_part, 6)
+        ref = f"{row.serial} {shift or ''}".strip()
+        if sold_part > EPSILON:
+            session.add(IngredientMovement(
+                restaurant_id=user.restaurant_id, ingredient_id=lot.ingredient_id,
+                lot_id=lot.id, date=on, kind=MovementKind.SALE, qty=-sold_part,
+                cost=round(sold_part * lot.unit_cost, 6), source="defrost",
+                source_ref=ref, created_by=user.id))
+        if drip > EPSILON:
+            drip_cost = round(drip * lot.unit_cost, 6)
+            result.drip_kg = round(result.drip_kg + drip, 6)
+            result.drip_cost = round(result.drip_cost + drip_cost, 6)
+            session.add(IngredientMovement(
+                restaurant_id=user.restaurant_id, ingredient_id=lot.ingredient_id,
+                lot_id=lot.id, date=on, kind=MovementKind.WASTE, qty=-drip,
+                cost=drip_cost, source="defrost",
+                source_ref=f"{ref} · {t(lang, 'defrost.drip')}"[:96], created_by=user.id))
         real_by_name[row.ingredient] = round(real_by_name.get(row.ingredient, 0.0) + row.kg, 6)
 
     # comparación con lo que dicen las recetas de lo vendido ese día
-    needed, units = theoretical_for(session, user.restaurant_id, on)
     names = {i.id: i.name for i in session.query(Ingredient)
              .filter_by(restaurant_id=user.restaurant_id,
                         consumption=ConsumptionMode.COUNT)}

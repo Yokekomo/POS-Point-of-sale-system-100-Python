@@ -9,7 +9,10 @@
   <div class="kpi"><b class="{{ 'bad' if closed.loss_cost > 0 else '' }}">{{ "%+.2f"|format(closed.loss_cost) }}</b>
     <span>{{ t("m.df.loss") }}</span></div>
   <div class="kpi"><b>{{ "%+.3f"|format(closed.loss_kg) }}</b><span>kg</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(closed.drip_cost) }}</b><span>{{ t("defrost.drip") }}</span>
+    <div class="muted">{{ "%.3f"|format(closed.drip_kg) }} kg</div></div>
 </div>
+{% if closed.drip_kg %}<p class="help">{{ t("defrost.drip_help") }}</p>{% endif %}
 {% if closed.variances %}
 <div class="card scroll">
 <table>
