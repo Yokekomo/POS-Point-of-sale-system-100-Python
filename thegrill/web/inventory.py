@@ -64,7 +64,7 @@ def expected_now(session: Session, restaurant_id: int) -> list[Expected]:
 
 
 # --------------------------------------------------------------- apertura
-def open_count(session: Session, user: User, period: CountPeriod = CountPeriod.WEEKLY,
+def open_count(session: Session, user: User, period: CountPeriod = CountPeriod.MONTHLY,
                on: date | None = None, note: str | None = None) -> MeatCount:
     """Abre un inventario con la lista de lo que hay que contar."""
     on = on or date.today()
@@ -149,6 +149,7 @@ def close_count(session: Session, user: User, count: MeatCount,
     count.status = CountStatus.CLOSED
     count.closed_by = user.id
     count.closed_at = now
+    count.complete = summary.complete
     session.flush()
     _raise_alerts(session, user, result, lang, now)
     return result
@@ -222,15 +223,202 @@ def _raise_alerts(session: Session, user: User, result: CloseResult, lang: str,
                        severity=alert.severity, alert_id=alert.id, now=now)
 
 
+def cancel_count(session: Session, user: User, count: MeatCount,
+                 reason: str | None = None) -> MeatCount:
+    """Cancela un inventario a medias. No ajusta nada y no cuenta para el mes."""
+    if count.status != CountStatus.OPEN:
+        raise InventoryError("Solo se puede cancelar un inventario abierto")
+    count.status = CountStatus.CANCELLED
+    count.cancel_reason = (reason or "").strip() or None
+    count.closed_by = user.id
+    count.closed_at = datetime.utcnow()
+    count.complete = False
+    session.flush()
+    return count
+
+
 def last_closed(session: Session, restaurant_id: int) -> MeatCount | None:
     return (session.query(MeatCount)
             .filter_by(restaurant_id=restaurant_id, status=CountStatus.CLOSED)
             .order_by(MeatCount.date.desc(), MeatCount.id.desc()).first())
 
 
-def is_overdue(session: Session, restaurant_id: int, on: date | None = None,
-               max_age_days: int = 8) -> bool:
-    """Un conteo vencido deja de sostener el stock: hay que rehacerlo."""
-    from thegrill.rules import weekly_count_is_stale
-    last = last_closed(session, restaurant_id)
-    return weekly_count_is_stale(last.date if last else None, on or date.today(), max_age_days)
+@dataclass
+class MonthlyStatus:
+    """La única obligación: un inventario completo dentro del mes natural."""
+    year: int
+    month: int
+    done: bool
+    last_date: date | None
+    days_left: int
+
+    @property
+    def due_soon(self) -> bool:
+        return not self.done and self.days_left <= 5
+
+
+def monthly_status(session: Session, restaurant_id: int,
+                   on: date | None = None) -> MonthlyStatus:
+    """Si el inventario obligatorio del mes ya está hecho, y cuántos días quedan.
+
+    Lo cumple un inventario cerrado y completo. Uno parcial no cuenta, por lo
+    mismo que no cuadra: quedaron piezas sin mirar.
+    """
+    import calendar
+    on = on or date.today()
+    first = date(on.year, on.month, 1)
+    last_day = calendar.monthrange(on.year, on.month)[1]
+    done = (session.query(MeatCount)
+            .filter(MeatCount.restaurant_id == restaurant_id,
+                    MeatCount.status == CountStatus.CLOSED,
+                    MeatCount.complete.is_(True),
+                    MeatCount.date >= first,
+                    MeatCount.date <= date(on.year, on.month, last_day))
+            .order_by(MeatCount.date.desc()).first())
+    return MonthlyStatus(year=on.year, month=on.month, done=done is not None,
+                         last_date=done.date if done else None,
+                         days_left=last_day - on.day)
+
+
+# ================================================== cuando la pieza aparece
+@dataclass
+class Recovery:
+    """Una pieza que se había dado por perdida y ha aparecido."""
+    serial: str
+    kind: str                # CUT o PRIMAL
+    label: str
+    kg: float
+    restored_kg: float = 0.0
+    value: float = 0.0
+    adopted: bool = False    # el sistema no la tenía y se ha dado de alta
+
+
+def _audit(session: Session, user: User, table: str, key: str, action: str, detail: str) -> None:
+    from thegrill.models import AuditLog
+    session.add(AuditLog(restaurant_id=user.restaurant_id, actor=user.name, table=table,
+                         key=key, action=action, detail=detail))
+
+
+def recover(session: Session, user: User, serial: str, kg: float | None = None,
+            note: str | None = None, on: date | None = None,
+            lang: str | None = None) -> Recovery:
+    """Devuelve al stock una pieza que había desaparecido y ha vuelto a aparecer.
+
+    Vale igual para un primal marcado como sospechoso y para un corte que el
+    inventario dejó a cero. Queda registrado quién lo hizo, cuándo y por qué:
+    una corrección no se hace a escondidas.
+    """
+    on = on or date.today()
+    lang = lang or service.restaurant_language(session, user.restaurant_id)
+
+    primal = (session.query(Primal)
+              .filter_by(restaurant_id=user.restaurant_id, serial=serial).first())
+    if primal is not None:
+        return _recover_primal(session, user, primal, kg, note, lang)
+
+    lot = (session.query(IngredientLot)
+           .filter_by(restaurant_id=user.restaurant_id, serial=serial).first())
+    if lot is not None:
+        return _recover_cut(session, user, lot, kg, note, on, lang)
+
+    raise InventoryError(
+        f"No hay ninguna pieza con el serial {serial}. Si nunca estuvo en el "
+        "sistema, hay que darla de alta diciendo de qué artículo es y a qué precio.")
+
+
+def _recover_primal(session: Session, user: User, primal: Primal, kg: float | None,
+                    note: str | None, lang: str) -> Recovery:
+    if primal.status == PrimalStatus.CUT:
+        raise InventoryError(
+            f"El primal {primal.serial} consta cortado en {primal.status_ref}. "
+            "Si el despiece fue un error, hay que corregir el despiece, no la pieza.")
+    was_suspect = primal.suspect_phantom
+    primal.suspect_phantom = False
+    if kg:
+        primal.weight_kg = round(kg, 6)
+    detail = f"Reaparece el primal {primal.serial}." + (f" {note}" if note else "")
+    _audit(session, user, "primals", primal.serial, "RECOVER", detail)
+    session.flush()
+    _announce(session, user, lang, "alert.recovered_primal",
+              {"serial": primal.serial, "sku": primal.sku}, was_suspect)
+    return Recovery(serial=primal.serial, kind="PRIMAL", label=primal.sku,
+                    kg=primal.weight_kg or 0.0)
+
+
+def _recover_cut(session: Session, user: User, lot: IngredientLot, kg: float | None,
+                 note: str | None, on: date, lang: str) -> Recovery:
+    if kg is None or kg <= 0:
+        raise InventoryError("Hay que decir cuántos kilos han aparecido")
+    difference = round(kg - lot.qty_remaining, 6)
+    if difference <= 0:
+        raise InventoryError(
+            f"El corte {lot.serial} ya consta con {lot.qty_remaining}. "
+            "Para bajarlo, se cuenta en un inventario.")
+    lot.qty_remaining = round(kg, 6)
+    value = round(difference * lot.unit_cost, 6)
+    session.add(IngredientMovement(
+        restaurant_id=user.restaurant_id, ingredient_id=lot.ingredient_id, lot_id=lot.id,
+        date=on, kind=MovementKind.ADJUST, qty=difference, cost=value,
+        source="recovery", source_ref=lot.serial, created_by=user.id))
+    label = lot.ingredient.name if lot.ingredient else lot.serial
+    detail = f"Reaparece el corte {lot.serial}: +{difference}." + (f" {note}" if note else "")
+    _audit(session, user, "ingredient_lots", lot.serial, "RECOVER", detail)
+    session.flush()
+    _announce(session, user, lang, "alert.recovered_cut",
+              {"serial": lot.serial, "cut": label, "kg": f"{difference:.10g}"}, True)
+    return Recovery(serial=lot.serial, kind="CUT", label=label, kg=kg,
+                    restored_kg=difference, value=value)
+
+
+def adopt(session: Session, user: User, serial: str, item_id: int, kg: float,
+          unit_cost: float, expiry: date, note: str | None = None,
+          on: date | None = None, lang: str | None = None) -> Recovery:
+    """Da de alta una pieza que estaba en cámara y el sistema no tenía.
+
+    Hay que decir de qué artículo es y a qué precio: un lote no se inventa con
+    un coste en blanco.
+    """
+    from thegrill.models import IngredientItem
+    on = on or date.today()
+    lang = lang or service.restaurant_language(session, user.restaurant_id)
+    if kg <= 0:
+        raise InventoryError("La cantidad tiene que ser mayor que cero")
+    if unit_cost < 0:
+        raise InventoryError("El precio no puede ser negativo")
+    if (session.query(IngredientLot)
+            .filter_by(restaurant_id=user.restaurant_id, serial=serial).first()):
+        raise InventoryError(f"Ya existe una pieza con el serial {serial}")
+    item = session.get(IngredientItem, item_id)
+    if item is None or item.restaurant_id != user.restaurant_id:
+        raise InventoryError("Ese artículo no es de este restaurante")
+
+    lot = IngredientLot(restaurant_id=user.restaurant_id, item_id=item.id,
+                        ingredient_id=item.ingredient_id, serial=serial,
+                        lot_code="RECUPERADO", expiry=expiry, received=on, qty=kg,
+                        qty_remaining=kg, unit_cost=unit_cost)
+    session.add(lot)
+    session.flush()
+    session.add(IngredientMovement(
+        restaurant_id=user.restaurant_id, ingredient_id=item.ingredient_id, lot_id=lot.id,
+        date=on, kind=MovementKind.ADJUST, qty=kg, cost=round(kg * unit_cost, 6),
+        source="recovery", source_ref=serial, created_by=user.id))
+    detail = f"Alta de {serial} encontrada en cámara." + (f" {note}" if note else "")
+    _audit(session, user, "ingredient_lots", serial, "ADOPT", detail)
+    session.flush()
+    label = item.ingredient.name if item.ingredient else item.name
+    _announce(session, user, lang, "alert.adopted_cut",
+              {"serial": serial, "cut": label, "kg": f"{kg:.10g}"}, True)
+    return Recovery(serial=serial, kind="CUT", label=label, kg=kg, restored_kg=kg,
+                    value=round(kg * unit_cost, 6), adopted=True)
+
+
+def _announce(session: Session, user: User, lang: str, key: str, params: dict,
+              worth_telling: bool) -> None:
+    """Una corrección de stock no se hace en silencio."""
+    if not worth_telling:
+        return
+    from thegrill.models import AlertSeverity
+    targets = [uid for uid in service.manager_ids(session, user.restaurant_id) if uid != user.id]
+    service.notify(session, user.restaurant_id, targets,
+                   title=t(lang, "alert.recovery_title"),
+                   body=t(lang, key, **params), severity=AlertSeverity.INFO)

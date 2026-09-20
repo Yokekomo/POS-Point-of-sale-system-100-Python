@@ -582,27 +582,78 @@ def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(require_u
 # ====================================================== INVENTARIO
 @app.get("/inventario", response_class=HTMLResponse)
 def inventory_page(request: Request, ctx=Depends(require_user),
-                   session: Session = Depends(get_db)):
+                   session: Session = Depends(get_db), done: str = ""):
     """Contar la carne pieza a pieza y cuadrar."""
     user, auth_session = ctx
     from thegrill.models import MeatCount
     open_count = (session.query(MeatCount)
                   .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
-    return page(request, "inventory.html", user, auth_session, session,
+    return page(request, "inventory.html", user, auth_session, session, done=bool(done),
                 count=open_count, last=inventory.last_closed(session, user.restaurant_id),
-                overdue=inventory.is_overdue(session, user.restaurant_id),
-                periods=list(CountPeriod))
+                month=inventory.monthly_status(session, user.restaurant_id),
+                periods=list(CountPeriod),
+                items=(session.query(IngredientItem)
+                       .filter_by(restaurant_id=user.restaurant_id, active=True)
+                       .order_by(IngredientItem.name).all()))
+
+
+@app.post("/inventario/recuperar")
+def recover_piece(request: Request, serial: str = Form(...), kg: str = Form(""),
+                  note: str = Form(""), csrf: str = Form(""),
+                  ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    """La pieza ha aparecido: vuelve al stock, con quién y por qué."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    try:
+        inventory.recover(session, user, serial.strip(),
+                          kg=float(kg.replace(",", ".")) if kg.strip() else None,
+                          note=note.strip() or None,
+                          lang=lang_for(request, session, user))
+    except (inventory.InventoryError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return RedirectResponse("/inventario?done=1", status_code=303)
+
+
+@app.post("/inventario/alta")
+def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(...),
+                kg: float = Form(...), unit_cost: float = Form(...), expiry: str = Form(...),
+                note: str = Form(""), csrf: str = Form(""),
+                ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    """Estaba en cámara y el sistema no la tenía."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    try:
+        inventory.adopt(session, user, serial.strip(), item_id, kg=kg, unit_cost=unit_cost,
+                        expiry=date.fromisoformat(expiry), note=note.strip() or None,
+                        lang=lang_for(request, session, user))
+    except (inventory.InventoryError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return RedirectResponse("/inventario?done=1", status_code=303)
+
+
+@app.post("/inventario/cancelar")
+def cancel_inventory(request: Request, reason: str = Form(""), csrf: str = Form(""),
+                     ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    from thegrill.models import MeatCount
+    count = (session.query(MeatCount)
+             .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
+    if count is None:
+        raise HTTPException(status_code=404, detail="")
+    inventory.cancel_count(session, user, count, reason)
+    return RedirectResponse("/inventario", status_code=303)
 
 
 @app.post("/inventario/abrir")
-def open_inventory(request: Request, period: str = Form("WEEKLY"), csrf: str = Form(""),
+def open_inventory(request: Request, period: str = Form("MONTHLY"), csrf: str = Form(""),
                    ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
         inventory.open_count(session, user,
                              CountPeriod[period] if period in CountPeriod.__members__
-                             else CountPeriod.WEEKLY)
+                             else CountPeriod.MONTHLY)
     except inventory.InventoryError as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
     return RedirectResponse("/inventario", status_code=303)

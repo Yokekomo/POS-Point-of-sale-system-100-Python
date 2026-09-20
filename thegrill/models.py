@@ -656,14 +656,15 @@ class RecipeLine(Base):
 
 
 class CountPeriod(str, enum.Enum):
-    WEEKLY = "WEEKLY"
-    MONTHLY = "MONTHLY"
-    SPOT = "SPOT"       # recuento puntual, no programado
+    MONTHLY = "MONTHLY"   # el obligatorio, uno al mes en el día que se quiera
+    SPOT = "SPOT"         # recuento puntual, cuando se quiera
+    WEEKLY = "WEEKLY"     # si el local decide contar más a menudo
 
 
 class CountStatus(str, enum.Enum):
     OPEN = "OPEN"
     CLOSED = "CLOSED"
+    CANCELLED = "CANCELLED"   # se empezó y se dejó: no ajusta nada
 
 
 class CountItemKind(str, enum.Enum):
@@ -684,6 +685,8 @@ class MeatCount(TenantMixin, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     closed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     closed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    complete: Mapped[bool] = mapped_column(Boolean, default=False)   # se contó todo
+    cancel_reason: Mapped[str | None] = mapped_column(Text)
 
     lines: Mapped[list["MeatCountLine"]] = relationship(
         back_populates="count", cascade="all, delete-orphan", order_by="MeatCountLine.label")

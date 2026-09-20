@@ -151,7 +151,11 @@ igualmente, porque cero es justo el caso que hay que gritar.
 
 ## Inventario de carne para cuadrar números
 
-Semanal, mensual o puntual. Al abrirlo, el sistema saca la lista de lo que cree
+Obligatorio uno al mes, el día que convenga. Contar más a menudo es opcional, y
+un inventario empezado se puede cancelar: uno cancelado no ajusta nada y no
+cuenta para el mes. Uno parcial tampoco cuenta, por lo mismo que no cuadra.
+
+Al abrirlo, el sistema saca la lista de lo que cree
 tener: cada corte con su serial y sus kilos, y cada primal sin despiezar. Se
 cuenta a mano pieza a pieza y al cerrarlo se cuadra.
 
@@ -169,11 +173,30 @@ Al cerrar:
 - lo que quedó **sin contar no se toca** y se dice cuál es. Un parcial no
   cuadra.
 
+Si al mes le quedan cinco días o menos sin inventario hecho, el cierre diario
+de carne lo recuerda.
+
 El cierre dice cuántos kilos faltan y cuánto dinero son, qué parte de las
 piezas cuadraba, y avisa a dirección de la merma, de los fantasmas y de lo que
 quedó a medias. Lo esperado se relee al cerrar, no al abrir, para que el ajuste
 cuadre contra el estado de ese momento aunque se haya vendido mientras se
 contaba.
+
+## Cuando la pieza aparece
+
+Dar una pieza por perdida no es definitivo. Si el primal o el corte aparecen
+después, hay una corrección que los devuelve al stock:
+
+- un **primal sospechoso** deja de serlo, y se puede corregir su peso de paso;
+- un **corte que el inventario dejó a cero** vuelve con los kilos que hayan
+  aparecido, dejando su movimiento de ajuste valorado;
+- una **pieza que el sistema nunca tuvo** se da de alta diciendo de qué
+  artículo es y a qué precio: un lote no se inventa con el coste en blanco.
+
+La corrección solo sube, nunca baja: para bajar stock se cuenta en un
+inventario. Un primal que consta cortado no se corrige aquí, porque lo que está
+mal entonces es el despiece. Y nada de esto se hace en silencio: queda en el
+registro de auditoría con quién, cuándo y por qué, y dirección recibe el aviso.
 
 ## Hojas para imprimir
 
@@ -328,7 +351,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   265 tests
+tests/                   282 tests
 ```
 
 ## Uso

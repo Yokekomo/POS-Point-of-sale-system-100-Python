@@ -2,7 +2,14 @@
 {% block body %}
 <h1>{{ t("inv.title") }}</h1>
 <p class="sub">{{ t("inv.sub") }}</p>
-{% if overdue and not count %}<div class="banner warn">{{ t("inv.overdue") }}</div>{% endif %}
+{% if month.done %}
+  <div class="banner ok">{{ t("inv.monthly_done", date=month.last_date) }}</div>
+{% else %}
+  <div class="banner {{ 'bad' if month.due_soon else 'warn' }}">
+    {{ t("inv.monthly_pending", days=month.days_left) }}</div>
+{% endif %}
+<p class="muted">{{ t("inv.monthly_help") }}</p>
+{% if done %}<div class="banner ok">{{ t("inv.recovered") }}</div>{% endif %}
 
 {% if count %}
 <div class="card">
@@ -41,12 +48,22 @@
   <button type="submit">{{ t("inv.close") }}</button>
 </form>
 </div>
+<div class="card">
+<form method="post" action="/inventario/cancelar">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="reason">{{ t("inv.cancel_reason") }}</label>
+  <input id="reason" name="reason">
+  <div class="help">{{ t("inv.cancel_help") }}</div>
+  <button class="ghost" style="margin-top:10px" type="submit">{{ t("inv.cancel") }}</button>
+</form>
+</div>
 {% endif %}
 
 {% else %}
   {% if last %}
   {% set gaps = last.lines | selectattr("outcome", "in", ["SHORT", "OVER", "NOT_FOUND", "UNKNOWN"]) | list %}
   <h2>{{ last.date }} · {{ t("inv.period." ~ last.period.value) }}</h2>
+  {% if not last.complete %}<div class="banner warn">{{ t("inv.partial_warn") }}</div>{% endif %}
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
     {% set contadas = last.lines | rejectattr("outcome", "equalto", "UNCOUNTED") | list %}
     <div class="kpi"><b>{{ last.lines | selectattr("outcome", "equalto", "MATCH") | list | length }}
@@ -92,5 +109,44 @@
   </div>
   {% endif %}
 {% endif %}
+{% if user.role.value == "MANAGER" %}
+<h2>{{ t("inv.recover") }}</h2>
+<div class="card">
+<form method="post" action="/inventario/recuperar">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="rserial">{{ t("inv.recover_serial") }}</label>
+  <input id="rserial" name="serial" required placeholder="8017-01">
+  <label for="rkg">{{ t("inv.recover_kg") }}</label>
+  <input id="rkg" name="kg" type="number" step="any" min="0">
+  <label for="rnote">{{ t("inv.recover_note") }}</label>
+  <input id="rnote" name="note" placeholder="Estaba en el abatidor">
+  <div class="help">{{ t("inv.recover_help") }}</div>
+  <button class="wide" type="submit">{{ t("inv.recover") }}</button>
+</form>
+</div>
+
+<div class="card">
+<form method="post" action="/inventario/alta">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <b>{{ t("inv.outcome.UNKNOWN") }}</b>
+  <label for="aserial">{{ t("inv.recover_serial") }}</label>
+  <input id="aserial" name="serial" required placeholder="7777-09">
+  <label for="aitem">{{ t("ing.item_name") }}</label>
+  <select id="aitem" name="item_id" required>
+    {% for it in items %}<option value="{{ it.id }}">{{ it.name }}</option>{% endfor %}
+  </select>
+  <label for="akg">{{ t("ing.qty") }}</label>
+  <input id="akg" name="kg" type="number" step="any" min="0" required>
+  <label for="acost">{{ t("ing.unit_cost") }}</label>
+  <input id="acost" name="unit_cost" type="number" step="any" min="0" required>
+  <label for="aexpiry">{{ t("ing.expiry") }}</label>
+  <input id="aexpiry" name="expiry" type="date" required>
+  <label for="anote">{{ t("inv.recover_note") }}</label>
+  <input id="anote" name="note">
+  <button class="wide" type="submit">{{ t("ing.add_lot") }}</button>
+</form>
+</div>
+{% endif %}
+
 <p class="muted"><a href="/carne">← {{ t("meat.title") }}</a></p>
 {% endblock %}

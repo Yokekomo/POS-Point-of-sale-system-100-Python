@@ -256,16 +256,76 @@ def test_a_negative_weight_is_refused(ctx):
         inventory.record(s, luis, count, "8017-01", kg=-1.0)
 
 
-def test_it_says_when_the_last_count_is_overdue(ctx):
+def test_the_only_obligation_is_one_complete_count_a_month(ctx):
     s, rest, ana, luis = ctx
     corte(s, rest, "Steak", "8017-01", 5.0)
-    assert inventory.is_overdue(s, rest.id, on=HOY)          # nunca se ha contado
+    assert not inventory.monthly_status(s, rest.id, on=HOY).done
+
     count = inventory.open_count(s, ana, on=HOY)
     inventory.record(s, luis, count, "8017-01", kg=5.0)
     inventory.close_count(s, ana, count)
-    assert not inventory.is_overdue(s, rest.id, on=HOY)
-    assert inventory.is_overdue(s, rest.id, on=HOY + timedelta(days=9))
+
+    hecho = inventory.monthly_status(s, rest.id, on=HOY)
+    assert hecho.done and hecho.last_date == HOY and not hecho.due_soon
+    # el mes que viene vuelve a tocar
+    assert not inventory.monthly_status(s, rest.id, on=HOY + timedelta(days=30)).done
     assert inventory.last_closed(s, rest.id).id == count.id
+
+
+def test_a_partial_count_does_not_satisfy_the_month(ctx):
+    """Quedaron piezas sin mirar: no vale como inventario del mes."""
+    s, rest, ana, luis = ctx
+    corte(s, rest, "Steak", "8017-01", 5.0)
+    corte(s, rest, "Tiras", "8018-01", 3.0)
+    count = inventory.open_count(s, ana, on=HOY)
+    inventory.record(s, luis, count, "8017-01", kg=5.0)
+    inventory.close_count(s, ana, count)
+    assert count.complete is False
+    assert not inventory.monthly_status(s, rest.id, on=HOY).done
+
+
+def test_it_warns_when_the_month_is_running_out(ctx):
+    s, rest, ana, luis = ctx
+    fin_de_mes = date(2026, 9, 28)
+    corte(s, rest, "Steak", "8017-01", 5.0)
+    estado = inventory.monthly_status(s, rest.id, on=fin_de_mes)
+    assert estado.days_left == 2 and estado.due_soon
+
+
+def test_a_count_can_be_cancelled_and_changes_nothing(ctx):
+    s, rest, ana, luis = ctx
+    lot = corte(s, rest, "Steak", "8017-01", 5.0)
+    count = inventory.open_count(s, ana, on=HOY)
+    inventory.record(s, luis, count, "8017-01", kg=2.0)      # ya se había contado algo
+
+    inventory.cancel_count(s, ana, count, "Nos quedamos sin tiempo")
+
+    assert count.status == CountStatus.CANCELLED
+    assert count.cancel_reason == "Nos quedamos sin tiempo"
+    s.refresh(lot)
+    assert lot.qty_remaining == 5.0                          # nada se ajustó
+    assert s.query(IngredientMovement).count() == 0
+    assert not inventory.monthly_status(s, rest.id, on=HOY).done
+    assert inventory.last_closed(s, rest.id) is None
+
+
+def test_after_cancelling_you_can_start_another(ctx):
+    s, rest, ana, luis = ctx
+    corte(s, rest, "Steak", "8017-01", 5.0)
+    primero = inventory.open_count(s, ana, on=HOY)
+    inventory.cancel_count(s, ana, primero)
+    segundo = inventory.open_count(s, ana, on=HOY)
+    assert segundo.id != primero.id and segundo.status == CountStatus.OPEN
+
+
+def test_a_closed_count_cannot_be_cancelled(ctx):
+    s, rest, ana, luis = ctx
+    corte(s, rest, "Steak", "8017-01", 5.0)
+    count = inventory.open_count(s, ana, on=HOY)
+    inventory.record(s, luis, count, "8017-01", kg=5.0)
+    inventory.close_count(s, ana, count)
+    with pytest.raises(InventoryError, match="abierto"):
+        inventory.cancel_count(s, ana, count)
 
 
 def test_monthly_counts_are_the_same_thing_with_another_label(ctx):
@@ -286,3 +346,143 @@ def test_counts_never_cross_between_restaurants(ctx):
     assert vecino.lines == []
     result = inventory.close_count(s, eva, vecino)
     assert result.summary.lines == [] and result.alerts == []
+
+
+# ============================ cuando la pieza aparece después de darla por perdida
+def test_a_primal_that_turns_up_goes_back_to_normal(ctx):
+    s, rest, ana, luis = ctx
+    p = primal(s, rest, "9001", kg=10.0)
+    count = inventory.open_count(s, ana, on=HOY)
+    inventory.record(s, luis, count, "9001", kg=0.0)
+    inventory.close_count(s, ana, count)
+    assert p.suspect_phantom is True
+
+    r = inventory.recover(s, ana, "9001", note="Estaba en el arcón de abajo")
+
+    s.refresh(p)
+    assert p.suspect_phantom is False and p.status == PrimalStatus.IN_STOCK
+    assert r.kind == "PRIMAL" and r.serial == "9001"
+    from thegrill.models import AuditLog
+    apunte = s.query(AuditLog).filter_by(key="9001").one()
+    assert apunte.action == "RECOVER" and "arcón" in apunte.detail and apunte.actor == "Ana"
+
+
+def test_recovering_a_primal_can_correct_its_weight(ctx):
+    s, rest, ana, luis = ctx
+    p = primal(s, rest, "9001", kg=10.0)
+    p.suspect_phantom = True
+    s.flush()
+    inventory.recover(s, ana, "9001", kg=9.6)
+    s.refresh(p)
+    assert p.weight_kg == 9.6 and not p.suspect_phantom
+
+
+def test_a_primal_already_butchered_is_not_recovered_here(ctx):
+    """Si consta cortado, lo que está mal es el despiece, no la pieza."""
+    s, rest, ana, luis = ctx
+    p = primal(s, rest, "9001")
+    p.status = PrimalStatus.CUT
+    p.status_ref = "TG-0007"
+    s.flush()
+    with pytest.raises(InventoryError, match="corregir el despiece"):
+        inventory.recover(s, ana, "9001")
+
+
+def test_a_cut_that_turns_up_comes_back_with_its_movement(ctx):
+    s, rest, ana, luis = ctx
+    lot = corte(s, rest, "Striploin steak", "8017-01", 5.0, coste=30.0)
+    count = inventory.open_count(s, ana, on=HOY)
+    inventory.record(s, luis, count, "8017-01", kg=0.0)
+    inventory.close_count(s, ana, count)
+    s.refresh(lot)
+    assert lot.qty_remaining == 0.0
+
+    r = inventory.recover(s, ana, "8017-01", kg=4.6, note="Apareció en el abatidor", on=HOY)
+
+    s.refresh(lot)
+    assert lot.qty_remaining == 4.6
+    assert r.restored_kg == 4.6 and r.value == 138.0
+    ajuste = (s.query(IngredientMovement).filter_by(source="recovery").one())
+    assert ajuste.qty == 4.6 and ajuste.cost == 138.0 and ajuste.source_ref == "8017-01"
+
+
+def test_recovering_a_cut_needs_to_say_how_much(ctx):
+    s, rest, ana, luis = ctx
+    lot = corte(s, rest, "Steak", "8017-01", 5.0)
+    lot.qty_remaining = 0.0
+    s.flush()
+    with pytest.raises(InventoryError, match="cuántos kilos"):
+        inventory.recover(s, ana, "8017-01")
+
+
+def test_recovery_never_lowers_stock(ctx):
+    """Para bajar se cuenta en un inventario, no se 'corrige' a la baja."""
+    s, rest, ana, luis = ctx
+    corte(s, rest, "Steak", "8017-01", 5.0)
+    with pytest.raises(InventoryError, match="se cuenta en un inventario"):
+        inventory.recover(s, ana, "8017-01", kg=3.0)
+
+
+def test_an_unknown_serial_is_not_invented(ctx):
+    s, rest, ana, luis = ctx
+    with pytest.raises(InventoryError, match="hay que darla de alta"):
+        inventory.recover(s, ana, "NUNCA-VISTO", kg=2.0)
+
+
+def test_a_piece_the_system_never_had_can_be_registered(ctx):
+    s, rest, ana, luis = ctx
+    from thegrill.models import IngredientItem
+    corte(s, rest, "Striploin steak", "8017-01", 5.0)
+    item = s.query(IngredientItem).first()
+
+    r = inventory.adopt(s, ana, "7777-09", item.id, kg=1.8, unit_cost=28.0,
+                        expiry=HOY + timedelta(days=10), note="Estaba sin etiqueta", on=HOY)
+
+    assert r.adopted and r.restored_kg == 1.8 and r.value == 50.4
+    lot = s.query(IngredientLot).filter_by(serial="7777-09").one()
+    assert lot.qty_remaining == 1.8 and lot.unit_cost == 28.0 and lot.lot_code == "RECUPERADO"
+    from thegrill.models import AuditLog
+    assert s.query(AuditLog).filter_by(key="7777-09").one().action == "ADOPT"
+
+
+def test_registering_a_found_piece_needs_a_price(ctx):
+    s, rest, ana, luis = ctx
+    from thegrill.models import IngredientItem
+    corte(s, rest, "Steak", "8017-01", 5.0)
+    item = s.query(IngredientItem).first()
+    for kg, coste in ((0, 28.0), (-1, 28.0), (1.0, -5.0)):
+        with pytest.raises(InventoryError):
+            inventory.adopt(s, ana, "7777-09", item.id, kg=kg, unit_cost=coste,
+                            expiry=HOY + timedelta(days=10))
+
+
+def test_a_serial_is_never_registered_twice(ctx):
+    s, rest, ana, luis = ctx
+    from thegrill.models import IngredientItem
+    corte(s, rest, "Steak", "8017-01", 5.0)
+    item = s.query(IngredientItem).first()
+    with pytest.raises(InventoryError, match="Ya existe"):
+        inventory.adopt(s, ana, "8017-01", item.id, kg=1.0, unit_cost=10.0,
+                        expiry=HOY + timedelta(days=5))
+
+
+def test_a_correction_is_never_made_quietly(ctx):
+    s, rest, ana, luis = ctx
+    lot = corte(s, rest, "Steak", "8017-01", 5.0)
+    lot.qty_remaining = 0.0
+    s.flush()
+    inventory.recover(s, luis, "8017-01", kg=4.0, on=HOY)
+    assert service.unread_count(s, ana.id) >= 1        # el manager se entera
+    assert service.unread_count(s, luis.id) == 0
+
+
+def test_you_cannot_recover_a_piece_from_another_restaurant(ctx):
+    s, rest, ana, luis = ctx
+    lot = corte(s, rest, "Steak", "8017-01", 5.0)
+    lot.qty_remaining = 0.0
+    s.flush()
+    otro, eva = auth.create_restaurant(s, "Otro", "eva@otro.com", "Eva", "clave-larga-9")
+    with pytest.raises(InventoryError):
+        inventory.recover(s, eva, "8017-01", kg=4.0)
+    s.refresh(lot)
+    assert lot.qty_remaining == 0.0

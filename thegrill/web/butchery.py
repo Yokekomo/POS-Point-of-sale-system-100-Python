@@ -412,6 +412,14 @@ def close_day(session: Session, user: User, on: date | None = None,
             message=t(lang, "alert.primal_low", sku=primal.sku, pieces=primal.pieces,
                       min=primal.min_pieces),
             severity=AlertSeverity.WARNING, created_at=now))
+    from thegrill.web import inventory as inventory_service
+    month = inventory_service.monthly_status(session, user.restaurant_id, on)
+    if month.due_soon:
+        result.alerts.append(Alert(
+            restaurant_id=user.restaurant_id, code="count.month_due",
+            message=t(lang, "alert.count_month_due", days=month.days_left),
+            severity=AlertSeverity.WARNING, created_at=now))
+
     for cut in result.expiring:
         result.alerts.append(Alert(
             restaurant_id=user.restaurant_id, code="meat.expiring",
