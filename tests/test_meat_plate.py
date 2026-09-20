@@ -76,7 +76,7 @@ def test_changing_a_cost_moves_every_plate_that_carries_it(ctx):
     s, rest, ana = ctx
     corte, plato = entrecot(s, rest, ana)
     patata = meat.create_extra(s, ana, "Patata", Unit.KG, 1.20)
-    meat.add_plate_line(s, ana, plato, patata.id, 0.200)
+    meat.add_plate_line(s, ana, plato, patata.id, 200)
     s.refresh(plato)
     antes = meat.plate(s, rest.id, plato).cost
 
@@ -89,7 +89,7 @@ def test_an_extra_without_a_price_is_said_out_loud_never_counted_as_zero(ctx):
     s, rest, ana = ctx
     corte, plato = entrecot(s, rest, ana)
     salsa = meat.create_extra(s, ana, "Salsa de la casa", Unit.L)   # sin coste
-    meat.add_plate_line(s, ana, plato, salsa.id, 0.030)
+    meat.add_plate_line(s, ana, plato, salsa.id, 30)
     s.refresh(plato)
     p = meat.plate(s, rest.id, plato)
     assert "Salsa de la casa" in p.missing_price
@@ -114,8 +114,8 @@ def test_the_food_cost_is_the_whole_plates_not_just_the_meats(ctx):
     assert solo_carne.cost == pytest.approx(14.19, abs=0.001)   # 0,330 × 43
     assert solo_carne.food_cost_pct == pytest.approx(52.91, abs=0.01)
 
-    for nombre, unidad, coste, cantidad in [("Patata", Unit.KG, 1.20, 0.200),
-                                            ("Salsa chimichurri", Unit.L, 8.50, 0.030),
+    for nombre, unidad, coste, cantidad in [("Patata", Unit.KG, 1.20, 200),      # gramos
+                                            ("Salsa chimichurri", Unit.L, 8.50, 30),  # ml
                                             ("Pan de brioche", Unit.UNIT, 0.62, 1)]:
         extra = meat.create_extra(s, ana, nombre, unidad, coste)
         meat.add_plate_line(s, ana, plato, extra.id, cantidad)
@@ -132,7 +132,7 @@ def test_the_plate_says_where_the_money_goes(ctx):
     s, rest, ana = ctx
     corte, plato = entrecot(s, rest, ana)
     patata = meat.create_extra(s, ana, "Patata", Unit.KG, 1.20)
-    meat.add_plate_line(s, ana, plato, patata.id, 0.200)
+    meat.add_plate_line(s, ana, plato, patata.id, 200)
     s.refresh(plato)
 
     p = meat.plate(s, rest.id, plato)
@@ -148,13 +148,14 @@ def test_cleaning_waste_on_a_garnish_counts_in_the_cost(ctx):
     s, rest, ana = ctx
     corte, plato = entrecot(s, rest, ana)
     patata = meat.create_extra(s, ana, "Patata", Unit.KG, 1.20)
-    meat.add_plate_line(s, ana, plato, patata.id, 0.200, waste_pct=20)
+    meat.add_plate_line(s, ana, plato, patata.id, 200, waste_pct=20)
     s.refresh(plato)
 
     linea = next(l for l in meat.plate(s, rest.id, plato).lines if l.name == "Patata")
-    assert linea.qty == 0.2
-    assert linea.gross_qty == pytest.approx(0.25, abs=0.0001)    # 0,2 / (1 - 0,20)
-    assert linea.cost == pytest.approx(0.30, abs=0.0001)
+    assert linea.qty_small == 200 and linea.small == "g"          # se lee en gramos
+    assert linea.qty == 0.2                                       # se guarda en kilos
+    assert linea.gross_small == pytest.approx(250, abs=0.01)      # 200 / (1 - 0,20)
+    assert linea.cost == pytest.approx(0.30, abs=0.0001)          # lo que sale la porción
 
 
 def test_the_grams_of_meat_can_be_corrected_and_the_cost_follows(ctx):
@@ -181,7 +182,7 @@ def test_a_garnish_can_be_taken_off_the_plate(ctx):
     s, rest, ana = ctx
     corte, plato = entrecot(s, rest, ana)
     patata = meat.create_extra(s, ana, "Patata", Unit.KG, 1.20)
-    linea = meat.add_plate_line(s, ana, plato, patata.id, 0.200)
+    linea = meat.add_plate_line(s, ana, plato, patata.id, 200)
     s.refresh(plato)
     meat.remove_plate_line(s, ana, plato, linea.id)
     s.refresh(plato)
@@ -194,7 +195,7 @@ def test_a_plate_cannot_borrow_another_hotels_ingredient(ctx):
     otro, bea = auth.create_restaurant(s, "Otro hotel", "bea@otro.com", "Bea", "clave-larga-2")
     ajeno = meat.create_extra(s, bea, "Patata de la vecina", Unit.KG, 1.0)
     with pytest.raises(meat.MeatError, match="restaurante"):
-        meat.add_plate_line(s, ana, plato, ajeno.id, 0.2)
+        meat.add_plate_line(s, ana, plato, ajeno.id, 200)
 
 
 # --------------------------------- la guarnición no se cuenta en cámara
@@ -203,7 +204,7 @@ def test_a_garnish_is_costed_but_never_deducted_from_the_chiller(ctx):
     s, rest, ana = ctx
     corte, plato = entrecot(s, rest, ana)
     patata = meat.create_extra(s, ana, "Patata", Unit.KG, 1.20)
-    meat.add_plate_line(s, ana, plato, patata.id, 0.200)
+    meat.add_plate_line(s, ana, plato, patata.id, 200)
     s.refresh(plato)
     assert patata.consumption == ConsumptionMode.COUNT
 
@@ -241,8 +242,8 @@ def test_it_says_how_many_plates_each_ingredient_reaches(ctx):
     corte, plato = entrecot(s, rest, ana)
     otro = meat.add_dish(s, ana, "Tomahawk", corte.id, 600, 49.0, 10.0, pos_name="TOMAHAWK")
     patata = meat.create_extra(s, ana, "Patata", Unit.KG, 1.20)
-    meat.add_plate_line(s, ana, plato, patata.id, 0.200)
-    meat.add_plate_line(s, ana, otro, patata.id, 0.300)
+    meat.add_plate_line(s, ana, plato, patata.id, 200)
+    meat.add_plate_line(s, ana, otro, patata.id, 300)
     assert meat.extras_usage(s, rest.id)[patata.id] == 2
 
 
@@ -261,7 +262,7 @@ def test_the_plate_can_be_built_from_the_screen(client):
     form = client.get("/ingredientes")
     client.post("/ingredientes/nuevo", data={"csrf": csrf_from(form.text), "name": "Patata",
                                              "unit": "KG", "cost": "1,20"})
-    assert "1.2000" in client.get("/ingredientes").text
+    assert "1.20" in client.get("/ingredientes").text
 
     detalle = client.get("/carta/entrecot_a_la_brasa")
     assert detalle.status_code == 200
@@ -272,7 +273,7 @@ def test_the_plate_can_be_built_from_the_screen(client):
         patata_id = s.query(Ingredient).filter_by(name="Patata").one().id
     r = client.post("/carta/entrecot_a_la_brasa/linea",
                     data={"csrf": csrf_from(detalle.text), "ingredient_id": patata_id,
-                          "qty": "0,200", "waste_pct": "20"})
+                          "qty": "200", "waste_pct": "20"})
     assert r.status_code == 303
     detalle = client.get("/carta/entrecot_a_la_brasa").text
     assert "Patata" in detalle
@@ -330,3 +331,81 @@ def test_a_cut_says_where_its_consumption_comes_from(client):
         assert modos["Por venta"] == ConsumptionMode.RECIPE
         assert modos["Por conteo"] == ConsumptionMode.COUNT
     assert "Al cerrar turno, por conteo" in client.get("/cortes").text
+
+
+# ------------------------------------------- gramos, precio por kilo, ración
+def test_the_kitchen_writes_grams_and_reads_what_the_portion_costs(ctx):
+    """Nadie en una cocina dice «0,2 kg de patata»: dice doscientos gramos."""
+    s, rest, ana = ctx
+    patata = meat.create_extra(s, ana, "Patata", Unit.KG, 1.20, portion_g=200)
+    assert patata.portion_g == 200
+    assert meat.extra_cost(patata) == 1.20            # el precio sigue por kilo
+    assert meat.portion_cost(patata) == 0.24          # y la ración sale a 24 céntimos
+
+
+def test_a_portion_works_the_same_in_millilitres_and_in_units(ctx):
+    s, rest, ana = ctx
+    salsa = meat.create_extra(s, ana, "Salsa", Unit.L, 8.50, portion_g=30)
+    pan = meat.create_extra(s, ana, "Pan", Unit.UNIT, 0.62, portion_g=1)
+    assert meat.portion_cost(salsa) == 0.255          # 30 ml de un litro a 8,50
+    assert meat.portion_cost(pan) == 0.62             # una unidad es una unidad
+    assert meat.small_unit(Unit.L) == "ml"
+    assert meat.small_unit(Unit.KG) == "g"
+
+
+def test_without_a_portion_there_is_no_portion_cost_to_show(ctx):
+    s, rest, ana = ctx
+    sin_porcion = meat.create_extra(s, ana, "Patata", Unit.KG, 1.20)
+    sin_precio = meat.create_extra(s, ana, "Salsa", Unit.L, portion_g=30)
+    assert meat.portion_cost(sin_porcion) is None
+    assert meat.portion_cost(sin_precio) is None      # sin precio no se inventa
+
+
+def test_the_portion_can_be_corrected_without_touching_the_price(ctx):
+    s, rest, ana = ctx
+    patata = meat.create_extra(s, ana, "Patata", Unit.KG, 1.20, portion_g=200)
+    meat.set_extra_cost(s, ana, patata.id, 1.20, portion_g=250)
+    assert patata.portion_g == 250
+    assert meat.portion_cost(patata) == 0.30
+    with pytest.raises(meat.MeatError):
+        meat.create_extra(s, ana, "Otra", Unit.KG, 1.0, portion_g=0)
+
+
+def test_the_plate_reads_in_grams_and_prices_in_kilos(ctx):
+    s, rest, ana = ctx
+    corte, plato = entrecot(s, rest, ana, precio_kg=43.0)
+    patata = meat.create_extra(s, ana, "Patata", Unit.KG, 1.20, portion_g=200)
+    meat.add_plate_line(s, ana, plato, patata.id, patata.portion_g)
+    s.refresh(plato)
+
+    p = meat.plate(s, rest.id, plato)
+    carne = p.meat
+    assert carne.qty_small == 330 and carne.small == "g"      # la carne, en gramos
+    assert carne.unit_cost == 43.0                            # su precio, por kilo
+    assert carne.cost == pytest.approx(14.19, abs=0.001)      # y la porción, en dinero
+    guarnicion = p.extras[0]
+    assert guarnicion.qty_small == 200
+    assert guarnicion.cost == pytest.approx(0.24, abs=0.0001)
+
+
+def test_the_screen_shows_grams_the_price_per_kilo_and_the_portion(client):
+    form = client.get("/ingredientes")
+    client.post("/ingredientes/nuevo", data={"csrf": csrf_from(form.text), "name": "Patata",
+                                             "unit": "KG", "cost": "1,20", "portion": "200"})
+    html = client.get("/ingredientes").text
+    assert "1.2" in html and "200 g" in html and "0.240" in html   # precio, gramos y ración
+
+    form = client.get("/cortes")
+    client.post("/cortes/nuevo", data={"csrf": csrf_from(form.text), "name": "Striploin"})
+    with db.session_scope() as s:
+        cut_id = s.query(Ingredient).filter_by(name="Striploin").one().id
+        patata_id = s.query(Ingredient).filter_by(name="Patata").one().id
+    form = client.get("/carta")
+    client.post("/carta/nuevo", data={"csrf": csrf_from(form.text), "name": "Entrecot",
+                                      "cut_id": cut_id, "grams": "330", "pos_name": "ENTRECOT"})
+    detalle = client.get("/carta/entrecot")
+    client.post("/carta/entrecot/linea", data={"csrf": csrf_from(detalle.text),
+                                               "ingredient_id": patata_id, "qty": "200"})
+    html = client.get("/carta/entrecot").text
+    assert "330 g" in html and "200 g" in html
+    assert "0,200" not in html and "0.2 KG" not in html     # nada de kilos con decimales

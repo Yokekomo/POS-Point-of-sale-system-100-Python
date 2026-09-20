@@ -3,6 +3,38 @@
 <h1>{{ t("m.df.title") }}</h1>
 <p class="sub">{{ t("m.df.sub") }}</p>
 {% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if closed %}
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+  <div class="kpi"><b>{{ "%.2f"|format(closed.cost) }}</b><span>{{ t("trace.cost") }}</span></div>
+  <div class="kpi"><b class="{{ 'bad' if closed.loss_cost > 0 else '' }}">{{ "%+.2f"|format(closed.loss_cost) }}</b>
+    <span>{{ t("m.df.loss") }}</span></div>
+  <div class="kpi"><b>{{ "%+.3f"|format(closed.loss_kg) }}</b><span>kg</span></div>
+</div>
+{% if closed.variances %}
+<div class="card scroll">
+<table>
+<tr><th>{{ t("m.tg.cut_name") }}</th><th class="num">{{ t("m.df.used") }}</th>
+    <th class="num">{{ t("trace.nominal") }}</th><th class="num">{{ t("sale.units") }}</th>
+    <th class="num">{{ t("m.df.real_weight") }}</th><th class="num">{{ t("m.df.gap") }}</th>
+    <th class="num">{{ t("m.df.loss") }}</th></tr>
+{% for v in closed.variances %}
+<tr>
+  <td>{{ v.ingredient }}</td>
+  <td class="num">{{ "%.3f"|format(v.real_kg) }}</td>
+  <td class="num">{{ "%.3f"|format(v.theoretical_kg) }}</td>
+  <td class="num">{{ v.units_sold or "" }}</td>
+  <td class="num">{% if v.real_g_per_unit %}{{ "%.0f"|format(v.real_g_per_unit) }} g
+      {% if v.theoretical_g_per_unit %}<span class="muted">/ {{ "%.0f"|format(v.theoretical_g_per_unit) }}</span>{% endif %}{% endif %}</td>
+  <td class="num">{{ "%+.3f"|format(v.gap_kg) }}{% if v.gap_pct is not none %}
+      <div class="muted">{{ "%+.1f"|format(v.gap_pct) }}%</div>{% endif %}</td>
+  <td class="num"><b>{{ "%+.2f"|format(v.loss_cost) }}</b></td>
+</tr>
+{% endfor %}
+</table>
+</div>
+<p class="help">{{ t("m.df.loss_help") }}</p>
+{% endif %}
+{% endif %}
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 
 <div class="grid">
@@ -49,26 +81,35 @@
 <h2>{{ t("m.df.state") }} · {{ on }}{% if shift %} · {{ shift }}{% endif %}</h2>
 <div class="card scroll">
 <table>
-<tr><th>{{ t("waste.serial") }}</th><th>{{ t("rec.component") }}</th>
-    <th class="num">{{ t("m.df.opening") }}</th><th class="num">{{ t("m.df.taken") }}</th>
-    <th class="num">{{ t("m.df.left") }}</th><th class="num">{{ t("m.df.used") }}</th></tr>
+<tr><th>{{ t("waste.serial") }}</th><th>{{ t("m.tg.cut_name") }}</th>
+    <th class="num">{{ t("m.df.taken") }}</th><th class="num">{{ t("m.df.sold") }}</th>
+    <th class="num">{{ t("m.df.should_be") }}</th><th class="num">{{ t("m.df.left") }}</th>
+    <th class="num">{{ t("m.df.used") }}</th><th class="num">{{ t("m.df.real_weight") }}</th></tr>
 {% for s in states %}
+{% set fuera = s.opening_pieces + s.intake_pieces %}
+{% set kg_fuera = s.opening_kg + s.intake_kg %}
 <tr>
   <td><a href="/trazabilidad?serial={{ s.serial }}">{{ s.serial }}</a></td>
   <td>{{ s.ingredient }}</td>
-  <td class="num">{{ s.opening_pieces }} · {{ "%.2f"|format(s.opening_kg) }}</td>
-  <td class="num">{{ s.intake_pieces }} · {{ "%.2f"|format(s.intake_kg) }}</td>
+  <td class="num">{{ fuera }} · {{ "%.2f"|format(kg_fuera) }}</td>
+  <td class="num">{{ s.sold_pieces or "" }}</td>
+  <td class="num">{{ s.expected_pieces }}</td>
   <td class="num">{% if s.closing_pieces is none %}<span class="tag warn">{{ t("m.df.pending_count") }}</span>
-      {% else %}{{ s.closing_pieces }} · {{ "%.2f"|format(s.closing_kg) }}{% endif %}</td>
+      {% else %}{{ s.closing_pieces }} · {{ "%.2f"|format(s.closing_kg) }}
+      {% if s.closing_pieces != s.expected_pieces %}
+        <div><span class="tag bad">{{ t("m.df.gap") }} {{ s.expected_pieces - s.closing_pieces }}</span></div>
+      {% endif %}{% endif %}</td>
   <td class="num">{% if s.closing_pieces is not none %}
-      {{ s.opening_pieces + s.intake_pieces - s.closing_pieces }} ·
-      {{ "%.2f"|format(s.opening_kg + s.intake_kg - s.closing_kg) }}{% endif %}</td>
+      {{ fuera - s.closing_pieces }} · {{ "%.2f"|format(kg_fuera - s.closing_kg) }}{% endif %}</td>
+  <td class="num">{% if s.closing_pieces is not none and s.sold_pieces %}
+      {{ "%.0f"|format((kg_fuera - s.closing_kg) * 1000 / s.sold_pieces) }} g{% endif %}</td>
 </tr>
 {% else %}
-<tr><td colspan="6" class="muted">{{ t("m.df.none") }}</td></tr>
+<tr><td colspan="8" class="muted">{{ t("m.df.none") }}</td></tr>
 {% endfor %}
 </table>
 </div>
+<p class="help">{{ t("m.df.pos_help") }}</p>
 
 <div class="card">
 <form method="post" action="/descongelado/cierre">

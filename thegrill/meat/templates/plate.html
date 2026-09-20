@@ -34,9 +34,9 @@
 {% for l in plate.lines %}
 <tr>
   <td>{{ l.name }}{% if l.is_meat %} <span class="tag ok">{{ t("m.plate.meat") }}</span>{% endif %}</td>
-  <td class="num">{{ "%.4g"|format(l.qty) }} {{ l.unit }}</td>
+  <td class="num">{{ "%.4g"|format(l.qty_small) }} {{ l.small }}</td>
   <td class="num">{% if l.waste_pct %}{{ "%.0f"|format(l.waste_pct) }}%{% endif %}</td>
-  <td class="num">{{ "%.4g"|format(l.gross_qty) }}</td>
+  <td class="num">{{ "%.4g"|format(l.gross_small) }} {{ l.small }}</td>
   <td class="num">{% if l.unit_cost is not none %}{{ "%.4f"|format(l.unit_cost) }}
       {% else %}<span class="tag bad">{{ t("ing.no_price") }}</span>{% endif %}</td>
   <td class="num">{{ "%.4f"|format(l.cost) }}</td>
@@ -61,10 +61,10 @@
   <div class="grid">
     <div><label for="ingredient_id">{{ t("m.ext.name") }}</label>
       <select id="ingredient_id" name="ingredient_id" required>
-        {% for e in extras %}<option value="{{ e.id }}">{{ e.name }} ({{ e.unit.value }}){% if cost_of(e) is not none %} · {{ "%.4f"|format(cost_of(e)) }}{% endif %}</option>{% endfor %}
+        {% for e in extras %}<option value="{{ e.id }}" data-portion="{{ e.portion_g or "" }}">{{ e.name }}{% if cost_of(e) is not none %} · {{ "%.2f"|format(cost_of(e)) }}/{{ e.unit.value }}{% endif %}{% if e.portion_g %} · {{ "%.4g"|format(e.portion_g) }} {{ small(e.unit) }}{% endif %}</option>{% endfor %}
       </select></div>
     <div><label for="qty">{{ t("m.plate.qty") }}</label>
-      <input id="qty" name="qty" inputmode="decimal" required placeholder="0,200"></div>
+      <input id="qty" name="qty" inputmode="decimal" required placeholder="200"></div>
     <div><label for="waste_pct">{{ t("rec.waste") }}</label>
       <input id="waste_pct" name="waste_pct" inputmode="decimal" value="0"></div>
   </div>
@@ -92,4 +92,18 @@
 {% endif %}
 
 <p class="muted"><a href="/carta">← {{ t("m.menu.title") }}</a></p>
+<script>
+// La porción configurada se propone sola al elegir el ingrediente: en cocina
+// ese gramaje ya está decidido, no hay que volver a escribirlo.
+(function () {
+  var pick = document.getElementById("ingredient_id"), qty = document.getElementById("qty");
+  if (!pick || !qty) return;
+  function propose() {
+    var portion = pick.options[pick.selectedIndex].getAttribute("data-portion");
+    if (portion && !qty.value) qty.value = portion;
+  }
+  pick.addEventListener("change", function () { qty.value = ""; propose(); });
+  propose();
+})();
+</script>
 {% endblock %}

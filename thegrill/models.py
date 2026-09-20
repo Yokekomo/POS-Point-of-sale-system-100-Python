@@ -538,6 +538,10 @@ class Ingredient(TenantMixin, Base):
     consumption: Mapped[ConsumptionMode] = mapped_column(Enum(ConsumptionMode),
                                                          default=ConsumptionMode.RECIPE)
     min_stock: Mapped[float | None] = mapped_column(Float)   # mínimo para avisar
+    # El gramaje habitual en el plato: gramos, mililitros o unidades, según la
+    # unidad base. Es lo que se escribe en cocina, y de ahí sale lo que cuesta
+    # la ración.
+    portion_g: Mapped[float | None] = mapped_column(Float)
     category: Mapped[str | None] = mapped_column(String(48))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text)

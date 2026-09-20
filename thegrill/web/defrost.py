@@ -40,9 +40,24 @@ class ShiftClose:
     shift: str
     consumed: list[Consumed] = field(default_factory=list)
     variances: list[Variance] = field(default_factory=list)
-    cost: float = 0.0
+    cost: float = 0.0                 # lo que se ha gastado de verdad, en dinero
     missing_counts: list[str] = field(default_factory=list)
+    not_by_count: list[str] = field(default_factory=list)   # cortes que descuentan al vender
     alerts: list[Alert] = field(default_factory=list)
+
+    @property
+    def loss_cost(self) -> float:
+        """Lo que se pierde en el día: el desvío contra la carta, en dinero."""
+        return round(sum(v.loss_cost for v in self.variances), 4)
+
+    @property
+    def loss_kg(self) -> float:
+        return round(sum(v.gap_kg for v in self.variances), 6)
+
+    @property
+    def piece_gaps(self) -> list[Consumed]:
+        """Piezas que faltan y las ventas no explican."""
+        return [c for c in self.consumed if c.counted and c.piece_gap]
 
 
 # ------------------------------------------------------------------ apuntes
@@ -94,11 +109,23 @@ def _previous_count(session: Session, restaurant_id: int, serial: str,
                       DefrostEntry.id.desc()).first())
 
 
+def sold_units(session: Session, restaurant_id: int, on: date) -> dict[int, int]:
+    """Unidades vendidas en el POS ese día, por ingrediente."""
+    return theoretical_for(session, restaurant_id, on)[1]
+
+
 def shift_states(session: Session, restaurant_id: int, on: date, shift: str = "") -> list[SerialState]:
-    """Lo que había, lo que se sacó y lo que queda, por pieza."""
+    """Lo que había, lo que se sacó, lo que el POS ha vendido y lo que queda.
+
+    Lo vendido se reparte entre las piezas que están descongeladas, en orden:
+    así el recuento de cierre se hace contra un número, no contra el aire.
+    """
     entries = (session.query(DefrostEntry)
                .filter_by(restaurant_id=restaurant_id, date=on, shift=shift or "").all())
+    by_ingredient: dict[str, int] = {}
     states: dict[str, SerialState] = {}
+    for entry in entries:
+        by_ingredient.setdefault(entry.lot_serial, entry.ingredient_id)
     for entry in entries:
         st = states.get(entry.lot_serial)
         if st is None:
@@ -114,7 +141,28 @@ def shift_states(session: Session, restaurant_id: int, on: date, shift: str = ""
         else:
             st.closing_kg = entry.total_kg
             st.closing_pieces = entry.pieces
+
+    _attribute_sales(session, restaurant_id, on, states, by_ingredient)
     return [states[k] for k in sorted(states)]
+
+
+def _attribute_sales(session: Session, restaurant_id: int, on: date,
+                     states: dict[str, SerialState], ingredient_of: dict[str, int]) -> None:
+    """Reparte lo vendido entre las piezas descongeladas de ese corte.
+
+    En orden de serial y sin pasarse de lo que cada pieza tenía fuera: una
+    pieza no puede vender más de lo que había descongelado de ella.
+    """
+    pending = dict(sold_units(session, restaurant_id, on))
+    for serial in sorted(states):
+        state = states[serial]
+        ingredient_id = ingredient_of.get(serial)
+        left = pending.get(ingredient_id, 0)
+        if not left:
+            continue
+        take = min(left, state.out_pieces)
+        state.sold_pieces = take
+        pending[ingredient_id] = left - take
 
 
 def theoretical_for(session: Session, restaurant_id: int, on: date) -> tuple[dict[int, float], dict[int, int]]:
@@ -145,6 +193,7 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
 
     real_by_name: dict[str, float] = {}
     units_by_name: dict[str, int] = {}
+    cost_by_name: dict[str, float] = {}
     for row in result.consumed:
         if not row.counted:
             result.missing_counts.append(row.serial)
@@ -152,6 +201,13 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
         if row.kg <= EPSILON:
             continue
         lot = _lot_by_serial(session, user.restaurant_id, row.serial)
+        ingredient = session.get(Ingredient, lot.ingredient_id)
+        if ingredient is not None and ingredient.consumption != ConsumptionMode.COUNT:
+            # Ese corte ya se descuenta al vender. Descontarlo otra vez aquí
+            # sería gastar dos veces la misma carne.
+            result.not_by_count.append(row.serial)
+            continue
+        cost_by_name.setdefault(row.ingredient, lot.unit_cost)
         take = min(row.kg, lot.qty_remaining)
         lot.qty_remaining = round(lot.qty_remaining - take, 6)
         cost = round(take * lot.unit_cost, 6)
@@ -170,7 +226,8 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
     theoretical_by_name = {names[k]: v for k, v in needed.items() if k in names}
     for ingredient_id, name in names.items():
         units_by_name[name] = units.get(ingredient_id, 0)
-    result.variances = variances(real_by_name, theoretical_by_name, units_by_name)
+    result.variances = variances(real_by_name, theoretical_by_name, units_by_name,
+                                 cost_by_name)
 
     session.flush()
     _raise_alerts(session, user, result, lang)
@@ -187,6 +244,27 @@ def _raise_alerts(session: Session, user: User, result: ShiftClose, lang: str) -
                 restaurant_id=user.restaurant_id, code="defrost.impossible",
                 message=t(lang, "alert.defrost_impossible", serial=row.serial),
                 severity=AlertSeverity.WARNING, created_at=now))
+    for row in result.piece_gaps:
+        # El POS dice lo que salió a la mesa; la cámara, lo que falta. Si no
+        # cuadran, alguien tiene que mirarlo hoy, no a fin de mes.
+        result.alerts.append(Alert(
+            restaurant_id=user.restaurant_id, code="defrost.pieces",
+            message=t(lang, "alert.defrost_pieces", n=row.piece_gap,
+                      ingredient=row.ingredient, serial=row.serial,
+                      sold=row.sold_pieces, out=row.pieces),
+            severity=AlertSeverity.WARNING, created_at=now))
+    if result.not_by_count:
+        result.alerts.append(Alert(
+            restaurant_id=user.restaurant_id, code="defrost.not_by_count",
+            message=t(lang, "alert.defrost_not_by_count",
+                      serials=", ".join(result.not_by_count)),
+            severity=AlertSeverity.WARNING, created_at=now))
+    if abs(result.loss_cost) >= 1:
+        result.alerts.append(Alert(
+            restaurant_id=user.restaurant_id, code="defrost.loss",
+            message=t(lang, "alert.defrost_loss", cost=f"{result.loss_cost:+.2f}"),
+            severity=(AlertSeverity.CRITICAL if result.loss_cost >= 50
+                      else AlertSeverity.WARNING), created_at=now))
     if result.missing_counts:
         result.alerts.append(Alert(
             restaurant_id=user.restaurant_id, code="defrost.missing_count",

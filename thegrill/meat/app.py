@@ -354,10 +354,10 @@ def defrost_page(request: Request, ctx=Depends(require_user),
     return _defrost(request, user, auth_session, session, shift=shift, done=done)
 
 
-def _defrost(request, user, auth_session, session, *, shift="", done="", error=""):
+def _defrost(request, user, auth_session, session, *, shift="", done="", error="", closed=None):
     on = date.today()
     return page(request, "defrost.html", user, auth_session, session, shift=shift,
-                done=done, error=error, on=on,
+                done=done, error=error, on=on, closed=closed,
                 states=defrost.shift_states(session, user.restaurant_id, on, shift),
                 lots=(session.query(butchery.IngredientLot)
                       .filter(butchery.IngredientLot.restaurant_id == user.restaurant_id,
@@ -407,7 +407,7 @@ def defrost_close(request: Request, shift: str = Form(""), csrf: str = Form(""),
         result = defrost.close(session, user, shift=shift.strip(), lang=lang)
     except (defrost.DefrostError, ValueError) as e:
         return _defrost(request, user, auth_session, session, shift=shift, error=str(e))
-    return _defrost(request, user, auth_session, session, shift=shift,
+    return _defrost(request, user, auth_session, session, shift=shift, closed=result,
                     done=i18n.t(lang, "m.df.closed", n=len(result.consumed)))
 
 
@@ -491,21 +491,23 @@ def extras_page(request: Request, ctx=Depends(require_user),
     user, auth_session = ctx
     rows = meat.extras(session, user.restaurant_id)
     used = meat.extras_usage(session, user.restaurant_id)
+    lang = lang_for(request, session, user)
     return page(request, "extras.html", user, auth_session, session, extras=rows,
-                used=used, units=list(Unit), saved=bool(saved), error=error,
-                cost_of=meat.extra_cost)
+                used=used, units=list(Unit), saved=bool(saved), error=error, lang=lang,
+                cost_of=meat.extra_cost, portion_cost=meat.portion_cost,
+                small=lambda unit: meat.small_unit(unit, lang))
 
 
 @app.post("/ingredientes/nuevo")
 def new_extra(request: Request, name: str = Form(...), unit: str = Form("KG"),
-              cost: str = Form(""), csrf: str = Form(""),
+              cost: str = Form(""), portion: str = Form(""), csrf: str = Form(""),
               ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
         meat.create_extra(session, user, name,
                           unit=Unit[unit] if unit in Unit.__members__ else Unit.KG,
-                          cost=_num(cost))
+                          cost=_num(cost), portion_g=_num(portion))
     except (meat.MeatError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
     return RedirectResponse("/ingredientes?saved=1", status_code=303)
@@ -513,12 +515,14 @@ def new_extra(request: Request, name: str = Form(...), unit: str = Form("KG"),
 
 @app.post("/ingredientes/{ingredient_id}/coste")
 def update_extra_cost(ingredient_id: int, request: Request, cost: str = Form(...),
-                      csrf: str = Form(""), ctx=Depends(require_manager_user),
+                      portion: str = Form(""), csrf: str = Form(""),
+                      ctx=Depends(require_manager_user),
                       session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
-        meat.set_extra_cost(session, user, ingredient_id, _num(cost, 0.0) or 0.0)
+        meat.set_extra_cost(session, user, ingredient_id, _num(cost, 0.0) or 0.0,
+                            portion_g=_num(portion, 0.0))
     except (meat.MeatError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
     return RedirectResponse("/ingredientes?saved=1", status_code=303)
@@ -540,10 +544,12 @@ def plate_page(code: str, request: Request, ctx=Depends(require_user),
     """El emplatado: todo lo que va en el plato y lo que cuesta cada cosa."""
     user, auth_session = ctx
     dish = _dish(session, user, code, request)
-    return page(request, "plate.html", user, auth_session, session, error=error,
-                plate=meat.plate(session, user.restaurant_id, dish),
+    lang = lang_for(request, session, user)
+    return page(request, "plate.html", user, auth_session, session, error=error, lang=lang,
+                plate=meat.plate(session, user.restaurant_id, dish, lang),
                 extras=meat.extras(session, user.restaurant_id),
-                cost_of=meat.extra_cost)
+                cost_of=meat.extra_cost,
+                small=lambda unit: meat.small_unit(unit, lang))
 
 
 @app.post("/carta/{code}/linea")

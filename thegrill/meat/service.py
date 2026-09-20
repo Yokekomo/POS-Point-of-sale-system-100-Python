@@ -23,6 +23,9 @@ from thegrill.web import butchery, costing, defrost, inventory
 from thegrill.web.i18n import t
 
 MAX_CUTS = 10
+# En cocina se habla en gramos, no en kilos. Cada unidad base tiene su unidad
+# pequeña, que es la que se escribe y la que se lee.
+SMALL = {Unit.KG: ("g", 1000.0), Unit.L: ("ml", 1000.0), Unit.UNIT: ("", 1.0)}
 CATEGORY = "carne"      # lo que se despieza, se cuenta y se descuenta
 EXTRA = "extra"         # lo que acompaña en el plato: solo interesa su coste
 
@@ -141,8 +144,31 @@ def cuts(session: Session, restaurant_id: int) -> list[Ingredient]:
 
 
 # ================================================== otros ingredientes del plato
+def small_unit(unit: Unit, lang: str = "es") -> str:
+    """Cómo se llama la unidad pequeña: gramos, mililitros o unidades."""
+    label = SMALL.get(unit, ("", 1.0))[0]
+    return label or t(lang, "m.unit.piece")
+
+
+def to_base(unit: Unit, qty_small: float) -> float:
+    """De gramos a kilos, de mililitros a litros. Las unidades no se tocan."""
+    return round(qty_small / SMALL.get(unit, ("", 1.0))[1], 6)
+
+
+def to_small(unit: Unit, qty_base: float) -> float:
+    return round(qty_base * SMALL.get(unit, ("", 1.0))[1], 4)
+
+
+def portion_cost(extra: Ingredient) -> float | None:
+    """A cuánto sale la ración: el precio por kilo por lo que lleva el plato."""
+    cost = extra_cost(extra)
+    if cost is None or not extra.portion_g:
+        return None
+    return round(cost * to_base(extra.unit, extra.portion_g), 4)
+
+
 def create_extra(session: Session, user: User, name: str, unit: Unit = Unit.KG,
-                 cost: float | None = None) -> Ingredient:
+                 cost: float | None = None, portion_g: float | None = None) -> Ingredient:
     """Lo que acompaña a la carne: guarnición, salsa, pan.
 
     De esto no se lleva stock —aquí no se cuentan patatas—, pero su coste sí
@@ -157,9 +183,11 @@ def create_extra(session: Session, user: User, name: str, unit: Unit = Unit.KG,
         raise MeatError(f"Ya hay un ingrediente llamado {name}")
     if cost is not None and cost < 0:
         raise MeatError("El coste no puede ser negativo")
+    if portion_g is not None and portion_g <= 0:
+        raise MeatError("La porción tiene que ser mayor que cero")
     extra = Ingredient(restaurant_id=user.restaurant_id, name=name, unit=unit,
                        rotation=Rotation.FIFO, consumption=ConsumptionMode.COUNT,
-                       category=EXTRA)
+                       category=EXTRA, portion_g=portion_g)
     session.add(extra)
     session.flush()
     session.add(IngredientItem(restaurant_id=user.restaurant_id, ingredient_id=extra.id,
@@ -168,13 +196,18 @@ def create_extra(session: Session, user: User, name: str, unit: Unit = Unit.KG,
     return extra
 
 
-def set_extra_cost(session: Session, user: User, ingredient_id: int, cost: float) -> Ingredient:
-    """Cambia el coste configurado. Se aplica a los platos desde ya."""
+def set_extra_cost(session: Session, user: User, ingredient_id: int, cost: float,
+                   portion_g: float | None = None) -> Ingredient:
+    """Cambia el coste configurado y su porción. Se aplica a los platos desde ya."""
     extra = session.get(Ingredient, ingredient_id)
     if extra is None or extra.restaurant_id != user.restaurant_id:
         raise MeatError("Ese ingrediente no es de este restaurante")
     if cost < 0:
         raise MeatError("El coste no puede ser negativo")
+    if portion_g is not None:
+        if portion_g < 0:
+            raise MeatError("La porción no puede ser negativa")
+        extra.portion_g = portion_g or None
     item = extra.items[0] if extra.items else None
     if item is None:
         item = IngredientItem(restaurant_id=user.restaurant_id, ingredient_id=extra.id,
@@ -370,13 +403,14 @@ def meat_line(dish: Recipe, session: Session) -> RecipeLine | None:
 
 
 def add_plate_line(session: Session, user: User, dish: Recipe, ingredient_id: int,
-                   qty: float, waste_pct: float = 0.0, lang: str = "es") -> RecipeLine:
-    """Añade al plato algo que no es la carne."""
+                   qty_small: float, waste_pct: float = 0.0, lang: str = "es") -> RecipeLine:
+    """Añade al plato algo que no es la carne. La cantidad, en gramos."""
     ingredient = session.get(Ingredient, ingredient_id)
     if ingredient is None or ingredient.restaurant_id != user.restaurant_id:
         raise MeatError("Ese ingrediente no es de este restaurante")
-    if qty <= 0:
+    if qty_small <= 0:
         raise MeatError(t(lang, "m.plate.qty"))
+    qty = to_base(ingredient.unit, qty_small)
     if not 0 <= waste_pct < 100:
         raise MeatError("La merma de limpieza va entre 0 y 100")
     # Detrás de lo que ya hay, para que la carne siga la primera y el orden del
@@ -419,11 +453,14 @@ class PlateLine:
     line_id: int | None
     name: str
     unit: str
-    qty: float
+    qty: float                 # en la unidad base, que es como se guarda
+    qty_small: float           # y en gramos, que es como se lee
+    small: str                 # g, ml o unidades
     waste_pct: float
     gross_qty: float
-    unit_cost: float | None
-    cost: float
+    gross_small: float
+    unit_cost: float | None    # por kilo, por litro o por unidad
+    cost: float                # lo que sale esa porción
     share_pct: float
     is_meat: bool
 
@@ -448,7 +485,7 @@ class Plate:
         return [l for l in self.lines if not l.is_meat]
 
 
-def plate(session: Session, restaurant_id: int, dish: Recipe) -> Plate:
+def plate(session: Session, restaurant_id: int, dish: Recipe, lang: str = "es") -> Plate:
     """El emplatado entero: qué lleva, qué cuesta cada cosa y su food cost."""
     costs = costing.unit_costs(session, restaurant_id)
     detail = costing.cost_of(session, dish, costs)
@@ -458,11 +495,14 @@ def plate(session: Session, restaurant_id: int, dish: Recipe) -> Plate:
 
     lines = []
     for line, computed in zip(dish.lines, detail.lines):
+        ingredient = session.get(Ingredient, line.ingredient_id) if line.ingredient_id else None
+        unit = ingredient.unit if ingredient else Unit.KG
         lines.append(PlateLine(
             line_id=line.id, name=computed.label, unit=computed.unit,
-            qty=computed.net_qty, waste_pct=computed.waste_pct,
-            gross_qty=computed.gross_qty, unit_cost=computed.unit_cost,
-            cost=computed.cost, share_pct=computed.share_pct,
+            qty=computed.net_qty, qty_small=to_small(unit, computed.net_qty),
+            small=small_unit(unit, lang), waste_pct=computed.waste_pct,
+            gross_qty=computed.gross_qty, gross_small=to_small(unit, computed.gross_qty),
+            unit_cost=computed.unit_cost, cost=computed.cost, share_pct=computed.share_pct,
             is_meat=carne is not None and line.id == carne.id))
     return Plate(dish=dish, lines=lines, cost=detail.cost_per_portion,
                  food_cost_pct=detail.food_cost_pct, margin=detail.margin_per_portion,

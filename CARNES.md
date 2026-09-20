@@ -41,9 +41,23 @@ vuelca y no queda un despiece a medias.
 lo que hay descongelando y los días que faltan para caducar. El cierre del día
 deja los avisos de lo que baja del mínimo.
 
-**Descongelado.** Lo que sale a descongelar y lo que queda al cerrar el turno.
-La diferencia es el consumo real, y de ahí sale el peso de verdad por pieza. Sin
-recuento no hay cierre.
+**Descongelado.** Lo que sale a descongelar, lo que el POS ha vendido y lo que
+queda al cerrar el turno. Las tres cosas juntas son el cuadre del día:
+
+- **lo vendido se descuenta de lo descongelado**, así el recuento de cierre se
+  hace contra un número —«salieron 8, se vendieron 6, deberían quedar 2»— y no
+  contra el aire. Si al contar sale otro número, la diferencia no la explica el
+  POS y salta el aviso ese mismo día;
+- **el peso real por pieza** son los kilos que faltan entre las piezas vendidas,
+  no entre las que faltan de la cámara: lo que interesa es cuánto pesa lo que
+  sale a la mesa. Salieron 2,81 kg en 8 piezas, quedan 0,70 en 2 y el POS vendió
+  6: cada entrecot pesó 352 g;
+- **lo que se pierde en el día**, en dinero. La carta dice 6 × 330 g = 1,98 kg y
+  la balanza dice 2,11: 130 g de más a 43 € el kilo son 5,59 € que se han ido
+  hoy por cortar ancho. En negativo también avisa: o se corta corto, o falta un
+  apunte.
+
+Sin recuento no hay cierre.
 
 **Cortes.** El catálogo. Un corte es lo que se cuenta, se vende y se descuenta;
 debajo cuelgan los artículos de cada procedencia, que se gastan en una sola cola
@@ -60,7 +74,9 @@ con el coste de cada línea, su peso en el plato y el food cost del conjunto. Un
 plato que solo lleva carne lo dice: su food cost está incompleto.
 
 **Otros ingredientes.** El apartado donde se configura lo que cuesta cada cosa
-que no es carne, por kilo, por litro o por unidad. De esto no se lleva stock
+que no es carne: el precio por kilo, por litro o por unidad, la porción que va
+en el plato —en gramos, que es como se habla en cocina— y a cuánto sale esa
+ración. Patata a 1,20 € el kilo, 200 g por plato, 0,24 € la ración. De esto no se lleva stock
 —aquí no se cuentan patatas—, así que la venta no intenta descontarlo del
 almacén ni salta un aviso falso de falta de stock; lo que sí cuenta es su
 precio, porque sin él el food cost del plato se queda corto. Cambiar un coste
@@ -69,6 +85,10 @@ mueve todos los platos que lo llevan, de una vez.
 **Merma de limpieza.** Cada línea del plato puede decir cuánto se pierde al
 limpiar: 200 g de patata en el plato salen de 250 en el saco si se pela un 20 %.
 Del almacén sale el bruto, y el plato paga el bruto.
+
+En todas estas pantallas se escribe y se lee en **gramos**, mililitros o
+unidades; el precio se mira **por kilo**, y al lado sale lo que cuesta esa
+porción. Nadie en una cocina dice «0,2 kg de patata».
 
 **Ventas.** Lo vendido descuenta de cámara por rotación, plato a plato, dejando
 escrito a qué plato fue cada salida: sin eso no hay food cost por pieza.
@@ -118,7 +138,7 @@ thegrill/meat/
                    cortes, ingredientes con su coste, carta y emplatado, y el
                    resumen de hoy
   sheets_meat.py   Las cinco hojas imprimibles
-  i18n_meat.py     126 textos propios × seis idiomas
+  i18n_meat.py     137 textos propios × seis idiomas
   templates/       Las pantallas propias; lo demás se hereda de la cocina
 ```
 
@@ -144,8 +164,10 @@ cookie de sesión se marca como segura salvo que se defina
 
 **De dónde sale el consumo de cada corte.** Cada corte elige si se descuenta al
 vender en el POS o al cerrar el turno con el recuento de descongelado. Las dos
-cosas a la vez descontarían el doble. Un entrecot que se pesa al descongelar va
-por conteo; un corte que sale directo de cámara, por venta.
+cosas a la vez descontarían el doble, y el programa no lo deja: si un corte que
+se descuenta al vender aparece en un recuento, el cierre no lo vuelve a
+descontar y lo dice. Un entrecot que se pesa al descongelar va por conteo; un
+corte que sale directo de cámara, por venta.
 
 **Qué se controla y qué solo se cuesta.** De la carne se lleva stock pieza a
 pieza, con su serial. De la guarnición solo se lleva el coste. Es a propósito:
@@ -158,3 +180,5 @@ cost del plato sea el de verdad.
    qué carne está en cada sitio.
 2. Importar el parte de ventas del POS desde un fichero, en vez de a mano.
 3. Parte de carne diario en PDF, para el pase.
+4. Guardar el cuadre de cada turno, para ver la pérdida acumulada del mes sin
+   tener que ir aviso por aviso.

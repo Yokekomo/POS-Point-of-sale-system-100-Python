@@ -181,13 +181,18 @@ def test_reception_needs_a_csrf_token(client):
 
 
 # ---------------------------------------------------------------- cortes
-def setup_cuts(client):
-    """Los cortes que va a dar el striploin, con su artículo de cámara."""
+def setup_cuts(client, consumption="RECIPE"):
+    """Los cortes que va a dar el striploin, con su artículo de cámara.
+
+    `consumption` dice de dónde sale su consumo: de la venta en el POS o del
+    recuento de descongelado. Las dos cosas a la vez descontarían el doble.
+    """
     form = client.get("/cortes")
     token = csrf_from(form.text)
     ids = {}
     for name in ("Striploin steak", "Tiras de striploin", "Recorte de vacuno"):
-        client.post("/cortes/nuevo", data={"csrf": token, "name": name, "rotation": "FEFO"})
+        client.post("/cortes/nuevo", data={"csrf": token, "name": name, "rotation": "FEFO",
+                                           "consumption": consumption})
     with db.session_scope() as s:
         for cut in s.query(Ingredient).all():
             ids[cut.name] = cut.id
@@ -418,7 +423,7 @@ def test_a_cut_without_its_article_is_refused(client):
 # ---------------------------------------------------------- descongelado
 def test_the_shift_count_turns_into_real_consumption(client):
     signup(client)
-    items = setup_cuts(client)
+    items = setup_cuts(client, consumption="COUNT")
     deliver(client)
     butcher(client, items)
 
@@ -440,7 +445,7 @@ def test_the_shift_count_turns_into_real_consumption(client):
 
 def test_what_went_out_but_was_not_counted_is_flagged_on_the_home_screen(client):
     signup(client)
-    items = setup_cuts(client)
+    items = setup_cuts(client, consumption="COUNT")
     deliver(client)
     butcher(client, items)
     form = client.get("/descongelado")

@@ -26,6 +26,34 @@ def create_all():
     if _engine is None:
         init_engine()
     Base.metadata.create_all(_engine)
+    add_missing_columns()
+
+
+def add_missing_columns() -> list[str]:
+    """Añade a las tablas que ya existen las columnas nuevas que les falten.
+
+    `create_all` crea tablas, pero no toca las que ya están: una base de datos
+    en marcha se quedaba sin las columnas añadidas después y reventaba al leer.
+    Solo se añaden columnas que admiten vacío, que es lo único que se puede
+    añadir sin inventarse un valor para las filas que ya existen.
+    """
+    from sqlalchemy import inspect, text
+    inspector = inspect(_engine)
+    tables = set(inspector.get_table_names())
+    added: list[str] = []
+    with _engine.begin() as connection:
+        for table in Base.metadata.sorted_tables:
+            if table.name not in tables:
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table.name)}
+            for column in table.columns:
+                if column.name in existing or not column.nullable:
+                    continue
+                kind = column.type.compile(dialect=_engine.dialect)
+                connection.execute(
+                    text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {kind}'))
+                added.append(f"{table.name}.{column.name}")
+    return added
 
 
 @contextmanager

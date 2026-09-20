@@ -7,22 +7,28 @@
 
 <div class="card scroll">
 <table>
-<tr><th>{{ t("m.ext.name") }}</th><th>{{ t("ing.unit") }}</th>
-    <th class="num">{{ t("m.ext.cost") }}</th><th></th></tr>
+<tr><th>{{ t("m.ext.name") }}</th><th class="num">{{ t("m.ext.cost") }}</th>
+    <th class="num">{{ t("m.ext.portion") }}</th>
+    <th class="num">{{ t("m.ext.portion_cost") }}</th><th></th></tr>
 {% for e in extras %}
 <tr>
   <td>{{ e.name }}
     {% if used.get(e.id) %}<div class="muted">{{ t("m.ext.used_in", n=used[e.id]) }}</div>{% endif %}</td>
-  <td class="muted">{{ e.unit.value }}</td>
   <td class="num">
     {% if cost_of(e) is none %}<span class="tag bad">{{ t("ing.no_price") }}</span>
-    {% else %}{{ "%.4f"|format(cost_of(e)) }}{% endif %}</td>
+    {% else %}{{ "%.2f"|format(cost_of(e)) }} <span class="muted">/ {{ e.unit.value }}</span>{% endif %}</td>
+  <td class="num">{% if e.portion_g %}{{ "%.4g"|format(e.portion_g) }} {{ small(e.unit) }}{% endif %}</td>
+  <td class="num">{% if portion_cost(e) is not none %}<b>{{ "%.3f"|format(portion_cost(e)) }}</b>{% endif %}</td>
   <td>
     {% if user.role.value == "MANAGER" %}
     <form method="post" action="/ingredientes/{{ e.id }}/coste" class="rowflex" style="margin:0">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <input name="cost" inputmode="decimal" required style="max-width:120px"
-             value="{% if cost_of(e) is not none %}{{ "%.4f"|format(cost_of(e)) }}{% endif %}">
+      <input name="cost" inputmode="decimal" required style="max-width:110px"
+             aria-label="{{ t("m.ext.cost") }}"
+             value="{% if cost_of(e) is not none %}{{ "%.4g"|format(cost_of(e)) }}{% endif %}">
+      <input name="portion" inputmode="decimal" style="max-width:90px"
+             aria-label="{{ t("m.ext.portion") }}" placeholder="{{ small(e.unit) }}"
+             value="{% if e.portion_g %}{{ "%.4g"|format(e.portion_g) }}{% endif %}">
       <button class="ghost" type="submit">{{ t("m.ext.update") }}</button>
     </form>
     {% endif %}
@@ -48,8 +54,11 @@
       </select></div>
     <div><label for="cost">{{ t("m.ext.cost") }}</label>
       <input id="cost" name="cost" inputmode="decimal" placeholder="1,20"></div>
+    <div><label for="portion">{{ t("m.ext.portion") }}</label>
+      <input id="portion" name="portion" inputmode="decimal" placeholder="200"></div>
   </div>
   <div class="help">{{ t("m.ext.cost_help") }}</div>
+  <div class="help">{{ t("m.ext.portion_help") }}</div>
   <button class="wide" type="submit">{{ t("m.ext.new") }}</button>
 </form>
 </div>
