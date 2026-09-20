@@ -69,6 +69,11 @@ se ve lo que cuesta lo que se tira.
 **Food cost.** Se mide contra el precio sin impuestos. Sobre el PVP saldría un
 número más bonito y falso.
 
+**Identificación del POS.** Cada emplatado se ata a su producto del punto de
+venta. Según el POS, el artículo llega por número o por nombre; se guardan los
+dos y el restaurante elige en su configuración por cuál emparejar. Con «ambos»,
+el código manda, porque un nombre se reescribe y un código no.
+
 **Descuento de stock.** Lo vendido se explota hasta ingredientes madre y se
 descuenta de los lotes por rotación, dejando un movimiento por cada salida con
 su coste. Si falta stock se descuenta lo que hay, se registra el faltante y
@@ -81,6 +86,38 @@ salta una alerta: alguien no registró una entrada. Nunca queda stock negativo.
 - **Composición**: el árbol entero con el coste y el porcentaje de cada nivel,
   del plato hasta el ingrediente.
 - **La carta por food cost**: todos los platos ordenados por el peor margen.
+
+## La carne va por su cuenta
+
+Un primal no es un ingrediente cualquiera: es una pieza física que se convierte
+en varias cosas a la vez.
+
+**Llegada.** Los primales vienen en grupo bajo un lote de recepción. Cada pieza
+lleva su propio número y su coste puesto en almacén, que se congela al
+despiezarla para que no se pierda ni cambie después.
+
+**Despiece.** Del primal salen hasta una decena de cortes distintos, partes
+para reusar y merma. El recorte es un corte más, marcado como tal. La masa
+tiene que cuadrar: entrada igual a cortes más recorte más merma, con su
+tolerancia; si no cuadra, se dice.
+
+**Reparto del coste.** El coste de la pieza se reparte entre lo aprovechable en
+proporción a kilos por índice de valor. La merma no recibe nada: su coste lo
+absorben los cortes. Por eso un striploin comprado a veinte sale a veinticinco
+el kilo cuando el despiece rinde al ochenta por ciento, y a treinta y tres si
+rinde al sesenta. Eso es lo que hay que ver.
+
+**Trazabilidad.** Cada corte y cada recorte recibe un serial nuevo al salir del
+despiece, atado a la pieza de la que salió y al envío en que llegó. Desde una
+venta se puede volver hacia atrás hasta el primal. Cuando un despiece consume
+varias piezas a la vez, el padre es el batch y no se finge una trazabilidad por
+pieza que no existe.
+
+**Y de ahí a la cocina.** Cada corte entra en el almacén como un artículo, el
+artículo cuelga de su ingrediente madre, y la madre se usa en subrecetas,
+recetas y emplatados igual que cualquier otro ingrediente. El recorte de
+striploin y el de cube roll caen los dos en «Beef for burger» y se gastan en
+una sola cola.
 
 ## Hojas para imprimir
 
@@ -216,6 +253,7 @@ thegrill/
     i18n.py              Seis idiomas, resolución y escritura de derecha a izquierda
     sheets.py            Hojas de registro en Excel, listas para imprimir
     costing.py           Precios reales, rotación de lotes y descuento por venta
+    butchery.py          Del primal a los cortes, con reparto de coste y serial propio
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
     service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV
@@ -230,7 +268,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   190 tests
+tests/                   211 tests
 ```
 
 ## Uso

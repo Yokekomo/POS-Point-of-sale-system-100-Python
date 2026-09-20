@@ -11,9 +11,10 @@
   <label for="business_date">{{ t("common.date") }}</label>
   <input id="business_date" type="date" name="business_date" value="{{ today }}">
   <div class="scroll"><table>
-  <tr><th>{{ t("sale.product") }}</th><th>{{ t("form.record") }}</th><th class="num">{{ t("sale.units") }}</th></tr>
+  <tr><th>{{ t("sale.code") }}</th><th>{{ t("sale.product") }}</th><th>{{ t("form.record") }}</th><th class="num">{{ t("sale.units") }}</th></tr>
   {% for m in mapping %}
   <tr>
+    <td class="muted">{{ m.pos_code or "" }}</td>
     <td>{{ m.pos_name }}</td>
     <td class="muted">{{ m.recipe.name }}</td>
     <td class="num"><input name="units:{{ m.pos_name }}" type="number" step="any" min="0"
@@ -33,6 +34,9 @@
 <div class="card">
 <form method="post" action="/ventas/mapeo">
   <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="pos_code">{{ t("sale.code") }}</label>
+  <input id="pos_code" name="pos_code" placeholder="1042">
+  <div class="help">{{ t("sale.code_help") }}</div>
   <label for="pos_name">{{ t("sale.pos_name") }}</label>
   <input id="pos_name" name="pos_name" required placeholder="CHEESE BURGER">
   <label for="recipe_id">{{ t("nav.recipes") }}</label>

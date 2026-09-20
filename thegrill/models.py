@@ -86,6 +86,13 @@ class Unit(str, enum.Enum):
     UNIT = "UNIT"
 
 
+class PosMatch(str, enum.Enum):
+    """Por qué campo identifica el POS cada artículo."""
+    CODE = "CODE"   # solo por el número de artículo
+    NAME = "NAME"   # solo por el nombre
+    BOTH = "BOTH"   # por cualquiera de los dos; el código manda
+
+
 class Rotation(str, enum.Enum):
     """Cómo salen los lotes de un ingrediente madre."""
     FEFO = "FEFO"   # antes lo que antes caduca (por defecto, lo correcto en fresco)
@@ -130,6 +137,7 @@ class Restaurant(Base):
     timezone: Mapped[str] = mapped_column(String(64), default="UTC")
     currency: Mapped[str] = mapped_column(String(3), default="USD")
     language: Mapped[str] = mapped_column(String(5), default="es")   # idioma por defecto del local
+    pos_match: Mapped[PosMatch] = mapped_column(Enum(PosMatch), default=PosMatch.BOTH)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -344,6 +352,8 @@ class Despiece(TenantMixin, Base):
     yield_pct: Mapped[float | None] = mapped_column(Float)
     freezer: Mapped[str | None] = mapped_column(String(32))
     notes: Mapped[str | None] = mapped_column(Text)
+    posted: Mapped[bool] = mapped_column(Boolean, default=False)   # ya volcado al almacén
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     primals: Mapped[list["DespiecePrimal"]] = relationship(back_populates="despiece", cascade="all, delete-orphan")
     cuts: Mapped[list["DespieceCut"]] = relationship(back_populates="despiece", cascade="all, delete-orphan")
@@ -364,6 +374,12 @@ class DespiecePrimal(Base):
 
 
 class DespieceCut(Base):
+    """Un corte de salida del despiece.
+
+    El corte es lo que enlaza la carne con la cocina: apunta a un artículo, el
+    artículo cuelga de un ingrediente madre, y la madre se usa en las recetas.
+    Un recorte reutilizable es un corte más, marcado como tal.
+    """
     __tablename__ = "despiece_cuts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -372,8 +388,13 @@ class DespieceCut(Base):
     pieces: Mapped[int] = mapped_column(Integer)
     weight_per_piece_g: Mapped[float] = mapped_column(Float)
     total_kg: Mapped[float] = mapped_column(Float)
+    item_id: Mapped[int | None] = mapped_column(ForeignKey("ingredient_items.id"), index=True)
+    is_trim: Mapped[bool] = mapped_column(Boolean, default=False)   # parte para reusar
+    value_index: Mapped[float] = mapped_column(Float, default=1.0)  # reparto del coste del primal
+    lot_id: Mapped[int | None] = mapped_column(ForeignKey("ingredient_lots.id"))
 
     despiece: Mapped["Despiece"] = relationship(back_populates="cuts")
+    item: Mapped["IngredientItem"] = relationship()
 
 
 class StockMovement(TenantMixin, Base):
@@ -541,11 +562,15 @@ class IngredientLot(TenantMixin, Base):
     sea la marca: sale antes lo que antes caduca.
     """
     __tablename__ = "ingredient_lots"
+    __table_args__ = (UniqueConstraint("restaurant_id", "serial", name="uq_lot_restaurant_serial"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     item_id: Mapped[int] = mapped_column(ForeignKey("ingredient_items.id"), index=True)
     ingredient_id: Mapped[int] = mapped_column(ForeignKey("ingredients.id"), index=True)
     lot_code: Mapped[str | None] = mapped_column(String(48))
+    serial: Mapped[str | None] = mapped_column(String(48), index=True)   # trazabilidad del corte
+    parent_serial: Mapped[str | None] = mapped_column(String(16), index=True)  # primal de origen
+    parent_lot: Mapped[str | None] = mapped_column(String(16))           # lote de recepción
     expiry: Mapped[date] = mapped_column(Date, index=True)
     received: Mapped[date | None] = mapped_column(Date)
     qty: Mapped[float] = mapped_column(Float)                  # cantidad recibida, en unidad base
@@ -617,11 +642,17 @@ class RecipeLine(Base):
 
 
 class PosProduct(TenantMixin, Base):
-    """Nombre del producto en el POS → receta. Fuente única del mapeo."""
+    """Producto del POS → emplatado. Fuente única del mapeo.
+
+    Según el POS, el artículo viene identificado por un código numérico o por
+    su nombre. Se guardan los dos y se empareja por cualquiera de ellos.
+    """
     __tablename__ = "pos_products"
-    __table_args__ = (UniqueConstraint("restaurant_id", "pos_name", name="uq_pos_restaurant_name"),)
+    __table_args__ = (UniqueConstraint("restaurant_id", "pos_name", name="uq_pos_restaurant_name"),
+                      UniqueConstraint("restaurant_id", "pos_code", name="uq_pos_restaurant_code"))
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    pos_code: Mapped[str | None] = mapped_column(String(64), index=True)
     pos_name: Mapped[str] = mapped_column(String(160), index=True)
     recipe_id: Mapped[int] = mapped_column(ForeignKey("recipes.id"), index=True)
 

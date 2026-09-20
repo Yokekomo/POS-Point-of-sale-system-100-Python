@@ -22,6 +22,15 @@
     {% endfor %}
   </select>
   <div class="help">{{ t("settings.restaurant_language_help") }}</div>
+
+  <label for="pos_match">{{ t("settings.pos_match") }}</label>
+  <select id="pos_match" name="pos_match">
+    {% for m in pos_modes %}
+      <option value="{{ m.value }}" {% if m == restaurant.pos_match %}selected{% endif %}>
+        {{ t("pos.match." ~ m.value) }}</option>
+    {% endfor %}
+  </select>
+  <div class="help">{{ t("settings.pos_match_help") }}</div>
   {% endif %}
 
   <button class="wide" type="submit">{{ t("common.save") }}</button>

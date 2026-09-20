@@ -20,8 +20,8 @@ from sqlalchemy.orm import Session
 from thegrill.engine import fefo
 from thegrill.engine.recipes import RecipeCost, cost_recipe, explode, menu_ranking
 from thegrill.models import (Alert, AlertSeverity, Ingredient, IngredientItem,
-                             IngredientLot, IngredientMovement, MovementKind, PosProduct,
-                             Recipe, RecipeKind, User)
+                             IngredientLot, IngredientMovement, MovementKind, PosMatch,
+                             PosProduct, Recipe, RecipeKind, Restaurant, User)
 from thegrill.web import service
 from thegrill.web.i18n import DEFAULT_LANG, t
 
@@ -30,6 +30,33 @@ EPSILON = 1e-9
 
 class NotMapped(KeyError):
     """Un producto del POS sin receta detrás: no se puede descontar nada."""
+
+
+def _norm(value: str | None) -> str:
+    return " ".join(str(value or "").strip().upper().split())
+
+
+def pos_index(session: Session, restaurant_id: int) -> dict[str, PosProduct]:
+    """Índice de búsqueda del POS, según cómo identifique este restaurante.
+
+    Unos POS mandan el número de artículo y otros el nombre. El restaurante
+    elige en su configuración; con «ambos», el código manda, porque un nombre
+    se reescribe y un código no.
+    """
+    restaurant = session.get(Restaurant, restaurant_id)
+    mode = restaurant.pos_match if restaurant else PosMatch.BOTH
+    products = session.query(PosProduct).filter_by(restaurant_id=restaurant_id).all()
+
+    index: dict[str, PosProduct] = {}
+    if mode in (PosMatch.NAME, PosMatch.BOTH):
+        for product in products:
+            if product.pos_name:
+                index.setdefault(_norm(product.pos_name), product)
+    if mode in (PosMatch.CODE, PosMatch.BOTH):
+        for product in products:
+            if product.pos_code:
+                index[_norm(product.pos_code)] = product
+    return index
 
 
 # ------------------------------------------------------------------ precios
@@ -167,13 +194,12 @@ def consume_sales(session: Session, user: User, sales: list[tuple[str, float]],
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     result = ConsumptionResult(date=on)
 
-    mapping = {p.pos_name: p for p in session.query(PosProduct)
-               .filter_by(restaurant_id=user.restaurant_id)}
+    mapping = pos_index(session, user.restaurant_id)
     needed: dict[int, float] = {}
     for pos_name, units in sales:
         if units <= 0:
             continue
-        product = mapping.get(pos_name)
+        product = mapping.get(_norm(pos_name))
         if product is None or product.recipe is None:
             result.unmapped.append(pos_name)
             continue

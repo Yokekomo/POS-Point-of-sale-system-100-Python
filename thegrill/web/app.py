@@ -19,7 +19,7 @@ from starlette.datastructures import UploadFile   # el que devuelve request.form
 
 from thegrill import db
 from thegrill.models import (Alert, Attachment, FieldType, Ingredient, IngredientItem,
-                             Notification, PosProduct, Record, RecordTemplate, Recipe,
+                             Notification, PosMatch, PosProduct, Record, RecordTemplate, Recipe,
                              RecipeKind, RecipeLine, Restaurant, Role, Rotation,
                              TemplateField, Unit, User)
 
@@ -673,8 +673,8 @@ def sales_page(request: Request, ctx=Depends(require_user),
 
 @app.post("/ventas/mapeo")
 def map_pos_product(request: Request, pos_name: str = Form(...), recipe_id: int = Form(...),
-                    csrf: str = Form(""), ctx=Depends(require_manager_user),
-                    session: Session = Depends(get_db)):
+                    pos_code: str = Form(""), csrf: str = Form(""),
+                    ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     recipe = _own(session, user, Recipe, recipe_id, request)
@@ -682,9 +682,10 @@ def map_pos_product(request: Request, pos_name: str = Form(...), recipe_id: int 
                 .filter_by(restaurant_id=user.restaurant_id, pos_name=pos_name.strip()).first())
     if existing:
         existing.recipe_id = recipe.id
+        existing.pos_code = pos_code.strip() or None
     else:
-        session.add(PosProduct(restaurant_id=user.restaurant_id,
-                               pos_name=pos_name.strip(), recipe_id=recipe.id))
+        session.add(PosProduct(restaurant_id=user.restaurant_id, pos_name=pos_name.strip(),
+                               pos_code=pos_code.strip() or None, recipe_id=recipe.id))
     return RedirectResponse("/ventas", status_code=303)
 
 
@@ -771,13 +772,14 @@ def settings_page(request: Request, ctx=Depends(require_user),
     user, auth_session = ctx
     restaurant = session.get(Restaurant, user.restaurant_id)
     return page(request, "settings.html", user, auth_session, session,
-                restaurant=restaurant, saved=bool(saved))
+                restaurant=restaurant, saved=bool(saved), pos_modes=list(PosMatch))
 
 
 @app.post("/configuracion")
 def save_settings(request: Request, language: str = Form(...),
-                  restaurant_language: str = Form(""), csrf: str = Form(""),
-                  ctx=Depends(require_user), session: Session = Depends(get_db)):
+                  restaurant_language: str = Form(""), pos_match: str = Form(""),
+                  csrf: str = Form(""), ctx=Depends(require_user),
+                  session: Session = Depends(get_db)):
     user, auth_session = ctx
     try:
         auth.check_csrf(auth_session, csrf, lang_for(request, session, user))
@@ -785,10 +787,13 @@ def save_settings(request: Request, language: str = Form(...),
         raise HTTPException(status_code=403, detail=str(e)) from None
     if i18n.is_supported(language):
         user.language = language
-    if restaurant_language and user.role == Role.MANAGER and i18n.is_supported(restaurant_language):
+    if user.role == Role.MANAGER:
         restaurant = session.get(Restaurant, user.restaurant_id)
         if restaurant is not None:
-            restaurant.language = restaurant_language
+            if restaurant_language and i18n.is_supported(restaurant_language):
+                restaurant.language = restaurant_language
+            if pos_match in PosMatch.__members__:
+                restaurant.pos_match = PosMatch[pos_match]
     response = RedirectResponse("/configuracion?saved=1", status_code=303)
     return set_lang_cookie(response, user.language or i18n.DEFAULT_LANG)
 

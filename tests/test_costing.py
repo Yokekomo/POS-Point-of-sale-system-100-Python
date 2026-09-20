@@ -240,3 +240,53 @@ def test_the_menu_lists_the_worst_margin_first(ctx):
     carta = costing.menu(s, rest.id)
     assert [r.code for r in carta] == ["cheese", "pan"]
     assert carta[0].food_cost_pct > carta[1].food_cost_pct
+
+
+# ------------------------------------------------- identificación del POS
+def test_a_dish_can_be_matched_by_code_or_by_name(ctx):
+    """Unos POS mandan el número de artículo y otros el nombre."""
+    s, rest, ana, luis = ctx
+    carne, _, plato = build_burger(s, rest, ana)
+    mapeo = s.query(PosProduct).filter_by(pos_name="CHEESE BURGER").one()
+    mapeo.pos_code = "1042"
+    s.flush()
+
+    antes = costing.stock_on_hand(s, rest.id)[carne.id]
+    r1 = costing.consume_sales(s, luis, [("1042", 1)], on=HOY)          # por código
+    r2 = costing.consume_sales(s, luis, [("cheese burger", 1)], on=HOY)  # por nombre, sin mayúsculas
+    r3 = costing.consume_sales(s, luis, [("  CHEESE   BURGER ", 1)], on=HOY)  # con espacios de más
+    assert (r1.lines, r2.lines, r3.lines) == (1, 1, 1)
+    assert not (r1.unmapped or r2.unmapped or r3.unmapped)
+    despues = costing.stock_on_hand(s, rest.id)[carne.id]
+    assert round(antes - despues, 6) == round(3 * 0.16 / 0.95, 6)
+
+
+def test_the_restaurant_chooses_which_field_its_pos_sends(ctx):
+    s, rest, ana, luis = ctx
+    from thegrill.models import PosMatch
+    build_burger(s, rest, ana)
+    mapeo = s.query(PosProduct).filter_by(pos_name="CHEESE BURGER").one()
+    mapeo.pos_code = "1042"
+
+    rest.pos_match = PosMatch.CODE
+    s.flush()
+    assert costing.consume_sales(s, luis, [("CHEESE BURGER", 1)], on=HOY).unmapped == ["CHEESE BURGER"]
+    assert costing.consume_sales(s, luis, [("1042", 1)], on=HOY).lines == 1
+
+    rest.pos_match = PosMatch.NAME
+    s.flush()
+    assert costing.consume_sales(s, luis, [("1042", 1)], on=HOY).unmapped == ["1042"]
+    assert costing.consume_sales(s, luis, [("CHEESE BURGER", 1)], on=HOY).lines == 1
+
+
+def test_with_both_the_code_wins_over_a_reused_name(ctx):
+    """Un nombre se reescribe; un código no. Si chocan, manda el código."""
+    s, rest, ana, luis = ctx
+    _, _, plato = build_burger(s, rest, ana)
+    otro = receta(s, rest, "otro", "Otro plato", [], kind=RecipeKind.DISH,
+                  portions=1, sale_price=9.0)
+    s.query(PosProduct).filter_by(pos_name="CHEESE BURGER").one().pos_code = "1042"
+    s.add(PosProduct(restaurant_id=rest.id, pos_name="1042", recipe_id=otro.id))
+    s.flush()
+    index = costing.pos_index(s, rest.id)
+    assert index["1042"].recipe_id == plato.id     # gana el que lo lleva como código

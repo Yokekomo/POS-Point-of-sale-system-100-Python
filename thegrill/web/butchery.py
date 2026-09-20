@@ -1,0 +1,263 @@
+"""Del primal al plato.
+
+Un primal entra como pieza física con su número de serie y su coste puesto en
+almacén. Al despiezarlo sale:
+
+- hasta una decena de **cortes** distintos, cada uno atado a un artículo,
+- **partes para reusar** (el recorte), que son un corte más marcado como tal,
+- y **merma**, que no se puede usar.
+
+Cada corte entra en el almacén de ingredientes como un lote. A partir de ahí es
+un ingrediente igual que cualquier otro: cuelga de su madre, se gasta por
+rotación y se usa en subrecetas, recetas y emplatados.
+
+**Cómo se reparte el coste.** El coste de los primales consumidos se reparte
+entre lo aprovechable, en proporción a `kg × índice de valor`. La merma no
+recibe nada: su coste lo absorben los cortes. Por eso el precio real por kilo de
+un solomillo sube cuando el despiece rinde mal, que es justo lo que hay que ver.
+"""
+from dataclasses import dataclass, field
+from datetime import date, datetime
+
+from sqlalchemy.orm import Session
+
+from thegrill import config
+from thegrill.engine.stock import MassCheck, mass_balance, yield_pct
+from thegrill.models import (Despiece, DespieceCut, DespiecePrimal, IngredientItem,
+                             IngredientLot, IngredientMovement, MovementKind, Primal,
+                             PrimalStatus, User)
+from thegrill.rules import TGInput, validate_tg
+
+EPSILON = 1e-9
+MAX_CUTS_PER_PRIMAL = 10      # lo que sale de un primal en la práctica
+
+
+def next_serial(session: Session, restaurant_id: int, base: str, index: int) -> str:
+    """Serial nuevo para un corte: «8017-01», «8017-02»…
+
+    Cada corte y cada recorte sale del despiece con su propio número, para
+    poder seguirlo hasta el plato en que se vendió.
+    """
+    candidate = f"{base}-{index:02d}"
+    n = index
+    while (session.query(IngredientLot)
+           .filter_by(restaurant_id=restaurant_id, serial=candidate).first()):
+        n += 1
+        candidate = f"{base}-{n:02d}"
+    return candidate
+
+
+class ButcheryError(ValueError):
+    """El despiece no se puede volcar al almacén tal y como está."""
+
+
+@dataclass
+class Allocation:
+    cut: DespieceCut
+    kg: float
+    weight: float            # kg × índice de valor
+    cost: float
+    unit_cost: float
+
+
+@dataclass
+class PostResult:
+    tg: str
+    mass: MassCheck
+    yield_pct: float
+    total_cost: float
+    allocations: list[Allocation] = field(default_factory=list)
+    lots: list[IngredientLot] = field(default_factory=list)
+    serials_cut: list[str] = field(default_factory=list)
+    issues: list[str] = field(default_factory=list)
+
+
+# --------------------------------------------------------------- validación
+def primal_cost(primal: Primal) -> float | None:
+    """Coste puesto en almacén de la pieza. Sin precio no se inventa nada."""
+    if primal.piece_cost_usd is not None:
+        return primal.piece_cost_usd
+    if primal.landed_usd_per_kg is not None and primal.weight_kg:
+        return round(primal.landed_usd_per_kg * primal.weight_kg, 6)
+    return None
+
+
+def check(session: Session, despiece: Despiece) -> list[str]:
+    """Todo lo que impide volcar este despiece, dicho de una vez."""
+    problems: list[str] = []
+    if despiece.posted:
+        problems.append(f"{despiece.tg}: ya estaba volcado al almacén")
+
+    cuts = list(despiece.cuts)
+    if len(cuts) > MAX_CUTS_PER_PRIMAL:
+        problems.append(f"{despiece.tg}: {len(cuts)} cortes, más de los {MAX_CUTS_PER_PRIMAL} habituales")
+
+    serials = [p.serial for p in despiece.primals]
+    for issue in validate_tg(TGInput(despiece.tg, despiece.country, serials,
+                                     [{"cut_name": c.cut_name, "pieces": c.pieces,
+                                       "weight_per_piece_g": c.weight_per_piece_g} for c in cuts])):
+        if issue.severity == "ERROR":
+            problems.append(issue.message)
+
+    for cut in cuts:
+        if cut.item_id is None:
+            problems.append(f"{despiece.tg}/{cut.cut_name}: sin artículo, no puede entrar en almacén")
+        if cut.value_index is None or cut.value_index <= 0:
+            problems.append(f"{despiece.tg}/{cut.cut_name}: índice de valor inválido")
+
+    for link in despiece.primals:
+        if link.serial is None:
+            continue
+        primal = (session.query(Primal)
+                  .filter_by(restaurant_id=despiece.restaurant_id, serial=link.serial).first())
+        if primal is None:
+            problems.append(f"{despiece.tg}: el serial {link.serial} no está en el registro")
+        elif primal.status != PrimalStatus.IN_STOCK:
+            problems.append(f"{despiece.tg}: el serial {link.serial} ya estaba {primal.status.value}")
+        elif primal_cost(primal) is None:
+            problems.append(f"{despiece.tg}: el serial {link.serial} no tiene coste")
+    return problems
+
+
+# ----------------------------------------------------------------- reparto
+def allocate(cuts: list[DespieceCut], total_cost: float) -> list[Allocation]:
+    """Reparte el coste del primal entre lo aprovechable, por kg × valor.
+
+    La merma no entra en el reparto: su coste lo absorben los cortes.
+    """
+    usable = [c for c in cuts if c.total_kg > EPSILON]
+    total_weight = sum(c.total_kg * (c.value_index or 1.0) for c in usable)
+    if total_weight <= EPSILON:
+        raise ButcheryError("El despiece no tiene cortes con peso: no hay entre qué repartir")
+
+    out = []
+    for cut in usable:
+        weight = cut.total_kg * (cut.value_index or 1.0)
+        cost = round(total_cost * weight / total_weight, 6)
+        out.append(Allocation(cut=cut, kg=cut.total_kg, weight=round(weight, 6), cost=cost,
+                              unit_cost=round(cost / cut.total_kg, 6)))
+    return out
+
+
+# ------------------------------------------------------------------ volcado
+def post(session: Session, user: User, despiece: Despiece, use_by: date | None = None,
+         tolerance_pct: float | None = None) -> PostResult:
+    """Vuelca el despiece al almacén: cada corte entra como lote de su artículo.
+
+    Es idempotente por el flag `posted`: un despiece no se vuelca dos veces.
+    """
+    problems = check(session, despiece)
+    if problems:
+        raise ButcheryError("; ".join(problems))
+
+    cuts = list(despiece.cuts)
+    total_cuts_kg = round(sum(c.total_kg for c in cuts if not c.is_trim), 6)
+    trim_kg = round(sum(c.total_kg for c in cuts if c.is_trim), 6)
+    mass = mass_balance(despiece.tg, despiece.weight_before_kg, total_cuts_kg,
+                        despiece.waste_kg, trim_kg,
+                        tolerance_pct if tolerance_pct is not None
+                        else config.MASS_DRIFT_TOLERANCE_PCT)
+
+    primals, total_cost, expiries = [], 0.0, []
+    for link in despiece.primals:
+        if link.serial is None:
+            continue
+        primal = (session.query(Primal)
+                  .filter_by(restaurant_id=despiece.restaurant_id, serial=link.serial).one())
+        primals.append(primal)
+        cost = primal_cost(primal)
+        # El coste de la pieza se congela aquí para que no se pierda ni cambie.
+        if primal.piece_cost_usd is None:
+            primal.piece_cost_usd = cost
+        total_cost += cost
+        for candidate in (primal.frozen_use_by, primal.expiry_label):
+            if candidate:
+                expiries.append(candidate)
+    total_cost = round(total_cost, 6)
+
+    # Un corte solo se puede atribuir a una pieza concreta si el despiece
+    # consumió una sola. Con varias, el padre es el batch: no se finge una
+    # trazabilidad por pieza que no existe.
+    single = primals[0] if len(primals) == 1 else None
+    base_serial = single.serial if single else despiece.tg
+    parent_lot = single.lot if single else None
+
+    if use_by is None:
+        if not expiries:
+            raise ButcheryError(
+                f"{despiece.tg}: los primales no traen fecha de consumo y no se ha dado una. "
+                "Una fecha de caducidad no se inventa.")
+        use_by = min(expiries)
+
+    allocations = allocate(cuts, total_cost)
+    result = PostResult(tg=despiece.tg, mass=mass,
+                        yield_pct=yield_pct(despiece.weight_before_kg, total_cuts_kg),
+                        total_cost=total_cost, allocations=allocations)
+    if not mass.ok:
+        result.issues.append(
+            f"{despiece.tg}: descuadre de masa de {mass.drift_kg} kg ({mass.drift_pct} %)")
+
+    for position, alloc in enumerate(allocations, start=1):
+        item = session.get(IngredientItem, alloc.cut.item_id)
+        serial = next_serial(session, despiece.restaurant_id, base_serial, position)
+        lot = IngredientLot(restaurant_id=despiece.restaurant_id, item_id=item.id,
+                            ingredient_id=item.ingredient_id, lot_code=despiece.tg,
+                            serial=serial, parent_serial=single.serial if single else None,
+                            parent_lot=parent_lot,
+                            expiry=use_by, received=despiece.date, qty=alloc.kg,
+                            qty_remaining=alloc.kg, unit_cost=alloc.unit_cost)
+        session.add(lot)
+        session.flush()
+        alloc.cut.lot_id = lot.id
+        item.last_cost = alloc.unit_cost
+        result.lots.append(lot)
+        session.add(IngredientMovement(
+            restaurant_id=despiece.restaurant_id, ingredient_id=item.ingredient_id,
+            lot_id=lot.id, date=despiece.date, kind=MovementKind.IN, qty=alloc.kg,
+            cost=alloc.cost, source="butchery", source_ref=serial, created_by=user.id))
+
+    # Un primal solo se marca cortado con el despiece que lo confirma.
+    for primal in primals:
+        primal.status = PrimalStatus.CUT
+        primal.status_ref = despiece.tg
+        primal.status_date = despiece.date
+        result.serials_cut.append(primal.serial)
+
+    despiece.total_cuts_kg = total_cuts_kg
+    despiece.trim_kg = trim_kg
+    despiece.yield_pct = result.yield_pct
+    despiece.posted = True
+    despiece.posted_at = datetime.utcnow()
+    session.flush()
+    return result
+
+
+def trace(session: Session, restaurant_id: int, serial: str) -> dict:
+    """Dónde ha ido un corte: de qué primal salió y en qué se ha gastado."""
+    lot = (session.query(IngredientLot)
+           .filter_by(restaurant_id=restaurant_id, serial=serial).first())
+    if lot is None:
+        raise ButcheryError(f"No hay ningún corte con el serial {serial}")
+    movements = (session.query(IngredientMovement)
+                 .filter_by(restaurant_id=restaurant_id, lot_id=lot.id)
+                 .order_by(IngredientMovement.date, IngredientMovement.id).all())
+    return {
+        "serial": lot.serial,
+        "ingredient": lot.ingredient.name if lot.ingredient else None,
+        "article": lot.item.name if lot.item else None,
+        "from_primal": lot.parent_serial,
+        "reception_lot": lot.parent_lot,
+        "butchery": lot.lot_code,
+        "received_kg": lot.qty,
+        "remaining_kg": lot.qty_remaining,
+        "unit_cost": lot.unit_cost,
+        "movements": [{"date": m.date, "kind": m.kind.value, "qty": m.qty,
+                       "cost": m.cost, "source": m.source, "ref": m.source_ref}
+                      for m in movements],
+    }
+
+
+def cut_summary(result: PostResult) -> list[tuple[str, float, float, float]]:
+    """(corte, kg, coste, precio por kg) de mayor a menor coste."""
+    rows = [(a.cut.cut_name, a.kg, a.cost, a.unit_cost) for a in result.allocations]
+    return sorted(rows, key=lambda r: -r[2])
