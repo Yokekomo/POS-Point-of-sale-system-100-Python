@@ -20,7 +20,7 @@ from thegrill.engine.inventory import (MATCH, NOT_FOUND, OVER, SHORT, UNCOUNTED,
 from thegrill.models import (Alert, AlertSeverity, CountItemKind, CountPeriod, CountStatus,
                              Ingredient, IngredientLot, IngredientMovement, MeatCount,
                              MeatCountLine, MovementKind, Primal, PrimalStatus, Storage, User)
-from thegrill.web import aging, service
+from thegrill.web import aging, costing, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -47,21 +47,32 @@ class CloseResult:
 
 
 # ------------------------------------------------------------- lo esperado
-def expected_now(session: Session, restaurant_id: int) -> list[Expected]:
-    """Lo que el sistema cree tener en este momento, pieza a pieza."""
+def expected_now(session: Session, restaurant_id: int,
+                 site_id: int | None = None) -> list[Expected]:
+    """Lo que el sistema cree tener en este momento, pieza a pieza.
+
+    Con sede, lo de esa cámara. Contar a la vez el obrador y el local no cuadra
+    nada: nadie pesa dos cámaras que están a veinte kilómetros, y lo que no se
+    mira sale como faltante.
+    """
     rows: list[Expected] = []
     names = {i.id: i.name for i in session.query(Ingredient)
              .filter_by(restaurant_id=restaurant_id)}
-    for lot in (session.query(IngredientLot)
-                .filter(IngredientLot.restaurant_id == restaurant_id,
-                        IngredientLot.serial.isnot(None),
-                        IngredientLot.qty_remaining > EPSILON)):
+    principal = sites.main(session, restaurant_id).id if site_id else None
+    for lot in costing.at_site(
+            session.query(IngredientLot)
+            .filter(IngredientLot.restaurant_id == restaurant_id,
+                    IngredientLot.serial.isnot(None),
+                    IngredientLot.qty_remaining > EPSILON),
+            session, restaurant_id, site_id):
         rows.append(Expected(serial=lot.serial,
                              label=names.get(lot.ingredient_id, lot.serial),
                              kind=CountItemKind.CUT.value,
                              kg=round(lot.qty_remaining, 6), unit_cost=lot.unit_cost))
     for primal in (session.query(Primal)
                    .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK)):
+        if site_id and (primal.site_id or principal) != site_id:
+            continue
         rows.append(Expected(serial=primal.serial, label=primal.sku,
                              kind=CountItemKind.PRIMAL.value,
                              kg=round(primal.weight_kg or 0.0, 6),
@@ -71,17 +82,26 @@ def expected_now(session: Session, restaurant_id: int) -> list[Expected]:
 
 # --------------------------------------------------------------- apertura
 def open_count(session: Session, user: User, period: CountPeriod = CountPeriod.MONTHLY,
-               on: date | None = None, note: str | None = None) -> MeatCount:
-    """Abre un inventario con la lista de lo que hay que contar."""
+               on: date | None = None, note: str | None = None,
+               site_id: int | None = None) -> MeatCount:
+    """Abre un inventario con la lista de lo que hay que contar.
+
+    Cada sede cuenta su cámara, y las dos pueden estar contando a la vez: lo
+    que no se puede es tener dos hojas abiertas de la misma cámara.
+    """
     on = on or date.today()
+    if site_id is None:
+        mia = sites.of_user(session, user)
+        site_id = mia.id if mia else None
     already = (session.query(MeatCount)
-               .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
+               .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN,
+                          site_id=site_id).first())
     if already:
         raise InventoryError(f"Ya hay un inventario abierto del {already.date}")
 
     count = MeatCount(restaurant_id=user.restaurant_id, date=on, period=period,
-                      note=note, created_by=user.id)
-    for item in expected_now(session, user.restaurant_id):
+                      note=note, created_by=user.id, site_id=site_id)
+    for item in expected_now(session, user.restaurant_id, site_id):
         count.lines.append(MeatCountLine(
             kind=CountItemKind(item.kind), serial=item.serial, label=item.label,
             expected_kg=item.kg, unit_cost=item.unit_cost))
@@ -121,7 +141,7 @@ def close_count(session: Session, user: User, count: MeatCount,
 
     # Lo esperado se relee al cerrar: el ajuste tiene que cuadrar contra el
     # estado de ahora, no contra el de cuando se abrió la hoja.
-    expected = expected_now(session, user.restaurant_id)
+    expected = expected_now(session, user.restaurant_id, count.site_id)
     by_serial = {e.serial: e for e in expected}
     counted = [Counted(l.serial, l.counted_kg, l.counted_pieces)
                for l in count.lines if l.counted_kg is not None]
@@ -271,10 +291,23 @@ def cancel_count(session: Session, user: User, count: MeatCount,
     return count
 
 
-def last_closed(session: Session, restaurant_id: int) -> MeatCount | None:
-    return (session.query(MeatCount)
-            .filter_by(restaurant_id=restaurant_id, status=CountStatus.CLOSED)
-            .order_by(MeatCount.date.desc(), MeatCount.id.desc()).first())
+def last_closed(session: Session, restaurant_id: int,
+                site_id: int | None = None) -> MeatCount | None:
+    query = (session.query(MeatCount)
+             .filter_by(restaurant_id=restaurant_id, status=CountStatus.CLOSED))
+    if site_id:
+        query = query.filter(MeatCount.site_id == site_id)
+    return query.order_by(MeatCount.date.desc(), MeatCount.id.desc()).first()
+
+
+def open_now(session: Session, restaurant_id: int,
+             site_id: int | None = None) -> MeatCount | None:
+    """La hoja abierta de esa cámara, si la hay."""
+    query = (session.query(MeatCount)
+             .filter_by(restaurant_id=restaurant_id, status=CountStatus.OPEN))
+    if site_id:
+        query = query.filter(MeatCount.site_id == site_id)
+    return query.order_by(MeatCount.id.desc()).first()
 
 
 @dataclass
@@ -291,8 +324,8 @@ class MonthlyStatus:
         return not self.done and self.days_left <= 5
 
 
-def monthly_status(session: Session, restaurant_id: int,
-                   on: date | None = None) -> MonthlyStatus:
+def monthly_status(session: Session, restaurant_id: int, on: date | None = None,
+                   site_id: int | None = None) -> MonthlyStatus:
     """Si el inventario obligatorio del mes ya está hecho, y cuántos días quedan.
 
     Lo cumple un inventario cerrado y completo. Uno parcial no cuenta, por lo
@@ -302,13 +335,15 @@ def monthly_status(session: Session, restaurant_id: int,
     on = on or date.today()
     first = date(on.year, on.month, 1)
     last_day = calendar.monthrange(on.year, on.month)[1]
-    done = (session.query(MeatCount)
-            .filter(MeatCount.restaurant_id == restaurant_id,
-                    MeatCount.status == CountStatus.CLOSED,
-                    MeatCount.complete.is_(True),
-                    MeatCount.date >= first,
-                    MeatCount.date <= date(on.year, on.month, last_day))
-            .order_by(MeatCount.date.desc()).first())
+    query = (session.query(MeatCount)
+             .filter(MeatCount.restaurant_id == restaurant_id,
+                     MeatCount.status == CountStatus.CLOSED,
+                     MeatCount.complete.is_(True),
+                     MeatCount.date >= first,
+                     MeatCount.date <= date(on.year, on.month, last_day)))
+    if site_id:
+        query = query.filter(MeatCount.site_id == site_id)
+    done = query.order_by(MeatCount.date.desc()).first()
     return MonthlyStatus(year=on.year, month=on.month, done=done is not None,
                          last_date=done.date if done else None,
                          days_left=last_day - on.day)

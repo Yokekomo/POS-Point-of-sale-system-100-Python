@@ -397,6 +397,10 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
 
     pars = {p.sku: p.min_pieces for p in session.query(PrimalPar)
             .filter_by(restaurant_id=restaurant_id)}
+    # Lo que la sede haya puesto manda sobre el mínimo de la casa: la playa en
+    # agosto y la sierra en enero no quieren el mismo.
+    suyos = sites.pars_of(session, restaurant_id, site_id)
+    pars.update(suyos.primals)
     by_sku: dict[str, list[Primal]] = {}
     for primal in (session.query(Primal)
                    .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK)):
@@ -432,7 +436,8 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
             ingredient_id=ingredient_id, name=ing.name, unit=ing.unit.value,
             kg=round(sum(l.qty_remaining for l in rows), 3),
             labels=_labels(rows), open_serials=len(rows),
-            thawed_pieces=thawed_pieces, thawed_kg=thawed_kg, min_stock=ing.min_stock,
+            thawed_pieces=thawed_pieces, thawed_kg=thawed_kg,
+            min_stock=suyos.cuts.get(ingredient_id, ing.min_stock),
             frozen_kg=round(sum(l.qty_remaining for l in rows if l.frozen), 3),
             days_to_expiry=(soonest - on).days))
     result.cuts.sort(key=lambda c: c.name)

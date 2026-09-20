@@ -603,8 +603,20 @@ El local también corta. Lo que despieza se queda en su cámara, y una mesa no
 mezcla dos cámaras: un despiece con piezas de dos sedes no ha pasado por ninguna
 mesa.
 
-**Lo que todavía mira la casa entera:** el inventario, que se cuenta de toda la
-casa de una vez. Está dicho en la propia pantalla en vez de escondido.
+**El inventario es de cada cámara.** Cada sede abre el suyo y cuenta lo suyo, y
+dos pueden estar contando a la vez. Contar el obrador y el local en la misma
+hoja no cuadra nada: nadie pesa dos cámaras que están a veinte kilómetros, y lo
+que no se mira sale como faltante. La obligación del mes también es de cada
+sede: la playa puede estar al día y el obrador no.
+
+**Los mínimos, también.** La playa en agosto y la sierra en enero no quieren el
+mismo mínimo del mismo corte. En **Sedes → Mínimos** cada una pone los suyos, en
+kilos para los cortes y en piezas para los primales; lo que se deje en blanco se
+rige por el mínimo de la casa, como siempre.
+
+**Y las hojas de papel llevan su nombre.** Las rejillas para imprimir salen con
+la sede en la cabecera y en el pie, para que el papel del obrador y el del local
+no se confundan al lado de la balanza.
 
 En el recibo el grupo ya existía desde antes: las casas de la misma empresa
 comparten grupo, se ven juntas en la pantalla de la plataforma con sus locales

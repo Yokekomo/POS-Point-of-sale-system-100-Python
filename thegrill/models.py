@@ -929,6 +929,9 @@ class MeatCount(TenantMixin, Base):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime)
     complete: Mapped[bool] = mapped_column(Boolean, default=False)   # se contó todo
     cancel_reason: Mapped[str | None] = mapped_column(Text)
+    # La cámara que se ha contado. Vacío es la casa entera, que es como se
+    # contaba antes de que hubiera sedes.
+    site_id: Mapped[int | None] = mapped_column(Integer, index=True)
 
     lines: Mapped[list["MeatCountLine"]] = relationship(
         back_populates="count", cascade="all, delete-orphan", order_by="MeatCountLine.label")
@@ -962,6 +965,25 @@ class PrimalPar(TenantMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     sku: Mapped[str] = mapped_column(String(64), index=True)
     min_pieces: Mapped[int] = mapped_column(Integer, default=0)
+    note: Mapped[str | None] = mapped_column(Text)
+
+
+class SitePar(TenantMixin, Base):
+    """El mínimo de una sede. Lo que la sede no diga, lo dice la casa.
+
+    La playa en agosto y la sierra en enero no quieren el mismo mínimo del
+    mismo corte, y hasta ahora el aviso saltaba o callaba para las dos a la
+    vez. Aquí cada sede pone el suyo, para el corte —en kilos— o para el primal
+    —en piezas—; donde no haya fila manda el de la casa, como siempre.
+    """
+    __tablename__ = "site_pars"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    site_id: Mapped[int] = mapped_column(Integer, index=True)
+    ingredient_id: Mapped[int | None] = mapped_column(ForeignKey("ingredients.id"), index=True)
+    sku: Mapped[str | None] = mapped_column(String(64), index=True)
+    min_stock: Mapped[float | None] = mapped_column(Float)     # kilos del corte
+    min_pieces: Mapped[int | None] = mapped_column(Integer)    # piezas del primal
     note: Mapped[str | None] = mapped_column(Text)
 
 

@@ -792,3 +792,179 @@ class TestDoors:
 
         aging.move(s, ana, "8017", Storage.AGING, on=HOY)     # la del local, sin queja
         assert aging.weigh(s, ana, "8017", 8.7, on=HOY).kg == 8.7
+
+
+# ================================================= el inventario, cámara a cámara
+class TestInventory:
+    """Cada cámara se cuenta por su cuenta.
+
+    Contar el obrador y el local en la misma hoja no cuadra nada: nadie pesa
+    dos cámaras que están a veinte kilómetros, y lo que no se mira sale como
+    faltante. Así que cada sede abre la suya, y pueden estar contando a la vez.
+    """
+
+    @pytest.fixture
+    def grupo(self, ctx):
+        from thegrill.models import Role
+
+        s, rest, ana, luis = ctx
+        obrador = sites.main(s, rest.id)
+        playa = sites.create(s, ana, "Playa")
+        luis.role = Role.BUTCHER
+        sites.assign(s, ana, luis, playa.id)
+        cut = meat.create_cut(s, ana, "Entrecot")
+        item = meat.add_article(s, ana, cut, "Entrecot AUS")
+        for serial, site in (("TG-0001·01", obrador.id), ("TG-0001·02", playa.id)):
+            s.add(IngredientLot(restaurant_id=rest.id, item_id=item.id, ingredient_id=cut.id,
+                                lot_code="TG-0001", serial=serial, expiry=HOY, received=HOY,
+                                qty=6.0, qty_remaining=6.0, unit_cost=40.0, site_id=site))
+        pieza(s, rest, serial="8017", site_id=obrador.id)
+        s.flush()
+        return s, rest, ana, luis, obrador, playa
+
+    def test_each_site_counts_only_its_own_chiller(self, grupo):
+        from thegrill.web import inventory
+
+        s, rest, ana, luis, obrador, playa = grupo
+        assert {e.serial for e in inventory.expected_now(s, rest.id, playa.id)} == {"TG-0001·02"}
+        assert {e.serial for e in inventory.expected_now(s, rest.id, obrador.id)} == {
+            "TG-0001·01", "8017"}
+        # El manager, sin sede, sigue pudiendo contar la casa entera.
+        assert len(inventory.expected_now(s, rest.id)) == 3
+
+    def test_two_sites_can_be_counting_at_the_same_time(self, grupo):
+        from thegrill.web import inventory
+
+        s, rest, ana, luis, obrador, playa = grupo
+        suyo = inventory.open_count(s, luis, on=HOY)                     # la playa
+        del_obrador = inventory.open_count(s, ana, on=HOY, site_id=obrador.id)
+
+        assert suyo.site_id == playa.id and del_obrador.site_id == obrador.id
+        assert [l.serial for l in suyo.lines] == ["TG-0001·02"]
+        assert inventory.open_now(s, rest.id, playa.id).id == suyo.id
+
+    def test_the_same_chiller_does_not_get_two_sheets(self, grupo):
+        from thegrill.web import inventory
+
+        s, rest, ana, luis, obrador, playa = grupo
+        inventory.open_count(s, luis, on=HOY)
+        with pytest.raises(inventory.InventoryError):
+            inventory.open_count(s, luis, on=HOY)
+
+    def test_closing_the_outlet_sheet_does_not_touch_the_warehouse(self, grupo):
+        """Lo que no se ha mirado no puede salir como faltante."""
+        from thegrill.web import inventory
+
+        s, rest, ana, luis, obrador, playa = grupo
+        hoja = inventory.open_count(s, luis, on=HOY)
+        inventory.record(s, luis, hoja, "TG-0001·02", 5.6)
+
+        cierre = inventory.close_count(s, luis, hoja, lang="es")
+
+        assert cierre.summary.complete                       # se contó todo lo suyo
+        assert not cierre.phantoms
+        lotes = {l.serial: l.qty_remaining for l in s.query(IngredientLot)}
+        assert lotes["TG-0001·02"] == pytest.approx(5.6)     # re-anclado
+        assert lotes["TG-0001·01"] == 6.0                    # el obrador, intacto
+        assert s.query(Primal).one().suspect_phantom is False
+
+    def test_the_month_is_due_per_site(self, grupo):
+        from thegrill.web import inventory
+
+        s, rest, ana, luis, obrador, playa = grupo
+        hoja = inventory.open_count(s, luis, on=HOY)
+        inventory.record(s, luis, hoja, "TG-0001·02", 6.0)
+        inventory.close_count(s, luis, hoja, lang="es")
+
+        assert inventory.monthly_status(s, rest.id, on=HOY, site_id=playa.id).done
+        assert not inventory.monthly_status(s, rest.id, on=HOY, site_id=obrador.id).done
+
+
+# ================================================== los mínimos de cada sede
+class TestPars:
+    """La playa en agosto y la sierra en enero no quieren el mismo mínimo."""
+
+    @pytest.fixture
+    def grupo(self, ctx):
+        s, rest, ana, luis = ctx
+        obrador = sites.main(s, rest.id)
+        playa = sites.create(s, ana, "Playa")
+        cut = meat.create_cut(s, ana, "Entrecot", min_stock=10.0)
+        item = meat.add_article(s, ana, cut, "Entrecot AUS")
+        for serial, site in (("TG-0001·01", obrador.id), ("TG-0001·02", playa.id)):
+            s.add(IngredientLot(restaurant_id=rest.id, item_id=item.id, ingredient_id=cut.id,
+                                lot_code="TG-0001", serial=serial, expiry=HOY, received=HOY,
+                                qty=6.0, qty_remaining=6.0, unit_cost=40.0, site_id=site))
+        s.flush()
+        return s, rest, ana, obrador, playa, cut
+
+    def test_the_site_minimum_beats_the_house_one(self, grupo):
+        from thegrill.web import butchery
+
+        s, rest, ana, obrador, playa, cut = grupo
+        # Con el de la casa (10 kg), los 6 de la playa están por debajo.
+        assert butchery.status(s, rest.id, on=HOY, site_id=playa.id).cuts[0].below_par
+
+        sites.set_par(s, ana, playa.id, ingredient_id=cut.id, minimum=4.0)
+
+        fila = butchery.status(s, rest.id, on=HOY, site_id=playa.id).cuts[0]
+        assert fila.min_stock == 4.0 and not fila.below_par
+        # Y el obrador sigue con el de la casa.
+        assert butchery.status(s, rest.id, on=HOY, site_id=obrador.id).cuts[0].min_stock == 10.0
+
+    def test_an_empty_minimum_gives_the_house_one_back(self, grupo):
+        from thegrill.web import butchery
+
+        s, rest, ana, obrador, playa, cut = grupo
+        sites.set_par(s, ana, playa.id, ingredient_id=cut.id, minimum=4.0)
+        sites.set_par(s, ana, playa.id, ingredient_id=cut.id, minimum=None)
+
+        assert butchery.status(s, rest.id, on=HOY, site_id=playa.id).cuts[0].min_stock == 10.0
+        assert sites.pars_of(s, rest.id, playa.id).cuts == {}
+
+    def test_a_site_sets_its_own_minimum_of_primals(self, grupo):
+        from thegrill.web import butchery
+
+        s, rest, ana, obrador, playa, cut = grupo
+        pieza(s, rest, serial="8017", site_id=playa.id)
+        sites.set_par(s, ana, playa.id, sku="RIBEYE_AUS", minimum=3)
+
+        fila = [p for p in butchery.status(s, rest.id, on=HOY, site_id=playa.id).primals
+                if p.sku == "RIBEYE_AUS"][0]
+        assert fila.min_pieces == 3 and fila.pieces == 1
+
+    def test_a_minimum_needs_to_be_of_something(self, grupo):
+        s, rest, ana, obrador, playa, cut = grupo
+        with pytest.raises(sites.SiteError):
+            sites.set_par(s, ana, playa.id, minimum=4.0)
+
+    def test_the_screen_saves_what_is_typed(self, tmp_path, monkeypatch):
+        """Por la puerta por la que entra el manager."""
+        from fastapi.testclient import TestClient
+
+        from thegrill.meat import app as meatapp
+        from thegrill.models import Restaurant, SitePar, User
+        from tests.meat_helpers import SPANISH, csrf_from, signup
+
+        monkeypatch.setenv("GRILL_INSECURE_COOKIE", "1")
+        db.init_engine(f"sqlite:///{tmp_path/'mi.db'}")
+        db.create_all()
+        with TestClient(meatapp.app, follow_redirects=False, headers=SPANISH) as client:
+            signup(client)
+            with db.session_scope() as s:
+                rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+                ana = s.query(User).filter_by(restaurant_id=rest.id).first()
+                playa = sites.create(s, ana, "Playa")
+                corte = meat.create_cut(s, ana, "Entrecot", min_stock=10.0)
+                ids = (playa.id, corte.id)
+
+            pagina = client.get(f"/sedes/{ids[0]}/minimos")
+            assert pagina.status_code == 200 and "Entrecot" in pagina.text
+
+            guardado = client.post(f"/sedes/{ids[0]}/minimos",
+                                   data={f"cut:{ids[1]}": "4,5",
+                                         "csrf": csrf_from(pagina.text)})
+            assert guardado.status_code == 303
+            with db.session_scope() as s:
+                fila = s.query(SitePar).one()
+                assert fila.site_id == ids[0] and fila.min_stock == 4.5

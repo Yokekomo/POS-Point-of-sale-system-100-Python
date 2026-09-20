@@ -101,8 +101,13 @@ BY_CODE = {s.code: s for s in SHEETS}
 
 
 def build(ws, sheet: Sheet, restaurant: Restaurant, lang: str = DEFAULT_LANG,
-          blank_rows: int = BLANK_ROWS):
-    """Monta la hoja: cabecera, ejemplo en gris y rejilla en blanco."""
+          blank_rows: int = BLANK_ROWS, site: str = ""):
+    """Monta la hoja: cabecera, ejemplo en gris y rejilla en blanco.
+
+    Con sede, la hoja lleva su nombre: colgada al lado de la balanza, el papel
+    del obrador y el del local no se confunden.
+    """
+    casa = f"{restaurant.name} · {site}" if site else restaurant.name
     headers = ["Nº", t(lang, "common.date")] + [t(lang, c.key) for c in sheet.columns]
     last_col = len(headers)
     span = f"A1:{get_column_letter(last_col)}1"
@@ -119,7 +124,7 @@ def build(ws, sheet: Sheet, restaurant: Restaurant, lang: str = DEFAULT_LANG,
 
     ws.merge_cells(span.replace("1", "2"))
     subtitle = ws["A2"]
-    subtitle.value = f"{restaurant.name} · {t(lang, sheet.sub_key)}"
+    subtitle.value = f"{casa} · {t(lang, sheet.sub_key)}"
     subtitle.font = Font(name=FONT, size=10, color=MUTED)
 
     row = 4
@@ -129,7 +134,7 @@ def build(ws, sheet: Sheet, restaurant: Restaurant, lang: str = DEFAULT_LANG,
         label_cell = ws.cell(row=row, column=col, value=f"{label}:")
         label_cell.font = Font(name=FONT, size=10, bold=True, color=INK)
         value_cell = ws.cell(row=row, column=col + 1,
-                             value=restaurant.name if col == 1 else "")
+                             value=casa if col == 1 else "")
         value_cell.font = Font(name=FONT, size=10, color=INK)
         value_cell.border = WRITE_LINE
         col += 2
@@ -197,14 +202,14 @@ def build(ws, sheet: Sheet, restaurant: Restaurant, lang: str = DEFAULT_LANG,
     ws.page_margins.left = ws.page_margins.right = 0.4
     ws.page_margins.top = ws.page_margins.bottom = 0.5
     ws.oddFooter.right.text = "&P / &N"
-    ws.oddFooter.left.text = f"{restaurant.name} · {t(lang, sheet.title_key)}"
+    ws.oddFooter.left.text = f"{casa} · {t(lang, sheet.title_key)}"
     ws.oddFooter.left.size = ws.oddFooter.right.size = 8
     ws.freeze_panes = ws.cell(row=head_row + 1, column=1)
     return ws
 
 
 def workbook(code: str, restaurant: Restaurant, lang: str = DEFAULT_LANG,
-             blank_rows: int = BLANK_ROWS) -> bytes:
+             blank_rows: int = BLANK_ROWS, site: str = "") -> bytes:
     """Una hoja suelta, o el libro entero con `code="todo"`."""
     wanted = SHEETS if code == "todo" else [BY_CODE[code]]
     wb = Workbook()
@@ -212,7 +217,7 @@ def workbook(code: str, restaurant: Restaurant, lang: str = DEFAULT_LANG,
     used: set[str] = set()
     for sheet in wanted:
         ws = wb.create_sheet(sheet_title(t(lang, sheet.title_key), used))
-        build(ws, sheet, restaurant, lang, blank_rows)
+        build(ws, sheet, restaurant, lang, blank_rows, site=site)
     stream = io.BytesIO()
     wb.save(stream)
     return stream.getvalue()

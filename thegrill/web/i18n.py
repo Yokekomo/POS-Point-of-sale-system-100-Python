@@ -664,6 +664,7 @@ ES = {
     'meat.frozen_waiting': 'congelados, en espera',
     'alert.stock_elsewhere': '{ingredient}: faltan {qty} {unit} aquí. Hay {there} en {sites}: no falta carne, falta traerla.',
     'alert.aging_uncounted': 'El turno se ha cerrado con {n} piezas madurando sin pesar ({serials}). Esa agua es merma de hoy: mañana ya no se sabe de qué día era.',
+    'inv.by_site_help': 'Cada cámara se cuenta por su cuenta, y dos sedes pueden estar contando a la vez. Contar las dos en la misma hoja no cuadra nada: lo que no se mira sale como faltante.',
 }
 
 
@@ -1219,6 +1220,7 @@ EN = {
     'meat.frozen_waiting': 'frozen, waiting',
     'alert.stock_elsewhere': '{ingredient}: {qty} {unit} short here. There are {there} at {sites}: the meat is not missing, it needs bringing over.',
     'alert.aging_uncounted': "The shift closed with {n} ageing pieces unweighed ({serials}). That water is today's loss: tomorrow nobody knows which day it belonged to.",
+    'inv.by_site_help': 'Each chiller is counted on its own, and two sites can be counting at the same time. Counting both on one sheet squares nothing: whatever is not looked at comes out as missing.',
 }
 
 
@@ -1774,6 +1776,7 @@ FR = {
     'meat.frozen_waiting': 'congelés, en attente',
     'alert.stock_elsewhere': "{ingredient} : il manque {qty} {unit} ici. Il y en a {there} à {sites} : la viande ne manque pas, il faut l'amener.",
     'alert.aging_uncounted': 'Le service a été clôturé avec {n} pièces en maturation non pesées ({serials}). Cette eau est la perte du jour : demain, on ne saura plus de quel jour elle était.',
+    'inv.by_site_help': "Chaque chambre se compte séparément, et deux sites peuvent compter en même temps. Compter les deux sur la même feuille ne cadre rien : ce qu'on ne regarde pas ressort comme manquant.",
 }
 
 
@@ -2329,6 +2332,7 @@ DE = {
     'meat.frozen_waiting': 'gefroren, wartend',
     'alert.stock_elsewhere': '{ingredient}: Hier fehlen {qty} {unit}. In {sites} liegen {there}: Das Fleisch fehlt nicht, es muss herkommen.',
     'alert.aging_uncounted': 'Die Schicht wurde mit {n} ungewogenen Reifestücken geschlossen ({serials}). Dieses Wasser ist der Schwund von heute: Morgen weiß niemand mehr, von welchem Tag er war.',
+    'inv.by_site_help': 'Jeder Kühlraum wird für sich gezählt, und zwei Standorte können gleichzeitig zählen. Beide auf einem Blatt zu zählen bringt nichts zusammen: Was nicht angesehen wird, kommt als Fehlmenge heraus.',
 }
 
 
@@ -2884,6 +2888,7 @@ NL = {
     'meat.frozen_waiting': 'ingevroren, in afwachting',
     'alert.stock_elsewhere': '{ingredient}: hier {qty} {unit} tekort. Er ligt {there} in {sites}: het vlees ontbreekt niet, het moet hierheen.',
     'alert.aging_uncounted': 'De dienst is afgesloten met {n} rijpende stukken ongewogen ({serials}). Dat vocht is de derving van vandaag: morgen weet niemand meer van welke dag het was.',
+    'inv.by_site_help': 'Elke koeling wordt apart geteld, en twee vestigingen kunnen tegelijk tellen. Beide op één blad tellen klopt nergens: wat je niet bekijkt komt eruit als tekort.',
 }
 
 
@@ -3439,6 +3444,7 @@ AR = {
     'meat.frozen_waiting': 'مجمَّد، في الانتظار',
     'alert.stock_elsewhere': '{ingredient}: ينقص هنا {qty} {unit}. يوجد {there} في {sites}: اللحم ليس ناقصاً، بل يحتاج نقلاً.',
     'alert.aging_uncounted': 'أُغلقت الوردية و{n} من قطع التعتيق لم تُوزن ({serials}). ذلك الماء هو هدر اليوم: وغداً لن يُعرف من أي يوم كان.',
+    'inv.by_site_help': 'كل براد يُجرد وحده، ويمكن لموقعين أن يجردا في الوقت نفسه. جردهما في ورقة واحدة لا يضبط شيئاً: ما لا يُنظر إليه يخرج ناقصاً.',
 }
 
 
@@ -3982,6 +3988,7 @@ HU = {
     'meat.frozen_waiting': 'fagyasztva, várakozik',
     'alert.stock_elsewhere': '{ingredient}: itt {qty} {unit} hiányzik. {sites} helyen van {there}: nem a hús hiányzik, át kell hozni.',
     'alert.aging_uncounted': 'A műszak úgy zárt, hogy {n} érlelődő darab mérés nélkül maradt ({serials}). Ez a víz a mai veszteség: holnap már nem tudni, melyik napé volt.',
+    'inv.by_site_help': 'Minden hűtőt külön számolnak, és két telephely egyszerre is számolhat. Egy íven számolni mindkettőt semmit nem hoz ki: amit nem néznek meg, hiányként jön ki.',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

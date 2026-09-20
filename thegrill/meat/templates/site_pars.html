@@ -1,0 +1,51 @@
+{% extends "base.html" %}{% block title %}{{ t("m.si.pars") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.si.pars") }} · {{ site.name }}</h1>
+<p class="sub">{{ t("m.si.pars_sub") }}</p>
+{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+<form method="post" action="/sedes/{{ site.id }}/minimos">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+
+  <div class="card scroll">
+    <b>{{ t("m.nav.cuts") }}</b>
+    <table>
+      <tr><th>{{ t("rec.component") }}</th><th class="num">{{ t("m.si.house_par") }}</th>
+          <th class="num">{{ t("m.si.site_par") }}</th></tr>
+      {% for c in cuts %}
+      <tr>
+        <td>{{ c.name }}</td>
+        <td class="num muted">{% if c.min_stock is not none %}{{ "%.3f"|format(c.min_stock) }}{% else %}—{% endif %}</td>
+        <td class="num"><input name="cut:{{ c.id }}" inputmode="decimal" style="max-width:120px"
+            value="{% if pars.cuts.get(c.id) is not none %}{{ "%.3f"|format(pars.cuts[c.id]) }}{% endif %}"></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="muted">{{ t("meat.no_cuts") }}</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  {% if skus %}
+  <div class="card scroll">
+    <b>{{ t("meat.primals") }}</b>
+    <table>
+      <tr><th>{{ t("m.rec.sku") }}</th><th class="num">{{ t("m.si.house_par") }}</th>
+          <th class="num">{{ t("m.si.site_par") }}</th></tr>
+      {% for sku in skus %}
+      <tr>
+        <td>{{ sku }}</td>
+        <td class="num muted">{% if house.get(sku) is not none %}{{ house[sku] }}{% else %}—{% endif %}</td>
+        <td class="num"><input name="sku:{{ sku }}" inputmode="numeric" style="max-width:120px"
+            value="{% if pars.primals.get(sku) is not none %}{{ pars.primals[sku] }}{% endif %}"></td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endif %}
+
+  <p class="help">{{ t("m.si.pars_help") }}</p>
+  <button class="wide" type="submit">{{ t("common.save") }}</button>
+</form>
+<p><a href="/sedes">{{ t("common.back") }}</a></p>
+{% endblock %}

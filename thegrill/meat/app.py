@@ -26,9 +26,9 @@ from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
 from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, CountPeriod,
                              CountStatus, Ingredient, IngredientItem, IngredientLot,
-                             MeatCount, Plan, PosMatch, PosProduct, Primal, PrimalStatus,
-                             Recipe, RequestStatus, Restaurant, Role, Rotation, Site, SiteKind,
-                             Storage, Unit, User)
+                             MeatCount, Plan, PosMatch, PosProduct, Primal, PrimalPar,
+                             PrimalStatus, Recipe, RequestStatus, Restaurant, Role,
+                             Rotation, Site, SiteKind, Storage, Unit, User)
 from thegrill.web import (aging, auth, butchery, costing, defrost, i18n, inventory,
                           pos_import, service, sites, tracing, twofactor, waste)
 
@@ -960,6 +960,47 @@ def toggle_site(site_id: int, request: Request, csrf: str = Form(""),
     return RedirectResponse("/sedes", status_code=303)
 
 
+@app.get("/sedes/{site_id}/minimos", response_class=HTMLResponse)
+def site_pars_page(site_id: int, request: Request, ctx=Depends(needs(perms.TEAM)),
+                   session: Session = Depends(get_db), done: str = "", error: str = ""):
+    """Los mínimos de esa sede: lo que la casa dice, y lo que allí es distinto."""
+    user, auth_session = ctx
+    site = _own(session, user, Site, site_id, request)
+    suyos = sites.pars_of(session, user.restaurant_id, site.id)
+    skus = sorted({p.sku for p in session.query(Primal)
+                   .filter_by(restaurant_id=user.restaurant_id) if p.sku}
+                  | set(suyos.primals))
+    return page(request, "site_pars.html", user, auth_session, session, done=done,
+                error=error, site=site, pars=suyos, skus=skus,
+                cuts=meat.cuts(session, user.restaurant_id),
+                house={p.sku: p.min_pieces for p in session.query(PrimalPar)
+                       .filter_by(restaurant_id=user.restaurant_id)})
+
+
+@app.post("/sedes/{site_id}/minimos", response_class=HTMLResponse)
+async def save_site_pars(site_id: int, request: Request, ctx=Depends(needs(perms.TEAM)),
+                         session: Session = Depends(get_db)):
+    """Guarda de una vez lo que esa sede quiere tener siempre. Vacío es «lo de la casa»."""
+    user, auth_session = ctx
+    form = await request.form()
+    _guard(request, session, user, auth_session, form.get("csrf"))
+    lang = lang_for(request, session, user)
+    site = _own(session, user, Site, site_id, request)
+    try:
+        for key, value in form.multi_items():
+            crudo = str(value).strip()
+            numero = _num(crudo) if crudo else None
+            if key.startswith("cut:"):
+                sites.set_par(session, user, site.id, ingredient_id=int(key.split(":", 1)[1]),
+                              minimum=numero)
+            elif key.startswith("sku:"):
+                sites.set_par(session, user, site.id, sku=key.split(":", 1)[1], minimum=numero)
+    except (sites.SiteError, ValueError) as e:
+        return RedirectResponse(f"/sedes/{site.id}/minimos?error={e}", status_code=303)
+    return RedirectResponse(
+        f"/sedes/{site.id}/minimos?done={i18n.t(lang, 'm.si.pars_saved')}", status_code=303)
+
+
 @app.post("/manager/equipo/{user_id}/sede")
 def change_site(user_id: int, request: Request, site: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
@@ -1275,11 +1316,17 @@ async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
 def inventory_page(request: Request, ctx=Depends(needs(perms.COUNT)),
                    session: Session = Depends(get_db), done: str = ""):
     user, auth_session = ctx
-    open_count = (session.query(MeatCount)
-                  .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
+    # Cada cámara se cuenta por su cuenta: la hoja abierta es la de tu sede.
+    mia = sites.of_user(session, user)
+    suya = mia.id if mia else None
+    open_count = inventory.open_now(session, user.restaurant_id, suya)
     return page(request, "inventory.html", user, auth_session, session, done=bool(done),
-                count=open_count, last=inventory.last_closed(session, user.restaurant_id),
-                month=inventory.monthly_status(session, user.restaurant_id),
+                count=open_count, site=mia,
+                last=inventory.last_closed(session, user.restaurant_id, suya),
+                month=inventory.monthly_status(session, user.restaurant_id, site_id=suya),
+                sites=[] if mia else sites.all_sites(session, user.restaurant_id),
+                site_names={x.id: x.name for x in
+                            sites.all_sites(session, user.restaurant_id, active=False)},
                 periods=list(CountPeriod),
                 items=(session.query(IngredientItem)
                        .filter_by(restaurant_id=user.restaurant_id, active=True)
@@ -1287,14 +1334,18 @@ def inventory_page(request: Request, ctx=Depends(needs(perms.COUNT)),
 
 
 @app.post("/inventario/abrir")
-def open_inventory(request: Request, period: str = Form("MONTHLY"), csrf: str = Form(""),
-                   ctx=Depends(needs(perms.INVENTORY)), session: Session = Depends(get_db)):
+def open_inventory(request: Request, period: str = Form("MONTHLY"), site: str = Form(""),
+                   csrf: str = Form(""), ctx=Depends(needs(perms.INVENTORY)),
+                   session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
+    mia = sites.of_user(session, user)
+    elegida = int(site) if site.strip() else None
     try:
         inventory.open_count(session, user,
                              CountPeriod[period] if period in CountPeriod.__members__
-                             else CountPeriod.MONTHLY)
+                             else CountPeriod.MONTHLY,
+                             site_id=mia.id if mia else elegida)
     except inventory.InventoryError as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
     return RedirectResponse("/inventario", status_code=303)
@@ -1866,7 +1917,7 @@ def downloads_page(request: Request, ctx=Depends(require_user),
                    session: Session = Depends(get_db)):
     user, auth_session = ctx
     return page(request, "downloads_meat.html", user, auth_session, session,
-                sheets=sheets_meat.SHEETS)
+                sheets=sheets_meat.SHEETS, site=sites.of_user(session, user))
 
 
 @app.get("/descargas/{code}.xlsx")
@@ -1875,8 +1926,9 @@ def download_sheet(code: str, request: Request, ctx=Depends(require_user),
     user, auth_session = ctx
     restaurant = session.get(Restaurant, user.restaurant_id)
     lang = lang_for(request, session, user)
+    mia = sites.of_user(session, user)
     try:
-        payload = sheets_meat.workbook(code, restaurant, lang)
+        payload = sheets_meat.workbook(code, restaurant, lang, site=mia.name if mia else "")
     except KeyError:
         raise HTTPException(status_code=404, detail="") from None
     return Response(payload, media_type=XLSX_MEDIA, headers={

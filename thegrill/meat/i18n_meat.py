@@ -444,7 +444,7 @@ ES = {
     'm.tr.none': 'Todavía no se ha movido carne de una sede a otra.',
     'm.tr.what': 'Qué',
     'm.tr.new_serial': 'Número nuevo',
-    'm.tr.not_yet': 'La venta, la merma, la cámara, el despiece, el descongelado y la maduración ya miran la sede: cada local gasta, corta y pesa lo suyo. El inventario sigue contándose de la casa entera.',
+    'm.tr.not_yet': 'Todo mira ya la sede: la venta, la merma, la cámara, el despiece, el descongelado, la maduración, el inventario y los mínimos. Cada local gasta, corta, pesa y cuenta lo suyo.',
     'm.si.title': 'Sedes',
     'm.si.sub': 'El obrador recibe las piezas, las madura y las despieza. Los locales consumen de él: piezas enteras o cortes ya hechos.',
     'm.si.kind': 'Tipo',
@@ -473,6 +473,12 @@ ES = {
     'm.tr.what_travels': 'Al local le puede ir de todo: un primal fresco para cortarlo allí, uno curado para seguir madurando o venderlo al peso, y uno congelado que espera su turno. Viaja como está.',
     'm.tg.mixed_sites': 'Ese despiece mezcla piezas de sedes distintas. En una mesa solo se corta lo que está en esa cámara.',
     'm.tg.other_site': 'Esa pieza está en {site}: primero hay que traerla.',
+    'm.si.pars': 'Mínimos',
+    'm.si.pars_sub': 'Lo que esta sede quiere tener siempre. La playa en agosto y la sierra en enero no quieren el mismo mínimo del mismo corte.',
+    'm.si.house_par': 'De la casa',
+    'm.si.site_par': 'De esta sede',
+    'm.si.pars_help': 'En blanco manda el mínimo de la casa. Lo que escribas aquí solo vale para esta sede, y es lo que hace saltar el aviso de su cámara.',
+    'm.si.pars_saved': 'Mínimos guardados.',
 }
 
 EN = {
@@ -902,7 +908,7 @@ EN = {
     'm.tr.none': 'No meat has moved between sites yet.',
     'm.tr.what': 'What',
     'm.tr.new_serial': 'New number',
-    'm.tr.not_yet': 'Sales, waste, the chiller, butchery, thawing and ageing already look at the site: each outlet spends, cuts and weighs its own. Stocktakes are still counted for the whole house.',
+    'm.tr.not_yet': 'Everything looks at the site now: sales, waste, the chiller, butchery, thawing, ageing, stocktakes and minimums. Each outlet spends, cuts, weighs and counts its own.',
     'm.si.title': 'Sites',
     'm.si.sub': 'The butchery room takes the primals in, ages them and breaks them down. The outlets consume from it: whole primals or ready cuts.',
     'm.si.kind': 'Type',
@@ -931,6 +937,12 @@ EN = {
     'm.tr.what_travels': 'Anything can go to the outlet: a fresh primal to break down there, an aged one to keep ageing or sell by weight, and a frozen one waiting its turn. It travels as it is.',
     'm.tg.mixed_sites': 'That butchery mixes pieces from different sites. One table only cuts what is in that chiller.',
     'm.tg.other_site': 'That piece is at {site}: it has to be brought over first.',
+    'm.si.pars': 'Minimums',
+    'm.si.pars_sub': 'What this site always wants on hand. The beach in August and the mountain in January do not want the same minimum of the same cut.',
+    'm.si.house_par': 'House',
+    'm.si.site_par': 'This site',
+    'm.si.pars_help': 'Left blank, the house minimum rules. What you write here counts for this site only, and it is what raises the warning for its chiller.',
+    'm.si.pars_saved': 'Minimums saved.',
 }
 
 FR = {
@@ -1360,7 +1372,7 @@ FR = {
     'm.tr.none': "Aucune viande n'a encore bougé d'un site à l'autre.",
     'm.tr.what': 'Quoi',
     'm.tr.new_serial': 'Nouveau numéro',
-    'm.tr.not_yet': "Les ventes, les pertes, la chambre, la découpe, la décongélation et la maturation regardent déjà le site : chaque point de vente consomme, découpe et pèse le sien. L'inventaire se compte encore sur toute la maison.",
+    'm.tr.not_yet': "Tout regarde désormais le site : les ventes, les pertes, la chambre, la découpe, la décongélation, la maturation, l'inventaire et les minimums. Chaque point de vente consomme, découpe, pèse et compte le sien.",
     'm.si.title': 'Sites',
     'm.si.sub': "L'atelier reçoit les pièces, les fait maturer et les découpe. Les points de vente consomment de lui : pièces entières ou découpes prêtes.",
     'm.si.kind': 'Type',
@@ -1389,6 +1401,12 @@ FR = {
     'm.tr.what_travels': 'Tout peut partir au point de vente : une pièce fraîche à découper là-bas, une pièce maturée pour continuer la maturation ou la vendre au poids, et une pièce congelée qui attend son tour. Elle voyage telle quelle.',
     'm.tg.mixed_sites': 'Cette découpe mélange des pièces de sites différents. Sur une table on ne découpe que ce qui est dans cette chambre.',
     'm.tg.other_site': "Cette pièce est à {site} : il faut d'abord l'amener.",
+    'm.si.pars': 'Minimums',
+    'm.si.pars_sub': 'Ce que ce site veut toujours avoir. La plage en août et la montagne en janvier ne veulent pas le même minimum de la même découpe.',
+    'm.si.house_par': 'De la maison',
+    'm.si.site_par': 'De ce site',
+    'm.si.pars_help': "Laissé vide, c'est le minimum de la maison qui commande. Ce que vous écrivez ici ne vaut que pour ce site, et c'est ce qui déclenche l'alerte de sa chambre.",
+    'm.si.pars_saved': 'Minimums enregistrés.',
 }
 
 DE = {
@@ -1818,7 +1836,7 @@ DE = {
     'm.tr.none': 'Es wurde noch kein Fleisch zwischen Standorten bewegt.',
     'm.tr.what': 'Was',
     'm.tr.new_serial': 'Neue Nummer',
-    'm.tr.not_yet': 'Verkauf, Schwund, Kühlraum, Zerlegung, Auftauen und Reifung schauen bereits auf den Standort: Jeder Betrieb verbraucht, zerlegt und wiegt das Seine. Die Inventur wird noch fürs ganze Haus gezählt.',
+    'm.tr.not_yet': 'Alles schaut jetzt auf den Standort: Verkauf, Schwund, Kühlraum, Zerlegung, Auftauen, Reifung, Inventur und Mindestbestände. Jeder Betrieb verbraucht, zerlegt, wiegt und zählt das Seine.',
     'm.si.title': 'Standorte',
     'm.si.sub': 'Die Zerlegerei nimmt die Stücke an, reift sie und zerlegt sie. Die Betriebe verbrauchen von ihr: ganze Stücke oder fertige Teilstücke.',
     'm.si.kind': 'Art',
@@ -1847,6 +1865,12 @@ DE = {
     'm.tr.what_travels': 'In den Betrieb kann alles gehen: ein frisches Stück zum Zerlegen dort, ein gereiftes zum Weiterreifen oder für den Verkauf nach Gewicht, und ein gefrorenes, das wartet. Es reist, wie es ist.',
     'm.tg.mixed_sites': 'Diese Zerlegung mischt Stücke aus verschiedenen Standorten. An einem Tisch wird nur zerlegt, was in diesem Kühlraum liegt.',
     'm.tg.other_site': 'Dieses Stück liegt in {site}: Es muss erst herkommen.',
+    'm.si.pars': 'Mindestbestände',
+    'm.si.pars_sub': 'Was dieser Standort immer dahaben will. Der Strand im August und die Berge im Januar wollen nicht denselben Mindestbestand desselben Teilstücks.',
+    'm.si.house_par': 'Vom Haus',
+    'm.si.site_par': 'Von diesem Standort',
+    'm.si.pars_help': 'Leer gelassen gilt der Mindestbestand des Hauses. Was hier steht, gilt nur für diesen Standort und löst die Warnung für seinen Kühlraum aus.',
+    'm.si.pars_saved': 'Mindestbestände gespeichert.',
 }
 
 NL = {
@@ -2276,7 +2300,7 @@ NL = {
     'm.tr.none': 'Er is nog geen vlees tussen vestigingen verplaatst.',
     'm.tr.what': 'Wat',
     'm.tr.new_serial': 'Nieuw nummer',
-    'm.tr.not_yet': 'Verkoop, derving, de koeling, het uitsnijden, het ontdooien en de rijping kijken al naar de vestiging: elke zaak verbruikt, snijdt en weegt het hare. De telling gaat nog over het hele huis.',
+    'm.tr.not_yet': 'Alles kijkt nu naar de vestiging: verkoop, derving, de koeling, het uitsnijden, het ontdooien, de rijping, de telling en de minima. Elke zaak verbruikt, snijdt, weegt en telt het hare.',
     'm.si.title': 'Vestigingen',
     'm.si.sub': 'De uitsnijderij neemt de stukken aan, rijpt ze en snijdt ze uit. De zaken verbruiken ervan: hele stukken of kant-en-klare delen.',
     'm.si.kind': 'Soort',
@@ -2305,6 +2329,12 @@ NL = {
     'm.tr.what_travels': 'Naar de zaak kan alles: een vers stuk om daar uit te snijden, een gerijpt stuk om verder te rijpen of op gewicht te verkopen, en een ingevroren stuk dat wacht. Het reist zoals het is.',
     'm.tg.mixed_sites': 'Die uitsnijding mengt stukken van verschillende vestigingen. Aan één tafel snijd je alleen wat in die koeling ligt.',
     'm.tg.other_site': 'Dat stuk ligt in {site}: het moet eerst hierheen.',
+    'm.si.pars': 'Minima',
+    'm.si.pars_sub': 'Wat deze vestiging altijd wil hebben. Het strand in augustus en de bergen in januari willen niet hetzelfde minimum van hetzelfde deel.',
+    'm.si.house_par': 'Van het huis',
+    'm.si.site_par': 'Van deze vestiging',
+    'm.si.pars_help': 'Leeg gelaten geldt het minimum van het huis. Wat je hier schrijft geldt alleen voor deze vestiging, en dat is wat de waarschuwing voor haar koeling laat afgaan.',
+    'm.si.pars_saved': 'Minima opgeslagen.',
 }
 
 AR = {
@@ -2734,7 +2764,7 @@ AR = {
     'm.tr.none': 'لم يتحرك لحم بين المواقع بعد.',
     'm.tr.what': 'ماذا',
     'm.tr.new_serial': 'رقم جديد',
-    'm.tr.not_yet': 'البيع والهدر والبراد والتقطيع والتذويب والتعتيق تنظر الآن إلى الموقع: كل محل يصرف ويقطّع ويزن ما له. أما الجرد فما زال يُحسب للبيت كله.',
+    'm.tr.not_yet': 'كل شيء صار ينظر إلى الموقع: البيع والهدر والبراد والتقطيع والتذويب والتعتيق والجرد والحدود الدنيا. كل محل يصرف ويقطّع ويزن ويجرد ما له.',
     'm.si.title': 'المواقع',
     'm.si.sub': 'المسلخ يستلم القطع ويعتّقها ويقطّعها. والمحلات تستهلك منه: قطعاً كاملة أو تقطيعات جاهزة.',
     'm.si.kind': 'النوع',
@@ -2763,6 +2793,12 @@ AR = {
     'm.tr.what_travels': 'يمكن أن يذهب إلى المحل كل شيء: قطعة طازجة لتُقطَّع هناك، وقطعة معتَّقة لتواصل التعتيق أو تُباع بالوزن، وقطعة مجمَّدة تنتظر دورها. تسافر كما هي.',
     'm.tg.mixed_sites': 'هذا التقطيع يخلط قطعاً من مواقع مختلفة. على الطاولة الواحدة يُقطَّع ما في ذلك البراد فقط.',
     'm.tg.other_site': 'تلك القطعة في {site}: يجب نقلها أولاً.',
+    'm.si.pars': 'الحدود الدنيا',
+    'm.si.pars_sub': 'ما يريد هذا الموقع أن يبقى لديه دائماً. الشاطئ في آب والجبل في كانون الثاني لا يريدان الحد الأدنى نفسه من القطعة نفسها.',
+    'm.si.house_par': 'للبيت',
+    'm.si.site_par': 'لهذا الموقع',
+    'm.si.pars_help': 'إن تُرك فارغاً فالحد الأدنى للبيت هو الذي يسري. وما تكتبه هنا يخص هذا الموقع وحده، وهو ما يُطلق تنبيه براده.',
+    'm.si.pars_saved': 'حُفظت الحدود الدنيا.',
 }
 
 
@@ -3194,7 +3230,7 @@ HU = {
     'm.tr.none': 'Még nem mozgott hús telephelyek között.',
     'm.tr.what': 'Mi',
     'm.tr.new_serial': 'Új szám',
-    'm.tr.not_yet': 'Az eladás, a selejt, a hűtő, a bontás, a kiolvasztás és az érlelés már a telephelyet nézi: minden üzlet a sajátjából fogyaszt, a sajátját bontja és méri. A leltár még az egész házra készül.',
+    'm.tr.not_yet': 'Már minden a telephelyet nézi: az eladás, a selejt, a hűtő, a bontás, a kiolvasztás, az érlelés, a leltár és a minimumok. Minden üzlet a sajátjából fogyaszt, a sajátját bontja, méri és számolja.',
     'm.si.title': 'Telephelyek',
     'm.si.sub': 'A feldolgozó veszi át a darabokat, érleli és bontja őket. Az üzletek onnan fogyasztanak: egész darabot vagy kész húsokat.',
     'm.si.kind': 'Típus',
@@ -3223,6 +3259,12 @@ HU = {
     'm.tr.what_travels': 'Az üzletbe bármi mehet: friss darab, hogy ott bontsák, érlelt darab, hogy tovább érlelődjön vagy kimérve keljen el, és fagyasztott, amely a sorára vár. Úgy utazik, ahogy van.',
     'm.tg.mixed_sites': 'Ez a bontás különböző telephelyek darabjait keveri. Egy asztalon csak azt bontják, ami abban a hűtőben van.',
     'm.tg.other_site': 'Az a darab {site} telephelyen van: előbb át kell hozni.',
+    'm.si.pars': 'Minimumok',
+    'm.si.pars_sub': 'Amit ez a telephely mindig tartani akar. A tengerpart augusztusban és a hegy januárban nem ugyanazt a minimumot kéri ugyanabból a húsból.',
+    'm.si.house_par': 'A házé',
+    'm.si.site_par': 'E telephelyé',
+    'm.si.pars_help': 'Üresen hagyva a ház minimuma érvényes. Amit ide írsz, csak erre a telephelyre vonatkozik, és ez élesíti a hűtőjének figyelmeztetését.',
+    'm.si.pars_saved': 'Minimumok elmentve.',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

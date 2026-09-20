@@ -21,7 +21,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy.orm import Session
 
 from thegrill.models import (Ingredient, IngredientLot, Primal, PrimalStatus, Site,
-                             SiteKind, Transfer, User)
+                             SiteKind, SitePar, Transfer, User)
 
 EPSILON = 1e-9
 PRIMAL = "PRIMAL"
@@ -146,6 +146,58 @@ def guard(session: Session, user: User, obj) -> Site:
         raise SiteError(f"Eso está en {donde.name}, y tú trabajas en {mia.name}: "
                         f"primero hay que traerlo.")
     return donde
+
+
+# ----------------------------------------------------------------- mínimos
+@dataclass
+class Pars:
+    """Los mínimos de una sede: los cortes en kilos y los primales en piezas."""
+    cuts: dict[int, float] = field(default_factory=dict)
+    primals: dict[str, int] = field(default_factory=dict)
+
+
+def pars_of(session: Session, restaurant_id: int, site_id: int | None) -> Pars:
+    """Lo que esa sede ha puesto. Lo que no esté aquí lo manda la casa."""
+    out = Pars()
+    if not site_id:
+        return out
+    for row in (session.query(SitePar)
+                .filter_by(restaurant_id=restaurant_id, site_id=site_id)):
+        if row.ingredient_id and row.min_stock is not None:
+            out.cuts[row.ingredient_id] = row.min_stock
+        elif row.sku and row.min_pieces is not None:
+            out.primals[row.sku] = row.min_pieces
+    return out
+
+
+def set_par(session: Session, user: User, site_id: int, *, ingredient_id: int | None = None,
+            sku: str | None = None, minimum: float | None = None) -> SitePar | None:
+    """Pone —o quita— el mínimo de un corte o de un primal en esa sede.
+
+    Sin número se borra la fila: esa sede vuelve a regirse por el mínimo de la
+    casa, que es lo que quiere decir «no tengo nada especial aquí».
+    """
+    site = _site(session, user, site_id)
+    if not ingredient_id and not (sku or "").strip():
+        raise SiteError("Hay que decir de qué corte o de qué pieza es el mínimo")
+    query = session.query(SitePar).filter_by(restaurant_id=user.restaurant_id, site_id=site.id)
+    row = (query.filter_by(ingredient_id=ingredient_id).first() if ingredient_id
+           else query.filter_by(sku=(sku or "").strip()).first())
+    if minimum is None or minimum < 0:
+        if row is not None:
+            session.delete(row)
+            session.flush()
+        return None
+    if row is None:
+        row = SitePar(restaurant_id=user.restaurant_id, site_id=site.id,
+                      ingredient_id=ingredient_id, sku=(sku or "").strip() or None)
+        session.add(row)
+    if ingredient_id:
+        row.min_stock = round(float(minimum), 6)
+    else:
+        row.min_pieces = int(minimum)
+    session.flush()
+    return row
 
 
 # --------------------------------------------------------------- traslados

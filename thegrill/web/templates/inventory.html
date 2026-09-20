@@ -2,6 +2,7 @@
 {% block body %}
 <h1>{{ t("inv.title") }}</h1>
 <p class="sub">{{ t("inv.sub") }}</p>
+{% if site is defined and site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
 {% if month.done %}
   <div class="banner ok">{{ t("inv.monthly_done", date=month.last_date) }}</div>
 {% else %}
@@ -16,7 +17,8 @@
 <form method="post" action="/inventario/contar">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <p class="muted" style="margin:0 0 10px">{{ t("inv.period") }}:
-     {{ t("inv.period." ~ count.period.value) }} · {{ count.date }}</p>
+     {{ t("inv.period." ~ count.period.value) }} · {{ count.date }}
+     {% if site_names is defined and count.site_id %} · {{ site_names.get(count.site_id, "") }}{% endif %}</p>
   <div class="scroll"><table>
   <tr><th>{{ t("rec.component") }}</th><th>Serial</th><th class="num">{{ t("inv.expected") }}</th>
       <th class="num">{{ t("inv.counted") }}</th></tr>
@@ -107,6 +109,14 @@
     <select id="period" name="period">
       {% for p in periods %}<option value="{{ p.value }}">{{ t("inv.period." ~ p.value) }}</option>{% endfor %}
     </select>
+    {% if sites is defined and sites|length > 1 %}
+    <label for="inv_site">{{ t("m.tr.site") }}</label>
+    <select id="inv_site" name="site">
+      <option value="">{{ t("m.si.whole_house") }}</option>
+      {% for x in sites %}<option value="{{ x.id }}">{{ x.name }}</option>{% endfor %}
+    </select>
+    <p class="help">{{ t("inv.by_site_help") }}</p>
+    {% endif %}
     <button class="wide" type="submit">{{ t("inv.open") }}</button>
   </form>
   </div>

@@ -19,6 +19,7 @@
           <input type="hidden" name="csrf" value="{{ csrf }}">
           <button class="ghost">{{ t("m.si.open") if not s.active else t("m.si.close") }}</button>
         </form>
+        <a class="muted" href="/sedes/{{ s.id }}/minimos">{{ t("m.si.pars") }}</a>
       </td>
     </tr>
     {% endfor %}

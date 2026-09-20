@@ -2,6 +2,7 @@
 {% block body %}
 <h1>{{ t("dl.title") }}</h1>
 <p class="sub">{{ t("dl.sub") }}</p>
+{% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
 <div class="card">
   <div class="rowflex">
     <div style="flex:1"><b>{{ t("dl.all_in_one") }}</b>

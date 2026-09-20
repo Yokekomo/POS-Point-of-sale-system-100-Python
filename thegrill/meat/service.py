@@ -609,9 +609,8 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
     # cuenta lo descongelado. Sin ese peso, la merma del día no existe.
     stale = [r for r in aging_rows if r.storage == Storage.AGING and r.last_weighed != on]
 
-    month = inventory.monthly_status(session, restaurant_id, on=on)
-    open_count = (session.query(MeatCount)
-                  .filter_by(restaurant_id=restaurant_id, status=CountStatus.OPEN).first())
+    month = inventory.monthly_status(session, restaurant_id, on=on, site_id=site_id)
+    open_count = inventory.open_now(session, restaurant_id, site_id)
     unposted = (session.query(Despiece)
                 .filter_by(restaurant_id=restaurant_id, posted=False).count())
 
