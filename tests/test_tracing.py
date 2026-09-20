@@ -390,7 +390,9 @@ def test_the_label_shows_the_food_cost_of_that_cut(ctx):
     filete = next(c for c in tracing.history(s, rest.id, "8017").butchery.cuts
                   if not c.is_trim)
     assert filete.food_cost_pct is not None
-    assert f"{filete.food_cost_pct:.1f} % FC" in filete.label
+    # Sin decimales y hacia arriba: un food cost no se redondea a la baja.
+    assert f"{butchery.ceil_pct(filete.food_cost_pct)} % FC" in filete.label
+    assert butchery.ceil_pct(filete.food_cost_pct) >= filete.food_cost_pct
     assert filete.label.startswith("250 g (")    # el peso de carta sigue delante
 
 

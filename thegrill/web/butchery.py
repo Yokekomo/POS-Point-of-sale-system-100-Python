@@ -16,6 +16,7 @@ entre lo aprovechable, en proporción a `kg × índice de valor`. La merma no
 recibe nada: su coste lo absorben los cortes. Por eso el precio real por kilo de
 un solomillo sube cuando el despiece rinde mal, que es justo lo que hay que ver.
 """
+import math
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
@@ -410,6 +411,11 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
     return result
 
 
+def ceil_pct(value: float | None) -> int | None:
+    """Food cost sin decimales y hacia arriba: más vale pasarse que quedarse corto."""
+    return None if value is None else math.ceil(value - 1e-9)
+
+
 def piece_label(nominal_g: float | None, real_g: float | None,
                 food_cost_pct: float | None = None) -> str:
     """«330 g (~354 g · 31,8 % FC)»: lo de carta y lo que pasa de verdad.
@@ -423,7 +429,7 @@ def piece_label(nominal_g: float | None, real_g: float | None,
     if real_g and (not nominal_g or abs(real_g - nominal_g) / nominal_g >= 0.005):
         inside.append(f"~{real_g:.10g} g")
     if food_cost_pct is not None:
-        inside.append(f"{food_cost_pct:.1f} % FC")
+        inside.append(f"{ceil_pct(food_cost_pct)} % FC")
 
     head = f"{nominal_g:.10g} g" if nominal_g else ""
     if not head:

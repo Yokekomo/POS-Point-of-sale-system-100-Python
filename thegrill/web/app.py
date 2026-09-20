@@ -24,13 +24,15 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, Co
                              RecipeKind, RecipeLine, Restaurant, Role, Rotation,
                              TemplateField, Unit, User)
 
-from thegrill.web import auth, butchery, costing, i18n, inventory, service, sheets, tracing
+from thegrill.web import (auth, butchery, costing, i18n, inventory, service, sheets, tracing,
+                          waste)
 from thegrill.web.seed import seed_templates
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 UPLOAD_DIR = os.environ.get("GRILL_UPLOAD_DIR", "uploads")
 
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+templates.env.filters["ceil_pct"] = butchery.ceil_pct
 app = FastAPI(title="Plataforma de gestión de cocina")
 
 
@@ -578,6 +580,48 @@ def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(require_u
     result = butchery.close_day(session, user)
     return RedirectResponse(f"/carne?closed={len(result.alerts)}", status_code=303)
 
+
+
+# ============================================================== MERMA
+def _waste_page(request, user, auth_session, session, *, result=None, error="", serial=""):
+    """La pantalla de merma, con lo tirado últimamente y de qué lote salió."""
+    names = {i.id: i.name for i in session.query(Ingredient)
+             .filter_by(restaurant_id=user.restaurant_id).all()}
+    return page(request, "waste.html", user, auth_session, session,
+                result=result, error=error, serial=serial, names=names,
+                recent=waste.recent(session, user.restaurant_id),
+                ingredients=(session.query(Ingredient)
+                             .filter_by(restaurant_id=user.restaurant_id, active=True)
+                             .order_by(Ingredient.name).all()))
+
+
+@app.get("/merma", response_class=HTMLResponse)
+def waste_page(request: Request, ctx=Depends(require_user),
+               session: Session = Depends(get_db), serial: str = ""):
+    user, auth_session = ctx
+    return _waste_page(request, user, auth_session, session, serial=serial)
+
+
+@app.post("/merma", response_class=HTMLResponse)
+def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
+                 ingredient_id: str = Form(""), pieces: str = Form(""), reason: str = Form(""),
+                 csrf: str = Form(""), ctx=Depends(require_user),
+                 session: Session = Depends(get_db)):
+    """Lo tirado se apunta con su lote, sus kilos y sus piezas, y sube el coste del resto."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    try:
+        result = waste.record(
+            session, user, kg=float(kg.replace(",", ".")),
+            serial=serial.strip() or None,
+            ingredient_id=int(ingredient_id) if ingredient_id.strip() else None,
+            pieces=int(pieces) if pieces.strip() else None,
+            reason=reason.strip() or None,
+            lang=lang_for(request, session, user))
+    except (waste.WasteError, ValueError) as e:
+        return _waste_page(request, user, auth_session, session, error=str(e),
+                           serial=serial.strip())
+    return _waste_page(request, user, auth_session, session, result=result)
 
 # ==================================================== TRAZABILIDAD
 @app.get("/trazabilidad", response_class=HTMLResponse)

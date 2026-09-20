@@ -1,0 +1,73 @@
+{% extends "base.html" %}{% block title %}{{ t("waste.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("waste.title") }}</h1>
+<p class="sub">{{ t("waste.sub") }}</p>
+
+{% if result %}
+  <div class="banner {{ 'warn' if not result.absorbed else 'ok' }}">
+    {{ t("waste.done") }}
+    {{ result.ingredient }} · {{ "%.3f"|format(result.kg) }} kg
+    {%- if result.pieces %} · {{ result.pieces }} pz{% endif %} · {{ "%.2f"|format(result.cost) }}
+    {% if result.absorbed %}
+      — {{ t("waste.absorbed", pct=result.cost_increase_pct | ceil_pct) }}
+    {% else %}
+      — {{ t("waste.all_gone") }}
+    {% endif %}
+  </div>
+{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+<div class="card">
+<form method="post" action="/merma">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid">
+    <div>
+      <label for="serial">{{ t("waste.serial") }}</label>
+      <input id="serial" name="serial" value="{{ serial or '' }}" placeholder="8017-01" autocomplete="off">
+    </div>
+    <div>
+      <label for="ingredient_id">{{ t("waste.ingredient") }}</label>
+      <select id="ingredient_id" name="ingredient_id">
+        <option value="">—</option>
+        {% for i in ingredients %}
+        <option value="{{ i.id }}">{{ i.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="kg">{{ t("waste.kg") }} <span class="req">*</span></label>
+      <input id="kg" name="kg" inputmode="decimal" required>
+    </div>
+    <div>
+      <label for="pieces">{{ t("waste.pieces") }}</label>
+      <input id="pieces" name="pieces" inputmode="numeric">
+    </div>
+    <div>
+      <label for="reason">{{ t("waste.reason") }}</label>
+      <input id="reason" name="reason" maxlength="60">
+    </div>
+  </div>
+  <div class="help">{{ t("waste.help") }}</div>
+  <button class="wide" type="submit">{{ t("waste.submit") }}</button>
+</form>
+</div>
+
+<h2>{{ t("waste.recent") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("waste.date") }}</th><th>{{ t("rec.component") }}</th><th>{{ t("waste.lot") }}</th>
+    <th class="num">kg</th><th class="num">{{ t("waste.cost") }}</th></tr>
+{% for m in recent %}
+<tr>
+  <td>{{ m.date }}</td>
+  <td>{{ names.get(m.ingredient_id, "") }}</td>
+  <td class="muted">{{ m.source_ref or "" }}</td>
+  <td class="num">{{ "%.3f"|format(-m.qty) }}</td>
+  <td class="num">{{ "%.2f"|format(m.cost or 0) }}</td>
+</tr>
+{% else %}
+<tr><td colspan="5" class="muted">{{ t("waste.none") }}</td></tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}

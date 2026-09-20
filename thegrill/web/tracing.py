@@ -106,10 +106,22 @@ class CutNode:
     @property
     def remaining_pieces(self) -> int | None:
         """Piezas que quedan, al peso medio. Es una estimación, no un recuento."""
+        return self._pieces_of(self.remaining_kg)
+
+    @property
+    def sold_pieces(self) -> int | None:
+        """Piezas vendidas, al mismo peso medio."""
+        return self._pieces_of(self.sold_kg)
+
+    @property
+    def waste_pieces(self) -> int | None:
+        return self._pieces_of(self.waste_kg)
+
+    def _pieces_of(self, kg: float) -> int | None:
         average = self.avg_piece_g
-        if not average:
+        if not average or kg <= 0:
             return None
-        return int(round(self.remaining_kg * 1000 / average))
+        return int(round(kg * 1000 / average))
 
     @property
     def food_cost_pct(self) -> float | None:

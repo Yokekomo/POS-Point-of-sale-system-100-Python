@@ -222,6 +222,29 @@ se le atribuye, y por eso cada salida de almacén deja escrito a qué plato fue.
 Para la carne que se descuenta por conteo de descongelado, que no nombra el
 plato, se reparte con la media de los platos que usan ese ingrediente.
 
+## La merma de cámara y quién paga lo tirado
+
+La merma del despiece ya la absorben los cortes al repartir el coste del
+primal. La otra merma es la que pasa después: la pieza que ya estaba cortada y
+se echa a perder. Esa tiene su propio apartado, y lo puede registrar cualquiera
+del equipo, porque quien tira la pieza es quien está en la cámara.
+
+De cada merma queda escrito el ingrediente, el número de despiece, el serial de
+la pieza, los kilos, las piezas, el motivo y quién la tiró. Se indica el serial
+si la pieza lo lleva; si no, basta el ingrediente y sale del lote que toque por
+rotación.
+
+**Lo tirado no desaparece del coste.** Si de diecisiete filetes se tiran dos,
+los quince que se vendan tienen que pagar los diecisiete: al registrar la merma
+sube el precio por kilo de lo que queda de ese lote, de modo que el valor total
+del lote se mantiene, y con él sube el food cost de los platos que lo lleven.
+Diecisiete filetes de 5,1 kg a 30 €/kg valen 153 €; tirados 0,6 kg, los 4,5 kg
+que quedan pasan a 34 €/kg y siguen valiendo 153 €.
+
+Si se va el lote entero no queda nadie a quien cargárselo: ese coste se pierde,
+y así se dice. Una merma nunca puede dejar el stock en negativo. Dirección
+recibe el aviso de cada merma, crítica si pasa de 50 en dinero.
+
 ## Cuando la pieza aparece
 
 Dar una pieza por perdida no es definitivo. Si el primal o el corte aparecen
@@ -376,11 +399,12 @@ thegrill/
     defrost.py           Descongelado, recuento de cierre y peso real por pieza
     inventory.py         Inventario mensual que re-ancla el stock, y recuperación de piezas
     tracing.py           Historia de un primal y reparto del ingreso
+    waste.py             Merma de cámara: queda escrita y la paga lo que queda del lote
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
     service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV
     app.py               Rutas web de empleado y de manager
-    templates/           Veinte pantallas, móvil primero, claro y oscuro
+    templates/           Veintiuna pantallas, móvil primero, claro y oscuro
   engine/
     fefo.py              Consumo por caducidad y valoración de merma
     stock.py             Motor v4: ledger, re-anclaje por conteo, genealogía por serial
@@ -392,7 +416,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   316 tests
+tests/                   341 tests
 ```
 
 ## Uso
@@ -421,6 +445,7 @@ desarrollo. Las fotos se guardan en la ruta de `GRILL_UPLOAD_DIR`.
 | Nunca marcar cortado por inferencia | `rules.can_mark_cut`, `stock.drain_primals` | `test_drain_primals_by_serial_only` |
 | Conteo semanal completo | `rules.weekly_count_is_complete` | `test_weekly_count_complete_and_stale` |
 | FEFO, coste nunca en blanco | `fefo.consume` | `test_never_blank_cost` |
+| Lo tirado lo paga lo que queda del lote | `waste.record` | `test_the_pieces_that_survive_pay_for_the_ones_thrown` |
 | Pescado fuera del registro de carne | `rules.is_meat_entry` | `test_fish_excluded_from_meat_entry` |
 | Idempotencia y checkpoints | `orchestrator.chain.Chain` | `test_sequential_idempotent_and_weekday_steps` |
 | Tres estados, nunca colapsar en cero | `models.SourceStatus` | `test_three_states_never_collapse` |

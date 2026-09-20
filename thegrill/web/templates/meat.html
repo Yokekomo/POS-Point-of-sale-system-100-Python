@@ -2,7 +2,8 @@
 {% block body %}
 <h1>{{ t("meat.title") }}</h1>
 <p class="sub">{{ t("meat.sub") }} · <a href="/inventario">{{ t("inv.title") }}</a> ·
-  <a href="/trazabilidad">{{ t("nav.tracing") }}</a></p>
+  <a href="/trazabilidad">{{ t("nav.tracing") }}</a> ·
+  <a href="/merma">{{ t("waste.title") }}</a></p>
 
 {% if closed %}
   {% if closed == "0" %}<div class="banner ok">{{ t("meat.all_good") }}</div>
