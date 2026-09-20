@@ -93,6 +93,17 @@ class PosMatch(str, enum.Enum):
     BOTH = "BOTH"   # por cualquiera de los dos; el código manda
 
 
+class ConsumptionMode(str, enum.Enum):
+    """Cómo se descuenta un ingrediente del almacén."""
+    RECIPE = "RECIPE"   # al vender, según el escandallo
+    COUNT = "COUNT"     # al cerrar turno, por el conteo físico de descongelado
+
+
+class DefrostKind(str, enum.Enum):
+    INTAKE = "INTAKE"   # pieza que se saca a descongelar
+    COUNT = "COUNT"     # recuento de lo que queda al acabar el turno
+
+
 class Rotation(str, enum.Enum):
     """Cómo salen los lotes de un ingrediente madre."""
     FEFO = "FEFO"   # antes lo que antes caduca (por defecto, lo correcto en fresco)
@@ -524,6 +535,8 @@ class Ingredient(TenantMixin, Base):
     name: Mapped[str] = mapped_column(String(128), index=True)
     unit: Mapped[Unit] = mapped_column(Enum(Unit), default=Unit.KG)
     rotation: Mapped[Rotation] = mapped_column(Enum(Rotation), default=Rotation.FEFO)
+    consumption: Mapped[ConsumptionMode] = mapped_column(Enum(ConsumptionMode),
+                                                         default=ConsumptionMode.RECIPE)
     category: Mapped[str | None] = mapped_column(String(48))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text)
@@ -639,6 +652,32 @@ class RecipeLine(Base):
     recipe: Mapped["Recipe"] = relationship(back_populates="lines", foreign_keys=[recipe_id])
     ingredient: Mapped["Ingredient"] = relationship()
     sub_recipe: Mapped["Recipe"] = relationship(foreign_keys=[sub_recipe_id])
+
+
+class DefrostEntry(TenantMixin, Base):
+    """Descongelado: lo que se saca a descongelar y lo que queda al cerrar.
+
+    Cada apunte va con el serial de la pieza, las piezas y el peso total. La
+    diferencia entre lo que había, lo que se sacó y lo que queda al acabar el
+    turno es lo que se ha consumido de verdad. Cruzado con el POS da el peso
+    real por pieza vendida, que no es el teórico del escandallo.
+    """
+    __tablename__ = "defrost_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    shift: Mapped[str] = mapped_column(String(16), default="", index=True)
+    kind: Mapped[DefrostKind] = mapped_column(Enum(DefrostKind), index=True)
+    lot_serial: Mapped[str] = mapped_column(String(48), index=True)
+    ingredient_id: Mapped[int] = mapped_column(ForeignKey("ingredients.id"), index=True)
+    lot_id: Mapped[int | None] = mapped_column(ForeignKey("ingredient_lots.id"))
+    pieces: Mapped[int] = mapped_column(Integer, default=0)
+    total_kg: Mapped[float] = mapped_column(Float, default=0.0)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    ingredient: Mapped["Ingredient"] = relationship()
 
 
 class PosProduct(TenantMixin, Base):

@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile   # el que devuelve request.form(), no el de FastAPI
 
 from thegrill import db
-from thegrill.models import (Alert, Attachment, FieldType, Ingredient, IngredientItem,
+from thegrill.models import (Alert, Attachment, ConsumptionMode, FieldType, Ingredient, IngredientItem,
                              Notification, PosMatch, PosProduct, Record, RecordTemplate, Recipe,
                              RecipeKind, RecipeLine, Restaurant, Role, Rotation,
                              TemplateField, Unit, User)
@@ -498,20 +498,22 @@ def ingredients_page(request: Request, ctx=Depends(require_user),
     return page(request, "ingredients.html", user, auth_session, session, rows=rows,
                 stock=costing.stock_on_hand(session, user.restaurant_id),
                 costs=costing.unit_costs(session, user.restaurant_id),
-                units=list(Unit), rotations=list(Rotation))
+                units=list(Unit), rotations=list(Rotation), modes=list(ConsumptionMode))
 
 
 @app.post("/ingredientes/nuevo")
 def create_ingredient(request: Request, name: str = Form(...), unit: str = Form("KG"),
-                      rotation: str = Form("FEFO"), category: str = Form(""),
-                      csrf: str = Form(""), ctx=Depends(require_manager_user),
-                      session: Session = Depends(get_db)):
+                      rotation: str = Form("FEFO"), consumption: str = Form("RECIPE"),
+                      category: str = Form(""), csrf: str = Form(""),
+                      ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     session.add(Ingredient(restaurant_id=user.restaurant_id, name=name.strip(),
                            unit=Unit[unit] if unit in Unit.__members__ else Unit.KG,
                            rotation=Rotation[rotation] if rotation in Rotation.__members__
                            else Rotation.FEFO,
+                           consumption=ConsumptionMode[consumption]
+                           if consumption in ConsumptionMode.__members__ else ConsumptionMode.RECIPE,
                            category=category.strip() or None))
     return RedirectResponse("/ingredientes", status_code=303)
 

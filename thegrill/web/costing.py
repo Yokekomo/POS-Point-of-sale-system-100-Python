@@ -19,9 +19,10 @@ from sqlalchemy.orm import Session
 
 from thegrill.engine import fefo
 from thegrill.engine.recipes import RecipeCost, cost_recipe, explode, menu_ranking
-from thegrill.models import (Alert, AlertSeverity, Ingredient, IngredientItem,
-                             IngredientLot, IngredientMovement, MovementKind, PosMatch,
-                             PosProduct, Recipe, RecipeKind, Restaurant, User)
+from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, Ingredient,
+                             IngredientItem, IngredientLot, IngredientMovement,
+                             MovementKind, PosMatch, PosProduct, Recipe, RecipeKind,
+                             Restaurant, SalesByProduct, User)
 from thegrill.web import service
 from thegrill.web.i18n import DEFAULT_LANG, t
 
@@ -150,6 +151,9 @@ class ConsumptionResult:
     shortfalls: list[Shortfall] = field(default_factory=list)
     unmapped: list[str] = field(default_factory=list)
     alerts: list[Alert] = field(default_factory=list)
+    # Lo que las recetas dicen que se gastaría de los ingredientes que se
+    # controlan por conteo. No se descuenta aquí: se compara al cerrar turno.
+    theoretical: dict[int, float] = field(default_factory=dict)
 
 
 def take_from_stock(session: Session, user: User, ingredient: Ingredient, qty: float,
@@ -204,6 +208,8 @@ def consume_sales(session: Session, user: User, sales: list[tuple[str, float]],
             result.unmapped.append(pos_name)
             continue
         result.lines += 1
+        session.add(SalesByProduct(restaurant_id=user.restaurant_id, op_date=on,
+                                   pos_name=product.pos_name, units=int(units)))
         for ingredient_id, qty in explode(product.recipe, units).items():
             needed[ingredient_id] = round(needed.get(ingredient_id, 0.0) + qty, 6)
 
@@ -213,6 +219,11 @@ def consume_sales(session: Session, user: User, sales: list[tuple[str, float]],
     for ingredient_id, qty in needed.items():
         ingredient = ingredients.get(ingredient_id)
         if ingredient is None:
+            continue
+        if ingredient.consumption == ConsumptionMode.COUNT:
+            # Esta carne se descuenta por el conteo de descongelado, no aquí:
+            # descontarla dos veces sería inventarse el doble de consumo.
+            result.theoretical[ingredient_id] = qty
             continue
         cost, missing = take_from_stock(session, user, ingredient, qty,
                                         MovementKind.SALE, on, "pos", f"ventas {on}")

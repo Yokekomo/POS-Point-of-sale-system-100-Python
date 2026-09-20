@@ -6,6 +6,7 @@
 <div class="card scroll">
 <table>
 <tr><th>{{ t("common.name") }}</th><th>{{ t("ing.unit") }}</th><th>{{ t("ing.rotation") }}</th>
+    <th>{{ t("ing.consumption") }}</th>
     <th class="num">{{ t("ing.stock") }}</th><th class="num">{{ t("ing.avg_cost") }}</th>
     <th>{{ t("ing.items") }}</th></tr>
 {% for i in rows %}
@@ -14,6 +15,7 @@
       {% if i.category %}<div class="muted">{{ i.category }}</div>{% endif %}</td>
   <td class="muted">{{ i.unit.value }}</td>
   <td><span class="tag {{ 'ok' if i.rotation.value == 'FEFO' else 'warn' }}">{{ i.rotation.value }}</span></td>
+  <td class="muted">{{ t("ing.consumption." ~ i.consumption.value) }}</td>
   <td class="num">{{ "%.3f"|format(stock.get(i.id, 0)) }}</td>
   <td class="num">{% if costs.get(i.id) %}{{ "%.4f"|format(costs[i.id]) }}
       {% else %}<span class="tag bad">{{ t("ing.no_price") }}</span>{% endif %}</td>
@@ -21,7 +23,7 @@
       {% else %}<span class="tag warn">{{ t("ing.no_items") }}</span>{% endfor %}</td>
 </tr>
 {% else %}
-<tr><td colspan="6" class="muted">{{ t("ing.empty") }}</td></tr>
+<tr><td colspan="7" class="muted">{{ t("ing.empty") }}</td></tr>
 {% endfor %}
 </table>
 </div>
@@ -38,6 +40,11 @@
   <label for="rotation">{{ t("ing.rotation") }}</label>
   <select id="rotation" name="rotation">{% for r in rotations %}<option value="{{ r.value }}">{{ r.value }}</option>{% endfor %}</select>
   <div class="help">{{ t("ing.rotation_help") }}</div>
+  <label for="consumption">{{ t("ing.consumption") }}</label>
+  <select id="consumption" name="consumption">
+    {% for m in modes %}<option value="{{ m.value }}">{{ t("ing.consumption." ~ m.value) }}</option>{% endfor %}
+  </select>
+  <div class="help">{{ t("ing.consumption_help") }}</div>
   <label for="category">{{ t("dash.category") }}</label>
   <input id="category" name="category">
   <button class="wide" type="submit">{{ t("ing.new") }}</button>

@@ -29,6 +29,9 @@ PRICE_FLAG_POS_PCT = 8.0       # POS: movimiento de precio >= 8 % => flag
 RETRY_BACKOFF_SECONDS = (30, 60, 120)
 TRANSIENT_HTTP_CODES = {500, 529}
 
+# --------------------------------------------------- Descongelado y porciones
+PORTION_VARIANCE_PCT = 10.0    # desvío entre lo contado y lo teórico que ya merece alerta
+
 # ----------------------------------------------------------------- Despiece
 MASS_DRIFT_TOLERANCE_PCT = 2.0     # in = out + waste + trim ± drift
 IMPORTED_ORIGINS = {"DXB", "DUBAI", "AUS", "USA", "NZ", "JPN"}  # primal importado => serial obligatorio
