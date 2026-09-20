@@ -134,6 +134,10 @@ def record(session: Session, user: User, kind: DefrostKind, serial: str, pieces:
     if pieces < 0 or total_kg < 0:
         raise DefrostError("Ni las piezas ni el peso pueden ser negativos")
     lot = _lot_by_serial(session, user.restaurant_id, serial)
+    try:
+        sites.guard(session, user, lot)       # ese arcón no se abre desde aquí
+    except sites.SiteError as e:
+        raise DefrostError(str(e)) from None
     if kind == DefrostKind.INTAKE and lot.frozen:
         # Lo que sale del arcón deja de estar en espera, y lo que se queda no.
         lot = thaw(session, user, lot, total_kg, pieces)
@@ -176,14 +180,22 @@ def sold_units(session: Session, restaurant_id: int, on: date) -> dict[int, int]
     return theoretical_for(session, restaurant_id, on)[1]
 
 
-def shift_states(session: Session, restaurant_id: int, on: date, shift: str = "") -> list[SerialState]:
+def shift_states(session: Session, restaurant_id: int, on: date, shift: str = "",
+                 site_id: int | None = None) -> list[SerialState]:
     """Lo que había, lo que se sacó, lo que el POS ha vendido y lo que queda.
 
     Lo vendido se reparte entre las piezas que están descongeladas, en orden:
     así el recuento de cierre se hace contra un número, no contra el aire.
+
+    Con sede, el turno de esa sede: cada barra cierra el suyo.
     """
     entries = (session.query(DefrostEntry)
                .filter_by(restaurant_id=restaurant_id, date=on, shift=shift or "").all())
+    if site_id:
+        principal = sites.main(session, restaurant_id).id
+        lotes = {l.id: (l.site_id or principal) for l in session.query(IngredientLot)
+                 .filter_by(restaurant_id=restaurant_id)}
+        entries = [e for e in entries if lotes.get(e.lot_id, principal) == site_id]
     by_ingredient: dict[str, int] = {}
     states: dict[str, SerialState] = {}
     for entry in entries:
@@ -250,7 +262,9 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     result = ShiftClose(date=on, shift=shift or "")
 
-    states = shift_states(session, user.restaurant_id, on, shift)
+    mia = sites.of_user(session, user)
+    states = shift_states(session, user.restaurant_id, on, shift,
+                          site_id=mia.id if mia else None)
     result.consumed = reconcile(states)
 
     # Lo que la carta dice que debería haberse gastado por lo vendido. Hace
@@ -318,7 +332,6 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
 
     # El turno no está contado del todo si quedan piezas madurando sin pesar:
     # esa agua es merma del día, y mañana ya no se sabe de qué día era.
-    mia = sites.of_user(session, user)
     result.aging_pending = aging.pending_today(session, user.restaurant_id, on,
                                                site_id=mia.id if mia else None)
 

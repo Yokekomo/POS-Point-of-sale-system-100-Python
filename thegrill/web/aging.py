@@ -219,6 +219,19 @@ def find(session: Session, restaurant_id: int, serial: str) -> Primal:
     return primal
 
 
+def here(session: Session, user: User, primal: Primal) -> Primal:
+    """La pieza tiene que estar donde trabaja quien la va a tocar.
+
+    La pantalla ya solo enseña la cámara de cada uno, pero el número se puede
+    escribir a mano: esto es lo que cierra la puerta de verdad.
+    """
+    try:
+        sites.guard(session, user, primal)
+    except sites.SiteError as e:
+        raise AgingError(str(e)) from None
+    return primal
+
+
 def where(primal: Primal) -> Storage:
     """Dónde está la pieza. Las de antes de esto estaban en cámara."""
     return primal.storage or Storage.CHILLED
@@ -260,7 +273,7 @@ def move(session: Session, user: User, serial: str, storage: Storage,
     congelador, porque la de la etiqueta original deja de valer.
     """
     on = on or date.today()
-    primal = find(session, user.restaurant_id, serial)
+    primal = here(session, user, find(session, user.restaurant_id, serial))
     was = where(primal)
     if was == storage:
         raise AgingError(f"La pieza {primal.serial} ya está ahí")
@@ -304,7 +317,7 @@ def weigh(session: Session, user: User, serial: str, kg: float,
     if kg <= 0:
         raise AgingError("El peso tiene que ser mayor que cero")
 
-    primal = find(session, user.restaurant_id, serial)
+    primal = here(session, user, find(session, user.restaurant_id, serial))
     previous = round(primal.weight_kg or 0.0, 6)
     if kg > previous + GAIN_TOLERANCE_KG:
         raise AgingError(
@@ -401,7 +414,7 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
     que la merma de cámara de toda la vida.
     """
     on = on or date.today()
-    primal = find(session, user.restaurant_id, serial)
+    primal = here(session, user, find(session, user.restaurant_id, serial))
     previous = round(primal.weight_kg or 0.0, 6)
 
     if removed_kg is None and new_kg is None:
@@ -510,7 +523,7 @@ def sell_by_weight(session: Session, user: User, serial: str, grams: float,
     if price < 0:
         raise AgingError("El precio no puede ser negativo")
 
-    primal = find(session, user.restaurant_id, serial)
+    primal = here(session, user, find(session, user.restaurant_id, serial))
     if where(primal) == Storage.FROZEN:
         # Lo congelado está en espera: no se corta al peso ni se cobra. Primero
         # sale del arcón, y cuando esté descongelado se vende.

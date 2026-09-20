@@ -680,3 +680,115 @@ class TestWarehouseAndOutlets:
 
         assert venta.kg_left == pytest.approx(8.6)
         assert s.query(Primal).one().site_id == playa.id      # sigue siendo del local
+
+
+# ================================================== las puertas, no la barra
+class TestDoors:
+    """Una barra sin enlace no es una puerta cerrada.
+
+    Las pantallas enseñan solo lo de cada sede, pero el número se puede
+    escribir a mano. Estas son las puertas de verdad: las del motor.
+    """
+
+    @pytest.fixture
+    def grupo(self, ctx):
+        from thegrill.models import Role
+
+        s, rest, ana, luis = ctx
+        obrador = sites.main(s, rest.id)
+        playa = sites.create(s, ana, "Playa")
+        luis.role = Role.BUTCHER
+        sites.assign(s, ana, luis, playa.id)
+        return s, rest, ana, luis, obrador, playa
+
+    def lote_en(self, s, rest, ana, site_id, serial="TG-0001·01", kg=6.0, frozen=False):
+        cut = meat.create_cut(s, ana, f"Lomo {serial}")
+        item = meat.add_article(s, ana, cut, f"Art {serial}")
+        row = IngredientLot(restaurant_id=rest.id, item_id=item.id, ingredient_id=cut.id,
+                            lot_code="TG-0001", serial=serial, expiry=HOY, received=HOY,
+                            qty=kg, qty_remaining=kg, unit_cost=40.0, pieces=20,
+                            frozen=frozen, site_id=site_id)
+        s.add(row); s.flush(); return row
+
+    def test_nobody_weighs_a_piece_from_another_site(self, grupo):
+        from thegrill.models import Storage
+        from thegrill.web import aging
+
+        s, rest, ana, luis, obrador, playa = grupo
+        pieza(s, rest, serial="8017", kg=9.0)
+        aging.move(s, ana, "8017", Storage.AGING, on=HOY)
+
+        with pytest.raises(aging.AgingError):
+            aging.weigh(s, luis, "8017", 8.7, on=HOY)
+        assert s.query(Primal).one().weight_kg == 9.0
+
+    def test_nobody_moves_or_sells_a_piece_from_another_site(self, grupo):
+        from thegrill.models import Storage
+        from thegrill.web import aging
+
+        s, rest, ana, luis, obrador, playa = grupo
+        pieza(s, rest, serial="8017", kg=9.0)
+
+        with pytest.raises(aging.AgingError):
+            aging.move(s, luis, "8017", Storage.AGING, on=HOY)
+        with pytest.raises(aging.AgingError):
+            aging.sell_by_weight(s, luis, "8017", 400, price=60.0, on=HOY)
+
+    def test_nobody_throws_away_meat_from_another_site(self, grupo):
+        from thegrill.web import waste
+
+        s, rest, ana, luis, obrador, playa = grupo
+        row = self.lote_en(s, rest, ana, obrador.id)
+
+        with pytest.raises(waste.WasteError):
+            waste.record(s, luis, kg=1.0, serial=row.serial, reason="se cayó", on=HOY)
+        assert row.qty_remaining == 6.0
+
+    def test_nobody_opens_the_freezer_of_another_site(self, grupo):
+        from thegrill.web import defrost
+
+        s, rest, ana, luis, obrador, playa = grupo
+        row = self.lote_en(s, rest, ana, obrador.id, frozen=True)
+
+        with pytest.raises(defrost.DefrostError):
+            defrost.intake(s, luis, row.serial, 5, 1.5, on=HOY)
+        assert row.frozen is True and row.qty_remaining == 6.0
+
+    def test_nobody_sends_meat_that_is_not_theirs(self, grupo):
+        """El traslado comprobaba el destino; ahora también el origen."""
+        s, rest, ana, luis, obrador, playa = grupo
+        pieza(s, rest, serial="8017", kg=9.0)
+        row = self.lote_en(s, rest, ana, obrador.id)
+
+        with pytest.raises(sites.SiteError):
+            sites.send_primal(s, luis, "8017", playa.id, on=HOY)
+        with pytest.raises(sites.SiteError):
+            sites.send_cut(s, luis, row.serial, 2.0, playa.id, on=HOY)
+        assert s.query(Primal).one().site_id is None
+        assert row.qty_remaining == 6.0
+
+    def test_each_bar_closes_its_own_shift(self, grupo):
+        """El cierre del local no cuenta lo que se sacó en el obrador."""
+        from thegrill.web import defrost
+
+        s, rest, ana, luis, obrador, playa = grupo
+        suyo = self.lote_en(s, rest, ana, playa.id, serial="TG-0001·02")
+        ajeno = self.lote_en(s, rest, ana, obrador.id, serial="TG-0001·01")
+        defrost.intake(s, luis, suyo.serial, 5, 1.5, on=HOY)
+        defrost.intake(s, ana, ajeno.serial, 5, 1.5, on=HOY)
+
+        mios = defrost.shift_states(s, rest.id, HOY, site_id=playa.id)
+        assert [x.serial for x in mios] == [suyo.serial]
+        assert len(defrost.shift_states(s, rest.id, HOY)) == 2      # el manager, los dos
+
+    def test_the_manager_still_works_with_the_whole_house(self, grupo):
+        """Quien no tiene sede no encuentra puertas: es su casa entera."""
+        from thegrill.models import Storage
+        from thegrill.web import aging
+
+        s, rest, ana, luis, obrador, playa = grupo
+        pieza(s, rest, serial="8017", kg=9.0)
+        sites.send_primal(s, ana, "8017", playa.id, on=HOY)
+
+        aging.move(s, ana, "8017", Storage.AGING, on=HOY)     # la del local, sin queja
+        assert aging.weigh(s, ana, "8017", 8.7, on=HOY).kg == 8.7

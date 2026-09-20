@@ -636,7 +636,8 @@ def _defrost(request, user, auth_session, session, *, shift="", done="", error="
         session, user.restaurant_id, mia.id if mia else None)
     return page(request, "defrost.html", user, auth_session, session, shift=shift,
                 done=done, error=error, on=on, closed=closed, site=mia,
-                states=defrost.shift_states(session, user.restaurant_id, on, shift),
+                states=defrost.shift_states(session, user.restaurant_id, on, shift,
+                                            site_id=mia.id if mia else None),
                 lots=lots.order_by(butchery.IngredientLot.expiry).all())
 
 
@@ -868,12 +869,15 @@ def _transfers(request, user, auth_session, session, *, done="", error=""):
                 error=error, mine=mine,
                 sites=sites.all_sites(session, user.restaurant_id),
                 stock=sites.stock(session, user.restaurant_id),
-                primals=meat.primals_in_stock(session, user.restaurant_id),
+                primals=meat.primals_in_stock(session, user.restaurant_id,
+                                              site_id=mine.id if mine else None),
                 storage_of=aging.where,
-                lots=(session.query(IngredientLot)
-                      .filter(IngredientLot.restaurant_id == user.restaurant_id,
-                              IngredientLot.qty_remaining > 0)
-                      .order_by(IngredientLot.serial).all()),
+                lots=costing.at_site(
+                    session.query(IngredientLot)
+                    .filter(IngredientLot.restaurant_id == user.restaurant_id,
+                            IngredientLot.qty_remaining > 0),
+                    session, user.restaurant_id, mine.id if mine else None)
+                .order_by(IngredientLot.serial).all(),
                 moves=sites.recent(session, user.restaurant_id,
                                    site_id=mine.id if mine else None))
 

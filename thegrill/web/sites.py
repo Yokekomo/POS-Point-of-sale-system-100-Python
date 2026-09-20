@@ -133,6 +133,21 @@ def of_user(session: Session, user: User) -> Site | None:
     return session.get(Site, user.site_id) if user.site_id else None
 
 
+def guard(session: Session, user: User, obj) -> Site:
+    """Comprueba que eso está donde trabaja quien lo va a tocar.
+
+    Las pantallas ya enseñan solo lo de cada sede, pero una barra sin enlace no
+    es una puerta cerrada: escribiendo el número a mano se llega igual. Esto es
+    la puerta. Quien no tiene sede —el manager— trabaja con la casa entera.
+    """
+    donde = where(session, user.restaurant_id, obj)
+    mia = of_user(session, user)
+    if mia is not None and mia.id != donde.id:
+        raise SiteError(f"Eso está en {donde.name}, y tú trabajas en {mia.name}: "
+                        f"primero hay que traerlo.")
+    return donde
+
+
 # --------------------------------------------------------------- traslados
 def send_primal(session: Session, user: User, serial: str, to_site_id: int,
                 on: date | None = None, note: str | None = None) -> Sent:
@@ -146,7 +161,7 @@ def send_primal(session: Session, user: User, serial: str, to_site_id: int,
     if primal.status != PrimalStatus.IN_STOCK:
         raise SiteError(f"La pieza {primal.serial} ya no está en stock")
     destino = _site(session, user, to_site_id)
-    origen = where(session, user.restaurant_id, primal)
+    origen = guard(session, user, primal)      # no se manda lo que no es tuyo
     if origen.id == destino.id:
         raise SiteError(f"La pieza {primal.serial} ya está en {destino.name}")
 
@@ -185,7 +200,7 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
             f"Se quieren mandar {kg:.10g} kg y del lote {lot.serial} solo quedan "
             f"{lot.qty_remaining:.10g}.")
     destino = _site(session, user, to_site_id)
-    origen = where(session, user.restaurant_id, lot)
+    origen = guard(session, user, lot)         # no se manda lo que no es tuyo
     if origen.id == destino.id:
         raise SiteError(f"El corte {lot.serial} ya está en {destino.name}")
 

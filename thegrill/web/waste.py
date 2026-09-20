@@ -111,6 +111,10 @@ def _find_lot(session: Session, user: User, serial: str | None,
             raise WasteError(f"No hay ninguna pieza con el serial {serial}")
         if lot.qty_remaining <= EPSILON:
             raise WasteError(f"Del lote {serial} no queda nada que tirar")
+        try:
+            sites.guard(session, user, lot)   # no se tira la carne de otra sede
+        except sites.SiteError as e:
+            raise WasteError(str(e)) from None
         return lot
     if ingredient_id:
         ingredient = session.get(Ingredient, ingredient_id)
