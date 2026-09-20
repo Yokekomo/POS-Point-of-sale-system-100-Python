@@ -1,0 +1,71 @@
+{% extends "base.html" %}{% block title %}{{ t("meat.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.nav.chamber") }}</h1>
+<p class="sub">{{ t("m.chamber.sub") }}</p>
+
+{% if closed %}
+  {% if closed == "0" %}<div class="banner ok">{{ t("meat.all_good") }}</div>
+  {% else %}<div class="banner warn">{{ closed }}</div>{% endif %}
+{% endif %}
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+  <div class="kpi"><b>{{ status.total_primals }}</b><span>{{ t("meat.primals") }}</span></div>
+  <div class="kpi"><b>{{ "%.1f"|format(status.total_cut_kg) }}</b><span>{{ t("meat.cuts") }} (kg)</span></div>
+  <div class="kpi"><b>{{ status.cuts_below | length + status.primals_below | length }}</b><span>{{ t("meat.below_par") }}</span></div>
+  <div class="kpi"><b>{{ status.expiring | length }}</b><span>{{ t("meat.expiring_soon") }}</span></div>
+</div>
+
+<h2>{{ t("meat.cuts") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("rec.component") }}</th><th class="num">{{ t("ing.stock") }}</th>
+    <th class="num">{{ t("meat.serials_open") }}</th><th class="num">{{ t("meat.thawed") }}</th>
+    <th class="num">{{ t("meat.min") }}</th><th class="num">{{ t("meat.expiry_days") }}</th></tr>
+{% for c in status.cuts %}
+<tr>
+  <td>{{ c.name }}
+      {% if c.below_par %} <span class="tag bad">{{ t("meat.min") }}</span>{% endif %}
+      {% for label in c.labels %}<div class="muted">{{ label }}</div>{% endfor %}</td>
+  <td class="num">{{ "%.3f"|format(c.kg) }} {{ c.unit }}</td>
+  <td class="num">{{ c.open_serials }}</td>
+  <td class="num">{% if c.thawed_pieces %}{{ c.thawed_pieces }} · {{ "%.2f"|format(c.thawed_kg) }}{% endif %}</td>
+  <td class="num">{% if c.min_stock is not none %}{{ "%.3f"|format(c.min_stock) }}{% endif %}</td>
+  <td class="num">{% if c.days_to_expiry is not none %}
+      <span class="tag {{ 'bad' if c.days_to_expiry <= 0 else ('warn' if c.days_to_expiry <= 3 else 'ok') }}">
+      {{ c.days_to_expiry }}</span>{% endif %}</td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="muted">{{ t("meat.no_cuts") }}</td></tr>
+{% endfor %}
+</table>
+</div>
+
+<h2>{{ t("meat.primals") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>SKU</th><th class="num">{{ t("meat.pieces") }}</th><th class="num">kg</th>
+    <th class="num">{{ t("meat.min") }}</th></tr>
+{% for p in status.primals %}
+<tr>
+  <td>{{ p.sku }}{% if p.below_par %} <span class="tag bad">{{ t("meat.min") }}</span>{% endif %}</td>
+  <td class="num">{{ p.pieces }}</td>
+  <td class="num">{{ "%.1f"|format(p.kg) }}</td>
+  <td class="num">{% if p.min_pieces is not none %}{{ p.min_pieces }}{% endif %}</td>
+</tr>
+{% else %}
+<tr><td colspan="4" class="muted">—</td></tr>
+{% endfor %}
+</table>
+</div>
+
+<div class="card">
+<form method="post" action="/carne/cierre">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="rowflex">
+    <div style="flex:1"><b>{{ t("meat.close_day") }}</b>
+      <div class="muted">{{ t("meat.close_help") }}</div></div>
+    <button type="submit">{{ t("meat.close_day") }}</button>
+  </div>
+</form>
+</div>
+{% endblock %}

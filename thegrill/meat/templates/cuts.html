@@ -1,0 +1,55 @@
+{% extends "base.html" %}{% block title %}{{ t("m.cut.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.cut.title") }}</h1>
+<p class="sub">{{ t("m.cut.sub") }}</p>
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+{% if user.role.value == "MANAGER" %}
+<div class="card">
+<form method="post" action="/cortes/nuevo">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid">
+    <div><label for="name">{{ t("m.cut.name") }}</label>
+      <input id="name" name="name" required placeholder="Striploin steak"></div>
+    <div><label for="rotation">{{ t("ing.rotation") }}</label>
+      <select id="rotation" name="rotation">
+        {% for r in rotations %}<option value="{{ r.value }}">{{ r.value }}</option>{% endfor %}
+      </select></div>
+    <div><label for="min_stock">{{ t("ing.min_stock") }}</label>
+      <input id="min_stock" name="min_stock" inputmode="decimal"></div>
+  </div>
+  <div class="help">{{ t("ing.rotation_help") }}</div>
+  <button class="wide" type="submit">{{ t("m.cut.new") }}</button>
+</form>
+</div>
+{% endif %}
+
+{% for c in cuts %}
+<div class="card">
+  <div class="rowflex">
+    <div style="flex:1">
+      <b>{{ c.name }}</b>
+      <div class="muted">{{ c.rotation.value }} ·
+        {{ "%.3f"|format(stock.get(c.id, 0)) }} kg ·
+        {% if costs.get(c.id) %}{{ "%.2f"|format(costs[c.id]) }} / kg
+        {% else %}<span class="tag bad">{{ t("ing.no_price") }}</span>{% endif %}
+        {% if c.min_stock is not none %} · {{ t("meat.min") }} {{ "%.3f"|format(c.min_stock) }}{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="muted" style="margin-top:8px">{{ t("m.cut.articles") }}:
+    {% for a in c.items %}{{ a.name }}{% if not loop.last %} · {% endif %}
+    {% else %}<span class="tag warn">{{ t("m.cut.no_articles") }}</span>{% endfor %}</div>
+  {% if user.role.value == "MANAGER" %}
+  <form method="post" action="/cortes/{{ c.id }}/articulo" class="rowflex" style="margin-top:10px">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input name="name" placeholder="{{ t("ing.item_name") }}" required style="flex:1">
+    <input name="supplier" placeholder="{{ t("ing.supplier") }}" style="flex:1">
+    <button class="ghost" type="submit">{{ t("m.cut.add_article") }}</button>
+  </form>
+  {% endif %}
+</div>
+{% else %}
+<div class="card"><p class="muted" style="margin:0">{{ t("m.cut.none") }}</p></div>
+{% endfor %}
+{% endblock %}

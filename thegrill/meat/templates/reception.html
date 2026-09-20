@@ -1,0 +1,64 @@
+{% extends "base.html" %}{% block title %}{{ t("m.rec.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.rec.title") }}</h1>
+<p class="sub">{{ t("m.rec.sub") }}</p>
+{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+<div class="card">
+<form method="post" action="/recepcion">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid">
+    <div><label for="lot">{{ t("m.rec.lot") }}</label>
+      <input id="lot" name="lot" placeholder="DXB20260910" required></div>
+    <div><label for="sku">{{ t("m.rec.sku") }}</label>
+      <input id="sku" name="sku" placeholder="Striploin AUS"></div>
+    <div><label for="grade">{{ t("m.rec.grade") }}</label>
+      <input id="grade" name="grade" placeholder="MB9+"></div>
+    <div><label for="origin">{{ t("m.rec.origin") }}</label>
+      <input id="origin" name="origin" placeholder="AUS"></div>
+    <div><label for="price_kg">{{ t("m.rec.price_kg") }}</label>
+      <input id="price_kg" name="price_kg" inputmode="decimal"></div>
+    <div><label for="use_by">{{ t("m.rec.use_by") }}</label>
+      <input id="use_by" name="use_by" type="date"></div>
+  </div>
+
+  <h2>{{ t("m.rec.serial") }}</h2>
+  <div class="scroll"><table>
+  <tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.kg") }}</th>
+      <th>{{ t("m.rec.price_kg") }}</th><th>{{ t("m.rec.sku") }}</th></tr>
+  {% for i in rows %}
+  <tr>
+    <td><input name="serial:{{ i }}" autocomplete="off" style="max-width:140px"></td>
+    <td><input name="kg:{{ i }}" inputmode="decimal" style="max-width:110px"></td>
+    <td><input name="price:{{ i }}" inputmode="decimal" style="max-width:110px"></td>
+    <td><input name="sku:{{ i }}" style="max-width:220px"></td>
+  </tr>
+  {% endfor %}
+  </table></div>
+  <div class="help">{{ t("m.rec.rows_help") }}</div>
+  <button class="wide" type="submit">{{ t("m.rec.submit") }}</button>
+</form>
+</div>
+
+<h2>{{ t("m.rec.recent") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.sku") }}</th><th>{{ t("m.rec.lot") }}</th>
+    <th class="num">kg</th><th class="num">{{ t("m.rec.cost") }}</th><th>{{ t("common.status") }}</th></tr>
+{% for p in recent %}
+<tr>
+  <td><a href="/trazabilidad?serial={{ p.serial }}">{{ p.serial }}</a></td>
+  <td>{{ p.sku }}{% if p.grade %} <span class="muted">{{ p.grade }}</span>{% endif %}
+      {% if p.origin %} <span class="muted">{{ p.origin }}</span>{% endif %}</td>
+  <td class="muted">{{ p.lot or "" }}</td>
+  <td class="num">{{ "%.2f"|format(p.weight_kg) }}</td>
+  <td class="num">{% if p.piece_cost_usd %}{{ "%.2f"|format(p.piece_cost_usd) }}{% endif %}</td>
+  <td><span class="tag {{ 'ok' if p.status.value == 'IN_STOCK' else '' }}">{{ p.status.value }}</span></td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="muted">{{ t("m.rec.none") }}</td></tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}

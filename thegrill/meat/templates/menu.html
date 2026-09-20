@@ -1,0 +1,61 @@
+{% extends "base.html" %}{% block title %}{{ t("m.menu.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.menu.title") }}</h1>
+<p class="sub">{{ t("m.menu.sub") }}</p>
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+<div class="card scroll">
+<table>
+<tr><th>{{ t("m.menu.dish") }}</th><th>{{ t("m.tg.cut_name") }}</th>
+    <th class="num">{{ t("m.menu.grams") }}</th><th>{{ t("sale.code") }}</th>
+    <th class="num">{{ t("rec.price") }}</th><th class="num">{{ t("m.menu.cost") }}</th>
+    <th class="num">{{ t("rec.food_cost") }}</th></tr>
+{% for r in rows %}
+<tr>
+  <td>{{ r.dish.name }}<div class="muted">{{ r.pos_name }}</div></td>
+  <td>{{ r.cut }}</td>
+  <td class="num">{{ "%.0f"|format(r.grams) }}</td>
+  <td class="muted">{{ r.pos_code or "" }}</td>
+  <td class="num">{% if r.dish.sale_price %}{{ "%.2f"|format(r.dish.sale_price) }}{% endif %}</td>
+  <td class="num">{{ "%.4f"|format(r.cost) }}</td>
+  <td class="num">{% if r.food_cost_pct is not none %}
+      {% set fc = r.food_cost_pct | ceil_pct %}
+      <span class="tag {{ 'bad' if fc > 35 else ('warn' if fc > 28 else 'ok') }}">{{ fc }}%</span>
+      {% else %}—{% endif %}</td>
+</tr>
+{% else %}
+<tr><td colspan="7" class="muted">{{ t("m.menu.none") }}</td></tr>
+{% endfor %}
+</table>
+</div>
+
+{% if user.role.value == "MANAGER" %}
+<h2>{{ t("m.menu.new") }}</h2>
+<div class="card">
+<form method="post" action="/carta/nuevo">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid">
+    <div><label for="name">{{ t("m.menu.dish") }}</label>
+      <input id="name" name="name" required placeholder="Entrecot a la brasa"></div>
+    <div><label for="cut_id">{{ t("m.tg.cut_name") }}</label>
+      <select id="cut_id" name="cut_id" required>
+        {% for c in cuts %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+      </select></div>
+    <div><label for="grams">{{ t("m.menu.grams") }}</label>
+      <input id="grams" name="grams" inputmode="decimal" required placeholder="330"></div>
+    <div><label for="sale_price">{{ t("rec.price") }}</label>
+      <input id="sale_price" name="sale_price" inputmode="decimal"></div>
+    <div><label for="vat_pct">{{ t("rec.vat") }}</label>
+      <input id="vat_pct" name="vat_pct" inputmode="decimal" value="10"></div>
+    <div><label for="pos_code">{{ t("sale.code") }}</label>
+      <input id="pos_code" name="pos_code" placeholder="1201"></div>
+    <div><label for="pos_name">{{ t("sale.pos_name") }}</label>
+      <input id="pos_name" name="pos_name" placeholder="ENTRECOT"></div>
+  </div>
+  <div class="help">{{ t("rec.vat_help") }}</div>
+  <div class="help">{{ t("sale.code_help") }}</div>
+  <button class="wide" type="submit">{{ t("m.menu.new") }}</button>
+</form>
+</div>
+{% endif %}
+{% endblock %}

@@ -92,6 +92,13 @@ salta una alerta: alguien no registró una entrada. Nunca queda stock negativo.
 
 ## La carne va por su cuenta
 
+> **Edición solo carne.** Para una cocina que lo que necesita controlar es la
+> carne, todo este capítulo existe como programa aparte, con su propio acceso y
+> su propia base de datos: **[Control de carnes](CARNES.md)**. Mismo motor,
+> sin recetas de cocina ni plantillas generales, y con las pantallas que aquí
+> no hay: recepción de primales, despiece y descongelado.
+
+
 Un primal no es un ingrediente cualquiera: es una pieza física que se convierte
 en varias cosas a la vez.
 
@@ -415,11 +422,12 @@ thegrill/
     recipes.py           Escandallo: explosión, árbol de costes y food cost
     defrost.py           Cuadre del descongelado y desvío contra la receta
     inventory.py         Conciliación del inventario físico, pieza a pieza
+  meat/                  Edición solo carne: ver CARNES.md
   orchestrator/chain.py  Cadena diaria idempotente con checkpoints y reintentos
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   344 tests
+tests/                   376 tests
 ```
 
 ## Uso

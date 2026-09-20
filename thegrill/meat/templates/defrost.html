@@ -1,0 +1,84 @@
+{% extends "base.html" %}{% block title %}{{ t("m.df.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.df.title") }}</h1>
+<p class="sub">{{ t("m.df.sub") }}</p>
+{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+<div class="grid">
+  <div class="card">
+    <b>{{ t("m.df.intake") }}</b>
+    <form method="post" action="/descongelado/salida">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="shift" value="{{ shift }}">
+      <label for="in_serial">{{ t("waste.serial") }}</label>
+      <select id="in_serial" name="serial" required>
+        {% for l in lots %}<option value="{{ l.serial }}">{{ l.serial }} · {{ l.lot_code or "" }}</option>{% endfor %}
+      </select>
+      <label for="in_pieces">{{ t("meat.pieces") }}</label>
+      <input id="in_pieces" name="pieces" inputmode="numeric" required>
+      <label for="in_kg">{{ t("m.df.kg") }}</label>
+      <input id="in_kg" name="total_kg" inputmode="decimal" required>
+      <label for="in_note">{{ t("m.df.note") }}</label>
+      <input id="in_note" name="note">
+      <button class="wide" type="submit">{{ t("m.df.submit_intake") }}</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <b>{{ t("m.df.count") }}</b>
+    <form method="post" action="/descongelado/recuento">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="shift" value="{{ shift }}">
+      <label for="c_serial">{{ t("waste.serial") }}</label>
+      <select id="c_serial" name="serial" required>
+        {% for s in states %}<option value="{{ s.serial }}">{{ s.serial }} · {{ s.ingredient }}</option>{% endfor %}
+        {% for l in lots %}<option value="{{ l.serial }}">{{ l.serial }}</option>{% endfor %}
+      </select>
+      <label for="c_pieces">{{ t("meat.pieces") }}</label>
+      <input id="c_pieces" name="pieces" inputmode="numeric" required>
+      <label for="c_kg">{{ t("m.df.kg") }}</label>
+      <input id="c_kg" name="total_kg" inputmode="decimal" required>
+      <label for="c_note">{{ t("m.df.note") }}</label>
+      <input id="c_note" name="note">
+      <button class="wide" type="submit">{{ t("m.df.submit_count") }}</button>
+    </form>
+  </div>
+</div>
+
+<h2>{{ t("m.df.state") }} · {{ on }}{% if shift %} · {{ shift }}{% endif %}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("waste.serial") }}</th><th>{{ t("rec.component") }}</th>
+    <th class="num">{{ t("m.df.opening") }}</th><th class="num">{{ t("m.df.taken") }}</th>
+    <th class="num">{{ t("m.df.left") }}</th><th class="num">{{ t("m.df.used") }}</th></tr>
+{% for s in states %}
+<tr>
+  <td><a href="/trazabilidad?serial={{ s.serial }}">{{ s.serial }}</a></td>
+  <td>{{ s.ingredient }}</td>
+  <td class="num">{{ s.opening_pieces }} · {{ "%.2f"|format(s.opening_kg) }}</td>
+  <td class="num">{{ s.intake_pieces }} · {{ "%.2f"|format(s.intake_kg) }}</td>
+  <td class="num">{% if s.closing_pieces is none %}<span class="tag warn">{{ t("m.df.pending_count") }}</span>
+      {% else %}{{ s.closing_pieces }} · {{ "%.2f"|format(s.closing_kg) }}{% endif %}</td>
+  <td class="num">{% if s.closing_pieces is not none %}
+      {{ s.opening_pieces + s.intake_pieces - s.closing_pieces }} ·
+      {{ "%.2f"|format(s.opening_kg + s.intake_kg - s.closing_kg) }}{% endif %}</td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="muted">{{ t("m.df.none") }}</td></tr>
+{% endfor %}
+</table>
+</div>
+
+<div class="card">
+<form method="post" action="/descongelado/cierre">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="shift" value="{{ shift }}">
+  <div class="rowflex">
+    <div style="flex:1"><b>{{ t("m.df.close") }}</b>
+      <div class="muted">{{ t("m.df.close_help") }}</div></div>
+    <button type="submit">{{ t("m.df.close") }}</button>
+  </div>
+</form>
+</div>
+{% endblock %}

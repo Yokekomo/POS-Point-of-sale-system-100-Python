@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% block title %}{{ t("sale.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("sale.title") }}</h1>
+<p class="sub">{{ t("sale.sub") }}</p>
+{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+
+{% if mapping %}
+<div class="card">
+<form method="post" action="/ventas">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="business_date">{{ t("common.date") }}</label>
+  <input id="business_date" type="date" name="business_date" value="{{ today }}">
+  <div class="scroll"><table>
+  <tr><th>{{ t("sale.code") }}</th><th>{{ t("sale.product") }}</th>
+      <th>{{ t("m.menu.dish") }}</th><th class="num">{{ t("sale.units") }}</th></tr>
+  {% for m in mapping %}
+  <tr>
+    <td class="muted">{{ m.pos_code or "" }}</td>
+    <td>{{ m.pos_name }}</td>
+    <td class="muted">{{ m.recipe.name }}</td>
+    <td class="num"><input name="units:{{ m.pos_name }}" type="number" step="any" min="0"
+        inputmode="decimal" style="max-width:120px"></td>
+  </tr>
+  {% endfor %}
+  </table></div>
+  <button class="wide" type="submit">{{ t("sale.discount") }}</button>
+</form>
+</div>
+{% else %}
+<div class="card"><p class="muted" style="margin:0">{{ t("sale.no_mapping") }}
+  <a href="/carta">{{ t("m.menu.new") }}</a></p></div>
+{% endif %}
+{% endblock %}

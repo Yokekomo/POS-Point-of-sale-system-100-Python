@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% block title %}{{ t("dl.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("dl.title") }}</h1>
+<p class="sub">{{ t("dl.sub") }}</p>
+<div class="card">
+  <div class="rowflex">
+    <div style="flex:1"><b>{{ t("dl.all_in_one") }}</b>
+      <div class="muted">{{ t("dl.all_in_one_help") }}</div></div>
+    <a class="btn" href="/descargas/todo.xlsx">{{ t("dl.download") }}</a>
+  </div>
+</div>
+<div class="banner warn">{{ t("dl.typing_note") }}</div>
+<div class="grid">
+{% for s in sheets %}
+  <div class="card">
+    <b>{{ t(s.title_key) }}</b>
+    <div class="muted" style="margin:4px 0 10px">{{ t("dl.columns") }}:
+      {{ s.columns | length + 2 }}</div>
+    <a class="btn ghost" href="/descargas/{{ s.code }}.xlsx">{{ t("dl.download") }}</a>
+  </div>
+{% endfor %}
+</div>
+<p class="help">{{ t("dl.rows_help") }}</p>
+{% endblock %}

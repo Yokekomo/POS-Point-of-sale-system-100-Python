@@ -1,0 +1,102 @@
+{% extends "base.html" %}{% block title %}{{ t("m.tg.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.tg.title") }}</h1>
+<p class="sub">{{ t("m.tg.sub") }}</p>
+{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if issues %}
+<div class="banner warn"><b>{{ t("m.tg.warnings") }}</b>
+  <ul style="margin:6px 0 0;padding-inline-start:18px">
+    {% for i in issues %}<li>{{ i }}</li>{% endfor %}</ul></div>
+{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+{% if not articles %}
+<div class="banner warn">{{ t("m.cut.no_articles") }} <a href="/cortes">{{ t("m.nav.cuts") }}</a></div>
+{% endif %}
+
+<div class="card">
+<form method="post" action="/despiece">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid">
+    <div><label for="tg">{{ t("m.tg.number") }}</label>
+      <input id="tg" name="tg" value="{{ tg }}" required></div>
+    <div><label for="date">{{ t("common.date") }}</label>
+      <input id="date" name="date" type="date" value="{{ today }}"></div>
+    <div><label for="staff">{{ t("m.tg.staff") }}</label>
+      <input id="staff" name="staff"></div>
+    <div><label for="before_kg">{{ t("m.tg.before_kg") }}</label>
+      <input id="before_kg" name="before_kg" inputmode="decimal" required></div>
+    <div><label for="waste_kg">{{ t("m.tg.waste_kg") }}</label>
+      <input id="waste_kg" name="waste_kg" inputmode="decimal" value="0"></div>
+  </div>
+
+  <h2>{{ t("m.tg.primals") }}</h2>
+  {% if primals %}
+  <div class="card scroll" style="margin:0 0 14px">
+  <table>
+  <tr><th></th><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.sku") }}</th>
+      <th class="num">kg</th><th class="num">{{ t("m.rec.cost") }}</th></tr>
+  {% for p in primals %}
+  <tr>
+    <td><input type="checkbox" name="primal" value="{{ p.serial }}" id="p{{ p.id }}"></td>
+    <td><label for="p{{ p.id }}" style="margin:0">{{ p.serial }}</label></td>
+    <td>{{ p.sku }}</td>
+    <td class="num">{{ "%.2f"|format(p.weight_kg) }}</td>
+    <td class="num">{% if p.piece_cost_usd %}{{ "%.2f"|format(p.piece_cost_usd) }}{% endif %}</td>
+  </tr>
+  {% endfor %}
+  </table>
+  </div>
+  <div class="help">{{ t("m.tg.pick_primals") }}</div>
+  {% else %}
+  <p class="muted">{{ t("m.tg.no_primals") }} <a href="/recepcion">{{ t("m.nav.reception") }}</a></p>
+  {% endif %}
+
+  <h2>{{ t("m.tg.cuts") }}</h2>
+  <div class="scroll"><table>
+  <tr><th>{{ t("m.tg.cut_name") }}</th><th>{{ t("m.tg.article") }}</th>
+      <th class="num">{{ t("meat.pieces") }}</th><th class="num">{{ t("m.tg.g_piece") }}</th>
+      <th class="num">{{ t("m.tg.value_index") }}</th><th>{{ t("m.tg.trim") }}</th></tr>
+  {% for i in rows %}
+  <tr>
+    <td><input name="cut:{{ i }}" style="max-width:200px" autocomplete="off"></td>
+    <td><select name="item:{{ i }}" style="max-width:240px">
+        <option value="">—</option>
+        {% for a in articles %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+      </select></td>
+    <td><input name="pieces:{{ i }}" inputmode="numeric" style="max-width:90px"></td>
+    <td><input name="grams:{{ i }}" inputmode="decimal" style="max-width:110px"></td>
+    <td><input name="index:{{ i }}" inputmode="decimal" placeholder="1" style="max-width:90px"></td>
+    <td><input type="checkbox" name="trim:{{ i }}" value="1"></td>
+  </tr>
+  {% endfor %}
+  </table></div>
+  <div class="help">{{ t("m.tg.rows_help") }}</div>
+  <div class="help">{{ t("m.tg.index_help") }}</div>
+  <button class="wide" type="submit">{{ t("m.tg.submit") }}</button>
+</form>
+</div>
+
+<h2>{{ t("m.tg.recent") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("m.tg.number") }}</th><th>{{ t("common.date") }}</th>
+    <th class="num">{{ t("m.tg.before_kg") }}</th><th class="num">{{ t("meat.cuts") }}</th>
+    <th class="num">{{ t("trace.trim") }}</th><th class="num">{{ t("m.tg.waste_kg") }}</th>
+    <th class="num">{{ t("trace.yield") }}</th></tr>
+{% for d in recent %}
+<tr>
+  <td>{{ d.tg }}{% for p in d.primals %} <a class="muted" href="/trazabilidad?serial={{ p.serial }}">{{ p.serial }}</a>{% endfor %}</td>
+  <td>{{ d.date }}</td>
+  <td class="num">{{ "%.2f"|format(d.weight_before_kg) }}</td>
+  <td class="num">{{ "%.2f"|format(d.total_cuts_kg) }}</td>
+  <td class="num">{{ "%.2f"|format(d.trim_kg) }}</td>
+  <td class="num">{{ "%.2f"|format(d.waste_kg) }}</td>
+  <td class="num">{% if d.yield_pct %}{{ "%.1f"|format(d.yield_pct) }}%{% endif %}</td>
+</tr>
+{% else %}
+<tr><td colspan="7" class="muted">{{ t("m.tg.none") }}</td></tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}

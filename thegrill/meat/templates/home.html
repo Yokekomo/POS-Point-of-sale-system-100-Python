@@ -1,0 +1,56 @@
+{% extends "base.html" %}{% block title %}{{ t("m.home.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.home.title") }}</h1>
+<p class="sub">{{ t("m.home.sub") }}</p>
+
+{% if info.pending %}
+<div class="card">
+  <b>{{ t("m.home.todo") }}</b>
+  <ul style="margin:8px 0 0;padding-inline-start:18px">
+    {% for line in info.pending %}<li>{{ line }}</li>{% endfor %}
+  </ul>
+</div>
+{% else %}
+<div class="banner ok">{{ t("m.home.nothing") }}</div>
+{% endif %}
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+  <div class="kpi"><b>{{ info.status.total_primals }}</b><span>{{ t("meat.primals") }}</span></div>
+  <div class="kpi"><b>{{ "%.1f"|format(info.status.total_cut_kg) }}</b><span>{{ t("meat.cuts") }} (kg)</span></div>
+  <div class="kpi"><b>{{ info.thawing }}</b><span>{{ t("m.df.title") }}</span></div>
+  <div class="kpi"><b>{{ "%.0f"|format(info.stock_value) }}</b><span>{{ t("m.home.stock_value") }}</span></div>
+</div>
+
+<h2>{{ t("m.home.shortcuts") }}</h2>
+<div class="grid">
+  <a class="tile" href="/recepcion"><b>{{ t("m.nav.reception") }}</b><span>{{ t("meat.primals") }}</span></a>
+  <a class="tile" href="/despiece"><b>{{ t("m.nav.butchery") }}</b><span>{{ t("meat.cuts") }}</span></a>
+  <a class="tile" href="/descongelado"><b>{{ t("m.nav.defrost") }}</b><span>{{ t("m.df.count") }}</span></a>
+  <a class="tile" href="/carne"><b>{{ t("m.nav.chamber") }}</b><span>{{ t("ing.stock") }}</span></a>
+  <a class="tile" href="/inventario"><b>{{ t("inv.title") }}</b><span>{{ t("inv.period.MONTHLY") }}</span></a>
+  <a class="tile" href="/merma"><b>{{ t("waste.title") }}</b><span>{{ t("waste.kg") }}</span></a>
+  <a class="tile" href="/trazabilidad"><b>{{ t("trace.title") }}</b><span>{{ t("m.rec.serial") }}</span></a>
+  <a class="tile" href="/ventas"><b>{{ t("sale.title") }}</b><span>{{ t("sale.discount") }}</span></a>
+</div>
+
+{% if info.status.cuts_below or info.status.expiring %}
+<h2>{{ t("meat.below_par") }} · {{ t("meat.expiring_soon") }}</h2>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("m.tg.cut_name") }}</th><th class="num">{{ t("ing.stock") }}</th>
+    <th class="num">{{ t("meat.min") }}</th><th class="num">{{ t("meat.expiry_days") }}</th></tr>
+{% for c in info.status.cuts_below + info.status.expiring %}
+<tr>
+  <td>{{ c.name }}</td>
+  <td class="num">{{ "%.3f"|format(c.kg) }}</td>
+  <td class="num">{% if c.min_stock is not none %}{{ "%.3f"|format(c.min_stock) }}{% endif %}</td>
+  <td class="num">{% if c.days_to_expiry is not none %}
+      {% if c.days_to_expiry <= 3 %}
+        <span class="tag {{ 'bad' if c.days_to_expiry <= 0 else 'warn' }}">{{ c.days_to_expiry }}</span>
+      {% else %}{{ c.days_to_expiry }}{% endif %}{% endif %}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endif %}
+{% endblock %}

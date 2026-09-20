@@ -17,6 +17,9 @@ def main(argv=None):
     w = sub.add_parser("serve", help="arranca la plataforma web")
     w.add_argument("--host", default="127.0.0.1")
     w.add_argument("--port", type=int, default=8000)
+    m = sub.add_parser("serve-carne", help="arranca la edición de control de carnes")
+    m.add_argument("--host", default="127.0.0.1")
+    m.add_argument("--port", type=int, default=8001)
     args = p.parse_args(argv)
 
     db.init_engine(args.db)
@@ -35,6 +38,11 @@ def main(argv=None):
         import uvicorn
 
         from thegrill.web.app import create_app
+        uvicorn.run(create_app(args.db), host=args.host, port=args.port)
+    elif args.cmd == "serve-carne":
+        import uvicorn
+
+        from thegrill.meat.app import create_app
         uvicorn.run(create_app(args.db), host=args.host, port=args.port)
 
 
