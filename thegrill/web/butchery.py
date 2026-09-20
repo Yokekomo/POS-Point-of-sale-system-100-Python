@@ -410,19 +410,25 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
     return result
 
 
-def piece_label(nominal_g: float | None, real_g: float | None) -> str:
-    """«330 g (~354 g)»: lo que se vende en carta y lo que sale de verdad.
+def piece_label(nominal_g: float | None, real_g: float | None,
+                food_cost_pct: float | None = None) -> str:
+    """«330 g (~354 g · 31,8 % FC)»: lo de carta y lo que pasa de verdad.
 
     Delante va el peso de la carta, que es el que ve el cliente y con el que se
-    hace el escandallo. Entre paréntesis, el promedio real del despiece: los
-    kilos pesados entre las piezas que salieron. Solo se muestra si difiere,
-    porque un paréntesis que repite el mismo número no dice nada.
+    hace el escandallo. Entre paréntesis, la realidad: el promedio que salió del
+    despiece, y el food cost al que está saliendo ese corte. El peso solo se
+    repite si difiere, porque un paréntesis con el mismo número no dice nada.
     """
-    if not nominal_g:
-        return f"~{real_g:.10g} g" if real_g else ""
-    if not real_g or abs(real_g - nominal_g) / nominal_g < 0.005:
-        return f"{nominal_g:.10g} g"
-    return f"{nominal_g:.10g} g (~{real_g:.10g} g)"
+    inside = []
+    if real_g and (not nominal_g or abs(real_g - nominal_g) / nominal_g >= 0.005):
+        inside.append(f"~{real_g:.10g} g")
+    if food_cost_pct is not None:
+        inside.append(f"{food_cost_pct:.1f} % FC")
+
+    head = f"{nominal_g:.10g} g" if nominal_g else ""
+    if not head:
+        return " · ".join(inside)
+    return f"{head} ({' · '.join(inside)})" if inside else head
 
 
 def lot_label(lot) -> str:

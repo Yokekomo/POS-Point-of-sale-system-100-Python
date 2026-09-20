@@ -108,14 +108,18 @@ el kilo cuando el despiece rinde al ochenta por ciento, y a treinta y tres si
 rinde al sesenta. Eso es lo que hay que ver.
 
 **La etiqueta del corte.** Cada lote guarda cuántas piezas salieron, el peso de
-carta, la calidad y la procedencia, y se lee «330 g (~352 g) · MB9+ · AUS» sin
-ir a buscar el despiece.
+carta, la calidad y la procedencia, y se lee «330 g (~352 g · 40,1 % FC) ·
+MB9+ · AUS» sin ir a buscar el despiece.
 
 Delante va el peso de carta, el que se vende y con el que se hace el
-escandallo. Entre paréntesis, el promedio real: los kilos pesados entre las
-piezas que salieron. Cortando a mano no hay precisión de gramo, así que lo
-único fiable es el total y el recuento, y el peso por pieza es un promedio que
-se deduce de ambos. Si el corte sale clavado, el paréntesis no aparece.
+escandallo. Entre paréntesis, la realidad: el promedio que salió y el food cost
+al que está saliendo ese corte.
+
+El promedio son los kilos pesados entre las piezas que salieron. Cortando a
+mano no hay precisión de gramo, así que lo único fiable es el total y el
+recuento, y el peso por pieza se deduce de ambos. Si el corte sale clavado, el
+peso no se repite. El food cost solo aparece cuando ya se ha vendido algo:
+antes de eso no hay número que dar.
 
 Ese promedio contra el objetivo dice si se está cortando de más: un despiece
 que se pasa del diez por ciento lo avisa al volcarlo. Y con él, los kilos que
@@ -388,7 +392,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   314 tests
+tests/                   316 tests
 ```
 
 ## Uso

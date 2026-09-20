@@ -374,3 +374,32 @@ def test_the_pieces_left_follow_the_real_average(ctx):
     corte = tracing.history(s, rest.id, "8017").butchery.cuts[0]
     assert corte.avg_piece_g == 390
     assert corte.remaining_pieces == 20               # nada vendido todavía
+
+
+def test_the_label_shows_the_food_cost_of_that_cut(ctx):
+    """Lo que interesa de un vistazo: cuánto pesa de verdad y a qué FC sale."""
+    s, rest, ana, luis = ctx
+    montar_burger(s, rest, ana)
+    filete = next(c for c in tracing.history(s, rest.id, "8017").butchery.cuts
+                  if not c.is_trim)
+    assert filete.food_cost_pct is None
+    assert "FC" not in filete.label              # sin ventas no hay food cost que dar
+
+    costing.consume_sales(s, luis, [("ENTRECOT", 6)], on=HOY)
+
+    filete = next(c for c in tracing.history(s, rest.id, "8017").butchery.cuts
+                  if not c.is_trim)
+    assert filete.food_cost_pct is not None
+    assert f"{filete.food_cost_pct:.1f} % FC" in filete.label
+    assert filete.label.startswith("250 g (")    # el peso de carta sigue delante
+
+
+def test_a_cut_on_target_shows_only_its_food_cost(ctx):
+    s, rest, ana, luis = ctx
+    montar_burger(s, rest, ana)
+    costing.consume_sales(s, luis, [("ENTRECOT", 4)], on=HOY)
+    filete = next(c for c in tracing.history(s, rest.id, "8017").butchery.cuts
+                  if not c.is_trim)
+    assert filete.avg_piece_g == filete.nominal_piece_g == 250
+    assert "~" not in filete.label               # clavado: no se repite el peso
+    assert "% FC" in filete.label and filete.label.startswith("250 g (")

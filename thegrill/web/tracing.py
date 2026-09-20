@@ -85,14 +85,16 @@ class CutNode:
 
     @property
     def label(self) -> str:
-        """«330 g (~354 g) · MB9+ · AUS».
+        """«330 g (~354 g · 31,8 % FC) · MB9+ · AUS».
 
         Delante el peso de carta, que es lo que se vende y lo que manda en el
-        escandallo. Entre paréntesis el promedio real que salió del despiece.
+        escandallo. Entre paréntesis la realidad: el promedio que salió y el
+        food cost al que está saliendo el corte. El food cost solo aparece
+        cuando ya se ha vendido algo: antes de eso no hay número que dar.
         """
         from thegrill.web.butchery import piece_label
         bits = []
-        weight = piece_label(self.nominal_piece_g, self.avg_piece_g)
+        weight = piece_label(self.nominal_piece_g, self.avg_piece_g, self.food_cost_pct)
         if weight:
             bits.append(weight)
         if self.grade:
