@@ -1,0 +1,103 @@
+{% extends "base.html" %}{% block title %}{{ t("trace.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("trace.title") }}</h1>
+<p class="sub">{{ t("trace.sub") }}</p>
+
+<div class="card">
+<form method="get" action="/trazabilidad" class="rowflex">
+  <input name="serial" value="{{ serial }}" placeholder="{{ t("trace.search") }}"
+         style="flex:1" autofocus>
+  <button type="submit">{{ t("records.filter") }}</button>
+</form>
+</div>
+
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if matches %}
+<div class="card">
+  {% for p in matches %}
+    <div><a href="/trazabilidad?serial={{ p.serial }}">{{ p.serial }}</a>
+      <span class="muted">· {{ p.sku }} · {{ p.lot or "" }}</span></div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if history %}
+{% set h = history %}
+<h2>{{ h.serial }} · {{ h.sku }}</h2>
+<p class="sub">{{ t("trace.lot") }}: {{ h.lot or "—" }} ·
+   {{ t("trace.received") }}: {{ h.received or "—" }} ·
+   {{ h.weight_kg }} kg · {{ t("trace.cost") }}: {{ "%.2f"|format(h.cost) }}
+   {% if h.sold_out %}<span class="tag ok">{{ t("trace.sold_out") }}</span>{% endif %}
+   {% if h.suspect_phantom %}<span class="tag bad">{{ t("trace.suspect") }}</span>{% endif %}</p>
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+  <div class="kpi"><b>{{ "%.2f"|format(h.revenue) }}</b><span>{{ t("trace.revenue") }}</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(h.margin) }}</b><span>{{ t("trace.margin") }}</span></div>
+  {% if h.food_cost_pct is not none %}
+  <div class="kpi"><b>{{ "%.1f"|format(h.food_cost_pct) }}%</b><span>{{ t("rec.food_cost") }}</span>
+    <div class="bar"><i style="width:{{ [h.food_cost_pct, 100] | min }}%"></i></div></div>
+  {% endif %}
+  {% if h.recovered_pct is not none %}
+  <div class="kpi"><b>{{ "%.0f"|format(h.recovered_pct) }}%</b><span>{{ t("trace.recovered") }}</span></div>
+  {% endif %}
+  <div class="kpi"><b>{{ "%.3f"|format(h.remaining_kg) }}</b><span>{{ t("trace.remaining") }}</span></div>
+  <div class="kpi"><b>{{ "%.3f"|format(h.waste_kg) }}</b><span>{{ t("trace.waste_kg") }}</span></div>
+</div>
+
+{% if not h.butchery %}
+<div class="card"><p class="muted" style="margin:0">{{ t("trace.whole") }}</p></div>
+{% else %}
+<h2>{{ t("trace.butchery") }} {{ h.butchery.tg }}</h2>
+<p class="sub">{{ h.butchery.date }} · {{ t("trace.yield") }}:
+   {{ "%.1f"|format(h.butchery.yield_pct or 0) }}% ·
+   {{ t("trace.waste_kg") }}: {{ h.butchery.waste_kg }}
+   {% if h.butchery.shared_with %} · {{ t("trace.shared") }}:
+     {% for other in h.butchery.shared_with %}<a href="/trazabilidad?serial={{ other }}">{{ other }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+   {% endif %}</p>
+
+{% for cut in h.butchery.cuts %}
+<div class="card">
+  <div class="rowflex">
+    <b style="flex:1">{{ cut.name }} <span class="muted">{{ cut.serial }}</span>
+      {% if cut.is_trim %}<span class="tag warn">{{ t("trace.trim") }}</span>{% endif %}</b>
+    <span class="muted">{{ "%.4f"|format(cut.unit_cost) }} / {{ cut.unit }}</span>
+  </div>
+  <div class="scroll"><table>
+  <tr><th class="num">{{ t("trace.produced") }}</th><th class="num">{{ t("trace.sold") }}</th>
+      <th class="num">{{ t("trace.remaining") }}</th><th class="num">{{ t("trace.waste_kg") }}</th>
+      <th class="num">{{ t("trace.revenue") }}</th><th class="num">{{ t("rec.food_cost") }}</th>
+      <th class="num">{{ t("trace.unaccounted") }}</th></tr>
+  <tr>
+    <td class="num">{{ "%.3f"|format(cut.produced_kg) }}</td>
+    <td class="num">{{ "%.3f"|format(cut.sold_kg) }}</td>
+    <td class="num">{{ "%.3f"|format(cut.remaining_kg) }}</td>
+    <td class="num">{{ "%.3f"|format(cut.waste_kg) }}</td>
+    <td class="num">{{ "%.2f"|format(cut.revenue) }}</td>
+    <td class="num">{% if cut.food_cost_pct is not none %}{{ "%.1f"|format(cut.food_cost_pct) }}%{% endif %}</td>
+    <td class="num">{% if cut.unaccounted_kg %}<span class="tag bad">{{ "%.3f"|format(cut.unaccounted_kg) }}</span>{% endif %}</td>
+  </tr>
+  </table></div>
+
+  {% if cut.sales %}
+  <div class="scroll" style="margin-top:8px"><table>
+  <tr><th>{{ t("common.date") }}</th><th>{{ t("trace.dish") }}</th>
+      <th class="num">kg</th><th class="num">{{ t("rec.line_cost") }}</th>
+      <th class="num">{{ t("trace.revenue") }}</th></tr>
+  {% for line in cut.sales %}
+  <tr>
+    <td class="when">{{ line.date }}</td>
+    <td>{{ line.dish }} <span class="muted">{{ line.source }}</span></td>
+    <td class="num">{{ "%.3f"|format(line.kg) }}</td>
+    <td class="num">{{ "%.2f"|format(line.cost) }}</td>
+    <td class="num">{{ "%.2f"|format(line.revenue) }}</td>
+  </tr>
+  {% endfor %}
+  </table></div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+<p class="muted">{{ t("trace.attribution") }}</p>
+{% endif %}
+{% endblock %}

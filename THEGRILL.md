@@ -182,6 +182,25 @@ quedó a medias. Lo esperado se relee al cerrar, no al abrir, para que el ajuste
 cuadre contra el estado de ese momento aunque se haya vendido mientras se
 contaba.
 
+## La historia de una pieza
+
+Se mete el número de serie de un primal y sale todo lo que pasó con él: el
+despiece del que salió y con qué rendimiento, cada corte con su propio serial,
+lo que se vendió de cada uno y en qué plato, lo que se tiró, lo que queda y los
+kilos que no cuadran.
+
+Arriba, el resumen de la pieza: lo que costó, lo que ingresó, lo ganado, su
+food cost real y qué parte del coste ya se ha recuperado.
+
+**Cómo se reparte el ingreso.** Cada venta reparte el precio del plato sin
+impuestos entre sus ingredientes, en proporción a lo que cuesta cada uno dentro
+del plato. Un coste C dentro de un plato que convierte Cd de coste en Pd de
+ingreso aporta C × Pd / Cd. Lo que cae sobre un corte de esta pieza es lo que
+se le atribuye, y por eso cada salida de almacén deja escrito a qué plato fue.
+
+Para la carne que se descuenta por conteo de descongelado, que no nombra el
+plato, se reparte con la media de los platos que usan ese ingrediente.
+
 ## Cuando la pieza aparece
 
 Dar una pieza por perdida no es definitivo. Si el primal o el corte aparecen
@@ -334,7 +353,8 @@ thegrill/
     costing.py           Precios reales, rotación de lotes y descuento por venta
     butchery.py          Del primal a los cortes, con reparto de coste, serial propio y stock diario
     defrost.py           Descongelado, recuento de cierre y peso real por pieza
-    inventory.py         Inventario semanal o mensual que re-ancla el stock
+    inventory.py         Inventario mensual que re-ancla el stock, y recuperación de piezas
+    tracing.py           Historia de un primal y reparto del ingreso
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
     service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV
@@ -351,7 +371,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   282 tests
+tests/                   298 tests
 ```
 
 ## Uso

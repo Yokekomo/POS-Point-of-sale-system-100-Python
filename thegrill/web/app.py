@@ -24,7 +24,7 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, Co
                              RecipeKind, RecipeLine, Restaurant, Role, Rotation,
                              TemplateField, Unit, User)
 
-from thegrill.web import auth, butchery, costing, i18n, inventory, service, sheets
+from thegrill.web import auth, butchery, costing, i18n, inventory, service, sheets, tracing
 from thegrill.web.seed import seed_templates
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
@@ -577,6 +577,25 @@ def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(require_u
     _guard(request, session, user, auth_session, csrf)
     result = butchery.close_day(session, user)
     return RedirectResponse(f"/carne?closed={len(result.alerts)}", status_code=303)
+
+
+# ==================================================== TRAZABILIDAD
+@app.get("/trazabilidad", response_class=HTMLResponse)
+def tracing_page(request: Request, ctx=Depends(require_user),
+                 session: Session = Depends(get_db), serial: str = ""):
+    """La historia de una pieza, de la recepción al plato."""
+    user, auth_session = ctx
+    history = error = None
+    matches = []
+    if serial.strip():
+        try:
+            history = tracing.history(session, user.restaurant_id, serial)
+        except tracing.NotFound:
+            matches = tracing.search(session, user.restaurant_id, serial)
+            if not matches:
+                error = i18n.t(lang_for(request, session, user), "trace.not_found")
+    return page(request, "tracing.html", user, auth_session, session,
+                serial=serial, history=history, matches=matches, error=error)
 
 
 # ====================================================== INVENTARIO

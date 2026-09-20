@@ -1,7 +1,8 @@
 {% extends "base.html" %}{% block title %}{{ t("meat.title") }}{% endblock %}
 {% block body %}
 <h1>{{ t("meat.title") }}</h1>
-<p class="sub">{{ t("meat.sub") }} · <a href="/inventario">{{ t("inv.title") }}</a></p>
+<p class="sub">{{ t("meat.sub") }} · <a href="/inventario">{{ t("inv.title") }}</a> ·
+  <a href="/trazabilidad">{{ t("nav.tracing") }}</a></p>
 
 {% if closed %}
   {% if closed == "0" %}<div class="banner ok">{{ t("meat.all_good") }}</div>

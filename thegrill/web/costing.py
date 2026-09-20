@@ -199,6 +199,9 @@ def consume_sales(session: Session, user: User, sales: list[tuple[str, float]],
     result = ConsumptionResult(date=on)
 
     mapping = pos_index(session, user.restaurant_id)
+    # Se descuenta plato a plato, no todo junto: así cada salida deja escrito
+    # a qué plato fue, y luego se puede repartir lo que ingresó.
+    by_dish: list[tuple[str, dict[int, float]]] = []
     needed: dict[int, float] = {}
     for pos_name, units in sales:
         if units <= 0:
@@ -210,28 +213,39 @@ def consume_sales(session: Session, user: User, sales: list[tuple[str, float]],
         result.lines += 1
         session.add(SalesByProduct(restaurant_id=user.restaurant_id, op_date=on,
                                    pos_name=product.pos_name, units=int(units)))
-        for ingredient_id, qty in explode(product.recipe, units).items():
+        exploded = explode(product.recipe, units)
+        by_dish.append((product.pos_name, exploded))
+        for ingredient_id, qty in exploded.items():
             needed[ingredient_id] = round(needed.get(ingredient_id, 0.0) + qty, 6)
 
     ingredients = {i.id: i for i in session.query(Ingredient)
                    .filter(Ingredient.restaurant_id == user.restaurant_id,
                            Ingredient.id.in_(needed or [0]))}
-    for ingredient_id, qty in needed.items():
-        ingredient = ingredients.get(ingredient_id)
-        if ingredient is None:
-            continue
-        if ingredient.consumption == ConsumptionMode.COUNT:
-            # Esta carne se descuenta por el conteo de descongelado, no aquí:
-            # descontarla dos veces sería inventarse el doble de consumo.
-            result.theoretical[ingredient_id] = qty
-            continue
-        cost, missing = take_from_stock(session, user, ingredient, qty,
-                                        MovementKind.SALE, on, "pos", f"ventas {on}")
-        result.cost = round(result.cost + cost, 6)
-        result.consumed[ingredient_id] = qty
-        if missing > EPSILON:
-            result.shortfalls.append(Shortfall(ingredient_id, ingredient.name, missing,
-                                               ingredient.unit.value))
+    missing_total: dict[int, float] = {}
+    for pos_name, exploded in by_dish:
+        for ingredient_id, qty in exploded.items():
+            ingredient = ingredients.get(ingredient_id)
+            if ingredient is None:
+                continue
+            if ingredient.consumption == ConsumptionMode.COUNT:
+                # Esta carne se descuenta por el conteo de descongelado, no aquí:
+                # descontarla dos veces sería inventarse el doble de consumo.
+                result.theoretical[ingredient_id] = round(
+                    result.theoretical.get(ingredient_id, 0.0) + qty, 6)
+                continue
+            cost, missing = take_from_stock(session, user, ingredient, qty,
+                                            MovementKind.SALE, on, "pos", pos_name)
+            result.cost = round(result.cost + cost, 6)
+            result.consumed[ingredient_id] = round(
+                result.consumed.get(ingredient_id, 0.0) + qty, 6)
+            if missing > EPSILON:
+                missing_total[ingredient_id] = round(
+                    missing_total.get(ingredient_id, 0.0) + missing, 6)
+
+    for ingredient_id, missing in missing_total.items():
+        ingredient = ingredients[ingredient_id]
+        result.shortfalls.append(Shortfall(ingredient_id, ingredient.name, missing,
+                                           ingredient.unit.value))
 
     _raise_alerts(session, user, result, lang)
     return result
