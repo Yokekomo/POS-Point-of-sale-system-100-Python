@@ -27,7 +27,7 @@ entonces marca la cookie como segura y manda HSTS.
 Para probarlo sin dominio, en tu portátil:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.lock      # las versiones exactas, las probadas
 python -m thegrill.cli --db sqlite:///carnes.db crear-dueno \
     --email tu@correo.com --nombre "Tú" --password "una-clave-larga"
 GRILL_INSECURE_COOKIE=1 python -m thegrill.cli --db sqlite:///carnes.db \

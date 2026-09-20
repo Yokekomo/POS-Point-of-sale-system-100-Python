@@ -1,0 +1,44 @@
+# Las versiones exactas con las que este código está probado.
+#
+# `requirements.txt` dice qué hace falta y admite versiones nuevas: sirve para
+# desarrollar. Este fichero dice con cuáles funciona de verdad, y es el que se
+# instala en el servidor: un despliegue de un martes no puede traer una
+# librería distinta de la del lunes solo porque haya salido.
+#
+#     pip install -r requirements.lock
+#
+# Para subir una versión: se cambia aquí, se pasan las pruebas, y se sube el
+# cambio como cualquier otro. Nunca al revés.
+#
+# Rehacer la lista después de actualizar algo:
+#     python -m scripts.lock > requirements.lock
+
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+certifi==2026.2.25
+click==8.5.0
+cryptography==41.0.7
+et-xmlfile==2.0.0
+fastapi==0.141.1
+greenlet==3.5.5
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.11
+iniconfig==2.3.0
+jinja2==3.1.6
+markupsafe==3.0.3
+openpyxl==3.1.5
+packaging==24.0
+pluggy==1.6.0
+pydantic==2.13.5
+pydantic-core==2.46.5
+pygments==2.21.0
+pytest==9.1.1
+python-multipart==0.0.32
+sqlalchemy==2.0.52
+starlette==1.6.0
+typing-extensions==4.16.0
+typing-inspection==0.4.4
+uvicorn==0.53.0

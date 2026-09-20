@@ -76,6 +76,17 @@ SHEETS: list[Sheet] = [
         Column("inv.gap", "0", 10),
         Column("m.df.note", "", 22),
     ]),
+    Sheet("maduracion", "m.ag.title", "m.ag.sub", [
+        Column("m.rec.serial", "8017", 12),
+        Column("m.rec.sku", "Ribeye AUS", 22),
+        Column("m.ag.where", "Maduración", 14),
+        Column("m.ag.days", "45", 8),
+        Column("m.ag.weigh_kg", "7,6", 12),
+        Column("m.ag.trim", "1,2", 12),
+        Column("m.tg.trim", "0,3", 12),
+        Column("m.ag.waste_kg", "0,9", 12),
+        Column("m.df.note", "", 20),
+    ]),
     Sheet("merma", "waste.title", "waste.sub", [
         Column("waste.lot", "TG-0010", 14),
         Column("waste.serial", "8017-01", 14),

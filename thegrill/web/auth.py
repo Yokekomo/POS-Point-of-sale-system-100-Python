@@ -57,6 +57,28 @@ def verify_password(password: str, stored: str) -> bool:
     return hmac.compare_digest(dk.hex(), digest)
 
 
+def set_password(session: Session, user: User, new: str, *, current: str | None = None,
+                 close_others: str | None = None, lang: str = DEFAULT_LANG) -> None:
+    """Cambia la contraseña de alguien y cierra sus otras sesiones.
+
+    Si se pasa `current`, hay que acertarla: es el caso de uno cambiando la
+    suya. Cuando la cambia un manager o el dueño no se pide, porque la persona
+    precisamente no la sabe.
+
+    Cambiar la contraseña echa de todas las sesiones abiertas menos de la que
+    la está cambiando: si alguien había entrado con la vieja, deja de estar
+    dentro. Eso es media razón para cambiarla.
+    """
+    if current is not None and not verify_password(current, user.password_hash or ""):
+        raise AuthError(t(lang, "auth.wrong_current"))
+    user.password_hash = hash_password(new, lang=lang)
+    session.query(AuthSession).filter(
+        AuthSession.user_id == user.id,
+        AuthSession.token_hash != (_token_hash(close_others) if close_others else "")
+    ).delete(synchronize_session=False)
+    session.flush()
+
+
 def normalize_email(email: str, lang: str = DEFAULT_LANG) -> str:
     email = (email or "").strip().lower()
     if not EMAIL_RE.match(email):

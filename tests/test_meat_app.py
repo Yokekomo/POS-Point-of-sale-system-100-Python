@@ -573,8 +573,9 @@ def test_everything_in_one_workbook_has_one_tab_per_sheet(client):
 
     from openpyxl import load_workbook
     signup(client)
+    from thegrill.meat import sheets_meat
     wb = load_workbook(io.BytesIO(client.get("/descargas/todo.xlsx").content))
-    assert len(wb.sheetnames) == 5
+    assert len(wb.sheetnames) == len(sheets_meat.SHEETS) == 6
 
 
 def test_an_unknown_sheet_is_not_a_download(client):
@@ -621,3 +622,28 @@ def test_the_front_page_says_which_program_this_is_before_logging_in(client):
         assert "Gestión de cocina" not in html, path
     ingles = client.get("/login", headers={"accept-language": "en"}).text
     assert "Meat control" in ingles and "Kitchen management" not in ingles
+
+
+def test_there_is_a_printable_sheet_for_the_aging_fridge(client):
+    """Se pesa de pie al lado de la nevera: esa hoja también se imprime."""
+    import io
+
+    from openpyxl import load_workbook
+    from tests import meat_helpers as helpers
+
+    helpers.signup(client)
+    pantalla = client.get("/descargas")
+    assert pantalla.status_code == 200
+    assert "Maduración y congelador" in pantalla.text
+    assert "/descargas/maduracion.xlsx" in pantalla.text
+
+    hoja = client.get("/descargas/maduracion.xlsx")
+    assert hoja.status_code == 200
+    libro = load_workbook(io.BytesIO(hoja.content))
+    cabecera = [c.value for c in libro.active[8]]
+    assert "Peso de hoy (kg)" in cabecera and "Limpieza" in cabecera
+    assert "Lo que se tira" in cabecera
+
+    todas = client.get("/descargas/todo.xlsx")
+    libro = load_workbook(io.BytesIO(todas.content))
+    assert any("aduraci" in nombre for nombre in libro.sheetnames)

@@ -284,7 +284,7 @@ async def submit_request(request: Request, session: Session = Depends(get_db)):
                     plans=list(Plan), sub=data, trial_days=billing.TRIAL_DAYS,
                     retention_days=privacy.RETENTION_DAYS)
 
-    if not security.form_allowed(client_ip(request)):
+    if not security.form_allowed(client_ip(request), session=session):
         return again(i18n.t(lang, "pub.too_many"))
     plan = form.get("plan")
     try:
@@ -326,18 +326,18 @@ def login(request: Request, email: str = Form(...), password: str = Form(...),
     # El freno va por correo y por dirección: ni se castiga a una casa entera
     # por una dirección, ni se prueban mil contraseñas desde la misma.
     key = f"{(email or '').strip().lower()}|{client_ip(request)}"
-    espera = security.locked_for(key)
+    espera = security.locked_for(key, session=session)
     if espera:
         return page(request, "login.html", lang=lang,
                     error=i18n.t(lang, "auth.too_many", minutes=max(1, espera // 60)))
     try:
         user = auth.authenticate(session, email, password, lang=lang)
     except auth.AuthError as e:
-        security.note_failure(key)
+        security.note_failure(key, session=session)
         log.warning("acceso fallido para %s desde %s", (email or "").strip().lower(),
                     client_ip(request))
         return page(request, "login.html", error=str(e), lang=lang)
-    security.clear(key)
+    security.clear(key, session=session)
     token, _ = auth.start_session(session, user)
     destino = "/admin" if user.role == Role.OWNER else "/hoy"
     return set_session_cookie(RedirectResponse(destino, status_code=303), token)
@@ -1335,7 +1335,7 @@ def close_alert(alert_id: int, request: Request, resolution: str = Form(...),
 
 @app.get("/manager/equipo", response_class=HTMLResponse)
 def team_page(request: Request, ctx=Depends(needs(perms.TEAM)),
-              session: Session = Depends(get_db), error: str = ""):
+              session: Session = Depends(get_db), error: str = "", done: str = ""):
     user, auth_session = ctx
     restaurant = session.get(Restaurant, user.restaurant_id)
     rows = (session.query(User).filter_by(restaurant_id=user.restaurant_id)
@@ -1344,7 +1344,7 @@ def team_page(request: Request, ctx=Depends(needs(perms.TEAM)),
     roles = [r for r in Role if r not in (Role.OWNER, Role.MANAGER)] \
         if user.role != Role.OWNER else list(Role)
     return page(request, "team.html", user, auth_session, session, error=error,
-                restaurant=restaurant, rows=rows, roles=roles)
+                done=done, restaurant=restaurant, rows=rows, roles=roles)
 
 
 @app.post("/manager/equipo/nueva")
@@ -1416,11 +1416,13 @@ def notifications_api(request: Request, ctx=Depends(require_user),
 # ========================================================= CONFIGURACIÓN
 @app.get("/configuracion", response_class=HTMLResponse)
 def settings_page(request: Request, ctx=Depends(require_user),
-                  session: Session = Depends(get_db), saved: int = 0):
+                  session: Session = Depends(get_db), saved: int = 0,
+                  changed: int = 0, error: str = ""):
     user, auth_session = ctx
     restaurant = session.get(Restaurant, user.restaurant_id)
     return page(request, "settings.html", user, auth_session, session,
-                restaurant=restaurant, saved=bool(saved), pos_modes=list(PosMatch))
+                restaurant=restaurant, saved=bool(saved), changed=bool(changed),
+                error=error, pos_modes=list(PosMatch))
 
 
 @app.post("/configuracion")
@@ -1441,6 +1443,48 @@ def save_settings(request: Request, language: str = Form(...),
                 restaurant.pos_match = PosMatch[pos_match]
     response = RedirectResponse("/configuracion?saved=1", status_code=303)
     return set_lang_cookie(response, user.language or i18n.DEFAULT_LANG)
+
+
+@app.post("/configuracion/contrasena")
+def change_my_password(request: Request, current: str = Form(...), new: str = Form(...),
+                       repeat: str = Form(""), csrf: str = Form(""),
+                       ctx=Depends(require_user), session: Session = Depends(get_db)):
+    """Uno cambia la suya: hay que saber la de antes."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    if new != repeat:
+        return RedirectResponse(f"/configuracion?error={i18n.t(lang, 'pass.mismatch')}",
+                                status_code=303)
+    try:
+        auth.set_password(session, user, new, current=current,
+                          close_others=request.cookies.get(auth.COOKIE_NAME), lang=lang)
+    except (auth.AuthError, ValueError) as e:
+        return RedirectResponse(f"/configuracion?error={e}", status_code=303)
+    return RedirectResponse("/configuracion?changed=1", status_code=303)
+
+
+@app.post("/manager/equipo/{user_id}/contrasena")
+def reset_team_password(user_id: int, request: Request, password: str = Form(...),
+                        csrf: str = Form(""), ctx=Depends(needs(perms.TEAM)),
+                        session: Session = Depends(get_db)):
+    """El manager le pone una nueva a su gente, que es quien la ha olvidado."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    target = _own(session, user, User, user_id, request)
+    # Un manager no toca la cuenta de otro manager ni la de la plataforma: esas
+    # las pone quien está por encima.
+    if user.role != Role.OWNER and target.role in (Role.OWNER, Role.MANAGER) \
+            and target.id != user.id:
+        raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
+    try:
+        auth.set_password(session, target, password, lang=lang)
+    except (auth.AuthError, ValueError) as e:
+        return RedirectResponse(f"/manager/equipo?error={e}", status_code=303)
+    return RedirectResponse(
+        f"/manager/equipo?done={i18n.t(lang, 'pass.reset_done', name=target.name)}",
+        status_code=303)
 
 
 # ============================================================ DESCARGAS

@@ -8,8 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Las dependencias primero: así una copia de código no rehace esta capa.
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt "psycopg[binary]>=3.2" && \
+# Se instalan las versiones exactas con las que está probado, no las últimas:
+# un despliegue no puede traer una librería distinta solo porque sea martes.
+COPY requirements.lock ./
+RUN pip install --no-cache-dir -r requirements.lock "psycopg[binary]==3.2.10" && \
     rm -rf /root/.cache
 
 COPY thegrill ./thegrill

@@ -1001,6 +1001,21 @@ class ChainCheckpoint(TenantMixin, Base):
     detail: Mapped[str | None] = mapped_column(Text)
 
 
+class AccessBrake(Base):
+    """Los intentos fallidos, apuntados donde los ven todos los procesos.
+
+    El freno a las contraseñas no puede vivir en la memoria de un proceso: con
+    cuatro trabajadores detrás del mismo servidor, cinco intentos se convierten
+    en veinte. Aquí cada fallo deja una fila, y el freno cuenta las filas.
+    """
+    __tablename__ = "access_brake"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(16), index=True)     # login o form
+    key: Mapped[str] = mapped_column(String(160), index=True)     # correo+IP, o IP
+    ts: Mapped[float] = mapped_column(Float, index=True)          # hora del fallo
+
+
 class AuditLog(TenantMixin, Base):
     __tablename__ = "audit_log"
 

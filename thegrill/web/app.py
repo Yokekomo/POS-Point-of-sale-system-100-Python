@@ -452,12 +452,13 @@ def toggle_template(tpl_id: int, request: Request, csrf: str = Form(""),
 
 @app.get("/manager/equipo", response_class=HTMLResponse)
 def manager_team(request: Request, ctx=Depends(require_manager_user),
-                 session: Session = Depends(get_db)):
+                 session: Session = Depends(get_db), error: str = "", done: str = ""):
     user, auth_session = ctx
     rows = (session.query(User).filter_by(restaurant_id=user.restaurant_id)
             .order_by(User.role, User.name).all())
     restaurant = session.get(Restaurant, user.restaurant_id)
-    return page(request, "team.html", user, auth_session, session, rows=rows, restaurant=restaurant)
+    return page(request, "team.html", user, auth_session, session, rows=rows,
+                restaurant=restaurant, error=error, done=done)
 
 
 @app.post("/manager/equipo/{user_id}/rol")
@@ -995,11 +996,13 @@ def download_template(code: str, request: Request, ctx=Depends(require_user),
 # ====================================================== CONFIGURACIÓN
 @app.get("/configuracion", response_class=HTMLResponse)
 def settings_page(request: Request, ctx=Depends(require_user),
-                  session: Session = Depends(get_db), saved: int = 0):
+                  session: Session = Depends(get_db), saved: int = 0,
+                  changed: int = 0, error: str = ""):
     user, auth_session = ctx
     restaurant = session.get(Restaurant, user.restaurant_id)
     return page(request, "settings.html", user, auth_session, session,
-                restaurant=restaurant, saved=bool(saved), pos_modes=list(PosMatch))
+                restaurant=restaurant, saved=bool(saved), changed=bool(changed),
+                error=error, pos_modes=list(PosMatch))
 
 
 @app.post("/configuracion")
@@ -1023,6 +1026,51 @@ def save_settings(request: Request, language: str = Form(...),
                 restaurant.pos_match = PosMatch[pos_match]
     response = RedirectResponse("/configuracion?saved=1", status_code=303)
     return set_lang_cookie(response, user.language or i18n.DEFAULT_LANG)
+
+
+@app.post("/configuracion/contrasena")
+def change_my_password(request: Request, current: str = Form(...), new: str = Form(...),
+                       repeat: str = Form(""), csrf: str = Form(""),
+                       ctx=Depends(require_user), session: Session = Depends(get_db)):
+    """Uno cambia la suya: hay que saber la de antes."""
+    user, auth_session = ctx
+    try:
+        auth.check_csrf(auth_session, csrf, lang_for(request, session, user))
+    except auth.PermissionDenied as e:
+        raise HTTPException(status_code=403, detail=str(e)) from None
+    lang = lang_for(request, session, user)
+    if new != repeat:
+        return RedirectResponse(f"/configuracion?error={i18n.t(lang, 'pass.mismatch')}",
+                                status_code=303)
+    try:
+        auth.set_password(session, user, new, current=current,
+                          close_others=request.cookies.get(auth.COOKIE_NAME), lang=lang)
+    except (auth.AuthError, ValueError) as e:
+        return RedirectResponse(f"/configuracion?error={e}", status_code=303)
+    return RedirectResponse("/configuracion?changed=1", status_code=303)
+
+
+@app.post("/manager/equipo/{user_id}/contrasena")
+def reset_team_password(user_id: int, request: Request, password: str = Form(...),
+                        csrf: str = Form(""), ctx=Depends(require_manager_user),
+                        session: Session = Depends(get_db)):
+    """El manager le pone una nueva a su gente, que es quien la ha olvidado."""
+    user, auth_session = ctx
+    try:
+        auth.check_csrf(auth_session, csrf, lang_for(request, session, user))
+    except auth.PermissionDenied as e:
+        raise HTTPException(status_code=403, detail=str(e)) from None
+    lang = lang_for(request, session, user)
+    target = session.get(User, user_id)
+    if target is None or target.restaurant_id != user.restaurant_id:
+        raise HTTPException(status_code=404, detail=i18n.t(lang, "error.user_not_found"))
+    try:
+        auth.set_password(session, target, password, lang=lang)
+    except (auth.AuthError, ValueError) as e:
+        return RedirectResponse(f"/manager/equipo?error={e}", status_code=303)
+    return RedirectResponse(
+        f"/manager/equipo?done={i18n.t(lang, 'pass.reset_done', name=target.name)}",
+        status_code=303)
 
 
 # ====================================================== NOTIFICACIONES

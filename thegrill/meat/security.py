@@ -63,6 +63,10 @@ def content_policy(nonce: str) -> str:
             f"frame-ancestors 'none'; base-uri 'self'; object-src 'none'; "
             f"connect-src 'self'")
 
+# El freno vive en la base de datos cuando hay una a mano, porque si vive en la
+# memoria de un proceso deja de frenar en cuanto hay más de uno: cinco intentos
+# por trabajador son veinte para quien prueba contraseñas. La memoria se queda
+# como respaldo para lo que corre sin base de datos.
 _failures: dict[str, deque] = defaultdict(deque)
 _forms: dict[str, deque] = defaultdict(deque)
 
@@ -72,32 +76,66 @@ def _prune(marks: deque, window: float, now: float) -> None:
         marks.popleft()
 
 
-def locked_for(key: str, now: float | None = None) -> int:
+def _marks(session, kind: str, key: str, window: float, now: float) -> list[float]:
+    """Los fallos de esa llave dentro de la ventana, y de paso barre los viejos."""
+    from thegrill.models import AccessBrake
+    session.query(AccessBrake).filter(AccessBrake.ts < now - max(window, LOGIN_LOCK_SECONDS) * 4
+                                      ).delete(synchronize_session=False)
+    filas = (session.query(AccessBrake.ts)
+             .filter(AccessBrake.kind == kind, AccessBrake.key == key[:160],
+                     AccessBrake.ts >= now - window)
+             .order_by(AccessBrake.ts).all())
+    return [f[0] for f in filas]
+
+
+def locked_for(key: str, now: float | None = None, session=None) -> int:
     """Segundos que faltan para poder volver a intentarlo. Cero si se puede."""
     now = time.time() if now is None else now
-    marks = _failures[key]
-    _prune(marks, LOGIN_WINDOW_SECONDS, now)
+    if session is not None:
+        marks = _marks(session, "login", key, LOGIN_WINDOW_SECONDS, now)
+    else:
+        marks = _failures[key]
+        _prune(marks, LOGIN_WINDOW_SECONDS, now)
     if len(marks) < LOGIN_ATTEMPTS:
         return 0
     # La espera cuenta desde el último fallo: insistir alarga el castigo.
     return max(0, int(marks[-1] + LOGIN_LOCK_SECONDS - now))
 
 
-def note_failure(key: str, now: float | None = None) -> None:
+def note_failure(key: str, now: float | None = None, session=None) -> None:
     now = time.time() if now is None else now
+    if session is not None:
+        from thegrill.models import AccessBrake
+        session.add(AccessBrake(kind="login", key=key[:160], ts=now))
+        session.flush()
+        return
     marks = _failures[key]
     _prune(marks, LOGIN_WINDOW_SECONDS, now)
     marks.append(now)
 
 
-def clear(key: str) -> None:
+def clear(key: str, session=None) -> None:
     """Un acceso bueno borra la cuenta de fallos."""
+    if session is not None:
+        from thegrill.models import AccessBrake
+        session.query(AccessBrake).filter_by(kind="login", key=key[:160]).delete(
+            synchronize_session=False)
+        session.flush()
+        return
     _failures.pop(key, None)
 
 
-def form_allowed(key: str, now: float | None = None) -> bool:
+def form_allowed(key: str, now: float | None = None, session=None) -> bool:
     """Si esa dirección puede mandar otra solicitud."""
     now = time.time() if now is None else now
+    if session is not None:
+        from thegrill.models import AccessBrake
+        marks = _marks(session, "form", key, FORM_WINDOW_SECONDS, now)
+        if len(marks) >= FORM_ATTEMPTS:
+            return False
+        session.add(AccessBrake(kind="form", key=key[:160], ts=now))
+        session.flush()
+        return True
     marks = _forms[key]
     _prune(marks, FORM_WINDOW_SECONDS, now)
     if len(marks) >= FORM_ATTEMPTS:
@@ -106,7 +144,11 @@ def form_allowed(key: str, now: float | None = None) -> bool:
     return True
 
 
-def reset() -> None:
+def reset(session=None) -> None:
     """Para las pruebas: empezar de cero."""
     _failures.clear()
     _forms.clear()
+    if session is not None:
+        from thegrill.models import AccessBrake
+        session.query(AccessBrake).delete(synchronize_session=False)
+        session.flush()

@@ -3,6 +3,8 @@
 <h1>{{ t("settings.title") }}</h1>
 <p class="sub">{{ t("settings.sub") }}</p>
 {% if saved %}<div class="banner ok">{{ t("settings.saved") }}</div>{% endif %}
+{% if changed %}<div class="banner ok">{{ t("pass.changed") }}</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 <div class="card">
 <form method="post" action="/configuracion">
   <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -34,6 +36,22 @@
   {% endif %}
 
   <button class="wide" type="submit">{{ t("common.save") }}</button>
+</form>
+</div>
+
+<h2>{{ t("pass.title") }}</h2>
+<div class="card">
+<form method="post" action="/configuracion/contrasena">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="current">{{ t("pass.current") }}</label>
+  <input id="current" name="current" type="password" autocomplete="current-password" required>
+  <label for="new">{{ t("pass.new") }}</label>
+  <input id="new" name="new" type="password" autocomplete="new-password" required>
+  <div class="help">{{ t("common.password_hint") }}</div>
+  <label for="repeat">{{ t("pass.repeat") }}</label>
+  <input id="repeat" name="repeat" type="password" autocomplete="new-password" required>
+  <div class="help">{{ t("pass.help") }}</div>
+  <button class="wide" type="submit">{{ t("pass.submit") }}</button>
 </form>
 </div>
 {% endblock %}
