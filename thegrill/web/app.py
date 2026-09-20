@@ -600,12 +600,11 @@ def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(require_u
 
 # ============================================================== MERMA
 def _waste_page(request, user, auth_session, session, *, result=None, error="", serial=""):
-    """La pantalla de merma, con lo tirado últimamente y de qué lote salió."""
-    names = {i.id: i.name for i in session.query(Ingredient)
-             .filter_by(restaurant_id=user.restaurant_id).all()}
+    """La pantalla de merma: todo lo tirado, sea de cámara o de una limpieza."""
+    lines = waste.everything(session, user.restaurant_id)
     return page(request, "waste.html", user, auth_session, session,
-                result=result, error=error, serial=serial, names=names,
-                recent=waste.recent(session, user.restaurant_id),
+                result=result, error=error, serial=serial, lines=lines,
+                totals=waste.totals(lines),
                 ingredients=(session.query(Ingredient)
                              .filter_by(restaurant_id=user.restaurant_id, active=True)
                              .order_by(Ingredient.name).all()))

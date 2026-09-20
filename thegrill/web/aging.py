@@ -328,8 +328,9 @@ def weigh(session: Session, user: User, serial: str, kg: float,
     session.add(PrimalWeighing(
         restaurant_id=user.restaurant_id, primal_id=primal.id, serial=primal.serial,
         date=on, storage=storage, kind=LossKind.EVAPORATION, previous_kg=previous,
-        kg=round(kg, 6), loss_kg=loss, cost_per_kg=primal.landed_usd_per_kg, days=days,
-        source=source, note=note, created_by=user.id))
+        kg=round(kg, 6), loss_kg=loss, cost_per_kg=primal.landed_usd_per_kg,
+        cost_per_kg_before=before_per_kg, days=days, source=source, note=note,
+        created_by=user.id))
     session.flush()
 
     result = WeighResult(
@@ -444,7 +445,8 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
         restaurant_id=user.restaurant_id, primal_id=primal.id, serial=primal.serial,
         date=on, storage=where(primal), kind=LossKind.TRIM, previous_kg=previous,
         kg=primal.weight_kg, loss_kg=round(removed_kg, 6), kept_kg=kept_total,
-        waste_kg=thrown, cost_per_kg=primal.landed_usd_per_kg, days=days_in(primal, on),
+        waste_kg=thrown, cost_per_kg=primal.landed_usd_per_kg,
+        cost_per_kg_before=before_per_kg, days=days_in(primal, on),
         source="trim", trim_serial=", ".join(p.serial for p in parts if p.serial)[:96] or None,
         note=note, created_by=user.id))
     _audit(session, user, primal.serial,

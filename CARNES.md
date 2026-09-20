@@ -352,6 +352,13 @@ escrito a qué plato fue cada salida: sin eso no hay food cost por pieza.
 inventario mensual que re-ancla el stock, merma que la paga lo que queda del
 lote, e historia de una pieza de la recepción al plato.
 
+La pantalla de merma lo enseña **todo junto**: la pieza ya cortada que se echa
+a perder y lo que se tira al limpiar una pieza entera. Son la misma cosa
+—carne comprada que no se va a vender— y a fin de mes lo que cuenta es el
+total, con sus kilos y su dinero, y el desglose de cuánto vino de cada sitio.
+Quién lo tiró también queda escrito. El dinero solo lo ve el manager: el
+carnicero y el ayudante ven los kilos.
+
 **Descargas.** Cinco hojas de Excel listas para imprimir —recepción, despiece,
 descongelado, inventario y merma—, en A4 y en el idioma de quien las baja, para
 colgar al lado de la balanza.

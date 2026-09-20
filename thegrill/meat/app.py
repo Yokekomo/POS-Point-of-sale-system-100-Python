@@ -1048,11 +1048,11 @@ def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(.
 
 # ================================================================ MERMA
 def _waste_page(request, user, auth_session, session, *, result=None, error="", serial=""):
-    names = {i.id: i.name for i in session.query(Ingredient)
-             .filter_by(restaurant_id=user.restaurant_id).all()}
+    """Todo lo que se tira, junto: lo de cámara y lo que se va limpiando piezas."""
+    lines = waste.everything(session, user.restaurant_id)
     return page(request, "waste.html", user, auth_session, session,
-                result=result, error=error, serial=serial, names=names,
-                recent=waste.recent(session, user.restaurant_id),
+                result=result, error=error, serial=serial, lines=lines,
+                totals=waste.totals(lines),
                 ingredients=meat.cuts(session, user.restaurant_id))
 
 

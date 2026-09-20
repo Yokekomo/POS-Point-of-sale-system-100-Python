@@ -18,7 +18,8 @@ from datetime import date, datetime
 from sqlalchemy.orm import Session
 
 from thegrill.models import (Alert, AlertSeverity, Ingredient, IngredientLot,
-                             IngredientMovement, MovementKind, User)
+                             IngredientMovement, LossKind, MovementKind, Primal,
+                             PrimalWeighing, User)
 from thegrill.web import costing, service
 from thegrill.web.i18n import t
 
@@ -149,7 +150,7 @@ def _announce(session: Session, user: User, result: WasteResult, lang: str) -> N
 
 
 def recent(session: Session, restaurant_id: int, days: int = 30) -> list[IngredientMovement]:
-    """Las últimas mermas registradas, con su lote, sus kilos y su coste."""
+    """Las últimas mermas de cámara, con su lote, sus kilos y su coste."""
     from datetime import timedelta
     since = date.today() - timedelta(days=days)
     return (session.query(IngredientMovement)
@@ -158,3 +159,128 @@ def recent(session: Session, restaurant_id: int, days: int = 30) -> list[Ingredi
                     IngredientMovement.date >= since)
             .order_by(IngredientMovement.date.desc(), IngredientMovement.id.desc())
             .limit(200).all())
+
+
+# ------------------------------------------------- todo lo que se tira, junto
+CHAMBER = "chamber"      # la pieza ya cortada que se echa a perder
+TRIM = "trim"            # la costra y la grasa que se van al limpiar una pieza
+
+
+@dataclass
+class WasteLine:
+    """Una línea de lo que se ha tirado, venga de donde venga.
+
+    La merma de cámara y lo que se tira limpiando una pieza son la misma cosa
+    mirada desde dos sitios: carne comprada que no se va a vender. Se apuntan
+    en pantallas distintas porque se hacen en momentos distintos, pero a fin de
+    mes lo que importa es el total, y para eso tienen que estar juntas.
+    """
+    date: date
+    source: str                  # CHAMBER o TRIM
+    label: str                   # el ingrediente, o el SKU de la pieza
+    serial: str | None
+    kg: float
+    cost: float | None           # lo que valía; None si no se sabe el precio
+    lot: str | None = None       # el despiece del que salió, o el lote de recepción
+    pieces: int | None = None
+    reason: str | None = None
+    who: str | None = None
+
+
+@dataclass
+class WasteTotals:
+    kg: float = 0.0
+    cost: float = 0.0
+    chamber_kg: float = 0.0
+    trim_kg: float = 0.0
+    lines: int = 0
+
+
+def everything(session: Session, restaurant_id: int, days: int = 30) -> list[WasteLine]:
+    """Todo lo tirado en el periodo: lo de cámara y lo de las limpiezas."""
+    from datetime import timedelta
+    since = date.today() - timedelta(days=days)
+    names = {i.id: i.name for i in session.query(Ingredient)
+             .filter_by(restaurant_id=restaurant_id)}
+    people = {u.id: u.name for u in session.query(User)
+              .filter_by(restaurant_id=restaurant_id)}
+    skus = {p.serial: p.sku for p in session.query(Primal)
+            .filter_by(restaurant_id=restaurant_id)}
+    # El serial sale del lote, no de leerlo de la referencia: la referencia es
+    # un texto para el ojo humano y cambia de forma según lo que traiga.
+    lotes = {lot.id: lot for lot in session.query(IngredientLot)
+             .filter_by(restaurant_id=restaurant_id)}
+    lote_de = {p.serial: p.lot for p in session.query(Primal)
+               .filter_by(restaurant_id=restaurant_id)}
+
+    rows: list[WasteLine] = []
+    for movement in recent(session, restaurant_id, days=days):
+        lot = lotes.get(movement.lot_id)
+        rows.append(WasteLine(
+            date=movement.date, source=CHAMBER,
+            label=names.get(movement.ingredient_id, ""),
+            serial=lot.serial if lot else None, kg=round(-movement.qty, 6),
+            cost=round(movement.cost, 4) if movement.cost is not None else None,
+            lot=lot.lot_code if lot else None,
+            pieces=_pieces_of(movement.source_ref or ""),
+            reason=_reason_of(movement.source_ref or ""),
+            who=people.get(movement.created_by)))
+
+    for limpieza in (session.query(PrimalWeighing)
+                     .filter(PrimalWeighing.restaurant_id == restaurant_id,
+                             PrimalWeighing.kind == LossKind.TRIM,
+                             PrimalWeighing.date >= since)
+                     .order_by(PrimalWeighing.date.desc(), PrimalWeighing.id.desc())
+                     .limit(200)):
+        thrown = limpieza.waste_kg or 0.0
+        if thrown <= EPSILON:
+            continue           # esa limpieza se aprovechó entera: no hay nada tirado
+        per_kg = limpieza.cost_per_kg_before
+        rows.append(WasteLine(
+            date=limpieza.date, source=TRIM,
+            label=skus.get(limpieza.serial, limpieza.serial),
+            serial=limpieza.serial, kg=round(thrown, 6),
+            cost=round(thrown * per_kg, 4) if per_kg is not None else None,
+            lot=lote_de.get(limpieza.serial), reason=limpieza.note,
+            who=people.get(limpieza.created_by)))
+
+    rows.sort(key=lambda r: (r.date, r.serial or ""), reverse=True)
+    return rows
+
+
+def totals(lines: list[WasteLine]) -> WasteTotals:
+    """Lo que suma todo eso, que es la pregunta de fin de mes."""
+    out = WasteTotals(lines=len(lines))
+    for line in lines:
+        out.kg = round(out.kg + line.kg, 6)
+        out.cost = round(out.cost + (line.cost or 0.0), 4)
+        if line.source == CHAMBER:
+            out.chamber_kg = round(out.chamber_kg + line.kg, 6)
+        else:
+            out.trim_kg = round(out.trim_kg + line.kg, 6)
+    return out
+
+
+def _pieces_of(ref: str) -> int | None:
+    """Las piezas que se tiraron, si se contaron al apuntarlo."""
+    for parte in (p.strip() for p in ref.split("·")):
+        if parte.endswith("pz"):
+            try:
+                return int(parte[:-2].strip())
+            except ValueError:
+                return None
+    return None
+
+
+def _reason_of(ref: str) -> str | None:
+    """El motivo que se escribió al tirar, si se escribió alguno.
+
+    La referencia lleva el lote, el serial, las piezas y el motivo, separados
+    por puntos, y lo único que no es ninguna de las otras tres cosas es el
+    motivo: por eso se descarta lo que acaba en «pz».
+    """
+    partes = [p.strip() for p in ref.split("·") if p.strip()]
+    if len(partes) < 2:
+        return None
+    ultima = partes[-1]
+    return None if ultima.endswith("pz") else ultima

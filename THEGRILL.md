@@ -256,6 +256,14 @@ Si se va el lote entero no queda nadie a quien cargárselo: ese coste se pierde,
 y así se dice. Una merma nunca puede dejar el stock en negativo. Dirección
 recibe el aviso de cada merma, crítica si pasa de 50 en dinero.
 
+**Y todo lo que se tira se ve junto.** La pantalla de merma suma dos orígenes:
+lo que se echa a perder en cámara y lo que se quita limpiando una pieza entera
+—costra, telilla, grasa sucia—. Cada línea dice de dónde viene, de qué pieza,
+cuántos kilos, lo que valían y quién lo tiró; arriba, el total del periodo y el
+reparto entre los dos orígenes. Lo tirado limpiando se valora a lo que costaba
+el kilo de esa pieza en ese momento, que es lo que se perdió de verdad. El
+dinero es cosa del manager: quien no ve costes ve los kilos.
+
 ## Maduración, congelador y venta a peso
 
 Una pieza entera está en uno de tres sitios, y no es lo mismo. En cámara es la
@@ -477,7 +485,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   547 tests
+tests/                   551 tests
 ```
 
 ## Uso

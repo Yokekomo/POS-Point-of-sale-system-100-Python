@@ -375,3 +375,30 @@ def test_the_manager_sells_by_weight_and_sees_the_food_cost(client):
     assert venta.status_code == 200
     assert "29 %" in venta.text                  # food cost de esa venta, redondeado arriba
     assert "Chuleta madurada" in ana.get("/maduracion").text
+
+
+def test_the_waste_screen_shows_both_sources_and_hides_the_money(client):
+    """Todo lo tirado en una lista; el dinero, solo para el manager."""
+    from datetime import date as _date
+    ana = alta(client, "ana@marina.com", "Ana", Role.MANAGER)
+    luis = alta(client, "luis@marina.com", "Luis", Role.BUTCHER)
+    con_carne(client)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        gerente = s.query(User).filter_by(restaurant_id=rest.id, role=Role.MANAGER).one()
+        s.add(Primal(restaurant_id=rest.id, serial="9100", sku="Ribeye AUS", weight_kg=10.0,
+                     landed_usd_per_kg=30.0, piece_cost_usd=300.0, received_date=HOY,
+                     expiry_label=HOY + timedelta(days=30)))
+        s.flush()
+        from thegrill.web import aging, waste
+        aging.trim(s, gerente, "9100", removed_kg=1.2, on=HOY)
+        waste.record(s, gerente, kg=0.2, serial="8017-01", reason="Caducado", on=HOY)
+
+    del_manager = ana.get("/merma").text
+    assert "De limpieza" in del_manager and "De cámara" in del_manager
+    assert "9100" in del_manager
+    assert "36.00" in del_manager          # 1,2 kg a 30 €, el coste de lo tirado
+
+    del_carnicero = luis.get("/merma").text
+    assert "De limpieza" in del_carnicero and "1.200" in del_carnicero
+    assert "36.00" not in del_carnicero    # los kilos sí, el dinero no

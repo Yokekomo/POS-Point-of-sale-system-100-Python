@@ -909,6 +909,9 @@ class PrimalWeighing(TenantMixin, Base):
     kg: Mapped[float] = mapped_column(Float)
     loss_kg: Mapped[float] = mapped_column(Float, default=0.0)
     cost_per_kg: Mapped[float | None] = mapped_column(Float)     # a cómo queda el kilo
+    # Y a cómo estaba antes: es lo que valían los kilos que se fueron, y sin
+    # eso no se puede decir en dinero lo que se ha tirado limpiando.
+    cost_per_kg_before: Mapped[float | None] = mapped_column(Float)
     days: Mapped[int | None] = mapped_column(Integer)            # los que lleva madurando
     source: Mapped[str] = mapped_column(String(16), default="manual")   # manual o count
     note: Mapped[str | None] = mapped_column(Text)

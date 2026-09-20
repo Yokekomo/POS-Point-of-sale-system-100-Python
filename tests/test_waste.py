@@ -280,3 +280,75 @@ def test_one_restaurant_never_sees_another_kitchens_waste(ctx):
     with pytest.raises(WasteError, match="restaurante"):
         waste.record(s, bea, kg=0.2, ingredient_id=s.query(Ingredient)
                      .filter_by(restaurant_id=rest.id).first().id, on=HOY)
+
+
+# ------------------------------------------ todo lo que se tira, en una lista
+def test_the_waste_list_puts_the_chiller_and_the_trimming_together(ctx):
+    """Lo tirado de cámara y lo tirado limpiando son lo mismo: carne que no se vende."""
+    from datetime import timedelta
+    from thegrill.meat import service as meat
+    from thegrill.models import Primal, Storage
+    from thegrill.web import aging
+
+    s, rest, ana, luis = ctx
+    corte(s, rest, ana, kg=5.1, unit_cost=30.0, serial="8017-01")
+    waste.record(s, luis, kg=0.6, serial="8017-01", pieces=2, reason="Caducado", on=HOY)
+
+    s.add(Primal(restaurant_id=rest.id, serial="9001", sku="Ribeye AUS", weight_kg=10.0,
+                 landed_usd_per_kg=30.0, piece_cost_usd=300.0, received_date=HOY,
+                 expiry_label=HOY + timedelta(days=30)))
+    s.flush()
+    aging.trim(s, ana, "9001", removed_kg=1.2, on=HOY)      # se tira entera
+
+    filas = waste.everything(s, rest.id)
+    assert len(filas) == 2
+    fuentes = {f.source: f for f in filas}
+    assert fuentes["chamber"].kg == 0.6
+    assert fuentes["chamber"].label == "Striploin steak"
+    assert fuentes["chamber"].cost == pytest.approx(18.0)       # 0,6 × 30
+    assert fuentes["chamber"].who == "Luis"
+    assert fuentes["trim"].kg == 1.2
+    assert fuentes["trim"].label == "Ribeye AUS"
+    assert fuentes["trim"].serial == "9001"
+    assert fuentes["trim"].cost == pytest.approx(36.0)          # 1,2 × 30
+    assert fuentes["trim"].who == "Ana"
+
+    total = waste.totals(filas)
+    assert total.kg == pytest.approx(1.8)
+    assert total.cost == pytest.approx(54.0)
+    assert total.chamber_kg == 0.6 and total.trim_kg == 1.2
+
+
+def test_a_trim_that_is_all_reused_is_not_waste(ctx):
+    """Si de la limpieza no se tira nada, no aparece en la lista de merma."""
+    from datetime import timedelta
+    from thegrill.meat import service as meat
+    from thegrill.models import Primal
+    from thegrill.web import aging
+
+    s, rest, ana, luis = ctx
+    recortes = meat.create_cut(s, ana, "Recortes")
+    articulo = meat.add_article(s, ana, recortes, "Recortes AUS")
+    s.add(Primal(restaurant_id=rest.id, serial="9002", sku="Ribeye AUS", weight_kg=10.0,
+                 landed_usd_per_kg=30.0, piece_cost_usd=300.0, received_date=HOY,
+                 expiry_label=HOY + timedelta(days=30)))
+    s.flush()
+    aging.trim(s, ana, "9002", removed_kg=0.8, on=HOY,
+               parts=[aging.TrimPart(item_id=articulo.id, kg=0.8)])
+
+    assert waste.everything(s, rest.id) == []
+    assert waste.totals(waste.everything(s, rest.id)).kg == 0.0
+
+
+def test_each_waste_line_says_which_butchery_and_how_many_pieces(ctx):
+    """Lo que se tira se lee sin ir a buscarlo: despiece, serial, piezas y motivo."""
+    s, rest, ana, luis = ctx
+    corte(s, rest, ana, kg=5.1, unit_cost=30.0, serial="8017-01", tg="TG-0010", pieces=17)
+    waste.record(s, luis, kg=0.6, serial="8017-01", pieces=2, reason="Caducado", on=HOY)
+
+    linea = waste.everything(s, rest.id)[0]
+    assert linea.lot == "TG-0010"
+    assert linea.serial == "8017-01"
+    assert linea.pieces == 2
+    assert linea.reason == "Caducado"
+    assert linea.who == "Luis"
