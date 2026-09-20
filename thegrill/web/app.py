@@ -18,12 +18,13 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile   # el que devuelve request.form(), no el de FastAPI
 
 from thegrill import db
-from thegrill.models import (Alert, Attachment, ConsumptionMode, FieldType, Ingredient, IngredientItem,
+from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, CountStatus,
+                             FieldType, Ingredient, IngredientItem,
                              Notification, PosMatch, PosProduct, Record, RecordTemplate, Recipe,
                              RecipeKind, RecipeLine, Restaurant, Role, Rotation,
                              TemplateField, Unit, User)
 
-from thegrill.web import auth, butchery, costing, i18n, service, sheets
+from thegrill.web import auth, butchery, costing, i18n, inventory, service, sheets
 from thegrill.web.seed import seed_templates
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
@@ -576,6 +577,82 @@ def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(require_u
     _guard(request, session, user, auth_session, csrf)
     result = butchery.close_day(session, user)
     return RedirectResponse(f"/carne?closed={len(result.alerts)}", status_code=303)
+
+
+# ====================================================== INVENTARIO
+@app.get("/inventario", response_class=HTMLResponse)
+def inventory_page(request: Request, ctx=Depends(require_user),
+                   session: Session = Depends(get_db)):
+    """Contar la carne pieza a pieza y cuadrar."""
+    user, auth_session = ctx
+    from thegrill.models import MeatCount
+    open_count = (session.query(MeatCount)
+                  .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
+    return page(request, "inventory.html", user, auth_session, session,
+                count=open_count, last=inventory.last_closed(session, user.restaurant_id),
+                overdue=inventory.is_overdue(session, user.restaurant_id),
+                periods=list(CountPeriod))
+
+
+@app.post("/inventario/abrir")
+def open_inventory(request: Request, period: str = Form("WEEKLY"), csrf: str = Form(""),
+                   ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    try:
+        inventory.open_count(session, user,
+                             CountPeriod[period] if period in CountPeriod.__members__
+                             else CountPeriod.WEEKLY)
+    except inventory.InventoryError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return RedirectResponse("/inventario", status_code=303)
+
+
+@app.post("/inventario/contar")
+async def record_count(request: Request, ctx=Depends(require_user),
+                       session: Session = Depends(get_db)):
+    """Apunta lo pesado. Contar lo puede hacer cualquiera: se hace en la cámara."""
+    user, auth_session = ctx
+    from thegrill.models import MeatCount
+    form = await request.form()
+    _guard(request, session, user, auth_session, form.get("csrf"))
+    count = (session.query(MeatCount)
+             .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
+    if count is None:
+        raise HTTPException(status_code=404, detail="")
+    for key, value in form.multi_items():
+        if not key.startswith("kg:") or not str(value).strip():
+            continue
+        try:
+            kg = float(str(value).replace(",", "."))
+        except ValueError:
+            continue
+        try:
+            inventory.record(session, user, count, key.split(":", 1)[1], kg)
+        except inventory.InventoryError:
+            continue
+    extra = (form.get("extra_serial") or "").strip()
+    if extra and str(form.get("extra_kg") or "").strip():
+        try:
+            inventory.record(session, user, count, extra,
+                             float(str(form.get("extra_kg")).replace(",", ".")))
+        except (ValueError, inventory.InventoryError):
+            pass
+    return RedirectResponse("/inventario", status_code=303)
+
+
+@app.post("/inventario/cerrar")
+def close_inventory(request: Request, csrf: str = Form(""),
+                    ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    from thegrill.models import MeatCount
+    count = (session.query(MeatCount)
+             .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
+    if count is None:
+        raise HTTPException(status_code=404, detail="")
+    inventory.close_count(session, user, count)
+    return RedirectResponse("/inventario", status_code=303)
 
 
 # ========================================================== RECETAS

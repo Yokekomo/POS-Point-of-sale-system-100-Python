@@ -655,6 +655,60 @@ class RecipeLine(Base):
     sub_recipe: Mapped["Recipe"] = relationship(foreign_keys=[sub_recipe_id])
 
 
+class CountPeriod(str, enum.Enum):
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+    SPOT = "SPOT"       # recuento puntual, no programado
+
+
+class CountStatus(str, enum.Enum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+
+
+class CountItemKind(str, enum.Enum):
+    CUT = "CUT"         # corte en cámara, con su serial
+    PRIMAL = "PRIMAL"   # pieza entera sin despiezar
+
+
+class MeatCount(TenantMixin, Base):
+    """Inventario físico de carne: se cuenta pieza a pieza y se cuadra."""
+    __tablename__ = "meat_counts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    period: Mapped[CountPeriod] = mapped_column(Enum(CountPeriod), default=CountPeriod.WEEKLY)
+    status: Mapped[CountStatus] = mapped_column(Enum(CountStatus), default=CountStatus.OPEN)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    closed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    lines: Mapped[list["MeatCountLine"]] = relationship(
+        back_populates="count", cascade="all, delete-orphan", order_by="MeatCountLine.label")
+
+
+class MeatCountLine(Base):
+    """Una pieza del inventario: lo que dice el sistema y lo que se ha contado."""
+    __tablename__ = "meat_count_lines"
+    __table_args__ = (UniqueConstraint("count_id", "serial", name="uq_count_serial"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    count_id: Mapped[int] = mapped_column(ForeignKey("meat_counts.id"), index=True)
+    kind: Mapped[CountItemKind] = mapped_column(Enum(CountItemKind))
+    serial: Mapped[str] = mapped_column(String(48), index=True)
+    label: Mapped[str] = mapped_column(String(160))
+    expected_kg: Mapped[float] = mapped_column(Float, default=0.0)
+    counted_kg: Mapped[float | None] = mapped_column(Float)       # None = sin contar
+    counted_pieces: Mapped[int | None] = mapped_column(Integer)
+    unit_cost: Mapped[float | None] = mapped_column(Float)
+    outcome: Mapped[str | None] = mapped_column(String(16))       # resultado al cerrar
+    note: Mapped[str | None] = mapped_column(Text)
+
+    count: Mapped["MeatCount"] = relationship(back_populates="lines")
+
+
 class PrimalPar(TenantMixin, Base):
     """Mínimo de primales por SKU. Si al cerrar el día quedan menos, se avisa."""
     __tablename__ = "primal_pars"

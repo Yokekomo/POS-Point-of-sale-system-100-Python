@@ -149,6 +149,32 @@ cerrar el día se avisa de lo que baja del mínimo, de los primales que hay que
 pedir y de los cortes que caducan pronto. Un SKU a cero con mínimo definido sale
 igualmente, porque cero es justo el caso que hay que gritar.
 
+## Inventario de carne para cuadrar números
+
+Semanal, mensual o puntual. Al abrirlo, el sistema saca la lista de lo que cree
+tener: cada corte con su serial y sus kilos, y cada primal sin despiezar. Se
+cuenta a mano pieza a pieza y al cerrarlo se cuadra.
+
+De cada pieza sale uno de cinco resultados: cuadra, falta, sobra, no aparece, o
+estaba en cámara sin que el sistema la tuviera. Cinco gramos de diferencia son
+la báscula, no una diferencia.
+
+Al cerrar:
+
+- lo contado **re-ancla el stock**, con su movimiento de ajuste valorado al
+  precio de ese lote;
+- un primal que no aparece queda **sospechoso**, nunca cortado: solo el
+  despiece que lo confirma lo pasa a cortado;
+- lo que apareció sin estar en el sistema se nombra, no se inventa un lote;
+- lo que quedó **sin contar no se toca** y se dice cuál es. Un parcial no
+  cuadra.
+
+El cierre dice cuántos kilos faltan y cuánto dinero son, qué parte de las
+piezas cuadraba, y avisa a dirección de la merma, de los fantasmas y de lo que
+quedó a medias. Lo esperado se relee al cerrar, no al abrir, para que el ajuste
+cuadre contra el estado de ese momento aunque se haya vendido mientras se
+contaba.
+
 ## Hojas para imprimir
 
 Hay un apartado de descargas, abierto a todo el equipo, con una hoja de Excel
@@ -277,7 +303,7 @@ propio límite legal y un solo campo numérico no puede validar los dos.
 thegrill/
   config.py              FX, límites HACCP, umbrales de precio, tolerancias de despiece
   db.py                  SQLAlchemy; SQLite por defecto, PostgreSQL cambiando la URL
-  models.py              34 tablas: plataforma, módulos de carne, auditoría
+  models.py              36 tablas: plataforma, módulos de carne, auditoría
   rules.py               Reglas del negocio de carne como funciones puras
   web/
     i18n.py              Seis idiomas, resolución y escritura de derecha a izquierda
@@ -285,6 +311,7 @@ thegrill/
     costing.py           Precios reales, rotación de lotes y descuento por venta
     butchery.py          Del primal a los cortes, con reparto de coste, serial propio y stock diario
     defrost.py           Descongelado, recuento de cierre y peso real por pieza
+    inventory.py         Inventario semanal o mensual que re-ancla el stock
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
     service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV
@@ -296,11 +323,12 @@ thegrill/
     cost.py              Landed por kg, coste por corte, food cost
     recipes.py           Escandallo: explosión, árbol de costes y food cost
     defrost.py           Cuadre del descongelado y desvío contra la receta
+    inventory.py         Conciliación del inventario físico, pieza a pieza
   orchestrator/chain.py  Cadena diaria idempotente con checkpoints y reintentos
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   242 tests
+tests/                   265 tests
 ```
 
 ## Uso

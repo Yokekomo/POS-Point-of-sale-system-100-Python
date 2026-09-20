@@ -1,0 +1,96 @@
+{% extends "base.html" %}{% block title %}{{ t("inv.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("inv.title") }}</h1>
+<p class="sub">{{ t("inv.sub") }}</p>
+{% if overdue and not count %}<div class="banner warn">{{ t("inv.overdue") }}</div>{% endif %}
+
+{% if count %}
+<div class="card">
+<form method="post" action="/inventario/contar">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <p class="muted" style="margin:0 0 10px">{{ t("inv.period") }}:
+     {{ t("inv.period." ~ count.period.value) }} · {{ count.date }}</p>
+  <div class="scroll"><table>
+  <tr><th>{{ t("rec.component") }}</th><th>Serial</th><th class="num">{{ t("inv.expected") }}</th>
+      <th class="num">{{ t("inv.counted") }}</th></tr>
+  {% for line in count.lines %}
+  <tr>
+    <td>{{ line.label }}{% if line.kind.value == "PRIMAL" %}
+        <span class="tag warn">{{ t("meat.primals") }}</span>{% endif %}</td>
+    <td class="muted">{{ line.serial }}</td>
+    <td class="num">{{ "%.3f"|format(line.expected_kg) }}</td>
+    <td class="num"><input name="kg:{{ line.serial }}" type="number" step="any" min="0"
+        inputmode="decimal" style="max-width:130px"
+        value="{{ '%.3f'|format(line.counted_kg) if line.counted_kg is not none else '' }}"></td>
+  </tr>
+  {% endfor %}
+  </table></div>
+  <label for="extra_serial">Serial</label>
+  <div class="rowflex">
+    <input id="extra_serial" name="extra_serial" placeholder="9999-01" style="flex:1">
+    <input name="extra_kg" type="number" step="any" min="0" placeholder="kg" style="max-width:130px">
+  </div>
+  <button class="wide" type="submit">{{ t("common.save") }}</button>
+</form>
+</div>
+
+{% if user.role.value == "MANAGER" %}
+<div class="card">
+<form method="post" action="/inventario/cerrar">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <button type="submit">{{ t("inv.close") }}</button>
+</form>
+</div>
+{% endif %}
+
+{% else %}
+  {% if last %}
+  {% set gaps = last.lines | selectattr("outcome", "in", ["SHORT", "OVER", "NOT_FOUND", "UNKNOWN"]) | list %}
+  <h2>{{ last.date }} · {{ t("inv.period." ~ last.period.value) }}</h2>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+    {% set contadas = last.lines | rejectattr("outcome", "equalto", "UNCOUNTED") | list %}
+    <div class="kpi"><b>{{ last.lines | selectattr("outcome", "equalto", "MATCH") | list | length }}
+        / {{ contadas | length }}</b><span>{{ t("inv.accuracy") }}</span></div>
+    <div class="kpi"><b>{{ gaps | length }}</b><span>{{ t("inv.gap") }}</span></div>
+    <div class="kpi"><b>{{ last.lines | selectattr("outcome", "equalto", "UNCOUNTED") | list | length }}</b>
+        <span>{{ t("inv.pending") }}</span></div>
+  </div>
+  <div class="card scroll">
+  <table>
+  <tr><th>{{ t("rec.component") }}</th><th>Serial</th><th class="num">{{ t("inv.expected") }}</th>
+      <th class="num">{{ t("inv.counted") }}</th><th class="num">{{ t("inv.gap") }}</th>
+      <th class="num">{{ t("inv.value") }}</th><th>{{ t("common.status") }}</th></tr>
+  {% for line in last.lines %}
+  {% set gap = (line.counted_kg - line.expected_kg) if line.counted_kg is not none else 0 %}
+  <tr>
+    <td>{{ line.label }}</td>
+    <td class="muted">{{ line.serial }}</td>
+    <td class="num">{{ "%.3f"|format(line.expected_kg) }}</td>
+    <td class="num">{% if line.counted_kg is not none %}{{ "%.3f"|format(line.counted_kg) }}{% endif %}</td>
+    <td class="num">{% if gap %}{{ "%+.3f"|format(gap) }}{% endif %}</td>
+    <td class="num">{% if gap and line.unit_cost %}{{ "%+.2f"|format(gap * line.unit_cost) }}{% endif %}</td>
+    <td><span class="tag {{ 'ok' if line.outcome == 'MATCH' else ('warn' if line.outcome in ['OVER','UNCOUNTED','UNKNOWN'] else 'bad') }}">
+        {{ t("inv.outcome." ~ line.outcome) }}</span></td>
+  </tr>
+  {% endfor %}
+  </table>
+  </div>
+  {% else %}
+  <div class="card"><p class="muted" style="margin:0">{{ t("inv.none") }}</p></div>
+  {% endif %}
+
+  {% if user.role.value == "MANAGER" %}
+  <div class="card">
+  <form method="post" action="/inventario/abrir">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="period">{{ t("inv.period") }}</label>
+    <select id="period" name="period">
+      {% for p in periods %}<option value="{{ p.value }}">{{ t("inv.period." ~ p.value) }}</option>{% endfor %}
+    </select>
+    <button class="wide" type="submit">{{ t("inv.open") }}</button>
+  </form>
+  </div>
+  {% endif %}
+{% endif %}
+<p class="muted"><a href="/carne">← {{ t("meat.title") }}</a></p>
+{% endblock %}
