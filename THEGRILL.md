@@ -427,7 +427,7 @@ thegrill/
   importers/             Pendiente: POS PDF, facturas, hojas manuscritas
   reports/               Pendiente: parte de carne, informe diario PDF
   cli.py                 init-db, run-chain, serve
-tests/                   501 tests
+tests/                   507 tests
 ```
 
 ## Uso

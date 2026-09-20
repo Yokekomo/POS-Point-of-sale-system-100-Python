@@ -383,6 +383,13 @@ pieza, con su serial. De la guarnición solo se lleva el coste. Es a propósito:
 un hotel no quiere contar patatas en este programa, pero sí quiere que el food
 cost del plato sea el de verdad.
 
+## Ponerlo en internet
+
+Hay `Dockerfile`, `docker-compose.yml` y `Caddyfile` listos: con una máquina
+pequeña y un dominio, la plataforma queda sirviendo con su certificado en veinte
+minutos. El detalle —qué hosting hace falta, qué significa «a nivel mundial» y
+qué dejar montado antes de abrir— está en **[DESPLIEGUE.md](DESPLIEGUE.md)**.
+
 ## Por dónde seguir
 
 1. Varias cámaras o varios puntos de venta dentro del mismo hotel, para saber

@@ -1,0 +1,18 @@
+# HTTPS automático con Let's Encrypt, y nada más. La aplicación ya pone sus
+# propias cabeceras de seguridad; aquí no se pisan.
+{$DOMINIO} {
+	encode gzip zstd
+
+	# Que la aplicación sepa que se está sirviendo por HTTPS: de eso depende
+	# que la cookie salga marcada como segura y que se mande HSTS.
+	reverse_proxy app:8000 {
+		header_up X-Forwarded-Proto https
+	}
+
+	log {
+		output file /data/acceso.log {
+			roll_size 20MiB
+			roll_keep 10
+		}
+	}
+}

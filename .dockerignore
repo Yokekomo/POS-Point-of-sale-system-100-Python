@@ -1,0 +1,9 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.db
+uploads
+reports_out
+backups
+.env

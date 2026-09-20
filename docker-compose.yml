@@ -1,0 +1,59 @@
+# Levanta la plataforma entera: base de datos, aplicación y el que pone el
+# HTTPS. Con esto y un dominio ya hay entorno de prueba de verdad.
+#
+#   cp .env.example .env     # y se rellena
+#   docker compose up -d
+#   docker compose exec app python -m thegrill.cli --db "$GRILL_DB" crear-dueno \
+#       --email tu@correo.com --nombre "Tu nombre" --password "una-clave-larga"
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: grill
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?hace falta una contraseña}
+      POSTGRES_DB: carnes
+    volumes:
+      - datos-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grill -d carnes"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GRILL_DB: postgresql+psycopg://grill:${POSTGRES_PASSWORD}@db:5432/carnes
+      GRILL_DATA_KEY: ${GRILL_DATA_KEY:?hace falta la clave de cifrado}
+      GRILL_SMTP_HOST: ${GRILL_SMTP_HOST:-}
+      GRILL_SMTP_PORT: ${GRILL_SMTP_PORT:-587}
+      GRILL_SMTP_USER: ${GRILL_SMTP_USER:-}
+      GRILL_SMTP_PASSWORD: ${GRILL_SMTP_PASSWORD:-}
+      GRILL_MAIL_FROM: ${GRILL_MAIL_FROM:-}
+      GRILL_MAIL_TO: ${GRILL_MAIL_TO:-}
+    expose:
+      - "8000"
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [app]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO:?hace falta el dominio}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-datos:/data
+      - caddy-config:/config
+
+volumes:
+  datos-db:
+  caddy-datos:
+  caddy-config:

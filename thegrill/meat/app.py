@@ -125,6 +125,13 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
     return templates.TemplateResponse(request, name, base)
 
 
+def is_https(request: Request) -> bool:
+    """Si la petición llegó por HTTPS, mirando también lo que dice el proxy."""
+    if request.url.scheme == "https":
+        return True
+    return request.headers.get("x-forwarded-proto", "").split(",")[0].strip() == "https"
+
+
 def set_session_cookie(response: Response, token: str) -> Response:
     secure = os.environ.get("GRILL_INSECURE_COOKIE") != "1"
     # `strict`: la cookie no viaja en peticiones que vengan de otro sitio, ni
@@ -172,7 +179,7 @@ async def security_headers(request: Request, call_next):
         response.headers.setdefault(header, value)
     response.headers.setdefault("Content-Security-Policy",
                                 security.content_policy(request.state.nonce))
-    if request.url.scheme == "https":
+    if is_https(request):
         response.headers.setdefault("Strict-Transport-Security",
                                     "max-age=31536000; includeSubDomains")
     return response
@@ -214,7 +221,7 @@ def root(request: Request, session: Session = Depends(get_db)):
     if current(request, session):
         return RedirectResponse("/hoy", status_code=303)
     return page(request, "public_home.html", lang=lang_for(request, session),
-                retention_days=privacy.RETENTION_DAYS)
+                retention_days=privacy.RETENTION_DAYS, trial_days=billing.TRIAL_DAYS)
 
 
 @app.get("/cookies", response_class=HTMLResponse)

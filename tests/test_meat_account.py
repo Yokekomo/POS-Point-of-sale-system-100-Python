@@ -699,3 +699,12 @@ def test_the_pages_do_not_load_anything_from_outside(client):
         html = client.get(path).text
         assert "http://" not in html.replace("http://www.w3.org", "")
         assert "//cdn" not in html and "googleapis" not in html
+
+
+def test_behind_a_proxy_the_platform_knows_it_is_on_https(client):
+    """Detrás de Caddy la petición llega en claro, pero fuera es HTTPS."""
+    directa = client.get("/login")
+    assert "Strict-Transport-Security" not in directa.headers
+
+    detras = client.get("/login", headers={"x-forwarded-proto": "https"})
+    assert "max-age=31536000" in detras.headers["Strict-Transport-Security"]
