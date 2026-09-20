@@ -968,3 +968,162 @@ class TestPars:
             with db.session_scope() as s:
                 fila = s.query(SitePar).one()
                 assert fila.site_id == ids[0] and fila.min_stock == 4.5
+
+
+# ============================== el cuadre guardado y el parte del día
+class TestReport:
+    """Lo que se cierra queda escrito, y el día se puede colgar en el pase."""
+
+    @pytest.fixture
+    def casa(self, ctx):
+        s, rest, ana, luis = ctx
+        cut = meat.create_cut(s, ana, "Entrecot")
+        item = meat.add_article(s, ana, cut, "Entrecot AUS")
+        row = IngredientLot(restaurant_id=rest.id, item_id=item.id, ingredient_id=cut.id,
+                            lot_code="TG-0001", serial="TG-0001·01", expiry=HOY,
+                            received=HOY, qty=6.0, qty_remaining=6.0, unit_cost=40.0,
+                            pieces=20)
+        s.add(row); s.flush()
+        return s, rest, ana, cut, row
+
+    def test_each_close_writes_its_reconciliation(self, casa):
+        from thegrill.models import ShiftClosure
+        from thegrill.web import defrost
+
+        s, rest, ana, cut, row = casa
+        defrost.intake(s, ana, row.serial, 5, 1.5, on=HOY, shift="noche")
+        defrost.count(s, ana, row.serial, 2, 0.6, on=HOY, shift="noche")
+
+        defrost.close(s, ana, on=HOY, shift="noche", lang="es")
+
+        fila = s.query(ShiftClosure).one()
+        assert fila.date == HOY and fila.shift == "noche" and fila.pieces == 1
+        assert fila.closed_by == ana.id
+
+    def test_closing_the_same_shift_again_does_not_duplicate_it(self, casa):
+        from thegrill.models import ShiftClosure
+        from thegrill.web import defrost
+
+        s, rest, ana, cut, row = casa
+        defrost.intake(s, ana, row.serial, 5, 1.5, on=HOY, shift="noche")
+        defrost.count(s, ana, row.serial, 2, 0.6, on=HOY, shift="noche")
+        defrost.close(s, ana, on=HOY, shift="noche", lang="es")
+        defrost.close(s, ana, on=HOY, shift="noche", lang="es")
+
+        assert s.query(ShiftClosure).count() == 1      # un turno, un cuadre
+
+    def test_the_month_adds_itself_up(self, casa):
+        from thegrill.web import defrost
+
+        s, rest, ana, cut, row = casa
+        defrost.intake(s, ana, row.serial, 5, 1.5, on=HOY, shift="tarde")
+        defrost.count(s, ana, row.serial, 2, 0.6, on=HOY, shift="tarde")
+        defrost.close(s, ana, on=HOY, shift="tarde", lang="es")
+
+        mes = defrost.month_so_far(s, rest.id, on=HOY)
+        assert mes.shifts == 1 and mes.month == HOY.month
+        assert mes.drip_kg >= 0 and mes.total_loss == pytest.approx(
+            round(mes.loss_cost + mes.drip_cost, 2))
+
+    def test_the_daily_report_gathers_the_day(self, casa):
+        from thegrill.models import Storage
+        from thegrill.web import aging, defrost, waste
+
+        s, rest, ana, cut, row = casa
+        pieza(s, rest, serial="8017", kg=9.0)
+        aging.move(s, ana, "8017", Storage.AGING, target_days=45, on=HOY)
+        aging.count_day(s, ana, [("8017", 8.7)], on=HOY, lang="es")
+        waste.record(s, ana, kg=0.4, serial=row.serial, reason="se cayó", on=HOY)
+        defrost.intake(s, ana, row.serial, 5, 1.5, on=HOY)
+
+        parte = meat.daily_report(s, rest.id, on=HOY, lang="es")
+
+        assert [l.serial for l in parte.counted] == ["8017"]
+        assert parte.to_weigh == []
+        assert parte.waste_kg == pytest.approx(0.4)
+        assert parte.waste_cost == pytest.approx(16.0)
+        assert [st.serial for st in parte.thawing] == [row.serial]
+        assert parte.day_loss >= parte.waste_cost
+
+    def test_the_report_page_prints_the_day(self, tmp_path, monkeypatch):
+        from fastapi.testclient import TestClient
+
+        from thegrill.meat import app as meatapp
+        from tests.meat_helpers import SPANISH, signup
+
+        monkeypatch.setenv("GRILL_INSECURE_COOKIE", "1")
+        db.init_engine(f"sqlite:///{tmp_path/'rp.db'}")
+        db.create_all()
+        with TestClient(meatapp.app, follow_redirects=False, headers=SPANISH) as client:
+            signup(client)
+            pagina = client.get("/parte")
+            assert pagina.status_code == 200
+            assert "Parte de carne del día" in pagina.text
+            assert "@media print" in pagina.text           # sale igual en papel
+            assert client.get("/parte?fecha=2026-01-15").status_code == 200
+            assert client.get("/parte?fecha=nada").status_code == 200   # no revienta
+
+
+# ================================ varias cámaras dentro de la misma sede
+class TestChambers:
+    """Una sede grande no tiene una cámara: tiene tres y un arcón."""
+
+    def test_the_piece_says_which_chiller_it_is_in(self, ctx):
+        s, rest, ana, luis = ctx
+        pieza(s, rest, serial="8017")
+
+        numero, nombre = sites.set_chamber(s, ana, "8017", "Cámara 2")
+
+        assert (numero, nombre) == ("8017", "Cámara 2")
+        assert s.query(Primal).one().chamber == "Cámara 2"
+
+    def test_an_empty_name_leaves_it_unsaid(self, ctx):
+        s, rest, ana, luis = ctx
+        pieza(s, rest, serial="8017")
+        sites.set_chamber(s, ana, "8017", "Cámara 2")
+        sites.set_chamber(s, ana, "8017", "  ")
+        assert s.query(Primal).one().chamber is None
+
+    def test_goods_in_land_in_the_chiller_they_are_put_in(self, ctx):
+        s, rest, ana, luis = ctx
+        meat.receive_primals(s, ana, lot="L-1", received=HOY, chamber="Maduración",
+                             rows=[meat.PrimalRow(serial="9001", sku="RIBEYE", kg=8.0,
+                                                  price_kg=25.0)])
+        assert s.query(Primal).filter_by(serial="9001").one().chamber == "Maduración"
+
+    def test_the_cuts_stay_in_the_chiller_of_the_piece(self, ctx):
+        s, rest, ana, luis = ctx
+        p = pieza(s, rest, serial="8017", kg=9.0)
+        p.chamber = "Cámara 2"
+        p.expiry_label = HOY
+        s.flush()
+        cut = meat.create_cut(s, ana, "Lomo")
+        item = meat.add_article(s, ana, cut, "Lomo AUS")
+
+        meat.post_butchery(s, ana, tg="TG-0001", serials=["8017"], before_kg=9.0,
+                           rows=[meat.CutRow(name="Lomo", item_id=item.id,
+                                             pieces=6, grams=1200)],
+                           waste_kg=1.8, on=HOY)
+
+        assert {l.chamber for l in s.query(IngredientLot)} == {"Cámara 2"}
+
+    def test_the_house_sees_which_chillers_are_in_use(self, ctx):
+        s, rest, ana, luis = ctx
+        pieza(s, rest, serial="8017")
+        pieza(s, rest, serial="8018")
+        sites.set_chamber(s, ana, "8017", "Cámara 2")
+        sites.set_chamber(s, ana, "8018", "Cámara 2")
+
+        assert sites.chambers(s, rest.id) == [("Cámara 2", 2)]
+
+    def test_nobody_names_the_chiller_of_another_site(self, ctx):
+        from thegrill.models import Role
+
+        s, rest, ana, luis = ctx
+        playa = sites.create(s, ana, "Playa")
+        luis.role = Role.BUTCHER
+        sites.assign(s, ana, luis, playa.id)
+        pieza(s, rest, serial="8017")
+
+        with pytest.raises(sites.SiteError):
+            sites.set_chamber(s, luis, "8017", "Cámara 2")

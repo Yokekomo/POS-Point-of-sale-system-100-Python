@@ -596,14 +596,42 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
 # ============================================================== CÁMARA
 @app.get("/carne", response_class=HTMLResponse)
 def chamber(request: Request, ctx=Depends(needs(perms.STOCK)),
-            session: Session = Depends(get_db), closed: str = ""):
+            session: Session = Depends(get_db), closed: str = "", error: str = ""):
     """Lo que queda: cortes en cámara y primales sin despiezar, en su sede."""
     user, auth_session = ctx
     mia = sites.of_user(session, user)
     return page(request, "chamber.html", user, auth_session, session, closed=closed,
-                site=mia,
+                site=mia, error=error,
+                chambers=sites.chambers(session, user.restaurant_id,
+                                        site_id=mia.id if mia else None),
+                pieces=meat.primals_in_stock(session, user.restaurant_id,
+                                             site_id=mia.id if mia else None),
+                lots=costing.at_site(
+                    session.query(IngredientLot)
+                    .filter(IngredientLot.restaurant_id == user.restaurant_id,
+                            IngredientLot.qty_remaining > 0,
+                            IngredientLot.serial.isnot(None)),
+                    session, user.restaurant_id, mia.id if mia else None)
+                .order_by(IngredientLot.serial).all(),
                 status=butchery.status(session, user.restaurant_id,
                                        site_id=mia.id if mia else None))
+
+
+@app.post("/carne/camara")
+def set_chamber(request: Request, serial: str = Form(...), chamber: str = Form(""),
+                csrf: str = Form(""), ctx=Depends(needs(perms.STOCK)),
+                session: Session = Depends(get_db)):
+    """Dice en qué cámara de la sede está esa pieza o ese lote."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    try:
+        numero, nombre = sites.set_chamber(session, user, serial, chamber)
+    except sites.SiteError as e:
+        return RedirectResponse(f"/carne?error={e}", status_code=303)
+    dicho = i18n.t(lang, "m.ch.moved", serial=numero,
+                   chamber=nombre or i18n.t(lang, "m.ch.none"))
+    return RedirectResponse(f"/carne?closed={dicho}", status_code=303)
 
 
 @app.post("/carne/cierre")
@@ -636,6 +664,8 @@ def _defrost(request, user, auth_session, session, *, shift="", done="", error="
         session, user.restaurant_id, mia.id if mia else None)
     return page(request, "defrost.html", user, auth_session, session, shift=shift,
                 done=done, error=error, on=on, closed=closed, site=mia,
+                month=defrost.month_so_far(session, user.restaurant_id, on,
+                                           site_id=mia.id if mia else None),
                 states=defrost.shift_states(session, user.restaurant_id, on, shift,
                                             site_id=mia.id if mia else None),
                 lots=lots.order_by(butchery.IngredientLot.expiry).all())
@@ -1912,6 +1942,23 @@ def reset_team_password(user_id: int, request: Request, password: str = Form(...
 
 
 # ============================================================ DESCARGAS
+@app.get("/parte", response_class=HTMLResponse)
+def daily_report_page(request: Request, ctx=Depends(needs(perms.STOCK)),
+                      session: Session = Depends(get_db), fecha: str = ""):
+    """El parte de carne del día, hecho para imprimirlo y colgarlo."""
+    user, auth_session = ctx
+    lang = lang_for(request, session, user)
+    mia = sites.of_user(session, user)
+    try:
+        on = date.fromisoformat(fecha) if fecha.strip() else date.today()
+    except ValueError:
+        on = date.today()
+    return page(request, "report.html", user, auth_session, session, lang=lang, on=on,
+                restaurant=session.get(Restaurant, user.restaurant_id),
+                report=meat.daily_report(session, user.restaurant_id, on=on, lang=lang,
+                                         site_id=mia.id if mia else None))
+
+
 @app.get("/descargas", response_class=HTMLResponse)
 def downloads_page(request: Request, ctx=Depends(require_user),
                    session: Session = Depends(get_db)):

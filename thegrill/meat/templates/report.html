@@ -1,0 +1,122 @@
+{% extends "base.html" %}{% block title %}{{ t("m.rp.title") }}{% endblock %}
+{% block body %}
+<style nonce="{{ nonce }}">
+@media print {
+  header.top, nav, form, .noprint, footer { display: none !important; }
+  main { padding: 0; max-width: none; }
+  .card { break-inside: avoid; box-shadow: none; border: 1px solid #ddd; }
+  a[href]:after { content: none !important; }
+}
+.sign { margin-top: 26px; display: flex; gap: 32px; flex-wrap: wrap; }
+.sign div { flex: 1 1 220px; border-top: 1px solid #999; padding-top: 6px; font-size: 12px }
+</style>
+
+<h1>{{ t("m.rp.title") }}</h1>
+<p class="sub">{{ restaurant.name }}{% if report.site %} · {{ report.site }}{% endif %} · {{ report.date }}</p>
+<p class="help noprint">{{ t("m.rp.help") }}</p>
+
+<form method="get" action="/parte" class="noprint" style="margin-bottom:14px">
+  <label for="fecha">{{ t("common.date") }}</label>
+  <input id="fecha" type="date" name="fecha" value="{{ on.isoformat() }}">
+  <button type="submit">{{ t("m.rp.show") }}</button>
+</form>
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+  <div class="kpi"><b>{{ report.status.total_primals }}</b><span>{{ t("meat.primals") }}</span></div>
+  <div class="kpi"><b>{{ "%.1f"|format(report.status.total_cut_kg) }}</b><span>{{ t("meat.cuts") }} (kg)</span></div>
+  {% if report.aging %}
+  <div class="kpi"><b>{{ report.aging.aging_pieces }}</b><span>{{ t("m.ag.aging") }}</span>
+    <div class="muted">{{ "%.1f"|format(report.aging.aging_kg) }} kg</div></div>
+  <div class="kpi"><b>{{ report.aging.frozen_pieces }}</b><span>{{ t("m.ag.frozen") }}</span></div>
+  {% endif %}
+  <div class="kpi"><b>{{ report.sales_units }}</b><span>{{ t("sale.units") }}</span>
+    {% if report.sales_kg %}<div class="muted">{{ "%.3f"|format(report.sales_kg) }} kg</div>{% endif %}</div>
+  {% if can("money") %}
+  <div class="kpi"><b>{{ "%.2f"|format(report.stock_value) }}</b><span>{{ t("m.home.stock_value") }}</span></div>
+  <div class="kpi"><b class="{{ 'bad' if report.day_loss > 0 else '' }}">{{ "%.2f"|format(report.day_loss) }}</b>
+    <span>{{ t("m.rp.day_loss") }}</span></div>
+  {% endif %}
+</div>
+
+{% if report.pending %}
+<div class="card">
+  <b>{{ t("m.home.todo") }}</b>
+  <ul>{% for p in report.pending %}<li>{{ p }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<div class="card scroll">
+  <b>{{ t("m.ag.daily") }}</b>
+  {% if report.counted or report.to_weigh %}
+  <table>
+    <tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.sku") }}</th>
+        <th class="num">{{ t("m.ag.days") }}</th><th class="num">kg</th>
+        <th class="num">{{ t("m.ag.lost") }}</th></tr>
+    {% for l in report.counted %}
+    <tr><td>{{ l.serial }}</td><td>{{ l.sku }}</td><td class="num">{{ l.days }}</td>
+        <td class="num">{{ "%.3f"|format(l.kg) }}</td>
+        <td class="num">{{ "%.3f"|format(l.loss_kg) }}</td></tr>
+    {% endfor %}
+    {% for l in report.to_weigh %}
+    <tr><td>{{ l.serial }}</td><td>{{ l.sku }}</td><td class="num">{{ l.days }}</td>
+        <td class="num muted">{{ "%.3f"|format(l.yesterday_kg) }}</td>
+        <td class="num bad">{{ t("m.rp.unweighed") }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">{{ t("m.ag.none") }}</p>{% endif %}
+</div>
+
+{% if report.thawing %}
+<div class="card scroll">
+  <b>{{ t("m.df.title") }}</b>
+  <table>
+    <tr><th>{{ t("waste.serial") }}</th><th>{{ t("rec.component") }}</th>
+        <th class="num">{{ t("m.df.out") }}</th><th class="num">{{ t("m.df.left") }}</th></tr>
+    {% for st in report.thawing %}
+    <tr><td>{{ st.serial }}</td><td>{{ st.ingredient }}</td>
+        <td class="num">{{ st.intake_pieces }}</td>
+        <td class="num">{% if st.closing_pieces is not none %}{{ st.closing_pieces }}{% else %}—{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+{% if report.waste %}
+<div class="card scroll">
+  <b>{{ t("nav.waste") }}</b>
+  <table>
+    <tr><th>{{ t("rec.component") }}</th><th>{{ t("waste.serial") }}</th>
+        <th class="num">kg</th>{% if can("money") %}<th class="num">{{ t("trace.cost") }}</th>{% endif %}</tr>
+    {% for w in report.waste %}
+    <tr><td>{{ w.label }}</td><td class="muted">{{ w.serial or "—" }}</td>
+        <td class="num">{{ "%.3f"|format(w.kg) }}</td>
+        {% if can("money") %}<td class="num">{{ "%.2f"|format(w.cost or 0) }}</td>{% endif %}</tr>
+    {% endfor %}
+    <tr><td colspan="2"><b>{{ t("m.rp.total") }}</b></td>
+        <td class="num"><b>{{ "%.3f"|format(report.waste_kg) }}</b></td>
+        {% if can("money") %}<td class="num"><b>{{ "%.2f"|format(report.waste_cost) }}</b></td>{% endif %}</tr>
+  </table>
+</div>
+{% endif %}
+
+{% if report.shifts %}
+<div class="card scroll">
+  <b>{{ t("m.df.closed_shifts") }}</b>
+  <table>
+    <tr><th>{{ t("sheet.shift") }}</th><th class="num">{{ t("m.ag.counted_pieces") }}</th>
+        <th class="num">{{ t("defrost.drip") }}</th>
+        {% if can("money") %}<th class="num">{{ t("m.df.loss") }}</th>{% endif %}</tr>
+    {% for c in report.shifts %}
+    <tr><td>{{ c.shift or "—" }}</td><td class="num">{{ c.pieces }}</td>
+        <td class="num">{{ "%.3f"|format(c.drip_kg) }}</td>
+        {% if can("money") %}<td class="num">{{ "%+.2f"|format(c.loss_cost) }}</td>{% endif %}</tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<div class="sign">
+  <div>{{ t("sheet.filled_by") }}</div>
+  <div>{{ t("m.rp.checked_by") }}</div>
+</div>
+{% endblock %}

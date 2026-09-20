@@ -148,6 +148,50 @@ def guard(session: Session, user: User, obj) -> Site:
     return donde
 
 
+# ----------------------------------------------------------------- cámaras
+def set_chamber(session: Session, user: User, serial: str,
+                chamber: str | None) -> tuple[str, str | None]:
+    """Dice en qué cámara de la sede está esa pieza o ese lote.
+
+    Una sede grande no tiene una cámara: tiene la de maduración, la de cortes
+    y el arcón del pasillo. El nombre lo ponen ellos, que es como la llaman.
+    Vacío es «sin decir», que es como estaba antes.
+    """
+    serial = (serial or "").strip()
+    nombre = (chamber or "").strip()[:48] or None
+    objeto = (session.query(Primal)
+              .filter_by(restaurant_id=user.restaurant_id, serial=serial).first()
+              or session.query(IngredientLot)
+              .filter_by(restaurant_id=user.restaurant_id, serial=serial).first())
+    if objeto is None:
+        raise SiteError(f"No hay ninguna pieza ni ningún lote con el número {serial}")
+    guard(session, user, objeto)
+    objeto.chamber = nombre
+    session.flush()
+    return serial, nombre
+
+
+def chambers(session: Session, restaurant_id: int,
+             site_id: int | None = None) -> list[tuple[str, int]]:
+    """Las cámaras que se usan y cuánto hay en cada una, para el desplegable."""
+    principal = main(session, restaurant_id).id
+    cuenta: dict[str, int] = {}
+    for primal in (session.query(Primal)
+                   .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK)):
+        if site_id and (primal.site_id or principal) != site_id:
+            continue
+        if primal.chamber:
+            cuenta[primal.chamber] = cuenta.get(primal.chamber, 0) + 1
+    for lot in (session.query(IngredientLot)
+                .filter(IngredientLot.restaurant_id == restaurant_id,
+                        IngredientLot.qty_remaining > EPSILON)):
+        if site_id and (lot.site_id or principal) != site_id:
+            continue
+        if lot.chamber:
+            cuenta[lot.chamber] = cuenta.get(lot.chamber, 0) + 1
+    return sorted(cuenta.items())
+
+
 # ----------------------------------------------------------------- mínimos
 @dataclass
 class Pars:
@@ -277,7 +321,7 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
             expiry=lot.expiry, received=lot.received, qty=movido, qty_remaining=movido,
             unit_cost=lot.unit_cost, pieces=piezas, piece_weight_g=lot.piece_weight_g,
             nominal_piece_g=lot.nominal_piece_g, grade=lot.grade, origin=lot.origin,
-            frozen=lot.frozen, site_id=destino.id))
+            frozen=lot.frozen, site_id=destino.id))     # sin cámara: la de allí la ponen ellos
         lot.qty_remaining = round(lot.qty_remaining - movido, 6)
 
     coste = round(movido * (lot.unit_cost or 0.0), 6)

@@ -238,6 +238,8 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
                             grade=grade, origin=origin, frozen=from_freezer,
                             # Los cortes se quedan donde estaba la pieza: el
                             # despiece no mueve carne de sede, la transforma.
+                            chamber=(single.chamber if single else
+                                     (primals[0].chamber if primals else None)),
                             site_id=(single.site_id if single else
                                      (primals[0].site_id if primals else None)))
         session.add(lot)

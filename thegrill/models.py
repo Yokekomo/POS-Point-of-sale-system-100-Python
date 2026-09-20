@@ -504,6 +504,9 @@ class Primal(TenantMixin, Base):
     # índice para que la base de datos de una casa en marcha y la de una
     # casa nueva tengan la misma forma. Vacío es la sede principal.
     site_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    # Y dentro de la sede, en qué cámara: «Cámara 2», «Arcón pasillo». Un
+    # nombre escrito por ellos, que es como la llaman en la casa.
+    chamber: Mapped[str | None] = mapped_column(String(48), index=True)
     suspect_phantom: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str | None] = mapped_column(Text)
 
@@ -821,6 +824,7 @@ class IngredientLot(TenantMixin, Base):
     # Cortado de una pieza congelada: la porción nace congelada y no se vende
     # hasta que alguien la saca a descongelar.
     frozen: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    chamber: Mapped[str | None] = mapped_column(String(48), index=True)
     # La sede donde está: se añadió después, y a una tabla que ya existe no
     # se le puede colgar una clave ajena en SQLite. Va como número con
     # índice para que la base de datos de una casa en marcha y la de una
@@ -966,6 +970,31 @@ class PrimalPar(TenantMixin, Base):
     sku: Mapped[str] = mapped_column(String(64), index=True)
     min_pieces: Mapped[int] = mapped_column(Integer, default=0)
     note: Mapped[str | None] = mapped_column(Text)
+
+
+class ShiftClosure(TenantMixin, Base):
+    """El cuadre de un turno, guardado.
+
+    El cierre ya decía lo que se había perdido, pero se lo llevaba la pantalla:
+    para saber cuánto va en el mes había que ir aviso por aviso. Aquí queda
+    escrito turno a turno, con su sede, y el mes se suma solo.
+    """
+    __tablename__ = "shift_closures"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    shift: Mapped[str] = mapped_column(String(16), default="")
+    site_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    cost: Mapped[float] = mapped_column(Float, default=0.0)         # lo gastado de verdad
+    loss_kg: Mapped[float] = mapped_column(Float, default=0.0)      # desvío contra la carta
+    loss_cost: Mapped[float] = mapped_column(Float, default=0.0)
+    drip_kg: Mapped[float] = mapped_column(Float, default=0.0)      # el agua del descongelado
+    drip_cost: Mapped[float] = mapped_column(Float, default=0.0)
+    pieces: Mapped[int] = mapped_column(Integer, default=0)         # números contados
+    uncounted: Mapped[str | None] = mapped_column(Text)             # los que se quedaron sin contar
+    aging_pending: Mapped[str | None] = mapped_column(Text)         # las que maduran sin pesar
+    closed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    closed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class SitePar(TenantMixin, Base):

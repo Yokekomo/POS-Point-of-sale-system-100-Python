@@ -4,6 +4,11 @@
 <p class="sub">{{ t("m.chamber.sub") }}</p>
 {% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
 
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if chambers %}
+<p class="help">{{ t("m.ch.in_use") }}:
+  {% for name, n in chambers %}<b>{{ name }}</b> ({{ n }}){% if not loop.last %} · {% endif %}{% endfor %}</p>
+{% endif %}
 {% if closed %}
   {% if closed == "0" %}<div class="banner ok">{{ t("meat.all_good") }}</div>
   {% else %}<div class="banner warn">{{ closed }}</div>{% endif %}
@@ -41,6 +46,27 @@
 {% endfor %}
 </table>
 </div>
+
+{% if can("stock") %}
+<div class="card">
+  <b>{{ t("m.ch.title") }}</b>
+  <form method="post" action="/carne/camara">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="ch_serial">{{ t("waste.serial") }}</label>
+    <select id="ch_serial" name="serial" required>
+      {% for p in pieces %}<option value="{{ p.serial }}">{{ p.serial }} · {{ p.sku }}{% if p.chamber %} · {{ p.chamber }}{% endif %}</option>{% endfor %}
+      {% for l in lots %}<option value="{{ l.serial }}">{{ l.serial }}{% if l.chamber %} · {{ l.chamber }}{% endif %}</option>{% endfor %}
+    </select>
+    <label for="ch_name">{{ t("m.ch.name") }}</label>
+    <input id="ch_name" name="chamber" list="chamber_names" placeholder="{{ t('m.ch.example') }}">
+    <datalist id="chamber_names">
+      {% for name, n in chambers %}<option value="{{ name }}"></option>{% endfor %}
+    </datalist>
+    <button type="submit">{{ t("common.save") }}</button>
+  </form>
+  <p class="help">{{ t("m.ch.help") }}</p>
+</div>
+{% endif %}
 
 <h2>{{ t("meat.primals") }}</h2>
 <div class="card scroll">

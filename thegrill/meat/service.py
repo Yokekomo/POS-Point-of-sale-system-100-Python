@@ -20,6 +20,7 @@ from thegrill.models import (ConsumptionMode, CountStatus, Despiece, DespieceCut
                              MeatCount, PosProduct, Primal, PrimalStatus, Recipe,
                              RecipeKind, RecipeLine, Rotation, Storage, Unit, User)
 from thegrill.web import aging as aging_mod
+from thegrill.web import waste as waste_mod
 from thegrill.web import butchery, costing, defrost, inventory, sites
 from thegrill.web.i18n import t
 
@@ -48,7 +49,8 @@ class PrimalRow:
 
 
 def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow],
-                    received: date | None = None, lang: str = "es") -> list[Primal]:
+                    received: date | None = None, lang: str = "es",
+                    chamber: str | None = None) -> list[Primal]:
     """Da de alta un grupo de primales bajo un lote de recepción común.
 
     Cada pieza lleva su número y su coste: ese coste es el que luego reparte el
@@ -81,6 +83,7 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
             grade=(row.grade or None), origin=(row.origin or None),
             weight_kg=row.kg, received_kg=row.kg, lot=lot.strip() or None,
             received_date=received, site_id=destino.id,
+            chamber=(chamber or "").strip()[:48] or None,
             landed_usd_per_kg=row.price_kg,
             piece_cost_usd=round(row.kg * row.price_kg, 4) if row.price_kg else None,
             frozen_use_by=row.use_by, status=PrimalStatus.IN_STOCK)
@@ -566,6 +569,76 @@ def plate(session: Session, restaurant_id: int, dish: Recipe, lang: str = "es") 
                  pos_code=product.pos_code if product else None,
                  pos_name=product.pos_name if product else dish.name,
                  missing_price=list(detail.missing))
+
+
+# ============================================================ parte del día
+@dataclass
+class DailyReport:
+    """El parte de carne de un día, para el pase y para la carpeta.
+
+    Es la foto que se cuelga: lo que hay, lo que se ha ido y lo que queda
+    pendiente. Se imprime desde el navegador, que es lo que hay en una cocina,
+    y sale igual en papel que en pantalla.
+    """
+    date: date
+    site: str = ""
+    status: butchery.MeatStatus | None = None
+    aging: aging_mod.Summary | None = None
+    to_weigh: list = field(default_factory=list)       # las que maduran sin pesar hoy
+    counted: list = field(default_factory=list)        # lo pesado hoy, pieza a pieza
+    thawing: list = field(default_factory=list)        # los números descongelando
+    shifts: list = field(default_factory=list)         # los turnos cerrados del día
+    waste: list = field(default_factory=list)          # lo tirado hoy
+    sales_units: int = 0
+    sales_kg: float = 0.0
+    pending: list[str] = field(default_factory=list)
+    stock_value: float = 0.0
+
+    @property
+    def waste_kg(self) -> float:
+        return round(sum(w.kg for w in self.waste), 3)
+
+    @property
+    def waste_cost(self) -> float:
+        return round(sum(w.cost or 0.0 for w in self.waste), 2)
+
+    @property
+    def day_loss(self) -> float:
+        """Lo que se ha ido hoy en dinero: el desvío del turno, el agua y la merma."""
+        return round(sum((c.loss_cost or 0.0) + (c.drip_cost or 0.0) for c in self.shifts)
+                     + self.waste_cost, 2)
+
+
+def daily_report(session: Session, restaurant_id: int, on: date | None = None,
+                 lang: str = "es", site_id: int | None = None) -> DailyReport:
+    """El parte del día: lo que hay, lo que se ha ido y lo que falta por hacer."""
+    from thegrill.models import SalesByProduct, ShiftClosure, Site
+
+    on = on or date.today()
+    hoy = today(session, restaurant_id, on=on, lang=lang, site_id=site_id)
+    sede = session.get(Site, site_id) if site_id else None
+    out = DailyReport(date=on, site=sede.name if sede else "", status=hoy.status,
+                      aging=hoy.aging, pending=hoy.pending, stock_value=hoy.stock_value)
+
+    out.to_weigh = [l for l in aging_mod.to_count(session, restaurant_id, on, site_id)
+                    if l.kg is None]
+    out.counted = [l for l in aging_mod.to_count(session, restaurant_id, on, site_id)
+                   if l.kg is not None]
+    out.thawing = [st for st in defrost.shift_states(session, restaurant_id, on,
+                                                     site_id=site_id)
+                   if st.intake_pieces or st.opening_pieces]
+    query = (session.query(ShiftClosure)
+             .filter(ShiftClosure.restaurant_id == restaurant_id, ShiftClosure.date == on))
+    if site_id:
+        query = query.filter(ShiftClosure.site_id == site_id)
+    out.shifts = query.order_by(ShiftClosure.shift).all()
+    out.waste = [w for w in waste_mod.everything(session, restaurant_id, days=1)
+                 if w.date == on]
+    for row in (session.query(SalesByProduct)
+                .filter_by(restaurant_id=restaurant_id, op_date=on)):
+        out.sales_units += row.units or 0
+        out.sales_kg = round(out.sales_kg + (row.kg or 0.0), 6)
+    return out
 
 
 # ==================================================================== hoy

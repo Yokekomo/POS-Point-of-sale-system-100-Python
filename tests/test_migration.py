@@ -21,14 +21,15 @@ HOY = date.today()
 # una de estas no vuelve sola, al cliente le falla el programa al abrirlo.
 NUEVAS = {
     "primals": ["storage", "storage_since", "aging_start_kg", "aging_target_days",
-                "received_kg", "site_id"],
-    "ingredient_lots": ["frozen", "site_id"],
+                "received_kg", "site_id", "chamber"],
+    "ingredient_lots": ["frozen", "site_id", "chamber"],
     "ingredients": ["sold_by_weight"],
     "recipes": ["by_weight", "price_per_kg"],
     "recipe_lines": ["by_weight"],
     "users": ["totp_secret", "totp_enabled", "recovery_codes", "site_id"],
     "auth_sessions": ["pending_2fa"],
     "sales_by_product": ["kg"],
+    "meat_counts": ["site_id"],
     "despiece_cuts": ["by_weight"],
 }
 

@@ -622,11 +622,32 @@ En el recibo el grupo ya existía desde antes: las casas de la misma empresa
 comparten grupo, se ven juntas en la pantalla de la plataforma con sus locales
 y su cuota total, y se cobran de una vez —una empresa, un recibo, no cinco—.
 
+## El parte del día, el mes y las cámaras
+
+**Parte de carne del día** (`/parte`). Lo que hay, lo que se ha ido hoy y lo que
+queda por hacer, en una hoja pensada para el pase: se imprime tal cual —o se
+guarda en PDF desde el navegador, que es lo que hay en una cocina— y lleva sus
+dos líneas de firma. Se puede pedir el de cualquier día.
+
+**El mes se suma solo.** Cada cierre de turno deja escrito su cuadre —lo
+gastado, el desvío contra la carta, el agua del descongelado, los números que
+se quedaron sin contar—, así que ya no hay que ir aviso por aviso: la pantalla
+de descongelado enseña lo que llevamos del mes, en kilos y en dinero. Un turno
+tiene un cuadre: si se vuelve a cerrar, se pisa.
+
+**Varias cámaras en la misma sede.** Una sede grande no tiene una cámara: tiene
+la de maduración, la de cortes y el arcón del pasillo. Cada pieza y cada lote
+pueden decir en cuál están, con el nombre que se use en la casa; se pone al
+recibir y se cambia desde la cámara, los cortes heredan la de su pieza y lo que
+sale del arcón se queda donde estaba. En blanco es «sin decir», que es como
+estaba antes de esto.
+
 ## Por dónde seguir
 
-1. Inventario por sede: hoy se cuenta la casa entera, y un grupo con obrador y
-   dos locales necesita cuadrar cada cámara por su cuenta.
-2. Varias cámaras dentro del mismo local, para saber en cuál está cada pieza.
-3. Parte de carne diario en PDF, para el pase.
-4. Guardar el cuadre de cada turno, para ver la pérdida acumulada del mes sin
-   tener que ir aviso por aviso.
+1. Que el traslado entre sedes pueda ir en camino: hoy sale de una cámara y
+   entra en la otra en el mismo momento, y un grupo con reparto quiere saber
+   qué hay en la furgoneta.
+2. Caducidades y etiquetas por sede en el parte del día, para el pase de cada
+   local.
+3. Las fotos de la portada: dejar `primal`, `cortes` y `plato` en
+   `thegrill/meat/static/fotos/`.

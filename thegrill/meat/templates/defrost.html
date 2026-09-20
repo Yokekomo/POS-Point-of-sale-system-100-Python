@@ -47,6 +47,19 @@
 {% endif %}
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 {% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
+{% if month is defined and month.shifts and can("money") %}
+<div class="card">
+  <b>{{ t("m.df.month") }}</b>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+    <div class="kpi"><b>{{ month.shifts }}</b><span>{{ t("m.df.shifts") }}</span></div>
+    <div class="kpi"><b class="{{ 'bad' if month.total_loss > 0 else '' }}">{{ "%.2f"|format(month.total_loss) }}</b>
+      <span>{{ t("m.df.month_loss") }}</span></div>
+    <div class="kpi"><b>{{ "%.3f"|format(month.drip_kg) }}</b><span>{{ t("defrost.drip") }}</span></div>
+    <div class="kpi"><b>{{ "%.2f"|format(month.cost) }}</b><span>{{ t("trace.cost") }}</span></div>
+  </div>
+  <p class="help">{{ t("m.df.month_help") }}</p>
+</div>
+{% endif %}
 
 <div class="grid">
   <div class="card">

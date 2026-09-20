@@ -23,7 +23,7 @@ from thegrill.engine.defrost import Consumed, SerialState, Variance, reconcile, 
 from thegrill.engine.recipes import explode
 from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, DefrostEntry, DefrostKind,
                              Ingredient, IngredientLot, IngredientMovement, MovementKind,
-                             SalesByProduct, User)
+                             SalesByProduct, ShiftClosure, User)
 from thegrill.web import aging, costing, service, sites
 from thegrill.web.i18n import t
 
@@ -120,7 +120,7 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
         expiry=lot.expiry, received=lot.received, qty=movido, qty_remaining=movido,
         unit_cost=lot.unit_cost, pieces=salen, piece_weight_g=lot.piece_weight_g,
         nominal_piece_g=lot.nominal_piece_g, grade=lot.grade, origin=lot.origin,
-        frozen=False, site_id=lot.site_id)
+        frozen=False, site_id=lot.site_id, chamber=lot.chamber)
     lot.qty_remaining = round(lot.qty_remaining - movido, 6)
     session.add(hijo)
     session.flush()
@@ -335,9 +335,78 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
     result.aging_pending = aging.pending_today(session, user.restaurant_id, on,
                                                site_id=mia.id if mia else None)
 
+    _save_closure(session, user, result, mia.id if mia else None)
     session.flush()
     _raise_alerts(session, user, result, lang)
     return result
+
+
+def _save_closure(session: Session, user: User, result: ShiftClose,
+                  site_id: int | None) -> ShiftClosure:
+    """Deja escrito el cuadre del turno, para que el mes se sume solo.
+
+    Si el mismo turno se vuelve a cerrar, se pisa la fila: un turno tiene un
+    cuadre, el último, y no tres versiones de lo mismo.
+    """
+    row = (session.query(ShiftClosure)
+           .filter_by(restaurant_id=user.restaurant_id, date=result.date,
+                      shift=result.shift or "", site_id=site_id).first())
+    if row is None:
+        row = ShiftClosure(restaurant_id=user.restaurant_id, date=result.date,
+                           shift=result.shift or "", site_id=site_id)
+        session.add(row)
+    row.cost = round(result.cost, 4)
+    row.loss_kg = round(result.loss_kg, 6)
+    row.loss_cost = round(result.loss_cost, 4)
+    row.drip_kg = round(result.drip_kg, 6)
+    row.drip_cost = round(result.drip_cost, 4)
+    row.pieces = len([c for c in result.consumed if c.counted])
+    row.uncounted = ", ".join(result.missing_counts)[:2000] or None
+    row.aging_pending = ", ".join(result.aging_pending)[:2000] or None
+    row.closed_by = user.id
+    row.closed_at = datetime.utcnow()
+    session.flush()
+    return row
+
+
+@dataclass
+class MonthSoFar:
+    """Lo que llevamos del mes, sumando los turnos ya cerrados."""
+    year: int
+    month: int
+    shifts: int = 0
+    cost: float = 0.0
+    loss_kg: float = 0.0
+    loss_cost: float = 0.0
+    drip_kg: float = 0.0
+    drip_cost: float = 0.0
+    rows: list = field(default_factory=list)
+
+    @property
+    def total_loss(self) -> float:
+        """Lo que se ha ido en el mes: el desvío y el agua, juntos y en dinero."""
+        return round(self.loss_cost + self.drip_cost, 2)
+
+
+def month_so_far(session: Session, restaurant_id: int, on: date | None = None,
+                 site_id: int | None = None) -> MonthSoFar:
+    """El mes en curso, turno a turno. Sin ir aviso por aviso."""
+    on = on or date.today()
+    first = date(on.year, on.month, 1)
+    query = (session.query(ShiftClosure)
+             .filter(ShiftClosure.restaurant_id == restaurant_id,
+                     ShiftClosure.date >= first, ShiftClosure.date <= on))
+    if site_id:
+        query = query.filter(ShiftClosure.site_id == site_id)
+    rows = query.order_by(ShiftClosure.date.desc(), ShiftClosure.id.desc()).all()
+    out = MonthSoFar(year=on.year, month=on.month, shifts=len(rows), rows=rows)
+    for row in rows:
+        out.cost = round(out.cost + (row.cost or 0.0), 4)
+        out.loss_kg = round(out.loss_kg + (row.loss_kg or 0.0), 6)
+        out.loss_cost = round(out.loss_cost + (row.loss_cost or 0.0), 4)
+        out.drip_kg = round(out.drip_kg + (row.drip_kg or 0.0), 6)
+        out.drip_cost = round(out.drip_cost + (row.drip_cost or 0.0), 4)
+    return out
 
 
 def _raise_alerts(session: Session, user: User, result: ShiftClose, lang: str) -> None:
