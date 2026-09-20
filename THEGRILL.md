@@ -470,6 +470,7 @@ thegrill/
     aging.py             Maduración, congelador y venta a peso: el agua se va y el dinero no
     twofactor.py         Los seis dígitos del segundo paso, y sus códigos de repuesto
     pos_import.py        El parte de ventas del POS: lee el fichero que salga y dice qué ha entendido
+    sites.py             Obrador y locales: la carne va de una sede a otra con su número y su coste
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
     service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV

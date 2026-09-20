@@ -1,0 +1,98 @@
+{% extends "base.html" %}{% block title %}{{ t("m.tr.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.tr.title") }}</h1>
+<p class="sub">{{ t("m.tr.sub") }}</p>
+{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if mine %}<p class="help">{{ t("m.tr.mine", site=mine.name) }}</p>{% endif %}
+
+<div class="card scroll">
+  <b>{{ t("m.tr.where") }}</b>
+  <table>
+    <tr><th>{{ t("m.tr.site") }}</th><th>{{ t("m.si.kind") }}</th>
+        <th class="num">{{ t("m.tr.primals") }}</th><th class="num">{{ t("m.rec.kg") }}</th>
+        <th class="num">{{ t("m.tr.cut_kg") }}</th>
+        {% if can("money") %}<th class="num">{{ t("m.home.stock_value") }}</th>{% endif %}</tr>
+    {% for row in stock %}
+    <tr>
+      <td><b>{{ row.site.name }}</b></td>
+      <td>{{ t("m.si." ~ row.site.kind.value) }}</td>
+      <td class="num">{{ row.primals }}</td>
+      <td class="num">{{ "%.3f"|format(row.primal_kg) }}</td>
+      <td class="num">{{ "%.3f"|format(row.cut_kg) }}</td>
+      {% if can("money") %}<td class="num">{{ "%.2f"|format(row.value) }}</td>{% endif %}
+    </tr>
+    {% endfor %}
+  </table>
+  {% if stock|length < 2 %}<p class="help">{{ t("m.tr.one_site") }}</p>{% endif %}
+</div>
+
+{% if can("transfer") and sites|length > 1 %}
+<div class="grid">
+  <div class="card">
+    <b>{{ t("m.tr.send_primal") }}</b>
+    <form method="post" action="/traslados/pieza">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label for="sp_serial">{{ t("m.rec.serial") }}</label>
+      <select id="sp_serial" name="serial" required>
+        {% for p in primals %}<option value="{{ p.serial }}">{{ p.serial }} · {{ p.sku }} · {{ "%.3f"|format(p.weight_kg or 0) }} kg</option>{% endfor %}
+      </select>
+      <label for="sp_site">{{ t("m.tr.to") }}</label>
+      <select id="sp_site" name="site" required>
+        {% for s in sites %}<option value="{{ s.id }}">{{ s.name }} · {{ t("m.si." ~ s.kind.value) }}</option>{% endfor %}
+      </select>
+      <label for="sp_note">{{ t("m.df.note") }}</label>
+      <input id="sp_note" name="note">
+      <button type="submit">{{ t("m.tr.send") }}</button>
+    </form>
+    <p class="help">{{ t("m.tr.send_primal_help") }}</p>
+  </div>
+
+  <div class="card">
+    <b>{{ t("m.tr.send_cut") }}</b>
+    <form method="post" action="/traslados/corte">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label for="sc_serial">{{ t("m.tr.lot") }}</label>
+      <select id="sc_serial" name="serial" required>
+        {% for l in lots %}<option value="{{ l.serial }}">{{ l.serial }} · {{ "%.3f"|format(l.qty_remaining) }} kg</option>{% endfor %}
+      </select>
+      <label for="sc_kg">{{ t("m.rec.kg") }}</label>
+      <input id="sc_kg" name="kg" inputmode="decimal" required>
+      <label for="sc_site">{{ t("m.tr.to") }}</label>
+      <select id="sc_site" name="site" required>
+        {% for s in sites %}<option value="{{ s.id }}">{{ s.name }} · {{ t("m.si." ~ s.kind.value) }}</option>{% endfor %}
+      </select>
+      <label for="sc_note">{{ t("m.df.note") }}</label>
+      <input id="sc_note" name="note">
+      <button type="submit">{{ t("m.tr.send") }}</button>
+    </form>
+    <p class="help">{{ t("m.tr.send_cut_help") }}</p>
+  </div>
+</div>
+{% endif %}
+
+<div class="card scroll">
+  <b>{{ t("m.tr.recent") }}</b>
+  {% if moves %}
+  <table>
+    <tr><th>{{ t("common.date") }}</th><th>{{ t("m.tr.what") }}</th>
+        <th class="num">{{ t("m.rec.kg") }}</th><th>{{ t("m.tr.from") }}</th>
+        <th>{{ t("m.tr.to") }}</th><th>{{ t("m.tr.new_serial") }}</th>
+        {% if can("money") %}<th class="num">{{ t("trace.cost") }}</th>{% endif %}</tr>
+    {% for m in moves %}
+    <tr>
+      <td>{{ m.date }}</td>
+      <td>{{ m.serial }} · {{ m.label }}</td>
+      <td class="num">{{ "%.3f"|format(m.kg) }}</td>
+      <td>{{ m.from_name }}</td>
+      <td>{{ m.to_name }}</td>
+      <td>{{ m.new_serial or "—" }}</td>
+      {% if can("money") %}<td class="num">{{ "%.2f"|format(m.cost or 0) }}</td>{% endif %}
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">{{ t("m.tr.none") }}</p>{% endif %}
+</div>
+
+<p class="help">{{ t("m.tr.not_yet") }}</p>
+{% endblock %}

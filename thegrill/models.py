@@ -84,6 +84,17 @@ class PrimalStatus(str, enum.Enum):
     WASTE = "WASTE"
 
 
+class SiteKind(str, enum.Enum):
+    """Qué hace cada sede de la casa.
+
+    Un grupo no son tres restaurantes iguales: es un obrador donde se reciben,
+    maduran y despiezan las piezas, y unos locales que consumen de él. El
+    obrador corta; el local sirve.
+    """
+    WAREHOUSE = "WAREHOUSE"   # obrador: recibe, madura, despieza
+    OUTLET = "OUTLET"         # local: consume primales o cortes y los sirve
+
+
 class Storage(str, enum.Enum):
     """Dónde está la pieza, que cambia lo que le pasa dentro.
 
@@ -293,6 +304,11 @@ class User(TenantMixin, Base):
     # Verificación en dos pasos: el secreto de los seis dígitos, si la tiene
     # puesta, y las huellas de los códigos de repuesto —los códigos mismos no
     # se guardan—.
+    # La sede donde está: se añadió después, y a una tabla que ya existe no
+    # se le puede colgar una clave ajena en SQLite. Va como número con
+    # índice para que la base de datos de una casa en marcha y la de una
+    # casa nueva tengan la misma forma. Vacío es la sede principal.
+    site_id: Mapped[int | None] = mapped_column(Integer, index=True)
     totp_secret: Mapped[str | None] = mapped_column(String(64))
     totp_enabled: Mapped[bool | None] = mapped_column(Boolean, default=False)
     recovery_codes: Mapped[str | None] = mapped_column(Text)
@@ -483,8 +499,56 @@ class Primal(TenantMixin, Base):
     aging_target_days: Mapped[int | None] = mapped_column(Integer)
     halal: Mapped[bool | None] = mapped_column(Boolean)
     photo_ref: Mapped[str | None] = mapped_column(String(256))
+    # La sede donde está: se añadió después, y a una tabla que ya existe no
+    # se le puede colgar una clave ajena en SQLite. Va como número con
+    # índice para que la base de datos de una casa en marcha y la de una
+    # casa nueva tengan la misma forma. Vacío es la sede principal.
+    site_id: Mapped[int | None] = mapped_column(Integer, index=True)
     suspect_phantom: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str | None] = mapped_column(Text)
+
+
+class Site(TenantMixin, Base):
+    """Una sede de la casa: el obrador o uno de los locales.
+
+    La carne está siempre en una sede concreta, porque «cuánto queda» sin decir
+    dónde no sirve para trabajar: el obrador puede tener ocho piezas y el local
+    de la playa ninguna, y eso no es lo mismo que tener cuatro en cada sitio.
+    """
+    __tablename__ = "sites"
+    __table_args__ = (UniqueConstraint("restaurant_id", "name", name="uq_site_restaurant_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(96), index=True)
+    kind: Mapped[SiteKind] = mapped_column(Enum(SiteKind), default=SiteKind.OUTLET)
+    address: Mapped[str | None] = mapped_column(Text)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Transfer(TenantMixin, Base):
+    """Un traslado de carne de una sede a otra.
+
+    Lo que viaja se lleva su número y su coste: una pieza que sale del obrador
+    entra en el local valiendo lo mismo, ni más barata por el camino ni más
+    cara. Queda escrito qué salió, de dónde, adónde, cuánto pesaba y quién lo
+    mandó, que es lo que se pregunta cuando falta algo.
+    """
+    __tablename__ = "transfers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date] = mapped_column(Date, index=True)
+    kind: Mapped[str] = mapped_column(String(16))              # PRIMAL o CUT
+    serial: Mapped[str] = mapped_column(String(48), index=True)
+    label: Mapped[str] = mapped_column(String(160))            # el SKU o el corte
+    kg: Mapped[float] = mapped_column(Float, default=0.0)
+    cost: Mapped[float | None] = mapped_column(Float)          # lo que viaja en dinero
+    from_site_id: Mapped[int | None] = mapped_column(ForeignKey("sites.id"), index=True)
+    to_site_id: Mapped[int] = mapped_column(ForeignKey("sites.id"), index=True)
+    new_serial: Mapped[str | None] = mapped_column(String(48))  # si hubo que partir el lote
+    note: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class Despiece(TenantMixin, Base):
@@ -757,6 +821,11 @@ class IngredientLot(TenantMixin, Base):
     # Cortado de una pieza congelada: la porción nace congelada y no se vende
     # hasta que alguien la saca a descongelar.
     frozen: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    # La sede donde está: se añadió después, y a una tabla que ya existe no
+    # se le puede colgar una clave ajena en SQLite. Va como número con
+    # índice para que la base de datos de una casa en marcha y la de una
+    # casa nueva tengan la misma forma. Vacío es la sede principal.
+    site_id: Mapped[int | None] = mapped_column(Integer, index=True)
 
     item: Mapped["IngredientItem"] = relationship(back_populates="lots")
     ingredient: Mapped["Ingredient"] = relationship()

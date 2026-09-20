@@ -522,22 +522,54 @@ pequeña y un dominio, la plataforma queda sirviendo con su certificado en veint
 minutos. El detalle —qué hosting hace falta, qué significa «a nivel mundial» y
 qué dejar montado antes de abrir— está en **[DESPLIEGUE.md](DESPLIEGUE.md)**.
 
-## Varios locales
+## Obrador y locales
 
-El plan de varios locales existe en el recibo: las casas de la misma empresa
+Un grupo no son tres restaurantes iguales: lo normal es **un obrador** —donde
+llegan las piezas, se maduran y se despiezan— y **unos locales** que consumen
+de él. El obrador corta; el local sirve.
+
+Por eso la carne no está «en la casa»: está en una sede. Ocho piezas en el
+obrador y ninguna en la playa no es lo mismo que cuatro en cada sitio, y hasta
+ahora el programa no sabía distinguirlo.
+
+**Sedes** (`/sedes`, del manager) da de alta el obrador y los locales, y dice
+quién trabaja en cada uno. Lo que esa persona da de alta entra en su sede: la
+carne que recibe el del local entra en el local. Sin sede asignada, trabaja con
+la casa entera, que es como funcionaba antes y sigue funcionando: una casa que
+nunca ha oído hablar de sedes tiene una sola, la principal, y no hay nada que
+configurar.
+
+**Traslados** (`/traslados`) enseña dónde está la carne —piezas, kilos y, si lo
+puede ver, el dinero de cada sede— y manda carne de una a otra:
+
+- **Una pieza entera** se va al local con su número. Allí se despieza o se
+  sirve, y sigue siendo la misma pieza.
+- **Cortes**, el lote entero o unos kilos. Si van unos kilos, el lote se parte:
+  lo que sale nace con su propio número colgando del de origen
+  (`TG-0001·01·T1`), así que se sigue pudiendo seguir hasta el plato.
+
+Lo que viaja se lleva su coste: una pieza que sale del obrador vale en el local
+exactamente lo mismo. Ni se abarata por el camino ni se encarece, porque si el
+traslado tocara el kilo el food cost del local sería un cuento. Y queda escrito
+qué salió, de dónde, adónde, cuánto pesaba y quién lo mandó, que es lo que se
+pregunta cuando falta algo.
+
+**Lo que todavía no mira la sede.** El consumo por FEFO, el inventario y el
+descongelado siguen trabajando con la casa entera. Es decir: el traslado ya
+mueve la carne y su dinero, pero si el local vende un corte, el programa lo
+descuenta del lote más antiguo de la casa aunque ese lote esté en el obrador.
+Para un grupo con un obrador y dos locales eso todavía se nota, y está dicho en
+la propia pantalla en vez de escondido.
+
+En el recibo el grupo ya existía desde antes: las casas de la misma empresa
 comparten grupo, se ven juntas en la pantalla de la plataforma con sus locales
 y su cuota total, y se cobran de una vez —una empresa, un recibo, no cinco—.
 
-Lo que **no** está: cada local sigue siendo una casa con su cámara, su gente y
-su acceso. Quien lleve tres locales entra tres veces, y no hay una pantalla que
-sume la carne de los tres. Eso es lo siguiente de verdad, y es un trabajo de
-fondo: una persona tendría que poder pertenecer a varias casas y elegir en cuál
-está, y los números tendrían que saber sumarse sin mezclar cámaras.
-
 ## Por dónde seguir
 
-1. Varios locales de verdad: una persona en varias casas, y los números del
-   grupo sumados sin mezclar cámaras. Hoy el grupo solo existe en el recibo.
+1. Que la sede mande en el consumo: FEFO, inventario y descongelado mirando la
+   sede y no la casa entera, y los números del grupo sumados sin mezclar
+   cámaras.
 2. Varias cámaras dentro del mismo local, para saber en cuál está cada pieza.
 3. Parte de carne diario en PDF, para el pase.
 4. Guardar el cuadre de cada turno, para ver la pérdida acumulada del mes sin

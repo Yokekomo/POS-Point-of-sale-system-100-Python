@@ -10,7 +10,7 @@ Tres niveles, pensados desde el trabajo y no desde el organigrama:
   ventas y el equipo.
 - **Carnicero**: la carne entera. Recibe primales, los despieza, los mete a
   madurar o al congelador y los vuelve a pesar, saca a descongelar, cuenta,
-  hace el inventario y apunta la merma. Ve lo que queda de primales y los
+  hace el inventario, apunta la merma y manda carne del obrador a los locales. Ve lo que queda de primales y los
   cortes de cada pieza, en kilos y en piezas. El dinero, no.
 - **Ayudante**: mete los datos del día —descongelado, recuentos y merma— y ve el
   stock. Ni recibe ni despieza ni abre inventarios.
@@ -30,6 +30,7 @@ COUNT = "count"            # contar en un inventario
 INVENTORY = "inventory"    # abrir, cerrar o cancelar un inventario
 WASTE = "waste"            # apuntar merma
 AGE = "age"                # mover piezas a madurar o al congelador, y pesarlas
+TRANSFER = "transfer"      # mandar carne del obrador a un local
 STOCK = "stock"            # ver cámara, cortes y trazabilidad de una pieza
 CATALOGUE = "catalogue"    # dar de alta cortes y artículos
 MENU = "menu"              # carta, ingredientes del plato y ventas
@@ -40,10 +41,10 @@ PLATFORM = "platform"      # la plataforma: altas de casas y el recibo del mes
 SETTINGS = "settings"      # la configuración del restaurante
 
 BUTCHER_CAPS = frozenset({RECEIVE, BUTCHER, DEFROST, CLOSE_SHIFT, COUNT,
-                          INVENTORY, WASTE, STOCK, AGE})
+                          INVENTORY, WASTE, STOCK, AGE, TRANSFER})
 EMPLOYEE_CAPS = frozenset({DEFROST, COUNT, WASTE, STOCK})
 MANAGER_CAPS = frozenset({RECEIVE, BUTCHER, DEFROST, CLOSE_SHIFT, COUNT, INVENTORY,
-                          WASTE, STOCK, AGE, CATALOGUE, MENU, MONEY, TEAM, FIX})
+                          WASTE, STOCK, AGE, TRANSFER, CATALOGUE, MENU, MONEY, TEAM, FIX})
 OWNER_CAPS = MANAGER_CAPS | {PLATFORM, SETTINGS}
 
 CAPS: dict[Role, frozenset[str]] = {

@@ -235,7 +235,11 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
                                 or alloc.cut.weight_per_piece_g),
                             nominal_piece_g=None if alloc.cut.by_weight
                             else alloc.cut.weight_per_piece_g,
-                            grade=grade, origin=origin, frozen=from_freezer)
+                            grade=grade, origin=origin, frozen=from_freezer,
+                            # Los cortes se quedan donde estaba la pieza: el
+                            # despiece no mueve carne de sede, la transforma.
+                            site_id=(single.site_id if single else
+                                     (primals[0].site_id if primals else None)))
         session.add(lot)
         session.flush()
         alloc.cut.lot_id = lot.id

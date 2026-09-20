@@ -25,11 +25,12 @@ from thegrill.meat import billing, gateway, mailer, perms, privacy, security
 from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
 from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, CountPeriod,
-                             CountStatus, Ingredient, IngredientItem, MeatCount, Plan,
-                             PosMatch, PosProduct, Primal, PrimalStatus, Recipe,
-                             RequestStatus, Restaurant, Role, Rotation, Storage, Unit, User)
+                             CountStatus, Ingredient, IngredientItem, IngredientLot,
+                             MeatCount, Plan, PosMatch, PosProduct, Primal, PrimalStatus,
+                             Recipe, RequestStatus, Restaurant, Role, Rotation, Site, SiteKind,
+                             Storage, Unit, User)
 from thegrill.web import (aging, auth, butchery, costing, defrost, i18n, inventory,
-                          pos_import, service, tracing, twofactor, waste)
+                          pos_import, service, sites, tracing, twofactor, waste)
 
 log = logging.getLogger(__name__)
 
@@ -815,6 +816,122 @@ def aging_sale(request: Request, serial: str = Form(...), grams: str = Form(...)
                   done=i18n.t(lang, "m.ag.sold", serial=result.serial,
                               grams=f"{result.grams:.10g}",
                               left=f"{result.kg_left:.10g}"))
+
+
+# ============================================================= TRASLADOS
+@app.get("/traslados", response_class=HTMLResponse)
+def transfers_page(request: Request, ctx=Depends(needs(perms.STOCK)),
+                   session: Session = Depends(get_db), done: str = "", error: str = ""):
+    """Dónde está la carne y lo que se manda de una sede a otra."""
+    user, auth_session = ctx
+    return _transfers(request, user, auth_session, session, done=done, error=error)
+
+
+def _transfers(request, user, auth_session, session, *, done="", error=""):
+    mine = sites.of_user(session, user)
+    return page(request, "transfers.html", user, auth_session, session, done=done,
+                error=error, mine=mine,
+                sites=sites.all_sites(session, user.restaurant_id),
+                stock=sites.stock(session, user.restaurant_id),
+                primals=meat.primals_in_stock(session, user.restaurant_id),
+                lots=(session.query(IngredientLot)
+                      .filter(IngredientLot.restaurant_id == user.restaurant_id,
+                              IngredientLot.qty_remaining > 0)
+                      .order_by(IngredientLot.serial).all()),
+                moves=sites.recent(session, user.restaurant_id,
+                                   site_id=mine.id if mine else None))
+
+
+@app.post("/traslados/pieza", response_class=HTMLResponse)
+def send_primal(request: Request, serial: str = Form(...), site: str = Form(...),
+                note: str = Form(""), csrf: str = Form(""),
+                ctx=Depends(needs(perms.TRANSFER)), session: Session = Depends(get_db)):
+    """La pieza entera se va a otra sede, con su número y su coste."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    try:
+        sent = sites.send_primal(session, user, serial.strip(), int(site or 0),
+                                 note=note.strip() or None)
+    except (sites.SiteError, ValueError) as e:
+        return _transfers(request, user, auth_session, session, error=str(e))
+    return _transfers(request, user, auth_session, session,
+                      done=i18n.t(lang, "m.tr.sent_primal", serial=sent.serial,
+                                  site=sent.to_site.name))
+
+
+@app.post("/traslados/corte", response_class=HTMLResponse)
+def send_cut(request: Request, serial: str = Form(...), kg: str = Form(...),
+             site: str = Form(...), note: str = Form(""), csrf: str = Form(""),
+             ctx=Depends(needs(perms.TRANSFER)), session: Session = Depends(get_db)):
+    """Cortes a otra sede: el lote entero, o unos kilos partiendo el lote."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    try:
+        sent = sites.send_cut(session, user, serial.strip(), _num(kg, 0.0) or 0.0,
+                              int(site or 0), note=note.strip() or None)
+    except (sites.SiteError, ValueError) as e:
+        return _transfers(request, user, auth_session, session, error=str(e))
+    partido = (i18n.t(lang, "m.tr.split", serial=sent.new_serial) if sent.new_serial else "")
+    return _transfers(request, user, auth_session, session,
+                      done=i18n.t(lang, "m.tr.sent_cut", kg=f"{sent.kg:.10g}",
+                                  label=sent.label, site=sent.to_site.name, split=partido))
+
+
+@app.get("/sedes", response_class=HTMLResponse)
+def sites_page(request: Request, ctx=Depends(needs(perms.TEAM)),
+               session: Session = Depends(get_db), done: str = "", error: str = ""):
+    """El obrador y los locales de la casa, y quién trabaja en cada uno."""
+    user, auth_session = ctx
+    sites.main(session, user.restaurant_id)      # una casa siempre tiene una sede
+    return page(request, "sites.html", user, auth_session, session, done=done, error=error,
+                rows=sites.all_sites(session, user.restaurant_id, active=False),
+                kinds=list(SiteKind), people=sites.people(session, user.restaurant_id))
+
+
+@app.post("/sedes/nueva")
+def create_site(request: Request, name: str = Form(...), kind: str = Form("OUTLET"),
+                address: str = Form(""), csrf: str = Form(""),
+                ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    try:
+        site = sites.create(session, user, name,
+                            kind=SiteKind[kind] if kind in SiteKind.__members__
+                            else SiteKind.OUTLET, address=address)
+    except (sites.SiteError, ValueError) as e:
+        return RedirectResponse(f"/sedes?error={e}", status_code=303)
+    return RedirectResponse(
+        f"/sedes?done={i18n.t(lang, 'm.si.created', name=site.name)}", status_code=303)
+
+
+@app.post("/sedes/{site_id}/estado")
+def toggle_site(site_id: int, request: Request, csrf: str = Form(""),
+                ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    site = _own(session, user, Site, site_id, request)
+    try:
+        sites.set_active(session, user, site.id, not site.active)
+    except sites.SiteError as e:
+        return RedirectResponse(f"/sedes?error={e}", status_code=303)
+    return RedirectResponse("/sedes", status_code=303)
+
+
+@app.post("/manager/equipo/{user_id}/sede")
+def change_site(user_id: int, request: Request, site: str = Form(""), csrf: str = Form(""),
+                ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
+    """A qué sede pertenece esa persona. Sin sede, ve la casa entera."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    target = _own(session, user, User, user_id, request)
+    try:
+        sites.assign(session, user, target, int(site) if site.strip() else None)
+    except (sites.SiteError, ValueError) as e:
+        return RedirectResponse(f"/sedes?error={e}", status_code=303)
+    return RedirectResponse("/sedes", status_code=303)
 
 
 # =============================================================== CORTES

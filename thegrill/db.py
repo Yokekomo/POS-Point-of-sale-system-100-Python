@@ -30,12 +30,16 @@ def create_all():
 
 
 def add_missing_columns() -> list[str]:
-    """Añade a las tablas que ya existen las columnas nuevas que les falten.
+    """Añade a las tablas que ya existen las columnas y los índices que falten.
 
     `create_all` crea tablas, pero no toca las que ya están: una base de datos
     en marcha se quedaba sin las columnas añadidas después y reventaba al leer.
     Solo se añaden columnas que admiten vacío, que es lo único que se puede
     añadir sin inventarse un valor para las filas que ya existen.
+
+    Y detrás van sus índices. Si no, la base de datos de una casa que viene de
+    antes y la de una casa nueva tienen la misma forma pero no el mismo
+    rendimiento: la columna está, pero buscar por ella recorre la tabla entera.
     """
     from sqlalchemy import inspect, text
     inspector = inspect(_engine)
@@ -53,6 +57,21 @@ def add_missing_columns() -> list[str]:
                 connection.execute(
                     text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {kind}'))
                 added.append(f"{table.name}.{column.name}")
+
+    # Los índices, después de las columnas: uno nuevo suele venir con la suya.
+    inspector = inspect(_engine)
+    for table in Base.metadata.sorted_tables:
+        if table.name not in tables:
+            continue
+        existing = {i["name"] for i in inspector.get_indexes(table.name)}
+        columns = {c["name"] for c in inspector.get_columns(table.name)}
+        for index in table.indexes:
+            if index.name in existing:
+                continue
+            if not {c.name for c in index.columns} <= columns:
+                continue
+            index.create(bind=_engine, checkfirst=True)
+            added.append(index.name)
     return added
 
 

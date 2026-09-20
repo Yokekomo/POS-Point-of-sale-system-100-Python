@@ -1,0 +1,69 @@
+{% extends "base.html" %}{% block title %}{{ t("m.si.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.si.title") }}</h1>
+<p class="sub">{{ t("m.si.sub") }}</p>
+{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+<div class="card scroll">
+  <table>
+    <tr><th>{{ t("common.name") }}</th><th>{{ t("m.si.kind") }}</th>
+        <th>{{ t("m.si.address") }}</th><th></th></tr>
+    {% for s in rows %}
+    <tr>
+      <td><b>{{ s.name }}</b>{% if not s.active %} <span class="muted">· {{ t("m.si.closed") }}</span>{% endif %}</td>
+      <td>{{ t("m.si." ~ s.kind.value) }}</td>
+      <td>{{ s.address or "—" }}</td>
+      <td>
+        <form method="post" action="/sedes/{{ s.id }}/estado" style="margin:0">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button class="ghost">{{ t("m.si.open") if not s.active else t("m.si.close") }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <b>{{ t("m.si.new") }}</b>
+    <form method="post" action="/sedes/nueva">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label for="si_name">{{ t("common.name") }}</label>
+      <input id="si_name" name="name" required>
+      <label for="si_kind">{{ t("m.si.kind") }}</label>
+      <select id="si_kind" name="kind">
+        {% for k in kinds %}<option value="{{ k.value }}">{{ t("m.si." ~ k.value) }}</option>{% endfor %}
+      </select>
+      <label for="si_address">{{ t("m.si.address") }}</label>
+      <input id="si_address" name="address">
+      <button type="submit">{{ t("m.si.create") }}</button>
+    </form>
+    <p class="help">{{ t("m.si.new_help") }}</p>
+  </div>
+
+  <div class="card scroll">
+    <b>{{ t("m.si.people") }}</b>
+    <table>
+      <tr><th>{{ t("common.name") }}</th><th>{{ t("m.si.assign") }}</th></tr>
+      {% for person in people %}
+      <tr>
+        <td>{{ person.name }}<div class="muted">{{ t("role." ~ person.role.value) }}</div></td>
+        <td>
+          <form method="post" action="/manager/equipo/{{ person.id }}/sede" style="margin:0">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <select name="site" aria-label="{{ t('m.si.assign') }}">
+              <option value="">{{ t("m.si.whole_house") }}</option>
+              {% for s in rows %}<option value="{{ s.id }}"{% if person.site_id == s.id %} selected{% endif %}>{{ s.name }}</option>{% endfor %}
+            </select>
+            <button class="ghost">{{ t("common.save") }}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+    <p class="help">{{ t("m.si.people_help") }}</p>
+  </div>
+</div>
+{% endblock %}

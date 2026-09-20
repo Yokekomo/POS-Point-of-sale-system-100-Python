@@ -20,7 +20,7 @@ from thegrill.models import (ConsumptionMode, CountStatus, Despiece, DespieceCut
                              MeatCount, PosProduct, Primal, PrimalStatus, Recipe,
                              RecipeKind, RecipeLine, Rotation, Storage, Unit, User)
 from thegrill.web import aging as aging_mod
-from thegrill.web import butchery, costing, defrost, inventory
+from thegrill.web import butchery, costing, defrost, inventory, sites
 from thegrill.web.i18n import t
 
 MAX_CUTS = 10
@@ -55,6 +55,8 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
     despiece entre los cortes, así que no se pierde por el camino.
     """
     rows = [r for r in rows if r.serial.strip() or r.kg]
+    # La carne entra donde está quien la recibe: el obrador, casi siempre.
+    destino = sites.of_user(session, user) or sites.main(session, user.restaurant_id)
     if not rows:
         raise MeatError(t(lang, "m.rec.empty"))
     received = received or date.today()
@@ -78,7 +80,7 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
             sku=(row.sku or "").strip() or row.serial.strip(),
             grade=(row.grade or None), origin=(row.origin or None),
             weight_kg=row.kg, received_kg=row.kg, lot=lot.strip() or None,
-            received_date=received,
+            received_date=received, site_id=destino.id,
             landed_usd_per_kg=row.price_kg,
             piece_cost_usd=round(row.kg * row.price_kg, 4) if row.price_kg else None,
             frozen_use_by=row.use_by, status=PrimalStatus.IN_STOCK)

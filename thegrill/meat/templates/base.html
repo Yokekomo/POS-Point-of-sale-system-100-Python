@@ -108,7 +108,8 @@ input[type=file]{padding:9px}
     {% if can("stock") %}<a href="/maduracion">{{ t("m.nav.aging") }}</a>{% endif %}
     {% if can("count") %}<a href="/inventario">{{ t("nav.inventory") }}</a>{% endif %}
     {% if can("waste") %}<a href="/merma">{{ t("nav.waste") }}</a>{% endif %}
-    {% if can("stock") %}<a href="/trazabilidad">{{ t("nav.tracing") }}</a>
+    {% if can("stock") %}<a href="/traslados">{{ t("m.nav.transfers") }}</a>
+    <a href="/trazabilidad">{{ t("nav.tracing") }}</a>
     <a href="/cortes">{{ t("m.nav.cuts") }}</a>{% endif %}
   {% if can("menu") %}
     <a href="/carta">{{ t("m.nav.menu") }}</a>
@@ -118,6 +119,7 @@ input[type=file]{padding:9px}
   {% if can("team") %}
     <a href="/manager/alertas">{{ t("nav.alerts") }}</a>
     <a href="/manager/equipo">{{ t("nav.team") }}</a>
+    <a href="/sedes">{{ t("m.nav.sites") }}</a>
   {% endif %}
     <a class="bell" href="/notificaciones">{{ t("nav.notifications") }}<span class="badge" id="navbadge"
        {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
