@@ -65,12 +65,12 @@
         <input name="serial:{{ i }}" autocomplete="off"
                placeholder="{{ serials[i] if serials|length > i else '' }}"
                title="{{ t('m.rec.serial_help') }}"></label>
-      <label>{{ t("m.rec.row_sku") }}
-        <input name="sku:{{ i }}" placeholder="{{ t('m.rec.row_sku_ph') }}"
-               title="{{ t('m.rec.row_sku_help') }}"></label>
       <label>{{ t("m.rec.kg") }}
         <input name="kg:{{ i }}" inputmode="decimal"
                title="{{ t('m.rec.kg_help') }}"></label>
+      <label>{{ t("m.rec.row_sku") }}
+        <input name="sku:{{ i }}" placeholder="{{ t('m.rec.row_sku_ph') }}"
+               title="{{ t('m.rec.row_sku_help') }}"></label>
       {% if can("money") %}
       <label>{{ t("m.rec.price_kg") }}
         <input name="price:{{ i }}" inputmode="decimal"
