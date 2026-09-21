@@ -686,6 +686,30 @@ y `:8001` detrás, que es como hay que verlo. Con Docker es
 `docker compose -f docker-compose.demo.yml up --build`. El paseo, con qué mirar
 primero y con quién entrar, está en **[PRUEBALA.md](PRUEBALA.md)**.
 
+## En la cámara no hay cobertura
+
+Dentro de una cámara frigorífica no hay señal, y un recuento a medias perdido
+es una hora de trabajo tirada. Así que:
+
+- **Lo que se teclea se guarda en el propio teléfono** según se escribe. Si la
+  pantalla se recarga, si el móvil se bloquea o si se va la batería, lo
+  escrito sigue ahí al volver.
+- **Al darle a guardar sin señal**, el recuento se queda esperando en el
+  teléfono y lo dice con todas las letras. **Cuando vuelve la cobertura se
+  manda solo**, sin que nadie tenga que acordarse de volver a darle al botón.
+- **Las pantallas de contar se abren sin red**: el programa deja una copia de
+  ellas en el aparato. Si se entra en una que no estaba guardada, sale una
+  página que lo explica en vez de la del dinosaurio.
+- Lo que se manda **no se guarda nunca**: un envío sin red falla, y lo recoge
+  el guardado del formulario. Nada se manda dos veces.
+- Al salir —o cuando caduca la sesión— **las copias se borran del aparato**: un
+  móvil de cocina lo usan cuatro personas.
+
+El ayudante que guarda las copias solo lo permite el navegador con certificado
+o en el propio ordenador. En la demo por wifi, sin certificado, no se instala:
+lo que se escribe se sigue guardando igual, pero una pantalla nueva no se abre
+sin señal. Con el despliegue de verdad —dominio y certificado— funciona entero.
+
 ## El banco de pruebas
 
 Las pruebas de siempre comprueban lo que alguien pensó comprobar. El banco es

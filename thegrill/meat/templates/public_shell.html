@@ -5,16 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{% block title %}{{ t("m.app.title") }}{% endblock %}</title>
 <meta name="description" content="{{ t("ld.sub") }}">
-<meta name="color-scheme" content="dark">
+<meta name="color-scheme" content="light dark">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2312100e'/%3E%3Crect x='9' y='9' width='14' height='14' rx='4' fill='%23e0703a'/%3E%3C/svg%3E">
 <style>
 /* La portada va por su cuenta: es lo primero que ve alguien que no nos conoce,
    y no tiene por qué parecerse a la pantalla de trabajo. Oscura, con la carne
    de protagonista y sin cargar nada de fuera. */
 :root{
-  --ink:#f4f1ec; --dim:#a9a29a; --line:#2a2521; --bg:#12100e; --card:#1a1714;
-  --ember:#e0703a; --ember-soft:#3a1f13; --ok:#7bc08d; --bad:#e88b8b; --warn:#e0bc63;
+  /* La web pública va como el programa: la manda el dispositivo. Quien tiene
+     el teléfono en claro ve claro y quien lo tiene en oscuro ve oscuro; que la
+     pantalla de entrar salga negra en un móvil en claro es lo que hace pensar
+     que te has equivocado de sitio. */
+  --ink:#1c1b19; --dim:#6b6862; --line:#e2e0db; --bg:#f6f6f4; --card:#fff;
+  --ember:#a8471f; --ember-soft:#f6e6dd; --ok:#2f6b3f; --bad:#a32020; --warn:#8a6a10;
+  --on-ember:#fff;                 /* lo que se lee encima del color de marca */
+  --veil:rgba(28,27,25,.55); --glow:rgba(168,71,31,.10);
+  --shadow:0 30px 60px -34px rgba(28,27,25,.35);
+  --shadow-soft:0 20px 50px -34px rgba(28,27,25,.30);
+  --header:rgba(246,246,244,.88);
   --max:1120px; --radius:18px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ink:#f4f1ec; --dim:#a9a29a; --line:#2a2521; --bg:#12100e; --card:#1a1714;
+    --ember:#e0703a; --ember-soft:#3a1f13; --ok:#7bc08d; --bad:#e88b8b; --warn:#e0bc63;
+    --on-ember:#160d07;
+    --veil:rgba(9,8,7,.72); --glow:rgba(224,112,58,.16);
+    --shadow:0 40px 80px -30px #000; --shadow-soft:0 30px 60px -30px #000;
+    --header:rgba(18,16,14,.86);
+  }
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -36,7 +55,7 @@ p{margin:0}
 .muted{color:var(--dim)}
 
 /* --- cabecera */
-header{position:sticky;top:0;z-index:20;background:rgba(18,16,14,.86);
+header{position:sticky;top:0;z-index:20;background:var(--header);
   backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 header .wrap{display:flex;align-items:center;gap:20px;padding-top:16px;padding-bottom:16px}
 .brand{font-weight:700;letter-spacing:-.02em;margin-inline-end:auto;display:flex;
@@ -52,7 +71,8 @@ header nav a:hover{color:var(--ink);background:var(--card)}
 .btn{display:inline-block;padding:15px 26px;border-radius:12px;text-decoration:none;
   font-weight:650;font-size:16px;font-family:inherit;border:1px solid transparent;
   background:transparent;color:var(--ink);cursor:pointer}
-.btn.primary{background:var(--ember);color:#160d07;box-shadow:0 10px 30px -12px var(--ember)}
+.btn.primary{background:var(--ember);color:var(--on-ember);
+  box-shadow:0 10px 30px -16px var(--ember)}
 .btn.primary:hover{filter:brightness(1.07)}
 .btn.ghost{border-color:var(--line);color:var(--ink)}
 .btn.ghost:hover{border-color:var(--dim)}
@@ -65,14 +85,14 @@ header nav a:hover{color:var(--ink);background:var(--card)}
 /* --- portada */
 .hero{padding:clamp(60px,9vw,120px) 0 84px;position:relative;overflow:hidden}
 .hero::before{content:"";position:absolute;inset:-40% 30% auto -20%;height:70vh;
-  background:radial-gradient(60% 60% at 30% 40%,rgba(224,112,58,.16),transparent 70%);
+  background:radial-gradient(60% 60% at 30% 40%,var(--glow),transparent 70%);
   pointer-events:none}
 .hero-grid{display:grid;gap:56px;grid-template-columns:1.05fr .95fr;align-items:center;
   position:relative}
 
 /* --- la maqueta del turno: es la pantalla de verdad, con sus números */
 .mock{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-  padding:20px;box-shadow:0 40px 80px -40px #000}
+  padding:20px;box-shadow:var(--shadow)}
 .mock .bar{display:flex;gap:6px;margin-bottom:16px}
 .mock .bar i{width:10px;height:10px;border-radius:50%;background:var(--line)}
 .mock h4{margin:0 0 14px;font-size:14px;font-weight:650;color:var(--dim);
@@ -152,7 +172,7 @@ details p{color:var(--dim);margin-top:14px;max-width:72ch}
 
 /* --- cierre */
 .final{text-align:center;background:
-  radial-gradient(70% 120% at 50% 0%,rgba(224,112,58,.14),transparent 70%)}
+  radial-gradient(70% 120% at 50% 0%,var(--glow),transparent 70%)}
 .final .cta-row{justify-content:center}
 footer{border-top:1px solid var(--line);padding:44px 0;color:var(--dim);font-size:14px}
 footer .wrap{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
@@ -170,7 +190,7 @@ footer a:hover{color:var(--ink)}
         max(16px,env(safe-area-inset-left));
   margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:14px;
   padding:16px 18px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:14px;
-  color:var(--dim);box-shadow:0 30px 60px -30px #000}
+  color:var(--dim);box-shadow:var(--shadow-soft)}
 /* Sin esto, el `display:flex` de arriba le gana al atributo `hidden` y el
    aviso no se va al pulsar: el botón hacía su trabajo y no se notaba. */
 #cookiebar[hidden]{display:none}
@@ -215,15 +235,18 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--ember);outline-o
 input[type=checkbox]{width:24px;height:24px;vertical-align:middle}
 button{font-family:inherit}
 button:not(.btn){display:inline-block;padding:15px 26px;border-radius:12px;border:0;
-  font:inherit;font-weight:650;background:var(--ember);color:#160d07;cursor:pointer}
+  font:inherit;font-weight:650;background:var(--ember);color:var(--on-ember);cursor:pointer}
 button.wide{width:100%;margin-top:20px}
 .help{color:var(--dim);font-size:14px;margin-top:6px}
 .err{color:var(--bad);font-size:14px;margin-top:6px}
 .banner{padding:14px 16px;border-radius:12px;margin-bottom:18px;font-size:15px;
   border:1px solid var(--line)}
-.banner.ok{background:rgba(123,192,141,.10);color:var(--ok);border-color:rgba(123,192,141,.3)}
-.banner.bad{background:rgba(232,139,139,.10);color:var(--bad);border-color:rgba(232,139,139,.3)}
-.banner.warn{background:rgba(224,188,99,.10);color:var(--warn);border-color:rgba(224,188,99,.3)}
+.banner.ok{background:color-mix(in srgb,var(--ok) 10%,transparent);color:var(--ok);
+  border-color:color-mix(in srgb,var(--ok) 32%,transparent)}
+.banner.bad{background:color-mix(in srgb,var(--bad) 10%,transparent);color:var(--bad);
+  border-color:color-mix(in srgb,var(--bad) 32%,transparent)}
+.banner.warn{background:color-mix(in srgb,var(--warn) 10%,transparent);color:var(--warn);
+  border-color:color-mix(in srgb,var(--warn) 32%,transparent)}
 .tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:600;
   border:1px solid var(--line);color:var(--dim)}
 .tag.ok{color:var(--ok)} .tag.warn{color:var(--warn)} .tag.bad{color:var(--bad)}
@@ -255,11 +278,11 @@ a.back:hover{color:var(--ember)}
 .modal{position:fixed;inset:0;z-index:40;display:none;padding:20px;
   align-items:center;justify-content:center}
 .modal:target{display:flex}
-.modal .veil{position:absolute;inset:0;background:rgba(9,8,7,.72);
+.modal .veil{position:absolute;inset:0;background:var(--veil);
   backdrop-filter:blur(3px)}
 .modal .box{position:relative;background:var(--card);border:1px solid var(--line);
   border-radius:var(--radius);padding:26px 26px 24px;width:min(460px,100%);
-  max-height:88vh;overflow:auto;box-shadow:0 40px 80px -30px #000}
+  max-height:88vh;overflow:auto;box-shadow:var(--shadow)}
 .modal .box.wide{width:min(620px,100%)}
 .modal h2{font-size:26px;margin-bottom:6px}
 .modal .close{position:absolute;top:10px;inset-inline-end:12px;font-size:26px;
@@ -375,5 +398,11 @@ a.back:hover{color:var(--ember)}
     </div>
   </div>
 </div>
+<script nonce="{{ nonce }}">
+// Quien llega a la portada o a la pantalla de entrar no tiene sesión: si el
+// aparato guardaba copias de las pantallas de otro, se borran aquí. Un móvil
+// de cocina lo usan cuatro personas.
+if (window.caches) { caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); }); }
+</script>
 </body>
 </html>

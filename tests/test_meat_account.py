@@ -602,7 +602,10 @@ def test_the_login_page_warns_too(client):
 
 # ------------------------------------------- nada se abre sin haber entrado
 PUBLICAS = {"/", "/precios", "/solicitar", "/cookies", "/login", "/signup", "/join",
-            "/logout", "/healthz", "/idioma/{lang}"}
+            "/logout", "/healthz", "/idioma/{lang}",
+            # El ayudante que guarda copias de pantalla no lleva datos: solo el
+            # código que dice qué guardar. Se pide antes de entrar, a propósito.
+            "/sw.js"}
 
 
 def test_no_screen_opens_without_logging_in(client):

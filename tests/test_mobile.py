@@ -283,8 +283,12 @@ def test_the_serial_column_stays_put_while_the_table_scrolls(phone_pages):
     assert quieta["despues"] >= quieta["izquierda"] - 1
 
 
-def test_it_also_works_with_the_phone_turned_sideways(browser):
-    """La cámara se mira de lado tantas veces como de pie."""
+def test_turned_sideways_the_menu_moves_to_the_side(browser):
+    """Tumbado sobra ancho y falta alto: la barra de abajo estorba, la columna no.
+
+    Es la misma pantalla girada, y cada postura pide una cosa: de pie manda el
+    pulgar y sobra ancho; tumbado es al revés.
+    """
     base, chromium = browser
     context = chromium.new_context(viewport={"width": 844, "height": 390}, has_touch=True)
     try:
@@ -295,8 +299,28 @@ def test_it_also_works_with_the_phone_turned_sideways(browser):
             ancho, ventana = page.evaluate(
                 "() => [document.documentElement.scrollWidth, window.innerWidth]")
             assert ancho <= ventana + 1, (ruta, ancho, ventana)
+        assert page.locator("aside.side").is_visible(), "tumbado no sale la columna"
+        assert not page.locator("nav.tabs").is_visible(), "tumbado sobra la barra de abajo"
+        # Y la columna se estrecha: en 390 píxeles de alto no caben lujos.
+        assert page.locator("aside.side").bounding_box()["width"] <= 200
     finally:
         context.close()
+
+
+def test_a_tablet_standing_up_gets_the_bottom_bar_and_lying_down_the_column(browser):
+    """La tablet del pase se gira cada dos por tres."""
+    base, chromium = browser
+    for medidas, de_pie in (({"width": 820, "height": 1180}, True),
+                            ({"width": 1180, "height": 820}, False)):
+        context = chromium.new_context(viewport=medidas, has_touch=True)
+        try:
+            page = context.new_page()
+            entra(page, base)
+            page.goto(f"{base}/carne")
+            assert page.locator("nav.tabs").is_visible() == de_pie, medidas
+            assert page.locator("aside.side").is_visible() != de_pie, medidas
+        finally:
+            context.close()
 
 
 def test_the_menu_on_a_phone_is_a_bottom_bar_and_a_drawer(phone_pages):
@@ -347,6 +371,129 @@ def test_the_menu_on_a_computer_is_a_column_on_the_left(browser):
         # La pantalla en la que estás se ve marcada, que es la mitad de un menú.
         activo = page.locator("aside.side a.item.on")
         assert activo.count() == 1 and "/carne" in activo.get_attribute("href")
+    finally:
+        context.close()
+
+
+# ------------------------------------- el color, el que diga el dispositivo
+def test_the_public_pages_follow_the_phone_theme(browser):
+    """Una pantalla de entrar negra en un móvil en claro parece otro programa.
+
+    El programa por dentro ya seguía al dispositivo; la portada y las páginas
+    públicas iban forzadas a oscuro.
+    """
+    base, chromium = browser
+    for esquema, fondo_claro in (("light", True), ("dark", False)):
+        context = chromium.new_context(viewport=PHONE, has_touch=True,
+                                       color_scheme=esquema)
+        try:
+            page = context.new_page()
+            for ruta in ("/", "/login", "/precios", "/cookies"):
+                page.goto(f"{base}{ruta}")
+                fondo = page.eval_on_selector("body", "el => getComputedStyle(el).backgroundColor")
+                claro = sum(int(x) for x in fondo.strip("rgb()").split(",")[:3]) > 380
+                assert claro == fondo_claro, (esquema, ruta, fondo)
+                # Y lo escrito se lee: nada de texto claro sobre fondo claro.
+                texto = page.eval_on_selector("h1", "el => getComputedStyle(el).color")
+                assert (sum(int(x) for x in texto.strip("rgb()").split(",")[:3]) > 380) != claro
+        finally:
+            context.close()
+
+
+def test_the_work_screens_follow_it_too(browser):
+    """Lo de dentro ya lo hacía, y tiene que seguir haciéndolo."""
+    base, chromium = browser
+    for esquema, fondo_claro in (("light", True), ("dark", False)):
+        context = chromium.new_context(viewport=TABLET, has_touch=True, color_scheme=esquema)
+        try:
+            page = context.new_page()
+            entra(page, base)
+            page.goto(f"{base}/carne")
+            fondo = page.eval_on_selector("body", "el => getComputedStyle(el).backgroundColor")
+            assert (sum(int(x) for x in fondo.strip("rgb()").split(",")[:3]) > 380) == fondo_claro
+        finally:
+            context.close()
+
+
+# ============================ contar en la cámara, donde no hay cobertura
+def test_a_count_survives_having_no_signal_in_the_chiller(browser):
+    """Dentro de una cámara no hay señal, y eso no puede costar un recuento.
+
+    Lo que se teclea se guarda en el propio teléfono, y cuando vuelve la
+    cobertura se manda solo. Nadie cuenta dos veces por una raya de menos.
+    """
+    from thegrill import db
+    from thegrill.models import IngredientLot, MeatCount, Restaurant, User
+    from thegrill.web import inventory
+
+    base, chromium = browser
+    with db.session_scope() as session:
+        rest = (session.query(Restaurant).filter(Restaurant.platform.isnot(True))
+                .order_by(Restaurant.id).first())
+        ana = session.query(User).filter_by(email="ana0@banco.com").one()
+        abierto = inventory.open_now(session, rest.id)
+        if abierto is None:
+            abierto = inventory.open_count(session, ana, on=HOY)
+        serial = abierto.lines[0].serial if abierto.lines else None
+    if not serial:
+        pytest.skip("la casa de pruebas no tiene nada que contar")
+
+    context = telefono(chromium)
+    try:
+        page = context.new_page()
+        entra(page, base)
+        page.goto(f"{base}/inventario")
+        page.wait_for_timeout(600)          # que el ayudante guarde su copia
+        campo = page.locator(f"input[name='kg:{serial}']")
+        assert campo.count() == 1, "no hay hoja de recuento abierta"
+
+        # Se entra en la cámara: se acaba la cobertura.
+        context.set_offline(True)
+        campo.fill("7.5")          # el campo es numérico: punto, como el teclado
+        page.click("form[data-keep] button[type=submit]")
+        aviso = page.locator("#sinred")
+        assert aviso.is_visible() and "guardado" in aviso.text_content().lower()
+
+        # La pantalla se vuelve a abrir sin señal —el móvil se bloqueó y el
+        # navegador tiró la pestaña— y se sirve la copia guardada, con lo
+        # escrito en su sitio.
+        page.goto(f"{base}/inventario")
+        page.wait_for_timeout(300)
+        assert page.locator(f"input[name='kg:{serial}']").count() == 1, (
+            "sin señal no se sirvió la copia: " + page.title() + " · " +
+            page.evaluate("() => navigator.serviceWorker.controller ? 'con ayudante' : 'sin ayudante'"))
+        assert page.locator(f"input[name='kg:{serial}']").input_value() == "7.5"
+
+        # Se sale de la cámara y vuelve la señal: se manda solo, sin que nadie
+        # se acuerde de volver a darle al botón.
+        context.set_offline(False)
+        page.evaluate("() => window.dispatchEvent(new Event('online'))")
+        page.wait_for_function(
+            "() => !Object.keys(localStorage).some(k => k.endsWith(':envio'))",
+            timeout=10000)
+        with db.session_scope() as session:
+            from thegrill.models import MeatCountLine
+            contadas = [l.counted_kg for l in session.query(MeatCountLine)
+                        .filter_by(serial=serial) if l.counted_kg is not None]
+            assert pytest.approx(7.5) in contadas, ("el recuento no llegó", contadas)
+    finally:
+        context.set_offline(False)
+        context.close()
+
+
+def test_the_helper_that_makes_screens_open_inside_the_chiller(browser):
+    """Sin él, volver a abrir la pantalla sin señal da la del dinosaurio."""
+    base, chromium = browser
+    context = telefono(chromium)
+    try:
+        page = context.new_page()
+        entra(page, base)
+        page.wait_for_timeout(600)
+        assert page.evaluate("() => !!navigator.serviceWorker.controller") or \
+            page.evaluate("() => navigator.serviceWorker.getRegistrations().then(r => r.length > 0)")
+        # Y lo que se manda nunca se guarda: un POST sin red falla, como debe.
+        codigo = page.evaluate("async () => (await (await fetch('/sw.js')).text())")
+        assert "req.method !== 'GET'" in codigo
     finally:
         context.close()
 

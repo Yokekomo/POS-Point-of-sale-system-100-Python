@@ -698,6 +698,14 @@ ES = {
     'cook.notice_purpose': 'Recordar que ya has leído este aviso, para no volver a enseñártelo.',
     'cook.notice_life': 'Un año.',
     'cook.full': 'Ver la página entera',
+    'off.saved': 'Lo que habías escrito sigue aquí: se guarda en este teléfono según lo tecleas.',
+    'off.pending': 'Sin cobertura. El recuento está guardado en este teléfono y se manda solo en cuanto vuelva la señal. No cierres sesión.',
+    'off.sending': 'Ha vuelto la señal: mandando el recuento…',
+    'off.sent': 'Recuento mandado.',
+    'off.failed': 'No se ha podido mandar todavía. Sigue guardado aquí y se reintenta solo.',
+    'off.help': 'En la cámara no hay cobertura y eso no puede costar un recuento: lo que escribes se guarda en el propio teléfono y se manda cuando salgas.',
+    'off.title': 'Sin conexión',
+    'off.body': 'Esta pantalla no estaba guardada todavía. Lo que hayas escrito en un recuento sigue en el teléfono y se mandará solo al salir de la cámara.',
 }
 
 
@@ -1287,6 +1295,14 @@ EN = {
     'cook.notice_purpose': 'Remembering that you have read this notice, so it is not shown again.',
     'cook.notice_life': 'One year.',
     'cook.full': 'See the full page',
+    'off.saved': 'What you had typed is still here: it is saved on this phone as you type.',
+    'off.pending': 'No signal. The count is saved on this phone and will be sent on its own as soon as the signal is back. Do not log out.',
+    'off.sending': 'Signal is back: sending the count…',
+    'off.sent': 'Count sent.',
+    'off.failed': 'It could not be sent yet. It is still saved here and will be retried on its own.',
+    'off.help': 'There is no signal in the chiller and that cannot cost you a count: what you type is saved on the phone itself and sent when you walk out.',
+    'off.title': 'No connection',
+    'off.body': 'This screen had not been saved yet. Anything you typed into a count is still on the phone and will be sent on its own when you leave the chiller.',
 }
 
 
@@ -1876,6 +1892,14 @@ FR = {
     'cook.notice_purpose': 'Se souvenir que vous avez lu cet avis, pour ne plus vous le montrer.',
     'cook.notice_life': 'Un an.',
     'cook.full': 'Voir la page entière',
+    'off.saved': "Ce que vous aviez saisi est toujours là : c'est enregistré sur ce téléphone au fur et à mesure.",
+    'off.pending': 'Pas de réseau. Le comptage est enregistré sur ce téléphone et sera envoyé tout seul dès le retour du signal. Ne vous déconnectez pas.',
+    'off.sending': 'Le réseau est revenu : envoi du comptage…',
+    'off.sent': 'Comptage envoyé.',
+    'off.failed': "Impossible d'envoyer pour l'instant. C'est toujours enregistré ici et réessayé tout seul.",
+    'off.help': "Il n'y a pas de réseau en chambre et cela ne peut pas coûter un comptage : ce que vous saisissez est enregistré sur le téléphone et envoyé en sortant.",
+    'off.title': 'Hors connexion',
+    'off.body': "Cet écran n'était pas encore enregistré. Ce que vous avez saisi dans un comptage reste sur le téléphone et partira tout seul en sortant de la chambre.",
 }
 
 
@@ -2465,6 +2489,14 @@ DE = {
     'cook.notice_purpose': 'Merken, dass du diesen Hinweis gelesen hast, damit er nicht wieder erscheint.',
     'cook.notice_life': 'Ein Jahr.',
     'cook.full': 'Ganze Seite ansehen',
+    'off.saved': 'Was du eingetippt hattest, ist noch da: Es wird beim Tippen auf diesem Telefon gespeichert.',
+    'off.pending': 'Kein Empfang. Die Zählung liegt auf diesem Telefon und geht von selbst raus, sobald das Signal wieder da ist. Melde dich nicht ab.',
+    'off.sending': 'Das Signal ist zurück: Zählung wird gesendet…',
+    'off.sent': 'Zählung gesendet.',
+    'off.failed': 'Konnte noch nicht gesendet werden. Sie bleibt hier gespeichert und wird von selbst erneut versucht.',
+    'off.help': 'Im Kühlraum gibt es keinen Empfang, und das darf keine Zählung kosten: Was du eintippst, liegt auf dem Telefon und geht raus, wenn du herauskommst.',
+    'off.title': 'Keine Verbindung',
+    'off.body': 'Dieser Bildschirm war noch nicht gespeichert. Was du in eine Zählung eingetippt hast, liegt weiter auf dem Telefon und geht von selbst raus, wenn du den Kühlraum verlässt.',
 }
 
 
@@ -3054,6 +3086,14 @@ NL = {
     'cook.notice_purpose': 'Onthouden dat je deze melding hebt gelezen, zodat ze niet terugkomt.',
     'cook.notice_life': 'Eén jaar.',
     'cook.full': 'De hele pagina bekijken',
+    'off.saved': 'Wat je had ingetypt staat er nog: het wordt tijdens het typen op deze telefoon bewaard.',
+    'off.pending': 'Geen bereik. De telling staat op deze telefoon en gaat vanzelf weg zodra er weer signaal is. Log niet uit.',
+    'off.sending': 'Het signaal is terug: de telling wordt verstuurd…',
+    'off.sent': 'Telling verstuurd.',
+    'off.failed': 'Kon nog niet verstuurd worden. Het staat hier bewaard en wordt vanzelf opnieuw geprobeerd.',
+    'off.help': 'In de koeling is geen bereik en dat mag geen telling kosten: wat je typt staat op de telefoon zelf en gaat weg zodra je naar buiten loopt.',
+    'off.title': 'Geen verbinding',
+    'off.body': 'Dit scherm was nog niet bewaard. Wat je in een telling hebt ingetypt staat nog op de telefoon en gaat vanzelf weg als je de koeling uit loopt.',
 }
 
 
@@ -3643,6 +3683,14 @@ AR = {
     'cook.notice_purpose': 'تذكّر أنك قرأت هذا التنبيه، كي لا يظهر لك مرة أخرى.',
     'cook.notice_life': 'سنة واحدة.',
     'cook.full': 'عرض الصفحة كاملة',
+    'off.saved': 'ما كتبته ما زال هنا: يُحفظ في هذا الهاتف أثناء الكتابة.',
+    'off.pending': 'لا تغطية. الجرد محفوظ في هذا الهاتف وسيُرسل وحده حالما تعود الإشارة. لا تسجّل الخروج.',
+    'off.sending': 'عادت الإشارة: يجري إرسال الجرد…',
+    'off.sent': 'أُرسل الجرد.',
+    'off.failed': 'تعذّر الإرسال بعد. ما زال محفوظاً هنا وسيُعاد المحاولة وحده.',
+    'off.help': 'لا تغطية داخل البراد، وهذا لا يجوز أن يكلّف جرداً: ما تكتبه يُحفظ في الهاتف نفسه ويُرسل حين تخرج.',
+    'off.title': 'لا اتصال',
+    'off.body': 'هذه الشاشة لم تُحفظ بعد. وما كتبته في الجرد ما زال في الهاتف وسيُرسل وحده حين تخرج من البراد.',
 }
 
 
@@ -4220,6 +4268,14 @@ HU = {
     'cook.notice_purpose': 'Megjegyezni, hogy elolvastad ezt a tájékoztatót, hogy ne jelenjen meg újra.',
     'cook.notice_life': 'Egy év.',
     'cook.full': 'A teljes oldal megtekintése',
+    'off.saved': 'Amit beírtál, itt van: gépelés közben elmentődik ezen a telefonon.',
+    'off.pending': 'Nincs térerő. A számolás elmentve ezen a telefonon, és magától elmegy, amint visszajön a jel. Ne jelentkezz ki.',
+    'off.sending': 'Visszajött a jel: megy a számolás…',
+    'off.sent': 'A számolás elment.',
+    'off.failed': 'Még nem sikerült elküldeni. Itt marad mentve, és magától újrapróbálja.',
+    'off.help': 'A hűtőben nincs térerő, és ez nem kerülhet egy számolásba: amit beírsz, a telefonon marad, és kilépve megy el.',
+    'off.title': 'Nincs kapcsolat',
+    'off.body': 'Ez a képernyő még nem volt elmentve. Amit egy számolásba beírtál, az a telefonon van, és magától elmegy, amint kijössz a hűtőből.',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

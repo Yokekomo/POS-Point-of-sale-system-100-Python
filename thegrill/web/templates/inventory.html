@@ -14,7 +14,9 @@
 
 {% if count %}
 <div class="card">
-<form method="post" action="/inventario/contar">
+<div class="banner ok" id="sinred" hidden></div>
+<p class="help">{{ t("off.help") }}</p>
+<form method="post" action="/inventario/contar" data-keep="inventario-{{ count.id }}">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <p class="muted" style="margin:0 0 10px">{{ t("inv.period") }}:
      {{ t("inv.period." ~ count.period.value) }} · {{ count.date }}

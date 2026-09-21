@@ -109,17 +109,9 @@ input[type=file]{padding:9px}
    bolsillo del delantal y lo toca con el dorso del dedo o con el guante
    puesto. Así que en pantalla pequeña la barra se desliza en vez de
    amontonarse, y todo lo que se toca es grande. */
-.topwrap{gap:10px}
-nav{display:flex;flex-wrap:wrap;gap:2px;align-items:center}
 @media (max-width:760px){
-  header.top{position:static}                 /* la barra no se come la pantalla */
-  .topwrap{padding:10px 12px;gap:8px;flex-wrap:nowrap;align-items:flex-start}
   .brand{font-size:15px}
   .brand small{font-size:11px}
-  nav{order:3;width:100%;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;
-      -webkit-overflow-scrolling:touch;padding-bottom:4px;scrollbar-width:none}
-  nav::-webkit-scrollbar{display:none}
-  nav a{flex:0 0 auto;white-space:nowrap;font-size:15px;padding:10px 12px}
   main{padding:14px max(12px,env(safe-area-inset-right))
        max(56px,calc(40px + env(safe-area-inset-bottom))) max(12px,env(safe-area-inset-left))}
   h1{font-size:20px}
@@ -178,11 +170,16 @@ img,svg,video{max-width:100%;height:auto}
 .body{flex:1;min-width:0;display:flex;flex-direction:column}
 /* Un hijo de una caja flexible crece hasta lo que mida su contenido si no se
    le dice que no: sin esto, una tabla ancha estiraba la pantalla entera y
-   había que arrastrar la página de lado para leer. */
+   había que arrastrar la página de lado para leer. El ancho explícito es lo
+   que de verdad lo sujeta; `min-width:0` solo no basta. */
 .body > main,main{min-width:0}
+.body > main{width:100%}
 .tabs{display:none}
 
-@media (max-width:900px){
+/* De pie mandan los pulgares y sobra ancho: barra abajo. Tumbado sobra ancho
+   y falta alto: la columna al lado, que no se come las pocas líneas que hay.
+   Es la misma pantalla girada, y cada postura pide una cosa. */
+@media (orientation:portrait) and (max-width:1024px){
   .shell{display:block}
   .body{display:block}
   .side{display:none}
@@ -191,18 +188,30 @@ img,svg,video{max-width:100%;height:auto}
   .tabs{display:flex;position:fixed;inset:auto 0 0 0;z-index:30;background:var(--card);
     border-top:1px solid var(--line);
     padding:6px 4px max(6px,env(safe-area-inset-bottom))}
-  .tabs a{flex:1;text-align:center;text-decoration:none;color:var(--muted);font-size:12px;
-    padding:8px 2px;border-radius:10px;min-height:52px;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:3px;line-height:1.15}
+  /* Cinco nombres en 390 píxeles: pequeños y con aire, o se tocan. */
+  .tabs a{flex:1 1 0;min-width:0;text-align:center;text-decoration:none;color:var(--muted);
+    font-size:11px;letter-spacing:-.01em;padding:7px 1px;border-radius:10px;min-height:54px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    line-height:1.1;overflow:hidden}
+  .tabs a span{display:block;width:100%;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
   .tabs a.on{color:var(--accent);background:var(--bg)}
-  .tabs a b{font-size:17px;font-weight:600;line-height:1}
+  .tabs a b{font-size:18px;font-weight:600;line-height:1}
   main{padding-bottom:96px !important}
   .topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;
     padding-top:max(10px,env(safe-area-inset-top));
     background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
   .topbar .brand{margin-inline-end:auto}
 }
-@media (min-width:901px){ .topbar{display:none} }
+@media (orientation:landscape),(min-width:1025px){ .topbar{display:none} }
+/* Teléfono tumbado: columna estrecha y sin la línea del nombre, que ahí el
+   alto es lo que falta. */
+@media (orientation:landscape) and (max-height:560px){
+  .side{width:184px;flex:0 0 184px;padding:10px 8px 18px}
+  .side .brand small{display:none}
+  .side a.item{padding:8px 10px;font-size:14px}
+  .side .group{margin:10px 0 4px}
+}
 
 /* El cajón de «Más», con todo lo que no cabe abajo. */
 .drawer{position:fixed;inset:0;z-index:40;display:none}
@@ -299,11 +308,11 @@ img,svg,video{max-width:100%;height:auto}
   </div>
 </div>
 <nav class="tabs" aria-label="{{ t('m.nav.g_work') }}">
-  <a class="{{ 'on' if here == '/hoy' }}" href="/hoy"><b>◉</b>{{ t("m.nav.today") }}</a>
-  {% if can("stock") %}<a class="{{ 'on' if here == '/carne' }}" href="/carne"><b>▤</b>{{ t("m.nav.chamber") }}</a>{% endif %}
-  {% if can("defrost") %}<a class="{{ 'on' if here == '/descongelado' }}" href="/descongelado"><b>≋</b>{{ t("m.nav.defrost") }}</a>{% endif %}
-  {% if can("stock") %}<a class="{{ 'on' if here == '/maduracion' }}" href="/maduracion"><b>◍</b>{{ t("m.nav.aging") }}</a>{% endif %}
-  <a href="#menu"><b>☰</b>{{ t("m.nav.more") }}</a>
+  <a class="{{ 'on' if here == '/hoy' }}" href="/hoy"><b>◉</b><span>{{ t("m.nav.today") }}</span></a>
+  {% if can("stock") %}<a class="{{ 'on' if here == '/carne' }}" href="/carne"><b>▤</b><span>{{ t("m.nav.chamber") }}</span></a>{% endif %}
+  {% if can("defrost") %}<a class="{{ 'on' if here == '/descongelado' }}" href="/descongelado"><b>≋</b><span>{{ t("m.nav.defrost") }}</span></a>{% endif %}
+  {% if can("stock") %}<a class="{{ 'on' if here == '/maduracion' }}" href="/maduracion"><b>◍</b><span>{{ t("m.nav.aging") }}</span></a>{% endif %}
+  <a href="#menu"><b>☰</b><span>{{ t("m.nav.more") }}</span></a>
 </nav>
 <div class="drawer" id="menu" role="dialog" aria-modal="true" aria-label="{{ t('m.nav.more') }}">
   <a class="veil" href="#" aria-label="{{ t('common.back') }}"></a>
@@ -317,6 +326,97 @@ img,svg,video{max-width:100%;height:auto}
   </div>
 </div>
 {% endif %}
+
+<script nonce="{{ nonce }}">
+// El ayudante que guarda copia de las pantallas visitadas, para que dentro de
+// la cámara se abran igual. El navegador solo lo permite con certificado o en
+// el propio ordenador; donde no lo permita, no pasa nada: lo que se escribe
+// se sigue guardando en el teléfono.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("/sw.js").catch(function () {});
+  });
+}
+</script>
+<script nonce="{{ nonce }}">
+// ================================================ contar sin cobertura
+// Dentro de una cámara no hay señal. El recuento se escribe igual, se guarda
+// en el propio teléfono según se teclea, y se manda solo cuando vuelve la
+// cobertura. Nadie vuelve a contar dos veces por culpa de una raya de menos.
+(function () {
+  var form = document.querySelector("form[data-keep]");
+  if (!form || !window.localStorage) return;
+  var clave = "cuenta:" + form.dataset.keep;
+  var aviso = document.getElementById("sinred");
+  var textos = {
+    guardado: {{ t("off.saved")|tojson }},
+    pendiente: {{ t("off.pending")|tojson }},
+    enviando: {{ t("off.sending")|tojson }},
+    enviado: {{ t("off.sent")|tojson }},
+    fallo: {{ t("off.failed")|tojson }}
+  };
+
+  function leer() { try { return JSON.parse(localStorage.getItem(clave) || "{}"); }
+                    catch (e) { return {}; } }
+  function escribir(d) { try { localStorage.setItem(clave, JSON.stringify(d)); } catch (e) {} }
+  function decir(texto, malo) {
+    if (!aviso) return;
+    aviso.textContent = texto;
+    aviso.hidden = !texto;
+    aviso.className = "banner " + (malo ? "warn" : "ok");
+  }
+
+  // Lo que se escribió antes vuelve a su sitio, aunque la pantalla se haya
+  // cerrado o el móvil se haya apagado.
+  var guardado = leer();
+  var había = false;
+  for (var nombre in guardado) {
+    var campo = form.elements[nombre];
+    if (campo && !campo.value) { campo.value = guardado[nombre]; había = true; }
+  }
+  if (había) decir(textos.guardado, false);
+
+  form.addEventListener("input", function (ev) {
+    var campo = ev.target;
+    if (!campo.name || campo.type === "hidden") return;
+    var datos = leer();
+    if (campo.value) { datos[campo.name] = campo.value; } else { delete datos[campo.name]; }
+    escribir(datos);
+  });
+
+  function pendiente() { return localStorage.getItem(clave + ":envio"); }
+
+  form.addEventListener("submit", function (ev) {
+    if (navigator.onLine) { localStorage.removeItem(clave); return; }
+    ev.preventDefault();
+    var datos = {};
+    new FormData(form).forEach(function (v, k) { datos[k] = v; });
+    try { localStorage.setItem(clave + ":envio", JSON.stringify(datos)); } catch (e) {}
+    decir(textos.pendiente, true);
+  });
+
+  function mandar() {
+    var guardadoEnvio = pendiente();
+    if (!guardadoEnvio || !navigator.onLine) return;
+    decir(textos.enviando, true);
+    var cuerpo = new URLSearchParams(JSON.parse(guardadoEnvio));
+    fetch(form.action, {
+      method: "POST", body: cuerpo, credentials: "same-origin",
+      headers: {"Content-Type": "application/x-www-form-urlencoded"}
+    }).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      localStorage.removeItem(clave + ":envio");
+      localStorage.removeItem(clave);
+      decir(textos.enviado, false);
+      setTimeout(function () { location.reload(); }, 600);
+    }).catch(function () { decir(textos.fallo, true); });
+  }
+
+  window.addEventListener("online", mandar);
+  window.addEventListener("offline", function () { decir(textos.pendiente, true); });
+  if (pendiente()) { navigator.onLine ? mandar() : decir(textos.pendiente, true); }
+})();
+</script>
 <script nonce="{{ nonce }}">
 // Refresca el contador de avisos sin recargar la página. Si la persona ha
 // autorizado los avisos del navegador, una alerta crítica salta a su pantalla.

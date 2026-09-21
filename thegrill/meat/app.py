@@ -2065,6 +2065,75 @@ def download_sheet(code: str, request: Request, ctx=Depends(require_user),
         "Content-Disposition": f'attachment; filename="{sheets_meat.filename(code, lang)}"'})
 
 
+@app.get("/sw.js")
+def service_worker(request: Request):
+    """El ayudante que hace que la pantalla cargue dentro de la cámara.
+
+    Guarda una copia de cada pantalla que se visita. Si luego no hay señal
+    —o el móvil se ha bloqueado y el navegador ha tirado la pestaña—, se sirve
+    la copia en vez de la pantalla del dinosaurio, y el recuento que estaba
+    guardado en el teléfono sigue ahí para mandarlo al salir.
+
+    Lo que se manda no se toca nunca: un POST sin red falla como siempre y lo
+    recoge el guardado del propio formulario.
+    """
+    lang = lang_for(request)
+    codigo = """
+const CACHE = 'carnes-v1';
+
+// Las pantallas de contar se guardan nada más entrar, sin esperar a que
+// alguien las visite: en la cámara puede tocar abrir una por primera vez.
+const DE_MANO = ['/hoy', '/inventario', '/maduracion', '/carne', '/descongelado'];
+
+self.addEventListener('install', e => self.skipWaiting());
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    await self.clients.claim();
+    const cache = await caches.open(CACHE);
+    await Promise.all(DE_MANO.map(async ruta => {
+      try {
+        const res = await fetch(ruta, {credentials: 'same-origin'});
+        if (res.ok) await cache.put(ruta, res.clone());
+      } catch (e) { /* sin red al arrancar: ya se guardará al visitarla */ }
+    }));
+  })());
+});
+
+self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return;                 // lo que escribe, nunca
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/')) return;     // los avisos, al día o nada
+
+  event.respondWith(
+    fetch(req).then(res => {
+      if (res.ok && res.type === 'basic') {
+        const copia = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copia));
+      }
+      return res;
+    }).catch(() =>
+      caches.match(req).then(hit => hit || caches.match(url.pathname)).then(hit => hit || new Response(
+        OFFLINE, {status: 200, headers: {'Content-Type': 'text/html; charset=utf-8'}}))
+    )
+  );
+});
+
+const OFFLINE = `<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__TITULO__</title>
+<style>body{font:16px/1.5 system-ui;margin:0;display:grid;place-items:center;min-height:100vh;
+background:#12100e;color:#f4f1ec;padding:24px;text-align:center}
+p{max-width:34ch;color:#a9a29a}</style></head><body><div>
+<h1>__TITULO__</h1><p>__CUERPO__</p></div></body></html>`;
+"""
+    codigo = (codigo.replace("__TITULO__", i18n.t(lang, "off.title"))
+              .replace("__CUERPO__", i18n.t(lang, "off.body")))
+    return Response(codigo, media_type="application/javascript",
+                    headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/healthz")
 def healthz():
     return {"status": "ok", "edition": "meat"}
