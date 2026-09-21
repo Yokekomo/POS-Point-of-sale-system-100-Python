@@ -336,7 +336,11 @@ de siempre: porciones —que nacen congeladas, con la fecha del congelador—
 vendidas por pieza con su escandallo.
 
 **Descongelado.** Lo que sale a descongelar, lo que el POS ha vendido y lo que
-queda al cerrar el turno. Las tres cosas juntas son el cuadre del día:
+queda al cerrar el turno. Son **dos pantallas**, porque son dos momentos: sacar
+del arcón es de media mañana y el recuento es de madrugada, y los dos
+formularios piden lo mismo —número, piezas, kilos— a un palmo el uno del otro.
+Juntos, la salida acababa en la casilla del recuento y el turno salía
+descuadrado sin que nadie lo viera. Las tres cosas juntas son el cuadre del día:
 
 - **lo vendido se descuenta de lo descongelado**, así el recuento de cierre se
   hace contra un número —«salieron 8, se vendieron 6, deberían quedar 2»— y no
@@ -665,8 +669,18 @@ consigue mirando la pantalla grande:
   las zonas seguras.
 - **La barra de menú se desliza en una línea** en vez de amontonar quince
   enlaces y comerse media pantalla.
+- **El menú del ordenador se pliega por grupos.** Veinte enlaces no caben en la
+  pantalla de un portátil, y lo que sobra sale como barra de desplazamiento.
+  Se abre el grupo de la pantalla en la que estás y los demás se recogen; el
+  que cada uno abre o cierra se queda así en las pantallas siguientes.
 - **Sin el retardo del doble toque**, que hace que el programa parezca lento
   cuando no lo es.
+- **El tema del aparato llega hasta lo que pinta el navegador.** La barra de
+  desplazamiento, los desplegables y el calendario no los dibujamos nosotros:
+  los dibuja el navegador, y si no se le dice en qué tema va, los saca en
+  blanco. Una raya de tiza al lado de la carne. Y la barra del menú lateral,
+  cuando la ventana es baja y el menú no cabe, solo aparece al pasar por
+  encima: dos barras juntas no las quiere ver nadie.
 
 Se prueba con un navegador de verdad en tres tamaños —teléfono de pie,
 teléfono de lado y tablet—, dando de alta una pieza con el pulgar para ver que
@@ -688,10 +702,12 @@ y `:8001` detrás, que es como hay que verlo. Con Docker es
 `docker compose -f docker-compose.demo.yml up --build`. El paseo, con qué mirar
 primero y con quién entrar, está en **[PRUEBALA.md](PRUEBALA.md)**.
 
-## En la cámara no hay cobertura
+## Cuando no hay cobertura
 
-Dentro de una cámara frigorífica no hay señal, y un recuento a medias perdido
-es una hora de trabajo tirada. Así que:
+Dentro de una cámara frigorífica no hay señal. Tampoco en el sótano del
+almacén, ni cuando la wifi de la casa va y viene, ni con una barra en el patio.
+Da igual dónde: un recuento a medias perdido es una hora de trabajo tirada. Así
+que:
 
 - **Lo que se teclea se guarda en el propio teléfono** según se escribe. Si la
   pantalla se recarga, si el móvil se bloquea o si se va la batería, lo

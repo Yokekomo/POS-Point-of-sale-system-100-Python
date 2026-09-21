@@ -1,7 +1,16 @@
 {% extends "base.html" %}{% block title %}{{ t("m.df.title") }}{% endblock %}
 {% block body %}
 <h1>{{ t("m.df.title") }}</h1>
-<p class="sub">{{ t("m.df.sub") }}</p>
+<p class="sub">{{ t("m.df.sub_count") if tab == "recuento" else t("m.df.sub_intake") }}</p>
+
+{# Sacar a descongelar y contar lo que sobra no se hacen a la vez: media
+   mañana lo uno, al cerrar lo otro. Dos pantallas, y se pasa de una a otra. #}
+<div class="tabsrow">
+  <a href="/descongelado{% if shift %}?shift={{ shift }}{% endif %}"
+     class="{{ 'on' if tab != 'recuento' }}">{{ t("m.df.intake") }}</a>
+  <a href="/descongelado/recuento{% if shift %}?shift={{ shift }}{% endif %}"
+     class="{{ 'on' if tab == 'recuento' }}">{{ t("m.df.count") }}</a>
+</div>
 {% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
 {% if closed %}
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
@@ -47,7 +56,8 @@
 {% endif %}
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 {% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
-{% if month is defined and month.shifts and can("money") %}
+{# El mes es cosa de los cierres: va donde se cierra. #}
+{% if tab == "recuento" and month is defined and month.shifts and can("money") %}
 <div class="card">
   <b>{{ t("m.df.month") }}</b>
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
@@ -61,8 +71,8 @@
 </div>
 {% endif %}
 
-<div class="grid">
-  <div class="card">
+{% if tab != "recuento" %}
+<div class="card">
     <b>{{ t("m.df.intake") }}</b>
     <form method="post" action="/descongelado/salida">
       <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -80,9 +90,9 @@
       <button class="wide" type="submit">{{ t("m.df.submit_intake") }}</button>
     </form>
     <p class="help">{{ t("m.df.frozen_help") }}</p>
-  </div>
-
-  <div class="card">
+</div>
+{% else %}
+<div class="card">
     <b>{{ t("m.df.count") }}</b>
     <form method="post" action="/descongelado/recuento">
       <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -100,8 +110,9 @@
       <input id="c_note" name="note">
       <button class="wide" type="submit">{{ t("m.df.submit_count") }}</button>
     </form>
-  </div>
+    <p class="help">{{ t("m.df.count_help") }}</p>
 </div>
+{% endif %}
 
 <h2>{{ t("m.df.state") }} · {{ on }}{% if shift %} · {{ shift }}{% endif %}</h2>
 <div class="card scroll">
@@ -136,6 +147,7 @@
 </div>
 <p class="help">{{ t("m.df.pos_help") }}</p>
 
+{% if tab == "recuento" %}
 <div class="card">
 <form method="post" action="/descongelado/cierre">
   <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -147,4 +159,9 @@
   </div>
 </form>
 </div>
+{% else %}
+<p class="help">{{ t("m.df.to_count") }}
+  <a href="/descongelado/recuento{% if shift %}?shift={{ shift }}{% endif %}"
+    >{{ t("m.df.count") }}</a>.</p>
+{% endif %}
 {% endblock %}

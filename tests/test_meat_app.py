@@ -691,3 +691,72 @@ def test_the_button_for_browser_alerts_is_wired_up(client):
     assert 'id="askperm"' in pantalla.text
     assert f'<script nonce="{marca}">' in pantalla.text
     assert "Notification.requestPermission" in pantalla.text
+
+
+def test_the_screens_tell_the_browser_which_theme_they_are_in(client):
+    """Sin decirlo, el navegador pinta sus barras en blanco sobre lo oscuro.
+
+    No es un capricho: la barra de desplazamiento, los desplegables y el
+    calendario los pinta el navegador, no nosotros, y si no sabe en qué tema
+    va los saca en claro. En una pantalla oscura eso es una raya de tiza al
+    lado de la carne.
+    """
+    signup(client)
+    for ruta in ("/hoy", "/carne", "/inventario", "/recepcion"):
+        html = client.get(ruta).text
+        assert "color-scheme:light dark" in html, ruta
+
+
+# ------------------------------------------- dos momentos del día, dos pantallas
+def test_taking_out_to_thaw_and_counting_at_closing_are_two_screens(client):
+    """Los dos formularios son iguales: juntos, uno se escribe en el otro.
+
+    Sacar a descongelar es de media mañana, con la cámara abierta; el recuento
+    es de madrugada, al cerrar. Estaban a un palmo el uno del otro y con los
+    mismos campos —serial, piezas, kilos, nota—: la salida acababa en la
+    casilla del recuento y el turno salía descuadrado sin que nadie lo viera.
+    """
+    signup(client)
+    salida = client.get("/descongelado").text
+    assert '/descongelado/salida' in salida
+    assert '/descongelado/recuento"' not in salida.split('class="tabsrow"')[1].split("</div>")[1]
+    assert "/descongelado/cierre" not in salida       # no se cierra desde aquí
+
+    recuento = client.get("/descongelado/recuento")
+    assert recuento.status_code == 200
+    assert '/descongelado/recuento' in recuento.text
+    assert "/descongelado/cierre" in recuento.text    # el cierre va con el recuento
+    assert '/descongelado/salida' not in recuento.text
+
+    # Y se pasa de una a otra sin tener que buscarla.
+    for pantalla in (salida, recuento.text):
+        assert 'class="tabsrow"' in pantalla
+        assert 'href="/descongelado"' in pantalla
+        assert 'href="/descongelado/recuento"' in pantalla
+
+
+def grupos_del_menu(html: str) -> dict:
+    """Los grupos del menú lateral y si vienen abiertos."""
+    return {m.group(1): bool(m.group(2))
+            for m in re.finditer(r'<details class="grp" data-grp="([^"]+)"\s*(open)?>', html)}
+
+
+def test_the_menu_groups_fold_up(client):
+    """El menú entero no cabía en una ventana baja: ahora se pliega por grupos.
+
+    Y se pliega solo el que no hace falta: el grupo de la pantalla en la que
+    estás viene abierto siempre, porque plegarlo encima de lo que se está
+    mirando es peor que no poder plegar nada.
+    """
+    signup(client)
+    en_hoy = grupos_del_menu(client.get("/hoy").text)
+    assert len(en_hoy) >= 4, en_hoy
+    assert list(en_hoy.values())[0] is True            # el del día, abierto
+    assert sum(1 for abierto in en_hoy.values() if not abierto) >= 2
+
+    # Y en una pantalla de control se abre el suyo, no el de antes.
+    en_inventario = grupos_del_menu(client.get("/inventario").text)
+    control = list(en_inventario)[1]
+    assert en_inventario[control] is True, en_inventario
+    catalogo = list(en_inventario)[2]
+    assert en_inventario[catalogo] is False, en_inventario

@@ -528,6 +528,11 @@ ES = {
     "m.rec.more_help": '¿Viene un camión entero? Añade las líneas que hagan falta.',
     "m.rec.rows_max": 'Más de {n} piezas no caben en un lote: da de alta dos.',
     "m.rec.lot_sku": 'Corte del lote',
+    "m.df.sub_intake": 'Lo que sacas del arcón y pones a la venta. Lo congelado está en espera: hasta que no sale de aquí, el POS no lo descuenta.',
+    "m.df.sub_count": 'Lo que ha sobrado al cerrar. La diferencia con lo que salió es lo vendido de verdad, y con ella el peso real por pieza.',
+    "m.df.count_help": 'Se cuenta al cerrar, pieza a pieza y con la báscula. Lo que no se cuente se queda sin cuadrar y el turno no cierra entero.',
+    "m.df.to_count": 'Al cerrar el turno, el recuento se hace en',
+    "m.nav.defrost_count": 'Recuento de cierre',
 }
 
 EN = {
@@ -1041,6 +1046,11 @@ EN = {
     "m.rec.more_help": 'A whole truck coming in? Add as many lines as you need.',
     "m.rec.rows_max": 'More than {n} pieces do not fit in one lot: book two.',
     "m.rec.lot_sku": 'Cut of the lot',
+    "m.df.sub_intake": 'What you take out of the freezer and put on sale. Frozen meat is on hold: until it leaves here, the POS does not deduct it.',
+    "m.df.sub_count": 'What is left at closing. The difference against what went out is what really sold, and with it the real weight per piece.',
+    "m.df.count_help": 'Counted at closing, piece by piece and on the scale. Whatever is not counted stays unsquared and the shift does not close whole.',
+    "m.df.to_count": 'At closing time, the count is done in',
+    "m.nav.defrost_count": 'Closing count',
 }
 
 FR = {
@@ -1554,6 +1564,11 @@ FR = {
     "m.rec.more_help": "Un camion entier ? Ajoute autant de lignes qu'il faut.",
     "m.rec.rows_max": "Plus de {n} pièces n'entrent pas dans un lot : fais-en deux.",
     "m.rec.lot_sku": 'Découpe du lot',
+    "m.df.sub_intake": "Ce que tu sors du congélateur et mets en vente. Le congelé est en attente : tant qu'il ne sort pas d'ici, la caisse ne le déduit pas.",
+    "m.df.sub_count": "Ce qu'il reste à la clôture. L'écart avec ce qui est sorti, c'est ce qui s'est vraiment vendu, et avec lui le poids réel par pièce.",
+    "m.df.count_help": "Se compte à la clôture, pièce par pièce et sur la balance. Ce qui n'est pas compté reste non soldé et le service ne clôture pas entièrement.",
+    "m.df.to_count": 'À la clôture, le comptage se fait dans',
+    "m.nav.defrost_count": 'Comptage de clôture',
 }
 
 DE = {
@@ -2067,6 +2082,11 @@ DE = {
     "m.rec.more_help": 'Kommt ein ganzer Lkw? Füge so viele Zeilen hinzu, wie du brauchst.',
     "m.rec.rows_max": 'Mehr als {n} Stücke passen nicht in ein Los: buche zwei.',
     "m.rec.lot_sku": 'Zuschnitt des Loses',
+    "m.df.sub_intake": 'Was du aus der Truhe holst und in den Verkauf gibst. Gefrorenes wartet: solange es hier nicht rausgeht, zieht die Kasse es nicht ab.',
+    "m.df.sub_count": 'Was beim Schließen übrig ist. Der Unterschied zum Ausgegebenen ist das wirklich Verkaufte, und damit das echte Stückgewicht.',
+    "m.df.count_help": 'Wird beim Schließen gezählt, Stück für Stück und auf der Waage. Was nicht gezählt wird, bleibt offen und die Schicht schließt nicht ganz.',
+    "m.df.to_count": 'Beim Schichtende wird gezählt in',
+    "m.nav.defrost_count": 'Schlusszählung',
 }
 
 NL = {
@@ -2580,6 +2600,11 @@ NL = {
     "m.rec.more_help": 'Komt er een hele vrachtwagen? Voeg zoveel regels toe als nodig.',
     "m.rec.rows_max": 'Meer dan {n} stuks passen niet in één partij: boek er twee.',
     "m.rec.lot_sku": 'Snit van de partij',
+    "m.df.sub_intake": 'Wat je uit de vriezer haalt en in de verkoop zet. Bevroren vlees staat in de wacht: zolang het hier niet uitgaat, boekt de kassa het niet af.',
+    "m.df.sub_count": 'Wat er bij het afsluiten over is. Het verschil met wat eruit ging is wat er echt verkocht is, en daarmee het echte gewicht per stuk.',
+    "m.df.count_help": 'Wordt bij het afsluiten geteld, stuk voor stuk en op de weegschaal. Wat niet geteld wordt blijft open en de dienst sluit niet helemaal.',
+    "m.df.to_count": 'Bij het afsluiten telt men in',
+    "m.nav.defrost_count": 'Slottelling',
 }
 
 AR = {
@@ -3093,6 +3118,11 @@ AR = {
     "m.rec.more_help": 'هل تصل شاحنة كاملة؟ أضف ما تحتاجه من سطور.',
     "m.rec.rows_max": 'أكثر من {n} قطعة لا تتسع في إرسالية واحدة: سجّل اثنتين.',
     "m.rec.lot_sku": 'قطعة الإرسالية',
+    "m.df.sub_intake": 'ما تخرجه من المجمّد وتضعه للبيع. المجمّد في الانتظار: ما لم يخرج من هنا لا تخصمه نقطة البيع.',
+    "m.df.sub_count": 'ما تبقّى عند الإغلاق. الفرق عمّا خرج هو المبيع فعلًا، ومعه الوزن الحقيقي للقطعة.',
+    "m.df.count_help": 'يُعدّ عند الإغلاق، قطعة قطعة وعلى الميزان. ما لا يُعدّ يبقى غير مطابق ولا تُغلق الوردية كاملة.',
+    "m.df.to_count": 'عند إغلاق الوردية يجري العدّ في',
+    "m.nav.defrost_count": 'عدّ الإغلاق',
 }
 
 
@@ -3608,6 +3638,11 @@ HU = {
     "m.rec.more_help": 'Egész kamion jön? Adj hozzá annyi sort, amennyi kell.',
     "m.rec.rows_max": '{n}-nál több darab nem fér egy tételbe: vegyél fel kettőt.',
     "m.rec.lot_sku": 'A tétel szabása',
+    "m.df.sub_intake": 'Amit kiveszel a fagyasztóból és eladásra teszel. A fagyasztott vár: amíg innen ki nem kerül, a kassza nem vonja le.',
+    "m.df.sub_count": 'Ami záráskor maradt. A kiadotthoz képesti különbség az, ami tényleg elkelt, és vele a valódi darabsúly.',
+    "m.df.count_help": 'Záráskor számolják, darabonként és mérlegen. Ami nem kerül számolásra, az nyitva marad, és a műszak nem zár le egészen.',
+    "m.df.to_count": 'Záráskor a számolás itt történik:',
+    "m.nav.defrost_count": 'Zárási számolás',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

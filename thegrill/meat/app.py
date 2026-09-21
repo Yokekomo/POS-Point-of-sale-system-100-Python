@@ -679,6 +679,11 @@ def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(needs(per
 
 
 # ======================================================== DESCONGELADO
+# El descongelado tiene dos momentos que no se parecen en nada: sacar carne a
+# descongelar —a media mañana, con la cámara abierta— y contar lo que ha
+# sobrado al cerrar. Juntar los dos formularios en una pantalla los hacía
+# idénticos y a un palmo el uno del otro: la salida en la casilla del recuento
+# y el turno sale descuadrado. Cada uno en su pantalla.
 @app.get("/descongelado", response_class=HTMLResponse)
 def defrost_page(request: Request, ctx=Depends(needs(perms.DEFROST)),
                  session: Session = Depends(get_db), shift: str = "", done: str = ""):
@@ -686,7 +691,17 @@ def defrost_page(request: Request, ctx=Depends(needs(perms.DEFROST)),
     return _defrost(request, user, auth_session, session, shift=shift, done=done)
 
 
-def _defrost(request, user, auth_session, session, *, shift="", done="", error="", closed=None):
+@app.get("/descongelado/recuento", response_class=HTMLResponse)
+def defrost_count_page(request: Request, ctx=Depends(needs(perms.DEFROST)),
+                       session: Session = Depends(get_db), shift: str = "", done: str = ""):
+    """El recuento de cierre: lo que ha sobrado y el cuadre del turno."""
+    user, auth_session = ctx
+    return _defrost(request, user, auth_session, session, shift=shift, done=done,
+                    tab="recuento")
+
+
+def _defrost(request, user, auth_session, session, *, shift="", done="", error="",
+             closed=None, tab="salida"):
     on = date.today()
     mia = sites.of_user(session, user)
     # No se saca a descongelar lo que está en otra sede: ese arcón no se abre
@@ -698,7 +713,7 @@ def _defrost(request, user, auth_session, session, *, shift="", done="", error="
                 butchery.IngredientLot.serial.isnot(None)),
         session, user.restaurant_id, mia.id if mia else None)
     return page(request, "defrost.html", user, auth_session, session, shift=shift,
-                done=done, error=error, on=on, closed=closed, site=mia,
+                done=done, error=error, on=on, closed=closed, site=mia, tab=tab,
                 month=defrost.month_so_far(session, user.restaurant_id, on,
                                            site_id=mia.id if mia else None),
                 states=defrost.shift_states(session, user.restaurant_id, on, shift,
@@ -748,8 +763,9 @@ def defrost_count(request: Request, serial: str = Form(...), pieces: int = Form(
         defrost.count(session, user, serial.strip(), pieces, _num(total_kg, 0.0) or 0.0,
                       shift=shift.strip(), note=note.strip() or None)
     except (defrost.DefrostError, ValueError) as e:
-        return _defrost(request, user, auth_session, session, shift=shift, error=str(e))
-    return RedirectResponse(f"/descongelado?shift={shift}", status_code=303)
+        return _defrost(request, user, auth_session, session, shift=shift, error=str(e),
+                        tab="recuento")
+    return RedirectResponse(f"/descongelado/recuento?shift={shift}", status_code=303)
 
 
 @app.post("/descongelado/cierre", response_class=HTMLResponse)
@@ -762,8 +778,10 @@ def defrost_close(request: Request, shift: str = Form(""), csrf: str = Form(""),
     try:
         result = defrost.close(session, user, shift=shift.strip(), lang=lang)
     except (defrost.DefrostError, ValueError) as e:
-        return _defrost(request, user, auth_session, session, shift=shift, error=str(e))
+        return _defrost(request, user, auth_session, session, shift=shift, error=str(e),
+                        tab="recuento")
     return _defrost(request, user, auth_session, session, shift=shift, closed=result,
+                    tab="recuento",
                     done=i18n.t(lang, "m.df.closed", n=len(result.consumed)))
 
 
@@ -2123,7 +2141,8 @@ const CACHE = 'carnes-v1';
 
 // Las pantallas de contar se guardan nada más entrar, sin esperar a que
 // alguien las visite: en la cámara puede tocar abrir una por primera vez.
-const DE_MANO = ['/hoy', '/inventario', '/maduracion', '/carne', '/descongelado'];
+const DE_MANO = ['/hoy', '/inventario', '/maduracion', '/carne', '/descongelado',
+                 '/descongelado/recuento'];
 
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', event => {

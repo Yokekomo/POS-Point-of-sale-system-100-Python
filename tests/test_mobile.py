@@ -557,6 +557,44 @@ def test_a_lot_with_many_pieces_gets_the_lines_it_needs(browser):
     context.close()
 
 
+def test_the_menu_remembers_how_you_left_it(browser):
+    """Plegar un grupo tiene que durar más que hasta el próximo clic."""
+    base, chromium = browser
+    context = chromium.new_context(viewport={"width": 1280, "height": 700})
+    page = context.new_page()
+    entra(page, base)
+
+    dia = page.locator("details.grp").first
+    assert dia.evaluate("g => g.open")                 # el del día viene abierto
+    control = page.locator("details.grp").nth(1)
+    assert not control.evaluate("g => g.open")         # los demás, recogidos
+
+    control.locator("summary").click()
+    assert control.evaluate("g => g.open")
+    page.goto(f"{base}/carne")                         # otra pantalla, otro grupo
+    assert page.locator("details.grp").nth(1).evaluate("g => g.open"), (
+        "el menú se olvidó de que ese grupo quedó abierto")
+
+    # Y al plegarlo, también se acuerda.
+    page.locator("details.grp").nth(1).locator("summary").click()
+    page.goto(f"{base}/hoy")
+    assert not page.locator("details.grp").nth(1).evaluate("g => g.open")
+    context.close()
+
+
+def test_the_whole_menu_fits_without_a_scrollbar(browser):
+    """Con los grupos recogidos, el menú entra en una ventana de portátil."""
+    base, chromium = browser
+    context = chromium.new_context(viewport={"width": 1280, "height": 620})
+    page = context.new_page()
+    entra(page, base)
+    sobra = page.evaluate("() => {const s = document.querySelector('.side');"
+                          "return s.scrollHeight - s.clientHeight}")
+    assert sobra <= 0, f"al menú le sobran {sobra} px y sale la barra"
+    assert page.locator(".side .foot button").is_visible()     # salir, a la vista
+    context.close()
+
+
 # Esta va **antes** de la edición de cocina a propósito: aquella monta su
 # propia base de datos y este proceso solo sabe hablar con una, así que a
 # partir de ahí la casa de carnes ya no existe y no se puede ni entrar.

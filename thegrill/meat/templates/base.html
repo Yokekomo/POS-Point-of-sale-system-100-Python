@@ -16,6 +16,21 @@
         --okbg:#1e2b21; --warnbg:#2e2718; --badbg:#2e1c1c;}
 }
 *{box-sizing:border-box}
+/* Que el navegador sepa en qué tema va: sin esto pinta sus propias barras de
+   desplazamiento en blanco, y en una pantalla oscura eso es una raya de tiza
+   al lado de la carne. Con esto, las barras, los desplegables y los
+   calendarios salen del color de la casa. */
+html{color-scheme:light dark}
+/* Y aun así la barra se nota más de lo que hace falta: se deja fina y del
+   color de las líneas, que es lo que separa una tabla de la de al lado. */
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:999px;
+  border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:padding-box;
+  border:2px solid transparent}
+::-webkit-scrollbar-corner{background:transparent}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}  /* el iPhone no infla el texto al girar */
 body{margin:0;background:var(--bg);color:var(--ink);
   font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
@@ -138,6 +153,13 @@ input[type=file]{padding:9px}
   a{-webkit-tap-highlight-color:rgba(138,61,31,.15)}
 }
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+/* Dos momentos del día, dos pantallas, y se pasa de una a otra sin buscar. */
+.tabsrow{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px;border-bottom:1px solid var(--line)}
+.tabsrow a{padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:600;
+  font-size:15px;border-bottom:2px solid transparent;margin-bottom:-1px;min-height:44px;
+  display:flex;align-items:center}
+.tabsrow a:hover{color:var(--ink)}
+.tabsrow a.on{color:var(--accent);border-bottom-color:var(--accent)}
 /* Una columna que se explica se marca, o nadie sabe que hay explicación. */
 th[title]{text-decoration:underline dotted;text-underline-offset:4px;cursor:help}
 dl.terms{margin:10px 0 0}
@@ -153,17 +175,37 @@ img,svg,video{max-width:100%;height:auto}
    pulgar— y un «Más» con el resto. Sin guiones: se abre con el enlace. */
 .shell{display:flex;min-height:100vh}
 .side{width:230px;flex:0 0 230px;background:var(--card);border-inline-end:1px solid var(--line);
-  padding:14px 12px 24px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  padding:14px 12px 16px;position:sticky;top:0;height:100vh;overflow-y:auto;
+  /* En una ventana baja el menú también se desplaza, y entonces se veían dos
+     barras juntas: la suya y la de la página. La del menú se enseña solo
+     cuando el ratón está encima, que es cuando hace falta. Con el dedo no
+     estorba: se arrastra igual. */
+  scrollbar-width:none}
+.side::-webkit-scrollbar{width:0}
+.side:hover,.side:focus-within{scrollbar-width:thin}
+.side:hover::-webkit-scrollbar,.side:focus-within::-webkit-scrollbar{width:8px}
 .side .brand{display:block;margin:6px 8px 16px}
 .side .group{margin:16px 0 6px;padding:0 10px;font-size:11px;font-weight:700;
   letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+/* Los grupos se pliegan: se abre el que tiene dentro la pantalla en la que
+   estás y los demás se quedan recogidos, así el menú entero cabe sin barra de
+   desplazamiento. La flecha dice de un vistazo cuál está abierto. */
+details.grp > summary{list-style:none;cursor:pointer;display:flex;align-items:center;
+  gap:8px;min-height:32px;border-radius:8px;user-select:none}
+details.grp > summary::-webkit-details-marker{display:none}
+details.grp > summary::after{content:"";width:6px;height:6px;margin-left:auto;
+  margin-inline-end:4px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;
+  transform:rotate(-45deg);opacity:.55;transition:transform .15s ease}
+details.grp[open] > summary::after{transform:rotate(45deg)}
+details.grp > summary:hover{background:var(--bg);color:var(--ink)}
+details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .side a.item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
   text-decoration:none;color:var(--ink);font-size:15px;line-height:1.2}
 .side a.item:hover{background:var(--bg)}
 .side a.item.on{background:var(--bg);color:var(--accent);font-weight:650;
   box-shadow:inset 3px 0 0 var(--accent)}
 [dir="rtl"] .side a.item.on{box-shadow:inset -3px 0 0 var(--accent)}
-.side .foot{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
+.side .foot{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
 .side form{margin:0}
 .side .count{margin-inline-start:auto;background:var(--bad);color:#fff;border-radius:999px;
   font-size:11px;font-weight:700;padding:1px 7px}
@@ -233,31 +275,54 @@ img,svg,video{max-width:100%;height:auto}
 </style>
 </head>
 <body>
+{# Un grupo del menú. Se abre solo el que tiene dentro la pantalla en la que
+   estás; los demás se quedan plegados y el menú cabe entero sin barra. Es
+   `<details>` del navegador: funciona sin guiones y sin red. #}
+{% macro grupo(titulo, rutas, sitio, siempre=false) %}
+<details class="grp" data-grp="{{ titulo }}"
+  {% if siempre or here in rutas %}open{% endif %}>
+  <summary class="group">{{ titulo }}</summary>
+  {{ caller() }}
+</details>
+{% endmacro %}
+
 {% macro menu(sitio) -%}
   {% set aqui = here %}
+  {% call grupo(t("m.nav.g_work"), ['/hoy', '/recepcion', '/despiece', '/carne',
+                                    '/descongelado', '/descongelado/recuento',
+                                    '/maduracion'], sitio, true) %}
   <a class="item {{ 'on' if aqui == '/hoy' }}" href="/hoy">{{ t("m.nav.today") }}</a>
   {% if can("receive") %}<a class="item {{ 'on' if aqui == '/recepcion' }}" href="/recepcion">{{ t("m.nav.reception") }}</a>{% endif %}
   {% if can("butcher") %}<a class="item {{ 'on' if aqui == '/despiece' }}" href="/despiece">{{ t("m.nav.butchery") }}</a>{% endif %}
   {% if can("stock") %}<a class="item {{ 'on' if aqui == '/carne' }}" href="/carne">{{ t("m.nav.chamber") }}</a>{% endif %}
   {% if can("defrost") %}<a class="item {{ 'on' if aqui == '/descongelado' }}" href="/descongelado">{{ t("m.nav.defrost") }}</a>{% endif %}
   {% if can("stock") %}<a class="item {{ 'on' if aqui == '/maduracion' }}" href="/maduracion">{{ t("m.nav.aging") }}</a>{% endif %}
+  {% endcall %}
 
-  <div class="group">{{ t("m.nav.g_control") }}</div>
+  {% call grupo(t("m.nav.g_control"), ['/inventario', '/merma', '/traslados',
+                                       '/trazabilidad', '/parte'], sitio) %}
   {% if can("count") %}<a class="item {{ 'on' if aqui == '/inventario' }}" href="/inventario">{{ t("nav.inventory") }}</a>{% endif %}
   {% if can("waste") %}<a class="item {{ 'on' if aqui == '/merma' }}" href="/merma">{{ t("nav.waste") }}</a>{% endif %}
   {% if can("stock") %}<a class="item {{ 'on' if aqui == '/traslados' }}" href="/traslados">{{ t("m.nav.transfers") }}</a>
   <a class="item {{ 'on' if aqui == '/trazabilidad' }}" href="/trazabilidad">{{ t("nav.tracing") }}</a>{% endif %}
   <a class="item {{ 'on' if aqui == '/parte' }}" href="/parte">{{ t("m.rp.title") }}</a>
+  {% endcall %}
 
-  {% if can("stock") or can("menu") %}<div class="group">{{ t("m.nav.g_catalogue") }}</div>{% endif %}
+  {% if can("stock") or can("menu") %}
+  {% call grupo(t("m.nav.g_catalogue"), ['/cortes', '/carta', '/ingredientes', '/ventas'],
+                sitio) %}
   {% if can("stock") %}<a class="item {{ 'on' if aqui == '/cortes' }}" href="/cortes">{{ t("m.nav.cuts") }}</a>{% endif %}
   {% if can("menu") %}
   <a class="item {{ 'on' if aqui == '/carta' }}" href="/carta">{{ t("m.nav.menu") }}</a>
   <a class="item {{ 'on' if aqui == '/ingredientes' }}" href="/ingredientes">{{ t("m.nav.extras") }}</a>
   <a class="item {{ 'on' if aqui == '/ventas' }}" href="/ventas">{{ t("nav.sales") }}</a>
   {% endif %}
+  {% endcall %}
+  {% endif %}
 
-  <div class="group">{{ t("m.nav.g_house") }}</div>
+  {% call grupo(t("m.nav.g_house"), ['/manager/alertas', '/manager/equipo', '/sedes',
+                                     '/admin', '/notificaciones', '/descargas',
+                                     '/configuracion'], sitio) %}
   {% if can("team") %}
   <a class="item {{ 'on' if aqui == '/manager/alertas' }}" href="/manager/alertas">{{ t("nav.alerts") }}</a>
   <a class="item {{ 'on' if aqui == '/manager/equipo' }}" href="/manager/equipo">{{ t("nav.team") }}</a>
@@ -269,13 +334,13 @@ img,svg,video{max-width:100%;height:auto}
   <a class="item {{ 'on' if aqui == '/descargas' }}" href="/descargas">{{ t("nav.downloads") }}</a>
   <a class="item {{ 'on' if aqui == '/configuracion' }}" href="/configuracion">{{ t("nav.settings") }}</a>
   <a class="item" href="/fallo?desde={{ here }}">{{ t("bug.nav") }}</a>
+  {% endcall %}
 {%- endmacro %}
 
 {% if user %}
 <div class="shell">
   <aside class="side">
     <a class="brand" href="/hoy">{{ t("m.app.title") }}<small>{{ user.name }} · {{ t("role." ~ user.role.value) }}</small></a>
-    <div class="group">{{ t("m.nav.g_work") }}</div>
     {{ menu("side") }}
     <div class="foot">
       <form method="post" action="/logout"><button class="ghost wide">{{ t("nav.logout") }}</button></form>
@@ -437,6 +502,31 @@ if ("serviceWorker" in navigator) {
   if (pendiente()) { navigator.onLine ? mandar() : decir(textos.pendiente, true); }
 })();
 </script>
+<script nonce="{{ nonce }}">
+// Cada uno deja el menú como le gusta y se lo encuentra igual en la pantalla
+// siguiente. Sin esto, plegar un grupo duraba hasta el próximo clic, que es
+// peor que no poder plegarlo.
+(function () {
+  var clave = "grill_menu";
+  function leido() {
+    try { return JSON.parse(localStorage.getItem(clave) || "{}"); } catch (e) { return {}; }
+  }
+  var guardado = leido();
+  document.querySelectorAll("details.grp").forEach(function (grupo) {
+    var nombre = grupo.getAttribute("data-grp");
+    // El grupo de la pantalla en la que estás se abre siempre: si no, se
+    // plegaría encima de lo que estás mirando.
+    var aqui = grupo.querySelector("a.item.on");
+    if (!aqui && nombre in guardado) grupo.open = guardado[nombre];
+    grupo.addEventListener("toggle", function () {
+      var ahora = leido();
+      ahora[nombre] = grupo.open;
+      try { localStorage.setItem(clave, JSON.stringify(ahora)); } catch (e) {}
+    });
+  });
+})();
+</script>
+
 <script nonce="{{ nonce }}">
 // Refresca el contador de avisos sin recargar la página. Si la persona ha
 // autorizado los avisos del navegador, una alerta crítica salta a su pantalla.

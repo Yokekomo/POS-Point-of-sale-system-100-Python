@@ -16,6 +16,21 @@
         --okbg:#1e2b21; --warnbg:#2e2718; --badbg:#2e1c1c;}
 }
 *{box-sizing:border-box}
+/* Que el navegador sepa en qué tema va: sin esto pinta sus propias barras de
+   desplazamiento en blanco, y en una pantalla oscura eso es una raya de tiza
+   al lado de la carne. Con esto, las barras, los desplegables y los
+   calendarios salen del color de la casa. */
+html{color-scheme:light dark}
+/* Y aun así la barra se nota más de lo que hace falta: se deja fina y del
+   color de las líneas, que es lo que separa una tabla de la de al lado. */
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:999px;
+  border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:padding-box;
+  border:2px solid transparent}
+::-webkit-scrollbar-corner{background:transparent}
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}  /* el iPhone no infla el texto al girar */
 body{margin:0;background:var(--bg);color:var(--ink);
   font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
