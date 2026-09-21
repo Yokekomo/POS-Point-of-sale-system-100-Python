@@ -159,10 +159,18 @@ input[type=file]{padding:9px}
    cuando vuelve lo dice y se va solo, que tampoco hace falta un cartel fijo
    diciendo que todo va bien. */
 .aviso-red{position:fixed;left:50%;transform:translateX(-50%) translateY(-8px);
-  top:max(10px,env(safe-area-inset-top));z-index:60;max-width:min(92vw,520px);
-  padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;
+  top:max(10px,env(safe-area-inset-top));z-index:60;
+  /* Centrado con «la mitad de la pantalla» como punto de partida, el hueco
+     que le queda a la derecha es la mitad: sin esto, «Esperando cobertura»
+     se partía en dos líneas en un móvil. Que mida lo que mide su texto. */
+  width:max-content;max-width:min(92vw,520px);
+  /* Redondeado, no pastilla: con dos líneas —hay idiomas más largos— una
+     pastilla de radio infinito se convierte en un globo enorme. */
+  padding:10px 16px;border-radius:16px;font-size:14px;font-weight:600;line-height:1.35;
   box-shadow:0 6px 24px var(--shadow,rgba(0,0,0,.35));border:1px solid var(--line);
   background:var(--card);color:var(--ink);display:flex;align-items:center;gap:8px;
+  /* Dos líneas como mucho: es un aviso, no un párrafo. */
+  overflow:hidden;
   opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
 .aviso-red.se-ve{opacity:1;transform:translateX(-50%) translateY(0)}
 .aviso-red.malo{background:var(--warnbg);border-color:var(--warn);color:var(--ink)}
@@ -452,7 +460,10 @@ if ("serviceWorker" in navigator) {
     encola: {{ t("off.queued")|tojson }},
     pendiente_titulo: {{ t("off.pending_nav")|tojson }},
     sinsenal: {{ t("off.gone")|tojson }},
-    vuelve: {{ t("off.back")|tojson }}
+    vuelve: {{ t("off.back")|tojson }},
+    apuntado: {{ t("off.noted")|tojson }},
+    espera: {{ t("off.waiting")|tojson }},
+    reintento: {{ t("off.retrying")|tojson }}
   };
 
   function cola() {
@@ -490,7 +501,7 @@ if ("serviceWorker" in navigator) {
       var hora = new Date(x.cuando).toTimeString().slice(0, 5);
       var que = (x.accion || "").replace("/", "").replace("/", " · ");
       var estado = x.rechazado ? textos.rechazado
-                 : (x.intentos ? textos.fallo : textos.pendiente);
+                 : (x.intentos ? textos.reintento : textos.espera);
       return '<div class="rowflex" style="gap:10px;padding:6px 0">' +
              '<span class="tag ' + (x.rechazado ? "bad" : "warn") + '">' + hora + "</span>" +
              "<b>" + que + '</b><span class="muted" style="flex:1">' + estado + "</span></div>";
@@ -578,7 +589,12 @@ if ("serviceWorker" in navigator) {
       guardarCola(lista);
       if (form && formulario === form) localStorage.removeItem("cuenta:" + form.dataset.keep);
       formulario.reset();
-      decir(navigator.onLine ? textos.encola : textos.pendiente, true);
+      // Un «apuntado» corto y se quita; si sigue sin haber señal, vuelve el
+      // aviso de que no la hay, que es lo que hace falta tener delante.
+      decir(textos.apuntado, false, 2);
+      setTimeout(function () {
+        if (!navigator.onLine) decir(textos.sinsenal, true);
+      }, 2100);
       mandar();
     });
   });

@@ -718,8 +718,11 @@ ES = {
     "off.rejected": 'Un envío no lo ha aceptado el programa: míralo en «sin mandar». Lo demás sigue en cola.',
     "off.queued": 'Apuntado. Se manda en cuanto le toque, sin que tengas que esperar.',
     "off.pending_nav": 'Sin mandar',
-    "off.gone": 'Sin señal. Se guarda aquí y se manda solo.',
+    "off.gone": 'Esperando cobertura',
     "off.back": 'Ha vuelto la señal.',
+    "off.noted": 'Apuntado. Se manda solo.',
+    "off.waiting": 'esperando señal',
+    "off.retrying": 'reintentando',
 }
 
 
@@ -1329,8 +1332,11 @@ EN = {
     "off.rejected": 'One submission was not accepted: check it under “not sent”. The rest stays queued.',
     "off.queued": 'Noted. It goes out when its turn comes, without you waiting.',
     "off.pending_nav": 'Not sent',
-    "off.gone": 'No signal. Saved here, sent on its own.',
+    "off.gone": 'Waiting for signal',
     "off.back": 'The signal is back.',
+    "off.noted": 'Noted. It goes out on its own.',
+    "off.waiting": 'waiting for signal',
+    "off.retrying": 'retrying',
 }
 
 
@@ -1940,8 +1946,11 @@ FR = {
     "off.rejected": "Un envoi n'a pas été accepté : regarde-le dans « non envoyé ». Le reste reste en file.",
     "off.queued": "Noté. Il part dès que c'est son tour, sans que tu attendes.",
     "off.pending_nav": 'Non envoyé',
-    "off.gone": "Pas de réseau. Enregistré ici, envoyé tout seul.",
+    "off.gone": "En attente de réseau",
     "off.back": 'Le réseau est revenu.',
+    "off.noted": 'Noté. Il part tout seul.',
+    "off.waiting": 'en attente de réseau',
+    "off.retrying": 'nouvel essai',
 }
 
 
@@ -2551,8 +2560,11 @@ DE = {
     "off.rejected": 'Eine Sendung wurde nicht angenommen: schau sie unter „nicht gesendet“ an. Der Rest bleibt in der Schlange.',
     "off.queued": 'Notiert. Geht raus, wenn es dran ist, ohne dass du wartest.',
     "off.pending_nav": 'Nicht gesendet',
-    "off.gone": 'Kein Empfang. Liegt hier, geht von selbst raus.',
+    "off.gone": 'Warte auf Empfang',
     "off.back": 'Der Empfang ist zurück.',
+    "off.noted": 'Notiert. Geht von selbst raus.',
+    "off.waiting": 'wartet auf Empfang',
+    "off.retrying": 'wird wiederholt',
 }
 
 
@@ -3162,8 +3174,11 @@ NL = {
     "off.rejected": 'Eén verzending is niet geaccepteerd: bekijk hem bij “niet verstuurd”. De rest blijft in de rij.',
     "off.queued": 'Genoteerd. Gaat weg zodra het zijn beurt is, zonder dat je wacht.',
     "off.pending_nav": 'Niet verstuurd',
-    "off.gone": 'Geen bereik. Staat hier, gaat vanzelf weg.',
+    "off.gone": 'Wacht op bereik',
     "off.back": 'Het bereik is terug.',
+    "off.noted": 'Genoteerd. Gaat vanzelf weg.',
+    "off.waiting": 'wacht op bereik',
+    "off.retrying": 'opnieuw proberen',
 }
 
 
@@ -3773,8 +3788,11 @@ AR = {
     "off.rejected": 'أحد الإرسالات لم يُقبل: راجعه في «لم يُرسل». وبقيّتها في الطابور.',
     "off.queued": 'سُجّل. يُرسل حين يحين دوره دون أن تنتظر.',
     "off.pending_nav": 'لم يُرسل',
-    "off.gone": 'لا تغطية. يُحفظ هنا ويُرسل وحده.',
+    "off.gone": 'بانتظار التغطية',
     "off.back": 'عادت التغطية.',
+    "off.noted": 'سُجّل. يُرسل وحده.',
+    "off.waiting": 'بانتظار التغطية',
+    "off.retrying": 'إعادة المحاولة',
 }
 
 
@@ -4372,8 +4390,11 @@ HU = {
     "off.rejected": 'Egy küldést nem fogadott el a program: nézd meg a „nem elküldve” alatt. A többi sorban marad.',
     "off.queued": 'Feljegyezve. Elmegy, amint sorra kerül, anélkül hogy várnod kellene.',
     "off.pending_nav": 'Nem elküldve',
-    "off.gone": 'Nincs térerő. Itt marad, magától elmegy.',
+    "off.gone": 'Térerőre vár',
     "off.back": 'Visszatért a térerő.',
+    "off.noted": 'Feljegyezve. Magától elmegy.',
+    "off.waiting": 'térerőre vár',
+    "off.retrying": 'újrapróbálkozás',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
