@@ -775,15 +775,22 @@ def daily_report(session: Session, restaurant_id: int, on: date | None = None,
     from thegrill.models import SalesByProduct, ShiftClosure, Site
 
     on = on or date.today()
-    hoy = today(session, restaurant_id, on=on, lang=lang, site_id=site_id)
+    # Una lectura de las pesadas y una de la pizarra para todo el parte: antes
+    # el parte pedía lo mismo cinco veces —la portada por dentro, y otras dos
+    # para saber qué falta por pesar— y tardaba el doble que la pantalla más
+    # lenta de la casa.
+    history = aging_mod.history_of(session, restaurant_id, in_stock_only=True)
+    rows = aging_mod.board(session, restaurant_id, on=on, site_id=site_id, history=history)
+    hoy = today(session, restaurant_id, on=on, lang=lang, site_id=site_id,
+                history=history, rows=rows)
     sede = session.get(Site, site_id) if site_id else None
     out = DailyReport(date=on, site=sede.name if sede else "", status=hoy.status,
                       aging=hoy.aging, pending=hoy.pending, stock_value=hoy.stock_value)
 
-    out.to_weigh = [l for l in aging_mod.to_count(session, restaurant_id, on, site_id)
-                    if l.kg is None]
-    out.counted = [l for l in aging_mod.to_count(session, restaurant_id, on, site_id)
-                   if l.kg is not None]
+    lineas = aging_mod.to_count(session, restaurant_id, on, site_id,
+                                rows=rows, history=history)
+    out.to_weigh = [l for l in lineas if l.kg is None]
+    out.counted = [l for l in lineas if l.kg is not None]
     out.thawing = [st for st in defrost.shift_states(session, restaurant_id, on,
                                                      site_id=site_id)
                    if st.intake_pieces or st.opening_pieces]
@@ -815,13 +822,21 @@ class Today:
 
 
 def today(session: Session, restaurant_id: int, on: date | None = None,
-          lang: str = "es", site_id: int | None = None) -> Today:
+          lang: str = "es", site_id: int | None = None,
+          history: aging_mod.History | None = None, rows: list | None = None) -> Today:
     """Lo que está pendiente en la carne, en una pantalla.
 
     Con sede, lo pendiente de esa sede: el del local no arregla la cámara del
     obrador, y las piezas que maduran en su local las pesa él.
+
+    Lo que se ha pesado en la casa se lee una sola vez: con medio año dentro
+    son cinco mil pesadas, y leerlas dos veces por pantalla —una para la
+    pizarra y otra para el resumen— era la mitad del tiempo de la portada.
+    Quien ya las tenga leídas las pasa y aquí no se vuelven a pedir.
     """
     on = on or date.today()
+    # De la cámara de ahora: la portada habla de lo que hay, no de lo que hubo.
+    history = history or aging_mod.history_of(session, restaurant_id, in_stock_only=True)
     status = butchery.status(session, restaurant_id, on=on, site_id=site_id)
     value = round(sum(lot.qty_remaining * lot.unit_cost for lot in
                       costing.at_site(session.query(IngredientLot)
@@ -836,7 +851,8 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
 
     # Lo que madura: las que ya han cumplido sus días y las que llevan una
     # semana sin pesar, que es cuando la merma deja de estar controlada.
-    aging_rows = aging_mod.board(session, restaurant_id, on=on, site_id=site_id)
+    aging_rows = rows if rows is not None else aging_mod.board(
+        session, restaurant_id, on=on, site_id=site_id, history=history)
     ready = [r for r in aging_rows if r.storage == Storage.AGING and r.ready]
     # Lo que madura está fresco y abierto: se pesa todos los días, como se
     # cuenta lo descongelado. Sin ese peso, la merma del día no existe.
@@ -867,4 +883,5 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
     return Today(status=status, pending=pending, stock_value=value,
                  thawing=len(thawing), uncounted=len(uncounted),
                  open_count=open_count, month_due=not month.done,
-                 aging=aging_mod.summary(session, restaurant_id, on=on, site_id=site_id))
+                 aging=aging_mod.summary(session, restaurant_id, on=on, site_id=site_id,
+                                         rows=aging_rows))

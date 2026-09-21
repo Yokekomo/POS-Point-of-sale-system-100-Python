@@ -26,6 +26,7 @@ que es el camino de siempre —despiece, cámara, carta— y no necesita nada nu
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from thegrill.models import (Alert, AlertSeverity, AuditLog, IngredientItem, IngredientLot,
@@ -221,25 +222,83 @@ class History:
     trimmed: dict[str, list] = field(default_factory=dict)
     sold: dict[str, list] = field(default_factory=dict)
     aging_rows: list = field(default_factory=list)     # las pesadas de maduración
+    # Solo trae lo de las piezas que están ahora en la cámara. Vale para la
+    # pizarra y para el conteo del día; no vale para los tramos de
+    # rendimiento, que necesitan también las piezas que ya se gastaron.
+    partial: bool = False
 
 
-def history_of(session: Session, restaurant_id: int) -> History:
-    """Una pasada por las pesadas y otra por las ventas al corte. Nada más."""
+def history_of(session: Session, restaurant_id: int,
+               in_stock_only: bool = False) -> History:
+    """Lo pesado y lo vendido al peso, leído de una vez para toda la pantalla.
+
+    Se piden las columnas, no las filas enteras: una casa con seis meses dentro
+    tiene cinco mil pesadas, y montar cada una como objeto para leerle cinco
+    datos cuesta más que la propia consulta.
+
+    Y hay dos maneras de preguntar, porque hay dos preguntas distintas:
+
+    - **La pizarra y el conteo del día** solo necesitan, de cada pieza que está
+      ahora en la cámara, cuándo se pesó por última vez, lo que se le ha
+      quitado limpiando y lo que se le ha cortado para vender. Eso son ciento
+      cincuenta datos, no cinco mil: la última fecha la saca la propia base de
+      datos y de las pesadas solo se traen las limpiezas. Así la portada tarda
+      lo mismo el primer mes que el tercer año.
+    - **Los tramos de rendimiento** sí necesitan la historia entera, incluidas
+      las piezas que ya se gastaron: de eso va la pregunta —si los quince días
+      de más salen a cuenta—, y ahí no hay atajo que valga.
+    """
     out = History()
-    for row in (session.query(PrimalWeighing)
-                .filter_by(restaurant_id=restaurant_id)
-                .order_by(PrimalWeighing.date.asc(), PrimalWeighing.id.asc())):
-        out.last[row.serial] = row.date
-        if row.kind == LossKind.TRIM:
-            kept = row.kept_kg or 0.0
-            out.trimmed.setdefault(row.serial, []).append(
-                (row.date, row.loss_kg, kept,
-                 row.waste_kg if row.waste_kg is not None else round(row.loss_kg - kept, 6)))
-        if row.storage == Storage.AGING:
-            out.aging_rows.append(row)
-    for row in session.query(WeightSale).filter_by(restaurant_id=restaurant_id):
+    if in_stock_only:
+        out.partial = True
+        # Por el número de pieza, no por una lista de seriales: una casa grande
+        # tiene más piezas de las que caben en una consulta con lista.
+        en_camara = (session.query(Primal.id)
+                     .filter(Primal.restaurant_id == restaurant_id,
+                             Primal.status == PrimalStatus.IN_STOCK))
+        for serial, cuando in (session.query(PrimalWeighing.serial,
+                                             func.max(PrimalWeighing.date))
+                               .filter(PrimalWeighing.restaurant_id == restaurant_id,
+                                       PrimalWeighing.primal_id.in_(en_camara))
+                               .group_by(PrimalWeighing.serial)):
+            out.last[serial] = cuando
+        for row in (session.query(PrimalWeighing.serial, PrimalWeighing.date,
+                                  PrimalWeighing.loss_kg, PrimalWeighing.kept_kg,
+                                  PrimalWeighing.waste_kg)
+                    .filter(PrimalWeighing.restaurant_id == restaurant_id,
+                            PrimalWeighing.kind == LossKind.TRIM,
+                            PrimalWeighing.primal_id.in_(en_camara))
+                    .order_by(PrimalWeighing.date.asc(), PrimalWeighing.id.asc())):
+            _add_trim(out, row)
+        ventas = (session.query(WeightSale.serial, WeightSale.date, WeightSale.grams)
+                  .filter(WeightSale.restaurant_id == restaurant_id,
+                          WeightSale.primal_id.in_(en_camara)))
+    else:
+        for row in (session.query(PrimalWeighing.serial, PrimalWeighing.date,
+                                  PrimalWeighing.kind, PrimalWeighing.loss_kg,
+                                  PrimalWeighing.kept_kg, PrimalWeighing.waste_kg,
+                                  PrimalWeighing.storage, PrimalWeighing.days,
+                                  PrimalWeighing.previous_kg, PrimalWeighing.kg)
+                    .filter(PrimalWeighing.restaurant_id == restaurant_id)
+                    .order_by(PrimalWeighing.date.asc(), PrimalWeighing.id.asc())):
+            out.last[row.serial] = row.date
+            if row.kind == LossKind.TRIM:
+                _add_trim(out, row)
+            if row.storage == Storage.AGING:
+                out.aging_rows.append(row)
+        ventas = (session.query(WeightSale.serial, WeightSale.date, WeightSale.grams)
+                  .filter(WeightSale.restaurant_id == restaurant_id))
+    for row in ventas:
         out.sold.setdefault(row.serial, []).append((row.date, round(row.grams / 1000, 6)))
     return out
+
+
+def _add_trim(out: History, row) -> None:
+    """Una limpieza: lo que se quitó, lo que se guardó y lo que se tiró."""
+    kept = row.kept_kg or 0.0
+    out.trimmed.setdefault(row.serial, []).append(
+        (row.date, row.loss_kg, kept,
+         row.waste_kg if row.waste_kg is not None else round(row.loss_kg - kept, 6)))
 
 
 def find(session: Session, restaurant_id: int, serial: str) -> Primal:
@@ -655,7 +714,7 @@ def to_count(session: Session, restaurant_id: int, on: date | None = None,
     local todas las noches, que es quien tiene la cámara delante.
     """
     on = on or date.today()
-    history = history or history_of(session, restaurant_id)
+    history = history or history_of(session, restaurant_id, in_stock_only=True)
     ultimas = history.last
     out = []
     if rows is None:
@@ -726,7 +785,7 @@ def board(session: Session, restaurant_id: int, storage: Storage | None = None,
              .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK))
     principal = sites.main(session, restaurant_id)
     nombres = {x.id: x.name for x in sites.all_sites(session, restaurant_id, active=False)}
-    history = history or history_of(session, restaurant_id)
+    history = history or history_of(session, restaurant_id, in_stock_only=True)
     last, sold, trimmed = history.last, history.sold, history.trimmed
 
     rows: list[BoardRow] = []
@@ -870,6 +929,30 @@ class YieldBand:
     kg: float = 0.0              # kilos que han pasado por ahí
 
 
+def _aging_totals(session: Session, restaurant_id: int):
+    """Por pieza: los días que llegó a madurar y lo que perdió, en dos sumas."""
+    cuchillo = case((PrimalWeighing.kind == LossKind.TRIM, PrimalWeighing.loss_kg),
+                    else_=0.0)
+    return (session.query(PrimalWeighing.serial,
+                          func.max(PrimalWeighing.days),
+                          func.sum(cuchillo),
+                          func.sum(PrimalWeighing.loss_kg))
+            .filter(PrimalWeighing.restaurant_id == restaurant_id,
+                    PrimalWeighing.storage == Storage.AGING)
+            .group_by(PrimalWeighing.serial)).all()
+
+
+def _aging_starts(session: Session, restaurant_id: int):
+    """Por pieza: lo que pesaba cuando entró a madurar, que es contra lo que se mide."""
+    primeras = (session.query(PrimalWeighing.serial.label("serial"),
+                              func.min(PrimalWeighing.id).label("primera"))
+                .filter(PrimalWeighing.restaurant_id == restaurant_id,
+                        PrimalWeighing.storage == Storage.AGING)
+                .group_by(PrimalWeighing.serial).subquery())
+    return (session.query(primeras.c.serial, PrimalWeighing.previous_kg)
+            .join(PrimalWeighing, PrimalWeighing.id == primeras.c.primera)).all()
+
+
 def yield_by_days(session: Session, restaurant_id: int, minimum: int = 3,
                   band: int = 15, history: History | None = None) -> list[YieldBand]:
     """Qué rendimiento deja cada tramo de días, para decidir cuántos madurar.
@@ -882,17 +965,27 @@ def yield_by_days(session: Session, restaurant_id: int, minimum: int = 3,
     Con menos de `minimum` piezas en un tramo no se dice nada: una media de dos
     piezas no es una media, es una anécdota.
     """
+    # Las cuentas las hace la base de datos: aquí solo llega una fila por pieza.
+    # Recorrer en Python las cinco mil pesadas de la casa para acabar con
+    # cuarenta medias era lo que hacía que esta pantalla fuera a peor cada mes.
     piezas: dict[str, dict] = {}
-    history = history or history_of(session, restaurant_id)
-    for row in history.aging_rows:
-        dato = piezas.setdefault(row.serial, {"days": 0, "water": 0.0, "trim": 0.0,
-                                              "start": row.previous_kg, "end": row.kg})
-        dato["days"] = max(dato["days"], row.days or 0)
-        dato["end"] = row.kg
-        if row.kind == LossKind.TRIM:
-            dato["trim"] = round(dato["trim"] + (row.loss_kg or 0.0), 6)
-        else:
-            dato["water"] = round(dato["water"] + (row.loss_kg or 0.0), 6)
+    if history is not None and history.aging_rows and not history.partial:
+        for row in history.aging_rows:       # ya estaba leído: no se pide otra vez
+            dato = piezas.setdefault(row.serial, {"days": 0, "water": 0.0, "trim": 0.0,
+                                                  "start": row.previous_kg})
+            dato["days"] = max(dato["days"], row.days or 0)
+            if row.kind == LossKind.TRIM:
+                dato["trim"] = round(dato["trim"] + (row.loss_kg or 0.0), 6)
+            else:
+                dato["water"] = round(dato["water"] + (row.loss_kg or 0.0), 6)
+    else:
+        for serial, dias, cuchillo, todo in _aging_totals(session, restaurant_id):
+            piezas[serial] = {"days": dias or 0, "trim": round(cuchillo or 0.0, 6),
+                              "water": round((todo or 0.0) - (cuchillo or 0.0), 6),
+                              "start": 0.0}
+        for serial, entrada in _aging_starts(session, restaurant_id):
+            if serial in piezas:
+                piezas[serial]["start"] = entrada or 0.0
 
     bandas: dict[int, list[dict]] = {}
     for serial, dato in piezas.items():

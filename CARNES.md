@@ -710,6 +710,45 @@ o en el propio ordenador. En la demo por wifi, sin certificado, no se instala:
 lo que se escribe se sigue guardando igual, pero una pantalla nueva no se abre
 sin señal. Con el despliegue de verdad —dominio y certificado— funciona entero.
 
+## Que no se ponga lenta con los años
+
+Una pantalla que tarda medio segundo no se abre: el cocinero mira el papel de
+la cámara y sigue a lo suyo. Y hay una manera muy fácil de llegar a ese medio
+segundo sin enterarse —leer toda la historia de la casa para enseñar lo de
+hoy—, porque el primer mes va rápido y el problema sale al año, ya trabajando.
+
+Lo que se pide a la base de datos es lo de hoy:
+
+- **La cámara de ahora, no la de siempre.** La pizarra de maduración y el
+  conteo del día hablan de las piezas que están colgadas hoy —cincuenta, no
+  cinco mil pesadas—, y la última fecha de cada una la saca la propia base de
+  datos en vez de recorrerlas en memoria.
+- **Una lectura por pantalla, no cuatro.** La pizarra, el conteo, el resumen y
+  la portada preguntaban lo mismo cada uno por su cuenta. Ahora se lee una vez
+  y se pasa.
+- **Las medias las hace la base de datos.** Los tramos de rendimiento —si los
+  quince días de más salen a cuenta— se sacaban recorriendo cinco mil pesadas
+  para acabar con diez medias; ahora las suma la base y llega una fila por
+  pieza. Los números son exactamente los mismos.
+- **Y solo se trae lo que se enseña.** El parte del día cargaba la cámara
+  entera para ponerle nombre a las cuatro mermas del día.
+
+Con medio año de trabajo dentro, en el ordenador donde se desarrolla:
+
+| Pantalla       | Antes  | Ahora |
+|----------------|--------|-------|
+| Hoy            | 199 ms | 31 ms |
+| Maduración     | 376 ms | 29 ms |
+| Parte del día  | 364 ms | 35 ms |
+| Cámara         |  39 ms | 21 ms |
+
+Y queda puesto como prueba, que es lo que impide que vuelva: `tests/test_speed.py`
+abre cada pantalla, mira lo que tarda y cuántas consultas hace, le mete a la
+casa **veinte mil pesadas** de piezas que ya pasaron por ella —tres años de
+trabajo— y vuelve a medir. Exige las mismas consultas y nada de tiempos que se
+dupliquen. Una pantalla que se lea la historia entera para enseñar lo de hoy
+falla ahí, no en la cocina del cliente.
+
 ## Dos personas a la vez sobre lo mismo
 
 En una casa nadie trabaja solo. Mientras uno cuenta la cámara del local, otro

@@ -216,17 +216,33 @@ def everything(session: Session, restaurant_id: int, days: int = 30) -> list[Was
              .filter_by(restaurant_id=restaurant_id)}
     people = {u.id: u.name for u in session.query(User)
               .filter_by(restaurant_id=restaurant_id)}
-    skus = {p.serial: p.sku for p in session.query(Primal)
-            .filter_by(restaurant_id=restaurant_id)}
+    # Solo se traen los lotes y las piezas de las mermas que se van a enseñar.
+    # Cargar la cámara entera —miles de lotes de medio año— para poner nombre a
+    # las cuatro mermas de hoy era la mitad de lo que tardaba el parte del día.
+    movimientos = recent(session, restaurant_id, days=days)
+    limpiezas = (session.query(PrimalWeighing)
+                 .filter(PrimalWeighing.restaurant_id == restaurant_id,
+                         PrimalWeighing.kind == LossKind.TRIM,
+                         PrimalWeighing.date >= since)
+                 .order_by(PrimalWeighing.date.desc(), PrimalWeighing.id.desc())
+                 .limit(200).all())
+    seriales = {l.serial for l in limpiezas if l.serial}
+    skus, lote_de = {}, {}
+    if seriales:
+        for serial, sku, lote in (session.query(Primal.serial, Primal.sku, Primal.lot)
+                                  .filter(Primal.restaurant_id == restaurant_id,
+                                          Primal.serial.in_(seriales))):
+            skus[serial] = sku
+            lote_de[serial] = lote
     # El serial sale del lote, no de leerlo de la referencia: la referencia es
     # un texto para el ojo humano y cambia de forma según lo que traiga.
+    ids = {m.lot_id for m in movimientos if m.lot_id}
     lotes = {lot.id: lot for lot in session.query(IngredientLot)
-             .filter_by(restaurant_id=restaurant_id)}
-    lote_de = {p.serial: p.lot for p in session.query(Primal)
-               .filter_by(restaurant_id=restaurant_id)}
+             .filter(IngredientLot.restaurant_id == restaurant_id,
+                     IngredientLot.id.in_(ids))} if ids else {}
 
     rows: list[WasteLine] = []
-    for movement in recent(session, restaurant_id, days=days):
+    for movement in movimientos:
         lot = lotes.get(movement.lot_id)
         rows.append(WasteLine(
             date=movement.date, source=CHAMBER,
@@ -238,12 +254,7 @@ def everything(session: Session, restaurant_id: int, days: int = 30) -> list[Was
             reason=_reason_of(movement.source_ref or ""),
             who=people.get(movement.created_by)))
 
-    for limpieza in (session.query(PrimalWeighing)
-                     .filter(PrimalWeighing.restaurant_id == restaurant_id,
-                             PrimalWeighing.kind == LossKind.TRIM,
-                             PrimalWeighing.date >= since)
-                     .order_by(PrimalWeighing.date.desc(), PrimalWeighing.id.desc())
-                     .limit(200)):
+    for limpieza in limpiezas:
         thrown = limpieza.waste_kg or 0.0
         if thrown <= EPSILON:
             continue           # esa limpieza se aprovechó entera: no hay nada tirado

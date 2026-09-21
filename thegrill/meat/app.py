@@ -774,13 +774,21 @@ def _aging(request, user, auth_session, session, *, done="", error="", weighed=N
     mia = sites.of_user(session, user)
     suya = mia.id if mia else None
     principal = sites.main(session, user.restaurant_id).id
+    # Lo pesado se lee una vez y lo usan las tres tablas de la cámara: la
+    # pizarra, el conteo del día y el resumen. Leerlo tres veces era medio
+    # segundo en una casa con seis meses dentro, y solo por preguntar lo mismo
+    # tres veces. Los tramos de rendimiento van aparte: miran las piezas que ya
+    # se gastaron y lo suman la propia base de datos.
+    historia = aging.history_of(session, user.restaurant_id, in_stock_only=True)
+    filas = aging.board(session, user.restaurant_id, site_id=suya, history=historia)
     return page(request, "aging.html", user, auth_session, session, done=done, error=error,
                 weighed=weighed, sold=sold, trimmed=trimmed, counted=counted, site=mia,
-                to_count=aging.to_count(session, user.restaurant_id, site_id=suya),
+                to_count=aging.to_count(session, user.restaurant_id, site_id=suya,
+                                        rows=filas, history=historia),
                 storages=list(Storage),
                 articles=meat.articles(session, user.restaurant_id),
-                rows=aging.board(session, user.restaurant_id, site_id=suya),
-                summary=aging.summary(session, user.restaurant_id, site_id=suya),
+                rows=filas,
+                summary=aging.summary(session, user.restaurant_id, site_id=suya, rows=filas),
                 bands=aging.yield_by_days(session, user.restaurant_id),
                 sales=aging.sales(session, user.restaurant_id),
                 chilled=[p for p in meat.primals_in_stock(session, user.restaurant_id)
