@@ -518,6 +518,16 @@ ES = {
     'm.tg.h_kg': 'Los kilos que entran en cámara cuando el corte va a peso. Solo para esos.',
     'm.tg.h_index': 'Cuánto vale ese corte comparado con los demás de la pieza. Uno es lo normal; el solomillo vale más que la falda, y con esto el coste de la pieza se reparte como manda el mercado y no a partes iguales.',
     'm.tg.h_trim': 'Márcalo si eso no se vende como corte: son recortes que se reaprovechan —picada, guiso—. Entra en cámara con su coste, pero no como pieza de carta.',
+    "m.rec.sku_help": 'Qué corte llega: Striploin, Ribeye, Lomo alto… Se copia a todas las líneas de abajo.',
+    "m.rec.row_sku": 'Corte',
+    "m.rec.row_sku_help": 'Solo si esta pieza no es la del lote. En blanco, sale con el corte que hayas puesto arriba.',
+    "m.rec.row_sku_ph": 'igual que arriba',
+    "m.rec.kg_help": 'Lo que pesa la pieza al llegar, en la báscula del muelle.',
+    "m.rec.price_help": 'Lo que cuesta el kilo de esta pieza. En blanco, el del lote.',
+    "m.rec.more": 'Añadir {n} líneas',
+    "m.rec.more_help": '¿Viene un camión entero? Añade las líneas que hagan falta.',
+    "m.rec.rows_max": 'Más de {n} piezas no caben en un lote: da de alta dos.',
+    "m.rec.lot_sku": 'Corte del lote',
 }
 
 EN = {
@@ -1021,6 +1031,16 @@ EN = {
     'm.tg.h_kg': 'The kilos entering the chiller when the cut goes by weight. Only for those.',
     'm.tg.h_index': 'What that cut is worth next to the others from the piece. One is normal; tenderloin is worth more than flank, and with this the cost of the piece is shared the way the market says, not equally.',
     'm.tg.h_trim': 'Tick it if it is not sold as a cut: trimmings that get reused — mince, stew. It enters the chiller with its cost, but not as a menu piece.',
+    "m.rec.sku_help": 'Which cut is arriving: Striploin, Ribeye, Sirloin… It is copied to every line below.',
+    "m.rec.row_sku": 'Cut',
+    "m.rec.row_sku_help": "Only if this piece is not the lot's cut. Left blank, it takes the cut you put above.",
+    "m.rec.row_sku_ph": 'same as above',
+    "m.rec.kg_help": 'What the piece weighs on arrival, on the dock scale.',
+    "m.rec.price_help": "What a kilo of this piece costs. Blank means the lot's price.",
+    "m.rec.more": 'Add {n} lines',
+    "m.rec.more_help": 'A whole truck coming in? Add as many lines as you need.',
+    "m.rec.rows_max": 'More than {n} pieces do not fit in one lot: book two.',
+    "m.rec.lot_sku": 'Cut of the lot',
 }
 
 FR = {
@@ -1524,6 +1544,16 @@ FR = {
     'm.tg.h_kg': 'Les kilos qui entrent en chambre quand la découpe va au poids. Seulement pour celles-là.',
     'm.tg.h_index': "Ce que vaut cette découpe par rapport aux autres de la pièce. Un, c'est la normale ; le filet vaut plus que la bavette, et ainsi le coût de la pièce se répartit comme le dit le marché, pas à parts égales.",
     'm.tg.h_trim': 'Cochez si cela ne se vend pas comme découpe : des chutes réutilisées — haché, mijoté. Cela entre en chambre avec son coût, mais pas comme pièce de carte.',
+    "m.rec.sku_help": 'Quelle découpe arrive : Striploin, Ribeye, Faux-filet… Elle est recopiée sur toutes les lignes.',
+    "m.rec.row_sku": 'Découpe',
+    "m.rec.row_sku_help": "Seulement si cette pièce n'est pas celle du lot. Vide, elle prend la découpe indiquée au-dessus.",
+    "m.rec.row_sku_ph": 'comme au-dessus',
+    "m.rec.kg_help": "Ce que pèse la pièce à l'arrivée, sur la balance du quai.",
+    "m.rec.price_help": "Ce que coûte le kilo de cette pièce. Vide, c'est celui du lot.",
+    "m.rec.more": 'Ajouter {n} lignes',
+    "m.rec.more_help": "Un camion entier ? Ajoute autant de lignes qu'il faut.",
+    "m.rec.rows_max": "Plus de {n} pièces n'entrent pas dans un lot : fais-en deux.",
+    "m.rec.lot_sku": 'Découpe du lot',
 }
 
 DE = {
@@ -2027,6 +2057,16 @@ DE = {
     'm.tg.h_kg': 'Die Kilos, die in den Kühlraum gehen, wenn das Teilstück nach Gewicht läuft. Nur dafür.',
     'm.tg.h_index': 'Was dieses Teilstück neben den anderen des Stücks wert ist. Eins ist normal; Filet ist mehr wert als Bauchlappen, und so verteilt sich der Preis des Stücks so, wie der Markt sagt, nicht zu gleichen Teilen.',
     'm.tg.h_trim': 'Ankreuzen, wenn es nicht als Teilstück verkauft wird: Abschnitte zur Weiterverwendung — Hack, Schmorgericht. Es geht mit seinen Kosten in den Kühlraum, aber nicht als Kartenposition.',
+    "m.rec.sku_help": 'Welcher Zuschnitt kommt: Striploin, Ribeye, Roastbeef… Er wird in alle Zeilen unten übernommen.',
+    "m.rec.row_sku": 'Zuschnitt',
+    "m.rec.row_sku_help": 'Nur wenn dieses Stück nicht das des Loses ist. Leer übernimmt es den Zuschnitt von oben.',
+    "m.rec.row_sku_ph": 'wie oben',
+    "m.rec.kg_help": 'Was das Stück bei der Ankunft wiegt, auf der Waage an der Rampe.',
+    "m.rec.price_help": 'Was das Kilo dieses Stücks kostet. Leer heißt der Preis des Loses.',
+    "m.rec.more": '{n} Zeilen hinzufügen',
+    "m.rec.more_help": 'Kommt ein ganzer Lkw? Füge so viele Zeilen hinzu, wie du brauchst.',
+    "m.rec.rows_max": 'Mehr als {n} Stücke passen nicht in ein Los: buche zwei.',
+    "m.rec.lot_sku": 'Zuschnitt des Loses',
 }
 
 NL = {
@@ -2530,6 +2570,16 @@ NL = {
     'm.tg.h_kg': "De kilo's die de koeling in gaan als het deel op gewicht loopt. Alleen daarvoor.",
     'm.tg.h_index': 'Wat dat deel waard is naast de andere van het stuk. Eén is normaal; ossenhaas is meer waard dan vang, en zo wordt de kostprijs van het stuk verdeeld zoals de markt zegt, niet gelijk op.',
     'm.tg.h_trim': 'Vink aan als het niet als deel wordt verkocht: afsnijdsels die hergebruikt worden — gehakt, stoof. Het gaat met zijn kostprijs de koeling in, maar niet als kaartstuk.',
+    "m.rec.sku_help": 'Welke snit binnenkomt: Striploin, Ribeye, Lendestuk… Hij wordt naar alle regels hieronder gekopieerd.',
+    "m.rec.row_sku": 'Snit',
+    "m.rec.row_sku_help": 'Alleen als dit stuk niet dat van de partij is. Leeg neemt het de snit van hierboven.',
+    "m.rec.row_sku_ph": 'zoals hierboven',
+    "m.rec.kg_help": 'Wat het stuk weegt bij aankomst, op de weegschaal aan de kade.',
+    "m.rec.price_help": 'Wat een kilo van dit stuk kost. Leeg betekent de prijs van de partij.',
+    "m.rec.more": '{n} regels toevoegen',
+    "m.rec.more_help": 'Komt er een hele vrachtwagen? Voeg zoveel regels toe als nodig.',
+    "m.rec.rows_max": 'Meer dan {n} stuks passen niet in één partij: boek er twee.',
+    "m.rec.lot_sku": 'Snit van de partij',
 }
 
 AR = {
@@ -3033,6 +3083,16 @@ AR = {
     'm.tg.h_kg': 'الكيلوغرامات الداخلة إلى البراد حين يكون التقطيع بالوزن. لهذه فقط.',
     'm.tg.h_index': 'كم يساوي هذا التقطيع مقارنة ببقية القطعة. واحد هو المعتاد؛ الفيليه أغلى من الخاصرة، وبهذا تتوزّع تكلفة القطعة كما يقول السوق لا بالتساوي.',
     'm.tg.h_trim': 'علّمه إذا كان لا يُباع كتقطيع: قصاصات يُعاد استعمالها — مفروم، طبخ. تدخل البراد بتكلفتها، لا كصنف في القائمة.',
+    "m.rec.sku_help": 'أي قطعة تصل: ستريبلوين، ريب آي، خاصرة… تُنسخ إلى كل السطور أدناه.',
+    "m.rec.row_sku": 'القطعة',
+    "m.rec.row_sku_help": 'فقط إذا كانت هذه القطعة غير قطعة الإرسالية. إن تُركت فارغة تأخذ ما كتبته في الأعلى.',
+    "m.rec.row_sku_ph": 'كما في الأعلى',
+    "m.rec.kg_help": 'وزن القطعة عند الوصول، على ميزان الرصيف.',
+    "m.rec.price_help": 'سعر الكيلو لهذه القطعة. الفراغ يعني سعر الإرسالية.',
+    "m.rec.more": 'أضف {n} سطور',
+    "m.rec.more_help": 'هل تصل شاحنة كاملة؟ أضف ما تحتاجه من سطور.',
+    "m.rec.rows_max": 'أكثر من {n} قطعة لا تتسع في إرسالية واحدة: سجّل اثنتين.',
+    "m.rec.lot_sku": 'قطعة الإرسالية',
 }
 
 
@@ -3538,6 +3598,16 @@ HU = {
     'm.tg.h_kg': 'A hűtőbe kerülő kilók, ha az a hús kimérve megy. Csak azoknál.',
     'm.tg.h_index': 'Mennyit ér az a hús a darab többi részéhez képest. Az egy a szokásos; a bélszín többet ér a lapockánál, és így a darab költsége úgy oszlik el, ahogy a piac mondja, nem egyenlően.',
     'm.tg.h_trim': 'Jelöld be, ha nem húsként adják el: újrahasznosított nyesedék — darált, pörkölt. Költségével bekerül a hűtőbe, de nem étlapi tételként.',
+    "m.rec.sku_help": 'Melyik szabás érkezik: Striploin, Ribeye, Hátszín… Minden alábbi sorba átmásolódik.',
+    "m.rec.row_sku": 'Szabás',
+    "m.rec.row_sku_help": 'Csak ha ez a darab nem a tétel szabása. Üresen a fentit veszi át.',
+    "m.rec.row_sku_ph": 'mint fent',
+    "m.rec.kg_help": 'Mennyit nyom a darab érkezéskor, a rakodó mérlegén.',
+    "m.rec.price_help": 'Mennyibe kerül ennek a darabnak a kilója. Üresen a tétel ára.',
+    "m.rec.more": '{n} sor hozzáadása',
+    "m.rec.more_help": 'Egész kamion jön? Adj hozzá annyi sort, amennyi kell.',
+    "m.rec.rows_max": '{n}-nál több darab nem fér egy tételbe: vegyél fel kettőt.',
+    "m.rec.lot_sku": 'A tétel szabása',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

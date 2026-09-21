@@ -11,8 +11,9 @@
   <div class="grid">
     <div><label for="lot">{{ t("m.rec.lot") }}</label>
       <input id="lot" name="lot" value="{{ lot }}" title="{{ t('m.rec.lot_help') }}"></div>
-    <div><label for="sku">{{ t("m.rec.sku") }}</label>
-      <input id="sku" name="sku" placeholder="Striploin AUS"></div>
+    <div><label for="sku" title="{{ t('m.rec.sku_help') }}">{{ t("m.rec.lot_sku") }}</label>
+      <input id="sku" name="sku" placeholder="Striploin AUS"
+             title="{{ t('m.rec.sku_help') }}"></div>
     <div><label for="rec_chamber">{{ t("m.ch.name") }}</label>
       <input id="rec_chamber" name="chamber" placeholder="{{ t('m.ch.example') }}"></div>
     <div><label for="grade">{{ t("m.rec.grade") }}</label>
@@ -27,29 +28,90 @@
 
   <h2>{{ t("m.rec.serial") }}</h2>
   <p class="help">{{ t("m.rec.auto_help") }}</p>
-  <div class="scroll"><table>
-  <tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.kg") }}</th>
-      <th>{{ t("m.rec.price_kg") }}</th><th>{{ t("m.rec.sku") }}</th></tr>
+  <div class="scroll"><table id="piezas">
+  <tr><th title="{{ t('m.rec.serial_help') }}">{{ t("m.rec.serial") }}</th>
+      <th title="{{ t('m.rec.kg_help') }}">{{ t("m.rec.kg") }}</th>
+      <th title="{{ t('m.rec.price_help') }}">{{ t("m.rec.price_kg") }}</th>
+      <th title="{{ t('m.rec.row_sku_help') }}">{{ t("m.rec.row_sku") }}</th></tr>
   {% for i in rows %}
   <tr>
     <td><input name="serial:{{ i }}" autocomplete="off" style="max-width:140px"
                placeholder="{{ serials[i] if serials|length > i else '' }}"
                title="{{ t('m.rec.serial_help') }}"></td>
-    <td><input name="kg:{{ i }}" inputmode="decimal" style="max-width:110px"></td>
-    <td><input name="price:{{ i }}" inputmode="decimal" style="max-width:110px"></td>
-    <td><input name="sku:{{ i }}" style="max-width:220px"></td>
+    <td><input name="kg:{{ i }}" inputmode="decimal" style="max-width:110px"
+               title="{{ t('m.rec.kg_help') }}"></td>
+    <td><input name="price:{{ i }}" inputmode="decimal" style="max-width:110px"
+               title="{{ t('m.rec.price_help') }}"></td>
+    <td><input name="sku:{{ i }}" style="max-width:220px"
+               placeholder="{{ t('m.rec.row_sku_ph') }}"
+               title="{{ t('m.rec.row_sku_help') }}"></td>
   </tr>
   {% endfor %}
   </table></div>
   <div class="help">{{ t("m.rec.rows_help") }}</div>
+  <div class="rowflex" style="margin:10px 0">
+    <button class="ghost" type="button" id="masfilas" hidden
+            title="{{ t('m.rec.more_help') }}">{{ t("m.rec.more", n=8) }}</button>
+    {# Sin guiones tambien se puede: se pide la pantalla con mas lineas. #}
+    <noscript><a class="ghost" href="/recepcion?filas={{ (rows|length) + 8 }}"
+       >{{ t("m.rec.more", n=8) }}</a></noscript>
+  </div>
   <button class="wide" type="submit">{{ t("m.rec.submit") }}</button>
 </form>
 </div>
 
+<script nonce="{{ nonce }}">
+// Un lote puede traer treinta piezas del mismo corte, y ocho lineas se quedan
+// cortas. Se anaden aqui, sin recargar: lo que ya este escrito se queda donde
+// esta, que es lo que importa cuando el camion espera en el muelle.
+(function () {
+  var boton = document.getElementById("masfilas");
+  var tabla = document.getElementById("piezas");
+  if (!boton || !tabla) return;
+  var tope = {{ maximo }};
+  boton.hidden = false;
+
+  function siguiente(numero) {
+    // Los numeros de pieza se proponen seguidos: 8053, 8054, 8055…
+    if (!/^\d+$/.test(numero)) return "";
+    var ancho = numero.length;
+    var uno = String(Number(numero) + 1);
+    while (uno.length < ancho) uno = "0" + uno;
+    return uno;
+  }
+
+  boton.addEventListener("click", function () {
+    var filas = tabla.rows.length - 1;          // la primera es la cabecera
+    var ultima = tabla.rows[tabla.rows.length - 1];
+    var propuesto = ultima.querySelector("input[name^='serial:']").placeholder || "";
+    for (var n = 0; n < 8 && filas + n < tope; n++) {
+      var nueva = ultima.cloneNode(true);
+      var indice = filas + n;
+      propuesto = siguiente(propuesto);
+      nueva.querySelectorAll("input").forEach(function (campo) {
+        campo.name = campo.name.replace(/:\d+$/, ":" + indice);
+        campo.value = "";
+        if (campo.name.indexOf("serial:") === 0) campo.placeholder = propuesto;
+      });
+      tabla.appendChild(nueva);
+      ultima = nueva;
+    }
+    if (tabla.rows.length - 1 >= tope) {
+      boton.hidden = true;
+      boton.insertAdjacentHTML("afterend",
+        '<span class="help">' + {{ t("m.rec.rows_max", n="TOPE") | tojson }}
+        .replace("TOPE", tope) + "</span>");
+    }
+    tabla.rows[tabla.rows.length - 8 > 0 ? tabla.rows.length - 8 : 1]
+      .querySelector("input").focus();
+  });
+})();
+</script>
+
 <h2>{{ t("m.rec.recent") }}</h2>
 <div class="card scroll">
 <table>
-<tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.sku") }}</th><th>{{ t("m.rec.lot") }}</th>
+<tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.row_sku") }}</th><th>{{ t("m.rec.lot") }}</th>
     <th class="num">kg</th>
     {% if can("money") %}<th class="num">{{ t("m.rec.cost") }}</th>{% endif %}
     <th>{{ t("common.status") }}</th></tr>

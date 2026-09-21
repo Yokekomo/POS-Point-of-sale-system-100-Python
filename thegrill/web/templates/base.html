@@ -175,7 +175,7 @@ img,svg,video{max-width:100%;height:auto}
 </div></header>
 {% endif %}
 <main>{% block body %}{% endblock %}</main>
-<script>
+<script nonce="{{ nonce }}">
 // Refresca el contador de avisos sin recargar la página. Si la persona ha
 // autorizado los avisos del navegador, una alerta crítica salta a su pantalla.
 (function () {

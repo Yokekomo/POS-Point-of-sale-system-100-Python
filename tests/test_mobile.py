@@ -467,10 +467,25 @@ def test_a_count_survives_having_no_signal_in_the_chiller(browser):
         # Se sale de la cámara y vuelve la señal: se manda solo, sin que nadie
         # se acuerde de volver a darle al botón.
         context.set_offline(False)
-        page.evaluate("() => window.dispatchEvent(new Event('online'))")
-        page.wait_for_function(
-            "() => !Object.keys(localStorage).some(k => k.endsWith(':envio'))",
-            timeout=10000)
+        # El aviso de «ya hay red» se da varias veces si hace falta: en una
+        # máquina cargada, el primero puede llegar cuando el navegador todavía
+        # no tiene la red lista, y entonces el envío falla y se queda esperando
+        # —que es justo lo que tiene que hacer—. Un cocinero abre la pantalla
+        # otra vez; aquí se repite el aviso.
+        for intento in range(6):
+            page.evaluate("() => window.dispatchEvent(new Event('online'))")
+            try:
+                page.wait_for_function(
+                    "() => !Object.keys(localStorage).some(k => k.endsWith(':envio'))",
+                    timeout=5000)
+                break
+            except Exception:
+                if intento == 5:
+                    pendiente = page.evaluate(
+                        "() => Object.keys(localStorage).filter(k => k.endsWith(':envio'))")
+                    aviso = page.locator("#sinred").text_content()
+                    raise AssertionError(
+                        f"el recuento no se mandó al volver la red: {pendiente} · {aviso}")
         with db.session_scope() as session:
             from thegrill.models import MeatCountLine
             contadas = [l.counted_kg for l in session.query(MeatCountLine)
@@ -501,6 +516,92 @@ def test_the_helper_that_makes_screens_open_inside_the_chiller(browser):
 # ================================= la edición de cocina, en las mismas manos
 KITCHEN = ["/manager", "/app", "/carne", "/merma", "/inventario", "/recetas",
            "/ventas", "/ingredientes", "/manager/registros", "/configuracion"]
+
+
+def test_a_lot_with_many_pieces_gets_the_lines_it_needs(browser):
+    """Un lote trae treinta piezas del mismo corte, no ocho.
+
+    Añadir líneas no puede costar lo escrito: el camión está en el muelle y
+    volver a teclear veinte pesos no lo hace nadie. Así que se comprueba que lo
+    ya escrito sigue ahí, que los números siguen la serie y que lo que se
+    escribe en las nuevas llega de verdad a la cámara.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    entra(page, base)
+    page.goto(f"{base}/recepcion")
+
+    assert page.locator("#piezas tr").count() == 9          # cabecera y ocho
+    page.fill("input[name='kg:0']", "9.4")
+    primero = page.locator("input[name='serial:0']").get_attribute("placeholder")
+
+    page.click("#masfilas")
+    assert page.locator("#piezas tr").count() == 17          # ocho más
+    assert page.input_value("input[name='kg:0']") == "9.4"   # no se ha perdido
+
+    # Los números propuestos siguen la serie, sin repetirse.
+    propuestos = page.locator("#piezas input[name^='serial:']").evaluate_all(
+        "campos => campos.map(c => c.placeholder)")
+    assert propuestos[0] == primero
+    assert len(set(propuestos)) == len(propuestos)
+    assert int(propuestos[-1]) == int(primero) + 15
+
+    # Y una pieza escrita en una línea nueva se da de alta como las demás.
+    page.fill("input[name='kg:12']", "7.25")
+    page.fill("input[name='sku:12']", "Ribeye AUS")
+    page.fill("input[name='price_kg']", "24")
+    page.click("button[type=submit]")
+    page.wait_for_selector(".banner.ok")
+    assert "Ribeye AUS" in page.content()
+    context.close()
+
+
+# Esta va **antes** de la edición de cocina a propósito: aquella monta su
+# propia base de datos y este proceso solo sabe hablar con una, así que a
+# partir de ahí la casa de carnes ya no existe y no se puede ni entrar.
+def test_the_button_for_browser_alerts_really_does_something(browser):
+    """Pulsar «Activar» tiene que pedir el permiso de verdad.
+
+    Aquí no vale mirar el HTML: el guion iba sin el número que exige la
+    política de seguridad, así que el navegador lo tiraba sin decir nada y el
+    botón se quedaba muerto. La página se veía perfecta. Solo se ve pulsando.
+
+    El permiso se finge —el de verdad lo concede el navegador y no se puede
+    dejar «sin decidir» a voluntad—, así que lo que se comprueba es lo que
+    falló: que el guion se ejecuta, que escribe debajo, que el botón llama a
+    pedir el permiso y que después se quita solo.
+    """
+    base, chromium = browser
+    context = telefono(chromium)          # su propia ventana: no arrastra nada
+    page = context.new_page()
+    fallos = []
+    page.on("console", lambda m: fallos.append(m.text) if m.type == "error" else None)
+    page.add_init_script("""
+        window.__pedido = false;
+        window.Notification = {
+          permission: "default",
+          requestPermission: function () {
+            window.__pedido = true;
+            window.Notification.permission = "granted";
+            return Promise.resolve("granted");
+          }
+        };
+    """)
+    entra(page, base)
+    page.goto(f"{base}/notificaciones")
+
+    page.wait_for_selector("#askperm", state="visible", timeout=5000)
+    assert page.locator("#permstate").inner_text().strip(), "el guion no se ha ejecutado"
+
+    page.click("#askperm")
+    page.wait_for_function("() => window.__pedido === true", timeout=5000)
+    page.wait_for_selector("#askperm", state="hidden", timeout=5000)
+    assert page.locator("#permstate").inner_text().strip()
+
+    bloqueado = [f for f in fallos if "Content Security Policy" in f]
+    assert not bloqueado, f"el navegador tiró el guion: {bloqueado[:1]}"
+    context.close()
 
 
 @pytest.fixture(scope="module")

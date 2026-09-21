@@ -236,7 +236,9 @@ el valor de lo que hay.
 **Recepción.** Los primales llegan en grupo, bajo un lote de recepción común.
 Cada pieza recibe su número y su coste, y el precio puede ser distinto por
 pieza. Dos piezas no pueden compartir número: o entra el lote entero, o no
-entra nada.
+entra nada. La pantalla abre con ocho líneas y se añaden las que hagan falta
+—hasta sesenta, un camión— sin perder lo ya escrito: el corte se pone una vez
+arriba y solo se repite en la línea de la pieza que sea distinta.
 
 **Despiece.** Se marcan las piezas que entran, se escriben hasta diez cortes
 con sus piezas y sus gramos, y se vuelca a cámara. Cada corte sale con **serial
@@ -702,6 +704,11 @@ es una hora de trabajo tirada. Así que:
   página que lo explica en vez de la del dinosaurio.
 - Lo que se manda **no se guarda nunca**: un envío sin red falla, y lo recoge
   el guardado del formulario. Nada se manda dos veces.
+- Y un envío que se queda colgado —media raya de cobertura, que es lo normal en
+  una cámara— **no se queda colgado para siempre**: a los quince segundos se
+  corta, el recuento vuelve a la cola y se reintenta solo cada poco. Lo que no
+  puede pasar es que el aviso diga «mandando» toda la tarde con el recuento
+  todavía en el teléfono.
 - Al salir —o cuando caduca la sesión— **las copias se borran del aparato**: un
   móvil de cocina lo usan cuatro personas.
 

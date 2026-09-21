@@ -647,3 +647,47 @@ def test_there_is_a_printable_sheet_for_the_aging_fridge(client):
     todas = client.get("/descargas/todo.xlsx")
     libro = load_workbook(io.BytesIO(todas.content))
     assert any("aduraci" in nombre for nombre in libro.sheetnames)
+
+
+# --------------------------------------------- guiones que el navegador acepta
+# Todas las pantallas de dentro. Si una trae un guion sin el número de la
+# respuesta, el navegador lo tira sin decir nada: el botón no hace nada y no
+# hay error que mirar. Pasó con el de activar los avisos.
+CON_GUION = ["/hoy", "/carne", "/maduracion", "/descongelado", "/inventario",
+             "/recepcion", "/despiece", "/merma", "/traslados", "/ventas",
+             "/cortes", "/carta", "/notificaciones", "/configuracion",
+             "/trazabilidad", "/parte", "/sedes", "/descargas", "/fallo"]
+
+
+def test_no_screen_carries_a_script_the_browser_will_refuse(client):
+    """Un guion sin el número de la respuesta no se ejecuta, y nadie se entera.
+
+    Es el fallo más callado que hay: la página se ve entera, el botón está ahí
+    y al pulsarlo no pasa nada. No hay error en pantalla ni en el servidor —el
+    navegador lo bloquea por su cuenta—, así que solo se descubre probándolo a
+    mano. Por eso se mira aquí pantalla por pantalla.
+    """
+    signup(client)
+    sin_marca = []
+    for ruta in CON_GUION:
+        respuesta = client.get(ruta)
+        assert respuesta.status_code == 200, f"{ruta}: {respuesta.status_code}"
+        suyo = re.search(r"'nonce-([^']+)'",
+                         respuesta.headers["content-security-policy"]).group(1)
+        for etiqueta in re.findall(r"<script[^>]*>", respuesta.text):
+            if "src=" in etiqueta:
+                continue          # los de fichero valen por venir de casa
+            if f'nonce="{suyo}"' not in etiqueta:
+                sin_marca.append(f"{ruta}: {etiqueta[:60]}")
+    assert not sin_marca, "guiones que el navegador va a tirar: " + "; ".join(sin_marca)
+
+
+def test_the_button_for_browser_alerts_is_wired_up(client):
+    """El botón de activar los avisos, con su guion y su marca."""
+    signup(client)
+    pantalla = client.get("/notificaciones")
+    marca = re.search(r"'nonce-([^']+)'",
+                      pantalla.headers["content-security-policy"]).group(1)
+    assert 'id="askperm"' in pantalla.text
+    assert f'<script nonce="{marca}">' in pantalla.text
+    assert "Notification.requestPermission" in pantalla.text

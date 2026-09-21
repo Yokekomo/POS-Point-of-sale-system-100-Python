@@ -395,24 +395,44 @@ if ("serviceWorker" in navigator) {
     decir(textos.pendiente, true);
   });
 
+  // Mandando uno cada vez, y con reloj: una red de cocina se cae a medias y
+  // el envío se queda colgado sin fallar nunca. Sin esto, el aviso se quedaba
+  // en «mandando el recuento…» para siempre y no lo volvía a intentar aunque
+  // la señal estuviera de vuelta: el recuento seguía en el móvil y nadie lo
+  // sabía. Quince segundos y, si no, se vuelve a la cola.
+  var mandando = false;
+
   function mandar() {
     var guardadoEnvio = pendiente();
-    if (!guardadoEnvio || !navigator.onLine) return;
+    if (!guardadoEnvio || !navigator.onLine || mandando) return;
+    mandando = true;
     decir(textos.enviando, true);
     var cuerpo = new URLSearchParams(JSON.parse(guardadoEnvio));
+    var corte = ("AbortController" in window) ? new AbortController() : null;
+    var reloj = setTimeout(function () { if (corte) corte.abort(); }, 15000);
     fetch(form.action, {
       method: "POST", body: cuerpo, credentials: "same-origin",
-      headers: {"Content-Type": "application/x-www-form-urlencoded"}
+      headers: {"Content-Type": "application/x-www-form-urlencoded"},
+      signal: corte ? corte.signal : undefined
     }).then(function (r) {
       if (!r.ok) throw new Error(r.status);
+      clearTimeout(reloj);
+      mandando = false;
       localStorage.removeItem(clave + ":envio");
       localStorage.removeItem(clave);
       decir(textos.enviado, false);
       setTimeout(function () { location.reload(); }, 600);
-    }).catch(function () { decir(textos.fallo, true); });
+    }).catch(function () {
+      clearTimeout(reloj);
+      mandando = false;          // sigue guardado: se reintenta al volver
+      decir(textos.fallo, true);
+    });
   }
 
   window.addEventListener("online", mandar);
+  // Y se reintenta cada poco mientras haya algo esperando, que es lo que hace
+  // el cocinero sin darse cuenta al salir de la cámara y volver a mirar.
+  setInterval(function () { if (pendiente() && navigator.onLine) mandar(); }, 8000);
   window.addEventListener("offline", function () { decir(textos.pendiente, true); });
   if (pendiente()) { navigator.onLine ? mandar() : decir(textos.pendiente, true); }
 })();

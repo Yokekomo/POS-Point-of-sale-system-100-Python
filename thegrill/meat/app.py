@@ -511,19 +511,28 @@ def cancel_own_account(request: Request, reason: str = Form(""), csrf: str = For
 
 
 # ========================================================== RECEPCIÓN
+# Un lote de recepción puede traer muchas piezas del mismo corte. Ocho líneas
+# es lo que se ve de una vez sin marear; las demás se añaden en la propia
+# pantalla, y sin guiones se piden con `?filas=`.
+FILAS_RECEPCION = 8
+MAX_RECEPCION = 60
+
+
 @app.get("/recepcion", response_class=HTMLResponse)
 def reception_page(request: Request, ctx=Depends(needs(perms.RECEIVE)),
-                   session: Session = Depends(get_db)):
+                   session: Session = Depends(get_db), filas: int = FILAS_RECEPCION):
     user, auth_session = ctx
-    return _reception(request, user, auth_session, session)
+    return _reception(request, user, auth_session, session, filas=filas)
 
 
-def _reception(request, user, auth_session, session, *, done=None, error=""):
+def _reception(request, user, auth_session, session, *, done=None, error="",
+               filas: int = FILAS_RECEPCION):
+    cuantas = max(FILAS_RECEPCION, min(int(filas or FILAS_RECEPCION), MAX_RECEPCION))
     # Se proponen el lote y los números; se cogen de verdad al dar de alta.
     return page(request, "reception.html", user, auth_session, session, done=done, error=error,
-                rows=range(8), recent=meat.recent_primals(session, user.restaurant_id),
-                lot=meat.next_lot(session, user.restaurant_id),
-                serials=meat.next_serials(session, user.restaurant_id, 8))
+                rows=range(cuantas), recent=meat.recent_primals(session, user.restaurant_id),
+                lot=meat.next_lot(session, user.restaurant_id), maximo=MAX_RECEPCION,
+                serials=meat.next_serials(session, user.restaurant_id, cuantas))
 
 
 @app.post("/recepcion", response_class=HTMLResponse)
@@ -543,7 +552,7 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
     price = form.get("price_kg")
     try:
         rows = []
-        for i in range(24):
+        for i in range(MAX_RECEPCION):
             serial = (form.get(f"serial:{i}") or "").strip()
             kg = form.get(f"kg:{i}")
             if not serial and not (kg or "").strip():

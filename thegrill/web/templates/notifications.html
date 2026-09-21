@@ -32,7 +32,7 @@
 <div class="card"><p class="muted" style="margin:0">{{ t("notif.empty") }}</p></div>
 {% endfor %}
 
-<script>
+<script nonce="{{ nonce }}">
 (function () {
   var btn = document.getElementById("askperm"), state = document.getElementById("permstate");
   if (!btn) return;
