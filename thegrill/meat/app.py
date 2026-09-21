@@ -713,17 +713,24 @@ async def save_prices(request: Request, ctx=Depends(needs(perms.MONEY)),
 
 
 # ============================================================ DESPIECE
+CORTES_A_LA_VISTA = 3
 @app.get("/despiece", response_class=HTMLResponse)
 def butchery_page(request: Request, ctx=Depends(needs(perms.BUTCHER)),
-                  session: Session = Depends(get_db)):
+                  session: Session = Depends(get_db), cortes: int = CORTES_A_LA_VISTA):
     user, auth_session = ctx
-    return _butchery(request, user, auth_session, session)
+    return _butchery(request, user, auth_session, session, cortes=cortes)
 
 
-def _butchery(request, user, auth_session, session, *, done=None, issues=(), error=""):
+def _butchery(request, user, auth_session, session, *, done=None, issues=(), error="",
+              cortes: int = CORTES_A_LA_VISTA):
+    # Tres bloques a la vista y los demás se añaden. Diez huecos vacíos de
+    # golpe son un muro: casi ningún despiece saca diez cortes, y el que los
+    # saca los pide.
+    cuantos = max(CORTES_A_LA_VISTA, min(int(cortes or CORTES_A_LA_VISTA), meat.MAX_CUTS))
     mia = sites.of_user(session, user)
     return page(request, "butchery.html", user, auth_session, session, done=done,
-                issues=list(issues), error=error, rows=range(meat.MAX_CUTS), site=mia,
+                issues=list(issues), error=error, rows=range(cuantos), site=mia,
+                maximo=meat.MAX_CUTS,
                 tg=meat.next_tg(session, user.restaurant_id),
                 primals=meat.primals_in_stock(session, user.restaurant_id,
                                               site_id=mia.id if mia else None,

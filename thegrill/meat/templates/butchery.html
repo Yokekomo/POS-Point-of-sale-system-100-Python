@@ -1,4 +1,58 @@
-{% extends "base.html" %}{% block title %}{{ t("m.tg.title") }}{% endblock %}
+{% extends "base.html" %}{% block title %}{{ t("m.tg.title") }}<script nonce="{{ nonce }}">
+// Dos cosas pequeñas que quitan el lío de la hoja de despiece.
+(function () {
+  // 1. «Cómo sale» enseña solo la pareja que vale. La casilla de verdad —la
+  //    que viaja en el envío— la mueve el desplegable, y así no hay que
+  //    entender por qué unas columnas se rellenan y otras no.
+  function atar(bloque) {
+    var como = bloque.querySelector(".comosale");
+    var casilla = bloque.querySelector(".espeso");
+    if (!como || !casilla) return;
+    function mirar() {
+      var peso = como.value === "peso";
+      casilla.checked = peso;
+      bloque.querySelectorAll(".enpiezas").forEach(function (x) { x.hidden = peso; });
+      bloque.querySelectorAll(".apeso").forEach(function (x) { x.hidden = !peso; });
+    }
+    como.addEventListener("change", mirar);
+    como.value = casilla.checked ? "peso" : "piezas";
+    mirar();
+  }
+  document.querySelectorAll("#cortes .corte").forEach(atar);
+
+  // 2. Más bloques cuando hagan falta, sin recargar ni perder lo escrito.
+  var boton = document.getElementById("mascortes");
+  var caja = document.getElementById("cortes");
+  if (!boton || !caja) return;
+  var tope = {{ maximo }};
+  boton.hidden = caja.querySelectorAll(".corte").length >= tope;
+  boton.addEventListener("click", function () {
+    var bloques = caja.querySelectorAll(".corte");
+    if (bloques.length >= tope) return;
+    var nuevo = bloques[bloques.length - 1].cloneNode(true);
+    var indice = bloques.length;
+    nuevo.setAttribute("data-corte", indice);
+    nuevo.querySelectorAll("input, select").forEach(function (campo) {
+      if (campo.name) campo.name = campo.name.replace(/:\d+$/, ":" + indice);
+      if (campo.type === "checkbox") { campo.checked = false; }
+      else if (campo.tagName === "SELECT") { campo.selectedIndex = 0; }
+      else { campo.value = ""; }
+    });
+    var mas = nuevo.querySelector("details");
+    if (mas) mas.open = false;
+    caja.appendChild(nuevo);
+    atar(nuevo);
+    nuevo.querySelector("input").focus();
+    if (caja.querySelectorAll(".corte").length >= tope) {
+      boton.hidden = true;
+      boton.insertAdjacentHTML("afterend",
+        '<span class="help">' + {{ t("m.tg.cuts_max", n="TOPE")|tojson }}
+        .replace("TOPE", tope) + "</span>");
+    }
+  });
+})();
+</script>
+{% endblock %}
 {% block body %}
 <h1>{{ t("m.tg.title") }}</h1>
 <p class="sub">{{ t("m.tg.sub") }}</p>
@@ -63,47 +117,83 @@
   {% endif %}
 
   <h2>{{ t("m.tg.cuts") }}</h2>
-  <div class="scroll"><table>
-  <tr><th title="{{ t('m.tg.h_cut') }}">{{ t("m.tg.cut_name") }}</th>
-      <th title="{{ t('m.tg.h_article') }}">{{ t("m.tg.article") }}</th>
-      <th class="num" title="{{ t('m.tg.h_pieces') }}">{{ t("meat.pieces") }}</th>
-      <th class="num" title="{{ t('m.tg.h_grams') }}">{{ t("m.tg.g_piece") }}</th>
-      <th title="{{ t('m.tg.h_by_weight') }}">{{ t("m.tg.by_weight") }}</th>
-      <th class="num" title="{{ t('m.tg.h_kg') }}">kg</th>
-      <th class="num" title="{{ t('m.tg.h_index') }}">{{ t("m.tg.value_index") }}</th>
-      <th title="{{ t('m.tg.h_trim') }}">{{ t("m.tg.trim") }}</th></tr>
+  {# Un bloque por corte, no una rejilla de diez filas por ocho columnas. Lo
+     que se rellena aquí sale de la mesa de despiece con las manos ocupadas:
+     una tabla ancha obliga a arrastrar de lado y no se sabe en qué corte estás
+     escribiendo. Y «a peso» era una casilla en medio de la fila con dos
+     columnas a cada lado, de las que solo una pareja valía: ahora se elige y
+     se enseña solo la que toca. #}
+  <div id="cortes">
   {% for i in rows %}
-  <tr>
-    <td><input name="cut:{{ i }}" style="max-width:200px" autocomplete="off"></td>
-    <td><select name="item:{{ i }}" style="max-width:240px">
-        <option value="">—</option>
-        {% for a in articles %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
-      </select></td>
-    <td><input name="pieces:{{ i }}" inputmode="numeric" style="max-width:90px"></td>
-    <td><input name="grams:{{ i }}" inputmode="decimal" style="max-width:110px"></td>
-    <td><input type="checkbox" name="weight:{{ i }}" value="1"></td>
-    <td><input name="kg:{{ i }}" inputmode="decimal" style="max-width:100px"></td>
-    <td><input name="index:{{ i }}" inputmode="decimal" placeholder="1" style="max-width:90px"></td>
-    <td><input type="checkbox" name="trim:{{ i }}" value="1"></td>
-  </tr>
+  <fieldset class="pieza corte" data-corte="{{ i }}">
+    <div class="campos">
+      <label>{{ t("m.tg.cut_name") }}
+        <input name="cut:{{ i }}" autocomplete="off"
+               title="{{ t('m.tg.h_cut') }}"></label>
+      <label>{{ t("m.tg.article") }}
+        <select name="item:{{ i }}" title="{{ t('m.tg.h_article') }}">
+          <option value="">—</option>
+          {% for a in articles %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+        </select></label>
+    </div>
+
+    <div class="campos" style="margin-top:10px">
+      <label>{{ t("m.tg.how_sold") }}
+        <select class="comosale" title="{{ t('m.tg.h_by_weight') }}">
+          <option value="piezas">{{ t("m.tg.in_portions") }}</option>
+          <option value="peso">{{ t("m.tg.by_kilo") }}</option>
+        </select></label>
+      {# La casilla de verdad, la que viaja: el desplegable solo la mueve. #}
+      <input type="checkbox" name="weight:{{ i }}" value="1" class="espeso" hidden>
+      <label class="enpiezas">{{ t("meat.pieces") }}
+        <input name="pieces:{{ i }}" inputmode="numeric"
+               title="{{ t('m.tg.h_pieces') }}"></label>
+      <label class="enpiezas">{{ t("m.tg.g_piece") }}
+        <input name="grams:{{ i }}" inputmode="decimal"
+               title="{{ t('m.tg.h_grams') }}"></label>
+      <label class="apeso" hidden>kg
+        <input name="kg:{{ i }}" inputmode="decimal"
+               title="{{ t('m.tg.h_kg') }}"></label>
+    </div>
+
+    <details class="masetq">
+      <summary>{{ t("m.tg.more_of_cut") }}</summary>
+      <div class="campos">
+        <label>{{ t("m.tg.value_index") }}
+          <input name="index:{{ i }}" inputmode="decimal" placeholder="1"
+                 title="{{ t('m.tg.h_index') }}"></label>
+      </div>
+      <div class="help">{{ t("m.tg.index_help") }}</div>
+      <label class="casilla" style="margin-top:12px">
+        <input type="checkbox" name="trim:{{ i }}" value="1">
+        <span>{{ t("m.tg.trim") }}</span></label>
+      <div class="help">{{ t("m.tg.h_trim") }}</div>
+    </details>
+  </fieldset>
   {% endfor %}
-  </table></div>
+  </div>
+  <div class="rowflex" style="margin:10px 0">
+    <button class="ghost" type="button" id="mascortes" hidden>{{ t("m.tg.add_cut") }}</button>
+    <noscript><a class="ghost btn"
+       href="/despiece?cortes={{ maximo }}">{{ t("m.tg.add_cut") }}</a></noscript>
+  </div>
+  <div class="help">{{ t("m.tg.cuts_help") }}</div>
+  <div class="help">{{ t("m.tg.by_weight_help") }}</div>
+  {# El glosario se queda: en un móvil no se pasa el ratón por encima, así que
+     lo que explica cada nombre tiene que poder abrirse y leerse. #}
   <details class="help" style="margin:10px 0">
     <summary>{{ t("m.tg.what_is_what") }}</summary>
     <dl class="terms">
       <dt>{{ t("m.tg.cut_name") }}</dt><dd>{{ t("m.tg.h_cut") }}</dd>
       <dt>{{ t("m.tg.article") }}</dt><dd>{{ t("m.tg.h_article") }}</dd>
+      <dt>{{ t("m.tg.how_sold") }}</dt><dd>{{ t("m.tg.h_by_weight") }}</dd>
       <dt>{{ t("meat.pieces") }}</dt><dd>{{ t("m.tg.h_pieces") }}</dd>
       <dt>{{ t("m.tg.g_piece") }}</dt><dd>{{ t("m.tg.h_grams") }}</dd>
-      <dt>{{ t("m.tg.by_weight") }}</dt><dd>{{ t("m.tg.h_by_weight") }}</dd>
       <dt>kg</dt><dd>{{ t("m.tg.h_kg") }}</dd>
       <dt>{{ t("m.tg.value_index") }}</dt><dd>{{ t("m.tg.h_index") }}</dd>
       <dt>{{ t("m.tg.trim") }}</dt><dd>{{ t("m.tg.h_trim") }}</dd>
     </dl>
   </details>
-  <div class="help">{{ t("m.tg.rows_help") }}</div>
-  <div class="help">{{ t("m.tg.index_help") }}</div>
-  <div class="help">{{ t("m.tg.by_weight_help") }}</div>
   <button class="wide" type="submit">{{ t("m.tg.submit") }}</button>
 </form>
 </div>
@@ -134,4 +224,58 @@
 {% endfor %}
 </table>
 </div>
+<script nonce="{{ nonce }}">
+// Dos cosas pequeñas que quitan el lío de la hoja de despiece.
+(function () {
+  // 1. «Cómo sale» enseña solo la pareja que vale. La casilla de verdad —la
+  //    que viaja en el envío— la mueve el desplegable, y así no hay que
+  //    entender por qué unas columnas se rellenan y otras no.
+  function atar(bloque) {
+    var como = bloque.querySelector(".comosale");
+    var casilla = bloque.querySelector(".espeso");
+    if (!como || !casilla) return;
+    function mirar() {
+      var peso = como.value === "peso";
+      casilla.checked = peso;
+      bloque.querySelectorAll(".enpiezas").forEach(function (x) { x.hidden = peso; });
+      bloque.querySelectorAll(".apeso").forEach(function (x) { x.hidden = !peso; });
+    }
+    como.addEventListener("change", mirar);
+    como.value = casilla.checked ? "peso" : "piezas";
+    mirar();
+  }
+  document.querySelectorAll("#cortes .corte").forEach(atar);
+
+  // 2. Más bloques cuando hagan falta, sin recargar ni perder lo escrito.
+  var boton = document.getElementById("mascortes");
+  var caja = document.getElementById("cortes");
+  if (!boton || !caja) return;
+  var tope = {{ maximo }};
+  boton.hidden = caja.querySelectorAll(".corte").length >= tope;
+  boton.addEventListener("click", function () {
+    var bloques = caja.querySelectorAll(".corte");
+    if (bloques.length >= tope) return;
+    var nuevo = bloques[bloques.length - 1].cloneNode(true);
+    var indice = bloques.length;
+    nuevo.setAttribute("data-corte", indice);
+    nuevo.querySelectorAll("input, select").forEach(function (campo) {
+      if (campo.name) campo.name = campo.name.replace(/:\d+$/, ":" + indice);
+      if (campo.type === "checkbox") { campo.checked = false; }
+      else if (campo.tagName === "SELECT") { campo.selectedIndex = 0; }
+      else { campo.value = ""; }
+    });
+    var mas = nuevo.querySelector("details");
+    if (mas) mas.open = false;
+    caja.appendChild(nuevo);
+    atar(nuevo);
+    nuevo.querySelector("input").focus();
+    if (caja.querySelectorAll(".corte").length >= tope) {
+      boton.hidden = true;
+      boton.insertAdjacentHTML("afterend",
+        '<span class="help">' + {{ t("m.tg.cuts_max", n="TOPE")|tojson }}
+        .replace("TOPE", tope) + "</span>");
+    }
+  });
+})();
+</script>
 {% endblock %}

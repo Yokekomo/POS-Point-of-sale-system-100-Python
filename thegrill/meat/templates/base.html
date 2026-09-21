@@ -283,10 +283,14 @@ fieldset.pieza details .help{margin:0 0 8px}
    texto largo se va a la línea siguiente y el cuadro se queda solo arriba,
    pareciendo un título con una caja suelta encima. Aquí el cuadro no se mueve
    y el texto envuelve contra él, como se lee una casilla de toda la vida. */
-label.casilla{display:flex;align-items:center;gap:10px;margin:0;cursor:pointer;
-  font-weight:600;line-height:1.35}
-label.casilla input{flex:0 0 auto;margin:0}
-label.casilla span{min-width:0}
+label.casilla,fieldset.pieza label.casilla{display:flex;align-items:center;gap:10px;
+  margin:0;cursor:pointer;font-weight:600;line-height:1.35}
+/* Dentro de un bloque de pieza o de corte manda `fieldset.pieza label`, que
+   pone los nombres encima de su hueco. Una casilla no va así: el cuadro y su
+   texto van al lado. Por eso se repite con el fieldset delante, que si no la
+   otra regla gana por ser más concreta y la casilla sale descolocada. */
+label.casilla input,fieldset.pieza label.casilla input{flex:0 0 auto;width:auto;margin:0}
+label.casilla span,fieldset.pieza label.casilla span{min-width:0}
 /* La lista de lo que acaba de entrar. Lleva un botón por pieza —la foto de su
    etiqueta— y en una tabla ese botón se va a la octava columna, fuera de la
    pantalla del móvil: un botón que no se ve no lo pulsa nadie. */

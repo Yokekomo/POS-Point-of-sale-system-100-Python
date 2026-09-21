@@ -313,8 +313,16 @@ precio: qué es, cuánto pesa, de qué calidad, de dónde viene y su etiqueta
 entera. Si quien recibe es el manager, lo pone de una vez y se ahorra el
 segundo paso.
 
-**Despiece.** Se marcan las piezas que entran, se escriben hasta diez cortes
-con sus piezas y sus gramos, y se vuelca a cámara. Cada corte sale con **serial
+**Despiece.** Se marcan las piezas que entran, se escriben los cortes que salen
+—hasta diez— y se vuelca a cámara.
+
+**Un bloque por corte, y solo los huecos que valen.** La hoja abría con diez
+filas por ocho columnas, y de los cuatro huecos de cada corte la mitad sobraban
+según cómo saliera ese corte: «a peso» era una casilla en medio de la fila con
+dos columnas a cada lado y nadie sabía cuáles tocaban. Ahora se elige **cómo
+sale** —en raciones, o a peso— y se enseña solo la pareja que corresponde:
+piezas y gramos, o kilos. Lo que casi nunca se toca —el índice de valor y si es
+para reusar— se abre debajo. Tres bloques a la vista y los demás se piden. Cada corte sale con **serial
 propio** —`8017-01`, `8017-02`— y se lleva su parte del coste del primal
 repartida por el índice de valor: un filete vale más por kilo que un recorte.
 La merma no se lleva nada, así que la pagan los cortes. Si no cuadra, no se

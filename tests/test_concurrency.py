@@ -73,14 +73,22 @@ def a_la_vez(trabajo, veces=2):
     ninguno ve lo que el otro no ha guardado todavía, que es justo la situación
     en la que los números se rompen.
     """
-    puerta = threading.Barrier(veces, timeout=10)
+    # Un minuto para que los hilos coincidan. Con diez segundos, en una máquina
+    # cargada —la suite entera corriendo— un hilo llegaba tarde, la barrera se
+    # rompía y fallaban los dos. Eso salía luego como «no se mandó la pieza», o
+    # sea, disfrazado de fallo del dinero, que es el que menos se puede
+    # confundir. Ahora si se rompe lo dice con esas palabras.
+    puerta = threading.Barrier(veces, timeout=60)
     fallos: list[str] = []
+    rotos: list[int] = []
 
     def uno(i):
         try:
             with db.session_scope() as s:
                 puerta.wait()
                 trabajo(s, i)
+        except threading.BrokenBarrierError:
+            rotos.append(i)
         except Exception as e:                     # noqa: BLE001 - se mira el mensaje
             fallos.append(f"{type(e).__name__}: {e}")
 
@@ -89,6 +97,20 @@ def a_la_vez(trabajo, veces=2):
         h.start()
     for h in hilos:
         h.join()
+    if rotos:
+        raise RuntimeError(
+            f"{len(rotos)} de {veces} hilos no llegaron a la vez en 60 s: la prueba "
+            "no ha llegado a correrse. Es la máquina, no el programa.")
+    # Y el otro modo de no llegar a correrse: SQLite echando a los dos. Dos
+    # conexiones que ya están en transacción y las dos quieren escribir se
+    # bloquean entre ellas, y ahí SQLite contesta «locked» sin esperar al
+    # plazo. No es que el programa haya dejado pasar a los dos —eso sería el
+    # fallo gordo— sino que no ha dejado pasar a ninguno. Se dice con esas
+    # palabras para no confundir una cosa con la otra.
+    if len(fallos) == veces and all("locked" in f.lower() for f in fallos):
+        raise RuntimeError(
+            f"SQLite rechazó a los {veces}: {fallos[0]}. La prueba no ha llegado a "
+            "correrse; ninguno escribió, que no es lo mismo que escribir los dos.")
     return fallos
 
 

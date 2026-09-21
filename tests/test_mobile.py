@@ -585,6 +585,50 @@ PNG_DE_UN_PIXEL = (
     b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
 
 
+def test_the_butchery_sheet_shows_only_the_boxes_that_apply(browser):
+    """«A peso» era una casilla con dos columnas a cada lado, y solo valía una.
+
+    La hoja abría con diez filas por ocho columnas y cuatro huecos por corte de
+    los que la mitad sobraban según cómo saliera ese corte. Nadie sabía cuáles.
+    Ahora se elige cómo sale y se enseña solo la pareja que toca; la casilla de
+    verdad —la que viaja en el envío— la mueve el desplegable.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    entra(page, base)
+    page.goto(f"{base}/despiece")
+    page.wait_for_selector("#cortes .corte")
+
+    # Tres bloques a la vista, no diez huecos vacíos.
+    assert page.locator("#cortes .corte").count() == 3
+
+    primero = page.locator("#cortes .corte").first
+    # En raciones: piezas y gramos; los kilos, escondidos.
+    assert primero.locator("input[name='pieces:0']").is_visible()
+    assert primero.locator("input[name='grams:0']").is_visible()
+    assert primero.locator("input[name='kg:0']").is_hidden()
+    assert not primero.locator("input[name='weight:0']").is_checked()
+
+    primero.locator(".comosale").select_option("peso")
+    assert primero.locator("input[name='kg:0']").is_visible()
+    assert primero.locator("input[name='pieces:0']").is_hidden()
+    assert primero.locator("input[name='grams:0']").is_hidden()
+    # Y la casilla que de verdad se manda ha seguido al desplegable.
+    assert primero.locator("input[name='weight:0']").is_checked()
+
+    primero.locator(".comosale").select_option("piezas")
+    assert not primero.locator("input[name='weight:0']").is_checked()
+
+    # Y se añaden bloques sin perder lo escrito.
+    primero.locator("input[name='cut:0']").fill("Entrecot")
+    page.click("#mascortes")
+    assert page.locator("#cortes .corte").count() == 4
+    assert page.input_value("input[name='cut:0']") == "Entrecot"
+    assert page.input_value("input[name='cut:3']") == ""     # el nuevo, en blanco
+    context.close()
+
+
 def test_you_can_keep_working_with_no_signal(browser):
     """Sin señal se sigue trabajando: se apunta todo y se manda solo después.
 

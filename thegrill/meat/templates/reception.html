@@ -22,57 +22,14 @@
   <div id="fotovista" hidden><a class="fotoetq" href="#" id="fotoenlace"><img id="fotoimg"
       alt="{{ t('m.rec.photo') }}"></a></div>
 
-  {# 2. La pieza que tienes en la mano. #}
-  <h2>{{ t("m.rec.piece_step") }}</h2>
-  <fieldset class="pieza">
-    <div class="campos">
-      <label>{{ t("m.rec.serial") }}
-        <input name="serial:0" autocomplete="off"
-               placeholder="{{ serials[0] if serials else '' }}"
-               title="{{ t('m.rec.serial_help') }}"></label>
-      <label>{{ t("m.rec.kg") }}
-        <input name="kg:0" inputmode="decimal" autofocus
-               title="{{ t('m.rec.kg_help') }}"></label>
-      <label>{{ t("m.rec.row_sku") }}
-        <input name="sku:0" placeholder="{{ t('m.rec.row_sku_ph') }}"
-               title="{{ t('m.rec.row_sku_help') }}"></label>
-      {% if can("money") %}
-      <label>{{ t("m.rec.price_kg") }}
-        <input name="price:0" inputmode="decimal"
-               title="{{ t('m.rec.price_help') }}"></label>
-      {% endif %}
-    </div>
-    <details class="masetq">
-      <summary>{{ t("m.rec.row_diff") }}</summary>
-      <p class="help">{{ t("m.rec.row_diff_help") }}</p>
-      <div class="campos">
-        <label>{{ t("m.rec.supplier_lot") }}
-          <input name="slot:0" autocomplete="off"
-                 title="{{ t('m.rec.supplier_lot_help') }}"></label>
-        <label>{{ t("m.rec.grade") }}
-          <input name="grade:0" title="{{ t('m.rec.row_grade_help') }}"></label>
-        <label>{{ t("m.rec.origin") }}
-          <input name="origin:0"></label>
-        <label>{{ t("m.rec.slaughter") }}
-          <input name="slaughter:0" type="date"
-                 title="{{ t('m.rec.row_slaughter_help') }}"></label>
-      </div>
-    </details>
-    {# Lo que pasa fuera del programa y sin lo cual nada de esto sirve: el
-       número tiene que estar encima de la carne. En la cámara nadie abre el
-       móvil para saber qué bolsa tiene en la mano. #}
-    <p class="help" style="margin:10px 0 0">{{ t("m.rec.write_on_it") }}</p>
-  </fieldset>
-
-  <button class="wide" type="submit">{{ t("m.rec.submit_one") }}</button>
-
-  {# Lo del camión: se escribe una vez y se queda puesto para las siguientes
-     piezas de la misma descarga. Va debajo y plegado porque se toca al empezar
-     y ya no se vuelve a mirar. #}
+  {# 2. El lote. Va antes que la pieza porque es lo que se abre primero: se
+     apunta de dónde viene la descarga y luego se le van metiendo bolsas. Se
+     escribe una vez y se queda puesto, así que a partir de la segunda pieza
+     viene plegado y no estorba. #}
   <details class="masetq" {% if not previo.get("lot") %}open{% endif %}
-           style="margin-top:16px;border-top:1px solid var(--line);padding-top:10px">
-    <summary><b>{{ t("m.rec.truck_step") }}</b></summary>
-    <p class="help">{{ t("m.rec.truck_help") }}</p>
+           style="margin-top:20px">
+    <summary><b>{{ t("m.rec.lot_step") }}</b></summary>
+    <p class="help">{{ t("m.rec.lot_step_help") }}</p>
     <div class="grid">
       <div><label for="lot">{{ t("m.rec.lot") }}</label>
         <input id="lot" name="lot" value="{{ previo.get('lot') or lot }}"
@@ -153,6 +110,51 @@
     </div>
     <div class="help" id="alarconayuda">{{ t("m.rec.freeze_now_help") }}</div>
   </details>
+
+  {# 3. La pieza que tienes en la mano. #}
+  <h2>{{ t("m.rec.piece_step") }}</h2>
+  <fieldset class="pieza">
+    <div class="campos">
+      <label>{{ t("m.rec.serial") }}
+        <input name="serial:0" autocomplete="off"
+               placeholder="{{ serials[0] if serials else '' }}"
+               title="{{ t('m.rec.serial_help') }}"></label>
+      <label>{{ t("m.rec.kg") }}
+        <input name="kg:0" inputmode="decimal" autofocus
+               title="{{ t('m.rec.kg_help') }}"></label>
+      <label>{{ t("m.rec.row_sku") }}
+        <input name="sku:0" placeholder="{{ t('m.rec.row_sku_ph') }}"
+               title="{{ t('m.rec.row_sku_help') }}"></label>
+      {% if can("money") %}
+      <label>{{ t("m.rec.price_kg") }}
+        <input name="price:0" inputmode="decimal"
+               title="{{ t('m.rec.price_help') }}"></label>
+      {% endif %}
+    </div>
+    <details class="masetq">
+      <summary>{{ t("m.rec.row_diff") }}</summary>
+      <p class="help">{{ t("m.rec.row_diff_help") }}</p>
+      <div class="campos">
+        <label>{{ t("m.rec.supplier_lot") }}
+          <input name="slot:0" autocomplete="off"
+                 title="{{ t('m.rec.supplier_lot_help') }}"></label>
+        <label>{{ t("m.rec.grade") }}
+          <input name="grade:0" title="{{ t('m.rec.row_grade_help') }}"></label>
+        <label>{{ t("m.rec.origin") }}
+          <input name="origin:0"></label>
+        <label>{{ t("m.rec.slaughter") }}
+          <input name="slaughter:0" type="date"
+                 title="{{ t('m.rec.row_slaughter_help') }}"></label>
+      </div>
+    </details>
+    {# Lo que pasa fuera del programa y sin lo cual nada de esto sirve: el
+       número tiene que estar encima de la carne. En la cámara nadie abre el
+       móvil para saber qué bolsa tiene en la mano. #}
+    <p class="help" style="margin:10px 0 0">{{ t("m.rec.write_on_it") }}</p>
+  </fieldset>
+
+  <button class="wide" type="submit">{{ t("m.rec.submit_one") }}</button>
+
 </form>
 </div>
 
