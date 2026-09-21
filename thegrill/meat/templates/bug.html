@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% block title %}{{ t("bug.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("bug.title") }}</h1>
+<p class="sub">{{ t("bug.sub") }}</p>
+{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+<div class="card">
+  <form method="post" action="/fallo">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="screen" value="{{ desde }}">
+    <label for="kind">{{ t("bug.kind") }}</label>
+    <select id="kind" name="kind">
+      {% for k in kinds %}<option value="{{ k }}">{{ t("bug.kind." ~ k) }}</option>{% endfor %}
+    </select>
+    <label for="message">{{ t("bug.what") }}</label>
+    <textarea id="message" name="message" rows="5" required
+              placeholder="{{ t('bug.example') }}"></textarea>
+    <label for="email">{{ t("bug.email") }}</label>
+    <input id="email" name="email" type="email" value="{{ user.email }}">
+    <button class="wide" type="submit">{{ t("bug.send") }}</button>
+  </form>
+  <p class="help">{{ t("bug.help_screen", screen=desde) }}
+     {% if not mailed %}<br>{{ t("bug.no_mail") }}{% endif %}</p>
+</div>
+
+{% if mine %}
+<h2>{{ t("bug.mine") }}</h2>
+<div class="card scroll">
+<table>
+  <tr><th>{{ t("common.date") }}</th><th>{{ t("bug.kind") }}</th><th>{{ t("bug.what") }}</th>
+      <th>{{ t("common.status") }}</th></tr>
+  {% for r in mine %}
+  <tr>
+    <td>{{ r.created_at.date() }}</td>
+    <td>{{ t("bug.kind." ~ r.kind) }}</td>
+    <td>{{ r.message[:120] }}{% if r.message|length > 120 %}…{% endif %}
+        {% if r.note %}<div class="muted">{{ r.note }}</div>{% endif %}</td>
+    <td><span class="tag {{ 'ok' if r.status.value == 'FIXED' else 'warn' }}">{{ t("bug.state." ~ r.status.value) }}</span></td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+<p class="help">{{ t("bug.mine_help") }}</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}{% block title %}{{ t("bug.admin") }}{% endblock %}
+{% block body %}
+<h1>{{ t("bug.admin") }}</h1>
+<p class="sub">{{ t("bug.admin_sub") }}</p>
+{% if not mailed %}<div class="banner warn">{{ t("bug.no_mail_admin") }}</div>{% endif %}
+
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+  {% for s in states %}
+  <div class="kpi"><b>{{ counts.get(s.value, 0) }}</b><span>{{ t("bug.state." ~ s.value) }}</span></div>
+  {% endfor %}
+</div>
+
+<p class="muted">
+  <a href="/admin/fallos">{{ t("bug.all") }}</a>
+  {% for s in states %} · <a href="/admin/fallos?estado={{ s.value }}">{{ t("bug.state." ~ s.value) }}</a>{% endfor %}
+</p>
+
+<div class="card scroll">
+<table>
+  <tr><th>#</th><th>{{ t("common.date") }}</th><th>{{ t("bug.who") }}</th>
+      <th>{{ t("bug.what") }}</th><th>{{ t("common.status") }}</th></tr>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.id }}</td>
+    <td>{{ r.created_at.date() }}<div class="muted">{{ t("bug.kind." ~ r.kind) }}</div></td>
+    <td>{{ r.reporter }}
+        <div class="muted">{{ r.detail or "" }}</div>
+        <div class="muted">{{ r.screen or "" }}{% if not r.mailed %} · {{ t("bug.not_mailed") }}{% endif %}</div></td>
+    <td>{{ r.message }}
+        {% if r.email %}<div class="muted">{{ r.email }}</div>{% endif %}
+        {% if r.note %}<div class="muted">{{ r.note }}</div>{% endif %}</td>
+    <td>
+      <form method="post" action="/admin/fallos/{{ r.id }}/estado" style="margin:0">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <select name="estado" aria-label="{{ t('common.status') }}">
+          {% for s in states %}<option value="{{ s.value }}"{% if r.status == s %} selected{% endif %}>{{ t("bug.state." ~ s.value) }}</option>{% endfor %}
+        </select>
+        <input name="note" placeholder="{{ t('bug.note') }}" value="{{ r.note or '' }}">
+        <button class="ghost">{{ t("common.save") }}</button>
+      </form>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" class="muted">{{ t("bug.none") }}</td></tr>
+  {% endfor %}
+</table>
+</div>
+{% endblock %}

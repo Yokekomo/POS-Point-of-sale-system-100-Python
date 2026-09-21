@@ -30,6 +30,7 @@ NUEVAS = {
     "auth_sessions": ["pending_2fa"],
     "sales_by_product": ["kg"],
     "meat_counts": ["site_id"],
+    "bug_reports": ["note", "detail"],
     "despiece_cuts": ["by_weight"],
 }
 

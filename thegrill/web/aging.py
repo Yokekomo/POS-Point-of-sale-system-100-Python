@@ -324,6 +324,14 @@ def weigh(session: Session, user: User, serial: str, kg: float,
             f"La pieza {primal.serial} pesaba {previous:.10g} kg y no puede pesar "
             f"{kg:.10g}. Una pieza no engorda en la cámara: revisa la báscula o el número.")
 
+    # Dentro del juego de la báscula, una pieza que "engorda" no ha engordado:
+    # es la balanza. Se apunta lo leído, pero el peso que se guarda es el de
+    # antes; si no, el kilo de lo que madura se abarata solo, pesada a pesada,
+    # y la carne madurada acaba costando menos que la fresca.
+    if kg > previous:
+        note = " · ".join(x for x in (note, t(lang, "m.ag.scale", kg=f"{kg:.10g}")) if x)[:512]
+        kg = previous
+
     cost = total_cost(primal)
     before_per_kg = cost_per_kg(primal)
     # El coste de la pieza se fija aquí: a partir de ahora el kilo se calcula

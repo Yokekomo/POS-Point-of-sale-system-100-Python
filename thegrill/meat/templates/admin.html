@@ -2,6 +2,7 @@
 {% block body %}
 <h1>{{ t("adm.title") }}</h1>
 <p class="sub">{{ t("adm.sub") }}</p>
+<p class="muted"><a href="/admin/fallos">{{ t("bug.admin") }}</a></p>
 {% if done %}<div class="banner ok">{{ t("adm.saved") }}</div>{% endif %}
 {% if not mail_ready %}<div class="banner warn">{{ t("adm.mail_off") }}</div>{% endif %}
 {% if not encryption_on %}<div class="banner bad">{{ t("priv.encryption_off") }}</div>

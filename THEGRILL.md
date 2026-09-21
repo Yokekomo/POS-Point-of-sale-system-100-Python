@@ -471,6 +471,7 @@ thegrill/
     twofactor.py         Los seis dígitos del segundo paso, y sus códigos de repuesto
     pos_import.py        El parte de ventas del POS: lee el fichero que salga y dice qué ha entendido
     sites.py             Obrador y locales: sedes, traslados, cámaras y mínimos de cada una
+    ../bench.py          Banco de pruebas: casas de mentira, auditor de invariantes y martillo
     auth.py              Contraseñas, sesiones, alta de restaurante, códigos de acceso, roles
     seed.py              Las siete plantillas por defecto
     service.py           Validación, alertas, avisos, fotos, estadísticas, export CSV

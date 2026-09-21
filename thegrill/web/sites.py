@@ -20,8 +20,8 @@ from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from thegrill.models import (Ingredient, IngredientLot, Primal, PrimalStatus, Site,
-                             SiteKind, SitePar, Transfer, User)
+from thegrill.models import (Ingredient, IngredientLot, IngredientMovement, MovementKind,
+                             Primal, PrimalStatus, Site, SiteKind, SitePar, Transfer, User)
 
 EPSILON = 1e-9
 PRIMAL = "PRIMAL"
@@ -314,15 +314,18 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
         if lot.pieces and lot.qty_remaining > EPSILON:
             piezas = max(1, int(round(lot.pieces * movido / lot.qty_remaining)))
             lot.pieces = max(0, lot.pieces - piezas)
-        session.add(IngredientLot(
+        hijo = IngredientLot(
             restaurant_id=user.restaurant_id, item_id=lot.item_id,
             ingredient_id=lot.ingredient_id, lot_code=lot.lot_code, serial=nuevo_serial,
             parent_serial=lot.parent_serial or lot.serial, parent_lot=lot.parent_lot,
             expiry=lot.expiry, received=lot.received, qty=movido, qty_remaining=movido,
             unit_cost=lot.unit_cost, pieces=piezas, piece_weight_g=lot.piece_weight_g,
             nominal_piece_g=lot.nominal_piece_g, grade=lot.grade, origin=lot.origin,
-            frozen=lot.frozen, site_id=destino.id))     # sin cámara: la de allí la ponen ellos
+            frozen=lot.frozen, site_id=destino.id)     # sin cámara: la de allí la ponen ellos
+        session.add(hijo)
         lot.qty_remaining = round(lot.qty_remaining - movido, 6)
+        session.flush()
+        journal_split(session, user, lot, hijo, movido, on, "transfer", destino.name)
 
     coste = round(movido * (lot.unit_cost or 0.0), 6)
     session.add(Transfer(restaurant_id=user.restaurant_id, date=on, kind=CUT,
@@ -333,6 +336,28 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
     session.flush()
     return Sent(kind=CUT, serial=lot.serial, label=etiqueta, kg=round(movido, 6),
                 cost=coste, to_site=destino, from_site=origen, new_serial=nuevo_serial)
+
+
+def journal_split(session: Session, user: User, parent: IngredientLot, child: IngredientLot,
+             kg: float, on: date, source: str, where: str) -> None:
+    """Lo que sale de un lote y entra en otro, apuntado en los dos.
+
+    No se ha vendido ni se ha tirado: ha cambiado de sitio o de número. Pero
+    del lote han salido kilos, y un lote que baja sin apunte es un lote que no
+    se puede explicar cuando alguien pregunta.
+    """
+    coste = round(kg * (parent.unit_cost or 0.0), 6)
+    referencia = f"{child.serial} · {where}"[:96]
+    session.add(IngredientMovement(
+        restaurant_id=user.restaurant_id, ingredient_id=parent.ingredient_id,
+        lot_id=parent.id, date=on, kind=MovementKind.MOVE, qty=-round(kg, 6),
+        cost=coste, source=source, source_ref=referencia, created_by=user.id))
+    session.add(IngredientMovement(
+        restaurant_id=user.restaurant_id, ingredient_id=child.ingredient_id,
+        lot_id=child.id, date=on, kind=MovementKind.IN, qty=round(kg, 6),
+        cost=coste, source=source, source_ref=f"{parent.serial} · {where}"[:96],
+        created_by=user.id))
+    session.flush()
 
 
 def _child_serial(session: Session, restaurant_id: int, base: str) -> str:

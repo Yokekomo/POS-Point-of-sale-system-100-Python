@@ -21,7 +21,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from thegrill import db
-from thegrill.meat import billing, gateway, mailer, perms, privacy, security
+from thegrill.meat import billing, bugs, gateway, mailer, perms, privacy, security
 from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
 from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, CountPeriod,
@@ -29,6 +29,7 @@ from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, Cou
                              MeatCount, Plan, PosMatch, PosProduct, Primal, PrimalPar,
                              PrimalStatus, Recipe, RequestStatus, Restaurant, Role,
                              Rotation, Site, SiteKind, Storage, Unit, User)
+from thegrill.models import BugStatus
 from thegrill.web import (aging, auth, butchery, costing, defrost, i18n, inventory,
                           pos_import, service, sites, tracing, twofactor, waste)
 
@@ -1942,6 +1943,63 @@ def reset_team_password(user_id: int, request: Request, password: str = Form(...
 
 
 # ============================================================ DESCARGAS
+# ============================================================== FALLOS
+@app.get("/fallo", response_class=HTMLResponse)
+def bug_page(request: Request, ctx=Depends(require_user), session: Session = Depends(get_db),
+             desde: str = "", done: str = "", error: str = ""):
+    """Contar un fallo sin salir del programa ni escribir un correo."""
+    user, auth_session = ctx
+    return page(request, "bug.html", user, auth_session, session, done=done, error=error,
+                desde=desde or "/hoy", kinds=bugs.KINDS,
+                mailed=bool(bugs.address()),
+                mine=bugs.mine(session, user.restaurant_id))
+
+
+@app.post("/fallo", response_class=HTMLResponse)
+def report_bug(request: Request, message: str = Form(...), kind: str = Form("fallo"),
+               screen: str = Form(""), email: str = Form(""), csrf: str = Form(""),
+               ctx=Depends(require_user), session: Session = Depends(get_db)):
+    """Lo guarda siempre, y lo manda si hay correo puesto."""
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    sede = sites.of_user(session, user)
+    try:
+        hecho = bugs.report(session, user, message, screen=screen, kind=kind, email=email,
+                            lang=lang, site=sede.name if sede else "")
+    except bugs.BugError as e:
+        return RedirectResponse(f"/fallo?error={e}", status_code=303)
+    dicho = i18n.t(lang, "bug.done" if hecho.mailed else "bug.done_local",
+                   n=hecho.report.id)
+    return RedirectResponse(f"/fallo?done={dicho}", status_code=303)
+
+
+@app.get("/admin/fallos", response_class=HTMLResponse)
+def bugs_page(request: Request, ctx=Depends(needs(perms.PLATFORM)),
+              session: Session = Depends(get_db), estado: str = ""):
+    """Lo que cuentan las casas, para la plataforma."""
+    user, auth_session = ctx
+    filtro = BugStatus[estado] if estado in BugStatus.__members__ else None
+    return page(request, "bugs.html", user, auth_session, session, estado=estado,
+                rows=bugs.recent(session, status=filtro), counts=bugs.counts(session),
+                states=list(BugStatus), mailed=bool(bugs.address()))
+
+
+@app.post("/admin/fallos/{report_id}/estado")
+def set_bug_status(report_id: int, request: Request, estado: str = Form(...),
+                   note: str = Form(""), csrf: str = Form(""),
+                   ctx=Depends(needs(perms.PLATFORM)), session: Session = Depends(get_db)):
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    try:
+        bugs.set_status(session, report_id,
+                        BugStatus[estado] if estado in BugStatus.__members__
+                        else BugStatus.SEEN, note=note)
+    except bugs.BugError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from None
+    return RedirectResponse("/admin/fallos", status_code=303)
+
+
 @app.get("/parte", response_class=HTMLResponse)
 def daily_report_page(request: Request, ctx=Depends(needs(perms.STOCK)),
                       session: Session = Depends(get_db), fecha: str = ""):

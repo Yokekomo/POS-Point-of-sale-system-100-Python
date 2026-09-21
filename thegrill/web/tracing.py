@@ -65,6 +65,7 @@ class CutNode:
     revenue: float = 0.0
     waste_kg: float = 0.0
     adjust_kg: float = 0.0
+    moved_kg: float = 0.0        # lo que salió a otra sede o del arcón, con su número
     is_trim: bool = False
     sales: list[SaleLine] = field(default_factory=list)
 
@@ -326,6 +327,9 @@ def _fill_movements(session: Session, node: CutNode, lot: IngredientLot, ratios:
             node.waste_kg = round(node.waste_kg + -mv.qty, 6)
         elif mv.kind == MovementKind.ADJUST:
             node.adjust_kg = round(node.adjust_kg + mv.qty, 6)
+        elif mv.kind == MovementKind.MOVE:
+            # Ni venta ni merma: cambió de sitio o de número, y se sigue por él.
+            node.moved_kg = round(node.moved_kg + -mv.qty, 6)
 
 
 def search(session: Session, restaurant_id: int, term: str) -> list[Primal]:

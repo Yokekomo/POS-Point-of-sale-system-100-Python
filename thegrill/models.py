@@ -182,6 +182,10 @@ class MovementKind(str, enum.Enum):
     WASTE = "WASTE"      # merma
     PRODUCTION = "PRODUCTION"   # consumo por elaborar una producción
     ADJUST = "ADJUST"    # ajuste por conteo físico
+    # Ni se ha vendido ni se ha tirado: ha cambiado de sitio o de número. Un
+    # traslado a otra sede o unas piezas que salen del arcón parten el lote, y
+    # esos kilos tienen que salir en el libro o el lote se queda sin explicar.
+    MOVE = "MOVE"
 
 
 class FefoStage(str, enum.Enum):
@@ -970,6 +974,43 @@ class PrimalPar(TenantMixin, Base):
     sku: Mapped[str] = mapped_column(String(64), index=True)
     min_pieces: Mapped[int] = mapped_column(Integer, default=0)
     note: Mapped[str | None] = mapped_column(Text)
+
+
+class BugStatus(str, enum.Enum):
+    NEW = "NEW"          # recién contado
+    SEEN = "SEEN"        # leído, se está mirando
+    FIXED = "FIXED"      # arreglado y avisado
+    CLOSED = "CLOSED"    # no era un fallo, o no se va a tocar
+
+
+class BugReport(Base):
+    """Un fallo contado por quien lo ha sufrido.
+
+    Quien está delante de la pantalla ve cosas que ninguna prueba ve: el número
+    que no cuadra el martes, la pantalla que se queda en blanco con su teclado.
+    Esto es el botón para contarlo sin salir del programa, con lo que hacía
+    falta para reproducirlo —la pantalla, su papel, su idioma— y sin obligar a
+    nadie a escribir un correo.
+
+    Se guarda siempre. El correo es el aviso, no el registro: si el servidor de
+    correo no está puesto, el parte sigue aquí y se dice que no salió.
+    """
+    __tablename__ = "bug_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    restaurant_id: Mapped[int | None] = mapped_column(ForeignKey("restaurants.id"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    reporter: Mapped[str | None] = mapped_column(String(128))     # nombre y papel
+    email: Mapped[str | None] = mapped_column(String(160))        # dónde contestarle
+    screen: Mapped[str | None] = mapped_column(String(160))       # de qué pantalla salió
+    kind: Mapped[str | None] = mapped_column(String(32))          # fallo, número raro, idea
+    message: Mapped[str] = mapped_column(Text)
+    detail: Mapped[str | None] = mapped_column(Text)              # idioma, papel, sede, versión
+    status: Mapped[BugStatus] = mapped_column(Enum(BugStatus), default=BugStatus.NEW,
+                                              index=True)
+    mailed: Mapped[bool] = mapped_column(Boolean, default=False)
+    note: Mapped[str | None] = mapped_column(Text)                # lo que se hizo con él
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
 class ShiftClosure(TenantMixin, Base):

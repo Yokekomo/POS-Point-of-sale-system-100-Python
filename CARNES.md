@@ -642,6 +642,49 @@ recibir y se cambia desde la cámara, los cortes heredan la de su pieza y lo que
 sale del arcón se queda donde estaba. En blanco es «sin decir», que es como
 estaba antes de esto.
 
+## El banco de pruebas
+
+Las pruebas de siempre comprueban lo que alguien pensó comprobar. El banco es
+lo otro: monta **cincuenta casas distintas** —la mitad grupos con obrador y dos
+locales, la mitad asadores de una sola cámara—, cinco personas en cada una
+—dos managers y tres más—, y las hace trabajar un mes con sus recepciones, su
+maduración, sus traslados, sus ventas, su merma y su inventario mensual.
+
+    python -m thegrill.cli --db sqlite:///banco.db banco --casas 50 --dias 30 --martillo 200
+
+Después pasa la lista de **lo que nunca puede pasar**: kilos negativos, un lote
+que da más de lo que tenía, un coste en blanco, carne vendida estando congelada,
+el kilo de una pieza madurada abaratándose, un número repetido, dinero que
+aparece al despiezar, carne en la sede de otra casa. Y el martillo hace
+operaciones al azar —incluidas las imposibles— para ver que lo que se rechaza
+se rechaza bien y deja la casa igual que estaba.
+
+Dos fallos de verdad salieron el primer día:
+
+- **El libro no cuadraba.** Un traslado a otro local o unas piezas que salían
+  del arcón se llevaban kilos del lote sin dejar apunte: el lote bajaba de 9 a
+  0,5 y nadie podía explicar por dónde. Ahora cada partición se apunta en los
+  dos números —sale de uno y entra en el otro—, y la trazabilidad lo enseña.
+- **El kilo de lo madurado se abarataba solo.** Si la báscula leía treinta
+  gramos de más, el coste de la pieza se repartía entre más kilos y el precio
+  del kilo bajaba, pesada a pesada. Ahora, dentro del juego de la báscula,
+  manda el peso de antes y queda escrito lo que se leyó; un kilo de más ya no
+  es la báscula y se rechaza como siempre.
+
+## Contar un fallo desde el programa
+
+En todas las pantallas hay un **Contar un fallo**. Lo que no funciona, lo que no
+cuadra o lo que se podría hacer mejor, en treinta segundos y sin escribir un
+correo: el parte sale con la pantalla de la que viene, el papel de quien
+escribe, su idioma y su sede, que es lo que hace falta para repetirlo, y con
+nada más.
+
+Se guarda siempre y se manda a `GRILL_BUGS_EMAIL` si está puesto —el correo es
+el aviso, no el registro—. La plataforma los lee en `/admin/fallos`, los marca
+como vistos, arreglados o cerrados y escribe qué se hizo; la casa que lo contó
+lo ve en su pantalla. Así quien usa el programa es también el banco de pruebas
+de la versión siguiente.
+
 ## Por dónde seguir
 
 1. Que el traslado entre sedes pueda ir en camino: hoy sale de una cámara y

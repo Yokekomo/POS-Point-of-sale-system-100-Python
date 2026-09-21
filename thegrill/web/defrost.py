@@ -85,7 +85,7 @@ def _thaw_serial(session: Session, restaurant_id: int, base: str) -> str:
 
 
 def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
-         pieces: int = 0) -> IngredientLot:
+         pieces: int = 0, on: date | None = None, lang: str | None = None) -> IngredientLot:
     """Saca del arcón lo que se va a descongelar, y solo eso.
 
     Lo congelado está en espera: no se vende. Lo que lo despierta es esto, que
@@ -124,6 +124,10 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
     lot.qty_remaining = round(lot.qty_remaining - movido, 6)
     session.add(hijo)
     session.flush()
+    # Lo que sale del arcón no se ha vendido ni se ha tirado, pero del número
+    # han salido kilos: quedan apuntados en los dos, o el lote no se explica.
+    sites.journal_split(session, user, lot, hijo, movido, on or date.today(), "defrost",
+                        "descongelado")
     return hijo
 
 
@@ -140,7 +144,7 @@ def record(session: Session, user: User, kind: DefrostKind, serial: str, pieces:
         raise DefrostError(str(e)) from None
     if kind == DefrostKind.INTAKE and lot.frozen:
         # Lo que sale del arcón deja de estar en espera, y lo que se queda no.
-        lot = thaw(session, user, lot, total_kg, pieces)
+        lot = thaw(session, user, lot, total_kg, pieces, on=on or date.today())
         serial = lot.serial
     entry = DefrostEntry(restaurant_id=user.restaurant_id, date=on or date.today(),
                          shift=shift or "", kind=kind, lot_serial=serial,
