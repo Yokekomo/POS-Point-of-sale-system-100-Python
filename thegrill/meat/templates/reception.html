@@ -163,28 +163,35 @@
 <h2>{{ t("m.rec.recent") }}</h2>
 <p class="help">{{ t("m.rec.photo_help") }}</p>
 {% if foto %}<div class="banner bad">{{ foto }}</div>{% endif %}
-<div class="card scroll">
-<table>
-<tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.row_sku") }}</th><th>{{ t("m.rec.lot") }}</th>
-    <th class="num">kg</th>
-    {% if can("money") %}<th class="num">{{ t("m.rec.cost") }}</th>{% endif %}
-    <th>{{ t("m.rec.photo") }}</th>
-    <th>{{ t("common.status") }}</th></tr>
+<div class="card">
+<div class="lista-piezas">
 {% for p in recent %}
-<tr>
-  <td><a href="/trazabilidad?serial={{ p.serial }}">{{ p.serial }}</a></td>
-  <td>{{ p.sku }}{% if p.grade %} <span class="muted">{{ p.grade }}</span>{% endif %}
-      {% if p.origin %} <span class="muted">{{ p.origin }}</span>{% endif %}</td>
-  <td class="muted">{{ p.lot or "" }}{% if p.supplier_lot %}
-      <div class="muted">{{ p.supplier_lot }}</div>{% endif %}</td>
-  <td class="num">{{ "%.2f"|format(p.weight_kg) }}</td>
-  {% if can("money") %}
-  <td class="num">{% if p.piece_cost_usd %}{{ "%.2f"|format(p.piece_cost_usd) }}{% endif %}</td>
-  {% endif %}
+<div class="filapieza">
+  <div class="arriba">
+    <a href="/trazabilidad?serial={{ p.serial }}"><b>{{ p.serial }}</b></a>
+    <span>{{ p.sku }}</span>
+    {% if p.status.value == 'IN_STOCK' and p.landed_usd_per_kg is none %}
+    <span class="tag warn">{{ t("m.price.waiting") }}</span>
+    {% elif p.status.value != 'IN_STOCK' %}
+    <span class="tag">{{ p.status.value }}</span>
+    {% endif %}
+    <span class="kg">{{ "%.2f"|format(p.weight_kg) }} kg</span>
+  </div>
+  <div class="detalle muted">
+    {% set datos = [] %}
+    {% if p.grade %}{% set _ = datos.append(p.grade) %}{% endif %}
+    {% if p.origin %}{% set _ = datos.append(p.origin) %}{% endif %}
+    {% if p.lot %}{% set _ = datos.append(p.lot) %}{% endif %}
+    {% if p.supplier_lot %}{% set _ = datos.append(p.supplier_lot) %}{% endif %}
+    {# El dinero va con su nombre delante: un número suelto en una línea gris
+       no dice si son kilos, euros o el coste de la pieza. #}
+    {% if can("money") and p.piece_cost_usd %}{% set _ = datos.append(t("m.rec.cost") ~ " " ~ "%.2f"|format(p.piece_cost_usd)) %}{% endif %}
+    {{ datos | join(" · ") }}
+  </div>
   {# Una foto por pieza. El fichero no cabe en la cola de sin cobertura, así
      que esto es su propio envío: lo escrito ya está guardado pase lo que pase
      con la foto. #}
-  <td>
+  <div class="acciones">
     <form method="post" action="/carne/{{ p.serial }}/foto" enctype="multipart/form-data"
           style="margin:0" class="fotoform">
       <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -194,19 +201,14 @@
       <label class="btn ghost" for="foto-{{ p.serial }}">{% if p.photo_ref %}{{ t("m.rec.photo_again") }}{% else %}{{ t("m.rec.photo_add") }}{% endif %}</label>
       <noscript><button class="ghost" type="submit">{{ t("common.save") }}</button></noscript>
     </form>
-    {% if p.photo_ref %}<a class="muted" href="/carne/{{ p.serial }}/etiqueta"
+    {% if p.photo_ref %}<a class="btn ghost" href="/carne/{{ p.serial }}/etiqueta"
         target="_blank" rel="noopener">{{ t("m.rec.photo_seen") }}</a>{% endif %}
-  </td>
-  <td>{% if p.status.value == 'IN_STOCK' and p.landed_usd_per_kg is none %}
-      <span class="tag warn">{{ t("m.price.waiting") }}</span>
-      {% else %}
-      <span class="tag {{ 'ok' if p.status.value == 'IN_STOCK' else '' }}">{{ p.status.value }}</span>
-      {% endif %}</td>
-</tr>
+  </div>
+</div>
 {% else %}
-<tr><td colspan="8" class="muted">{{ t("m.rec.none") }}</td></tr>
+<div class="muted">{{ t("m.rec.none") }}</div>
 {% endfor %}
-</table>
+</div>
 </div>
 
 <script nonce="{{ nonce }}">

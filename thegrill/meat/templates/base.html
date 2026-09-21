@@ -247,6 +247,15 @@ fieldset.pieza summary:hover{color:var(--ink)}
 @media (prefers-reduced-motion:reduce){fieldset.pieza summary::before{transition:none}}
 @media (pointer:coarse){fieldset.pieza summary{min-height:44px}}
 fieldset.pieza details .help{margin:0 0 8px}
+/* La lista de lo que acaba de entrar. Lleva un botón por pieza —la foto de su
+   etiqueta— y en una tabla ese botón se va a la octava columna, fuera de la
+   pantalla del móvil: un botón que no se ve no lo pulsa nadie. */
+.lista-piezas .filapieza{padding:12px 0;border-bottom:1px solid var(--line)}
+.lista-piezas .filapieza:last-child{border-bottom:0;padding-bottom:0}
+.lista-piezas .arriba{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.lista-piezas .arriba .kg{margin-inline-start:auto;font-weight:650;white-space:nowrap}
+.lista-piezas .detalle{font-size:13px;margin-top:2px}
+.lista-piezas .acciones{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .tabsrow{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px;border-bottom:1px solid var(--line)}
 .tabsrow a{padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:600;
   font-size:15px;border-bottom:2px solid transparent;margin-bottom:-1px;min-height:44px;
