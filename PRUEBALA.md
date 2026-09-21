@@ -125,6 +125,43 @@ lo que ve cada una, que es la mitad de la gracia:
 7. **Contar un fallo** — está en todas las pantallas. Cuenta uno y míralo
    después entrando como dueño de la plataforma.
 
+## Probar lo último: dos personas a la vez
+
+Esto se ve mejor con **dos ventanas abiertas a la vez**, cada una con una
+persona distinta. En el mismo navegador no vale —la sesión es la misma—, así
+que: una ventana normal y otra **de incógnito** (Ctrl+Mayús+N en Chrome,
+Ctrl+Mayús+P en Firefox). O mejor todavía: el ordenador y el móvil.
+
+1. **Contar la cámara entre dos.** Entra como Ana (`ana0@demo.com`) en una
+   ventana y como Paco (`paco0@demo.com`) en la otra. Ana abre el inventario en
+   **Inventario → Abrir**. Ahora los dos tenéis la misma hoja.
+   - Que cada uno escriba piezas distintas y guarde: no se pierde ninguna, y en
+     la columna **Quién** se ve de quién es cada número y a qué hora.
+   - Ahora escribid **la misma pieza con pesos distintos**. Manda el último,
+     pero la línea sale marcada **en discusión** con el otro número y el nombre
+     de quien lo puso. Al cerrar, el aviso las nombra.
+2. **Cerrar el inventario entre dos.** Con la hoja abierta en las dos ventanas,
+   dadle a **Cerrar** casi a la vez. Lo cierra uno; al otro le sale «otra
+   persona acaba de cerrar este inventario». Antes los dos escribían el mismo
+   ajuste y el mes salía el doble de malo de lo que fue.
+3. **Despiezar la misma pieza.** Ana y Paco abren **Despiece**, los dos eligen
+   la misma pieza y le dan a guardar. Sale un despiece, no dos: al segundo se
+   le dice que mire el que ya está hecho. Y si los dos traían el mismo número
+   de despiece, el segundo se corre solo al siguiente libre y no pierde nada de
+   lo escrito.
+4. **Mandar la misma pieza a dos sitios.** En **Traslados**, que Ana la mande a
+   la Playa y Paco a la Sierra a la vez: sale un albarán, y la pieza está donde
+   dice el papel.
+
+## Y que va rápida
+
+La demo trae un mes dentro, pero las pantallas están hechas para que la casa
+que lleva tres años vaya igual: se pide lo de hoy, no toda la historia. La
+portada pasó de 199 ms a 31, la cámara de 376 a 29 y el parte de 364 a 35.
+
+No hay nada que tocar para verlo: se nota al abrir. Y si alguna vez se pusiera
+lenta, la prueba `tests/test_speed.py` lo dice antes de que llegue a una cocina.
+
 ## Lo que esto no es
 
 Los datos son de mentira, las contraseñas están escritas aquí y va por `http`
