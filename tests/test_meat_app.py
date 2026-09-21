@@ -16,7 +16,7 @@ from thegrill import db
 from thegrill.meat import app as meatapp
 from thegrill.models import (Despiece, Ingredient, IngredientItem, IngredientLot,
                              IngredientMovement, MovementKind, Primal, PrimalStatus,
-                             Recipe, Restaurant)
+                             Recipe, Restaurant, Role, User)
 
 HOY = date.today()
 
@@ -798,3 +798,158 @@ def test_two_different_submissions_are_both_applied(client):
             "price_kg": "30", "serial:0": serial, "kg:0": "9,4", "envio": numero})
     with db.session_scope() as s:
         assert [p.serial for p in s.query(Primal).order_by(Primal.serial)] == ["9001", "9002"]
+
+
+# ============================== lo que acaba de pasar, para el de al lado
+class TestNovedades:
+    """Dos personas trabajando la misma carne desde pantallas distintas.
+
+    El del muelle da de alta seis lomos mientras el de la mesa despieza, y el
+    que está contando no se entera de ninguna de las dos cosas hasta que va a
+    la cámara. En FEFO eso se paga: se saca la pieza vieja porque nadie sabía
+    que había entrado una nueva, o se cierra un inventario sin lo que entró
+    hace diez minutos. Así que lo que pasa sale arriba, en la pantalla de quien
+    esté trabajando, con su X para quitarlo cuando se ha leído.
+    """
+
+    def novedades(self, cliente, desde=0):
+        r = cliente.get(f"/api/novedades?desde={desde}")
+        assert r.status_code == 200, r.text[:200]
+        return r.json()
+
+    def test_a_delivery_tells_the_rest_of_the_house(self, client):
+        signup(client)
+        marta = add_user(client, email="marta@marina.com", name="Marta", role=Role.BUTCHER)
+        deliver(marta, serials=("8017", "8018"), kg=9.4)
+
+        avisa = self.novedades(client)
+        assert len(avisa["items"]) == 1
+        texto = avisa["items"][0]["texto"]
+        assert "2 ×" in texto and "Striploin AUS" in texto      # cuántas y de qué
+        assert "18.8 kg" in texto                               # los kilos que entran
+        assert "DXB20260910" in texto                           # con qué lote: FEFO
+        assert "Marta" in texto                                 # y quién
+
+    def test_nobody_is_told_what_they_just_did_themselves(self, client):
+        """Quien acaba de recibir ya sabe que ha recibido. El aviso es para los otros."""
+        signup(client)
+        marta = add_user(client, email="marta@marina.com", name="Marta", role=Role.BUTCHER)
+        deliver(marta, serials=("8017",))
+
+        assert self.novedades(marta)["items"] == []
+        # Y aun así el número avanza: si no, el teléfono volvería a preguntar
+        # por lo suyo cada treinta segundos y nunca pasaría de ahí.
+        assert self.novedades(marta)["ultimo"] > 0
+
+    def test_butchery_tells_the_rest_of_the_house(self, client):
+        signup(client)
+        items = setup_cuts(client)
+        deliver(client)
+        paco = add_user(client, email="paco@marina.com", name="Paco", role=Role.BUTCHER)
+        butcher(paco, items)
+
+        items_avisados = self.novedades(client)["items"]
+        cortes = [x for x in items_avisados if x["kind"] == "DESPIECE"]
+        assert len(cortes) == 1
+        texto = cortes[0]["texto"]
+        assert "TG-0001" in texto and "Striploin AUS" in texto
+        assert "kg" in texto and "Paco" in texto
+
+    def test_the_notice_is_read_in_the_language_of_whoever_reads_it(self, client):
+        """El del muelle escribe en español y el jefe de cocina lo lee en inglés."""
+        signup(client)
+        marta = add_user(client, email="marta@marina.com", name="Marta", role=Role.BUTCHER)
+        deliver(marta, serials=("8017",))
+
+        assert "Han entrado" in self.novedades(client)["items"][0]["texto"]
+
+        # El mismo hecho, leído por alguien que tiene la cuenta en inglés: se
+        # guarda lo que pasó, no la frase, y la frase se arma al leerla.
+        with db.session_scope() as s:
+            s.query(User).filter_by(email="albano@marina.com").one().language = "en"
+        assert "Just in" in self.novedades(client)["items"][0]["texto"]
+
+    def test_what_is_already_read_does_not_come_back(self, client):
+        signup(client)
+        marta = add_user(client, email="marta@marina.com", name="Marta", role=Role.BUTCHER)
+        deliver(marta, serials=("8017",))
+
+        primera = self.novedades(client)
+        leido = primera["items"][0]["id"]
+        assert self.novedades(client, desde=leido)["items"] == []
+
+        # Y lo que pase después sí vuelve a salir: cerrar un aviso no apaga el
+        # siguiente.
+        deliver(marta, serials=("8019",))
+        siguiente = self.novedades(client, desde=leido)["items"]
+        assert len(siguiente) == 1 and siguiente[0]["id"] > leido
+
+    def test_yesterdays_news_is_not_news(self, client):
+        """Quien entra por la mañana no quiere el turno de noche encima del título."""
+        from datetime import datetime
+
+        from thegrill.models import Novedad
+        signup(client)
+        marta = add_user(client, email="marta@marina.com", name="Marta", role=Role.BUTCHER)
+        deliver(marta, serials=("8017",))
+        with db.session_scope() as s:
+            fila = s.query(Novedad).one()
+            fila.created_at = datetime.utcnow() - timedelta(hours=20)
+
+        assert self.novedades(client)["items"] == []
+
+    def test_what_happens_at_another_site_does_not_interrupt_here(self, client):
+        """Lo que entra en el obrador no le hace falta al local de la playa."""
+        from thegrill.models import Site, SiteKind
+        signup(client)
+        client.post("/sedes/nueva", data={"name": "Playa", "kind": "OUTLET",
+                                          "csrf": csrf_from(client.get("/sedes").text)})
+        with db.session_scope() as s:
+            playa = s.query(Site).filter_by(kind=SiteKind.OUTLET).one().id
+
+        marta = add_user(client, email="marta@marina.com", name="Marta", role=Role.BUTCHER)
+        deliver(marta, serials=("8017",))          # entra en la sede principal
+
+        eva = add_user(client, email="eva@marina.com", name="Eva")
+        with db.session_scope() as s:
+            s.query(User).filter_by(email="eva@marina.com").one().site_id = playa
+
+        assert self.novedades(eva)["items"] == []          # a Eva, en la playa, no
+        assert len(self.novedades(client)["items"]) == 1   # al manager, que no tiene sede, sí
+
+    def test_the_news_door_is_closed_from_outside(self, client):
+        assert client.get("/api/novedades").headers["location"] == "/login"
+
+    def test_old_news_is_forgotten(self, client):
+        from datetime import datetime
+
+        from thegrill.meat import novedades as mod
+        from thegrill.models import Novedad
+        signup(client)
+        marta = add_user(client, email="marta@marina.com", name="Marta", role=Role.BUTCHER)
+        deliver(marta, serials=("8017",))
+        with db.session_scope() as s:
+            s.query(Novedad).one().created_at = datetime.utcnow() - timedelta(days=9)
+        with db.session_scope() as s:
+            assert mod.olvidar_viejas(s) == 1
+            assert s.query(Novedad).count() == 0
+
+    def test_every_work_screen_can_show_them(self, client):
+        """El aviso no sirve si solo sale en una pantalla: sale en todas."""
+        signup(client)
+        for ruta in ("/hoy", "/recepcion", "/despiece", "/carne", "/inventario", "/merma"):
+            html = client.get(ruta).text
+            assert 'id="pilavisos"' in html, ruta
+            assert "/api/novedades" in html, ruta
+
+    def test_a_critical_alert_can_tell_which_one_is_new(self, client):
+        """El contador de avisos manda el número de cada uno.
+
+        Sin él, la pantalla no sabe cuál acaba de llegar y la alerta crítica que
+        debía saltar al teléfono no saltaba nunca.
+        """
+        signup(client)
+        datos = client.get("/api/notificaciones").json()
+        assert "items" in datos
+        for aviso in datos["items"]:
+            assert isinstance(aviso.get("id"), int)

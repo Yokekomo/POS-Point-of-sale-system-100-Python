@@ -1243,6 +1243,35 @@ class Submission(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
+
+class Novedad(TenantMixin, Base):
+    """Algo que acaba de pasar en la casa y que el de al lado tiene que ver.
+
+    En un servicio no hay tiempo de ir a mirar la cámara para enterarse de que
+    han entrado seis lomos o de que alguien acaba de despiezar. Quien está en
+    otra pantalla —contando, apuntando una merma— se entera aquí, en un aviso
+    que sale arriba y que se quita cuando lo ha leído.
+
+    Se guarda el hecho, no la frase: cuántas piezas, de qué, cuántos kilos, con
+    qué lote y quién. La frase se arma al leerla, en el idioma de quien lee,
+    que no tiene por qué ser el de quien la escribió.
+    """
+    __tablename__ = "novedades"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(16), index=True)      # RECEPCION o DESPIECE
+    ref: Mapped[str | None] = mapped_column(String(24))            # el lote, o el número del despiece
+    label: Mapped[str | None] = mapped_column(String(96))          # qué ha entrado, o qué se ha despiezado
+    pieces: Mapped[int] = mapped_column(Integer, default=0)
+    kg: Mapped[float] = mapped_column(Float, default=0.0)
+    # La sede donde ha pasado: lo que entra en el obrador no le hace falta
+    # saberlo al que está en el local de la playa.
+    site_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    by_user_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    by_name: Mapped[str | None] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
 class AccessBrake(Base):
     """Los intentos fallidos, apuntados donde los ven todos los procesos.
 

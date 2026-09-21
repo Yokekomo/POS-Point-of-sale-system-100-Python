@@ -120,12 +120,14 @@ def main(argv=None):
             print(f"dueño de la plataforma: {owner.name} <{owner.email}>")
     elif args.cmd == "purgar-solicitudes":
         db.create_all()
-        from thegrill.meat import privacy, security
+        from thegrill.meat import novedades, privacy, security
         with db.session_scope() as session:
             print(f"borradas {privacy.purge(session, days=args.dias)} solicitudes")
             # Y los números de envío de hace un mes: ningún teléfono guarda
             # tanto, así que recordarlos ya no evita nada.
             print(f"borrados {security.forget_old_submissions(session)} números de envío")
+            # Y las novedades de la semana pasada, que ya no avisan de nada.
+            print(f"borradas {novedades.olvidar_viejas(session)} novedades")
     elif args.cmd == "demo":
         import os
 

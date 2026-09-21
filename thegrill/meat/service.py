@@ -21,6 +21,7 @@ from thegrill.models import (ConsumptionMode, CountStatus, Despiece, DespieceCut
                              DespiecePrimal, Ingredient, IngredientItem, IngredientLot,
                              MeatCount, PosProduct, Primal, PrimalStatus, Recipe,
                              RecipeKind, RecipeLine, Rotation, Storage, Unit, User)
+from thegrill.meat import novedades
 from thegrill.web import aging as aging_mod
 from thegrill.web import waste as waste_mod
 from thegrill.web import butchery, costing, defrost, inventory, locking, sites
@@ -145,7 +146,27 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
                 .filter_by(restaurant_id=user.restaurant_id, serial=serial).first()):
             raise MeatError(t(lang, "m.rec.dup", serial=serial))
 
-    return _save_primals(session, user, rows, lot, received, destino, chamber, lang)
+    created = _save_primals(session, user, rows, lot, received, destino, chamber, lang)
+    # Que se entere el que está en otra pantalla: en la cámara hay carne que
+    # hace un minuto no estaba, y contar sin ella deja el inventario corto.
+    novedades.anotar(session, user, novedades.RECEPCION, ref=lot,
+                     label=_lo_que_mas_entro(created), pieces=len(created),
+                     kg=sum(p.weight_kg or 0.0 for p in created),
+                     site_id=destino.id if destino else None)
+    return created
+
+
+def _lo_que_mas_entro(created: list[Primal]) -> str:
+    """De lo que ha entrado, lo que más: el aviso dice una cosa, no seis.
+
+    Una recepción normal es un lote de lo mismo. Cuando trae dos artículos, el
+    aviso nombra el que más piezas trae —que es el que cambia la cámara— y el
+    número de piezas ya dice que hay más de una.
+    """
+    cuenta: dict[str, int] = {}
+    for pieza in created:
+        cuenta[pieza.sku or ""] = cuenta.get(pieza.sku or "", 0) + 1
+    return max(cuenta, key=lambda k: (cuenta[k], k)) if cuenta else ""
 
 
 def _save_primals(session: Session, user: User, rows: list[PrimalRow], lot: str,
@@ -466,7 +487,24 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
         return _write_despiece(session, user, numero["tg"], serials, before_kg, rows,
                                waste_kg, on, staff, country, grade)
 
-    return locking.retry(session, montar, otro_numero)
+    # El nombre de la pieza, cogido ahora: si hay que reintentar, la sesión se
+    # deshace y los objetos de antes ya no se pueden preguntar.
+    etiqueta = (piezas[0].sku if piezas else "") or _primer_corte(rows)
+    # Y dónde ha pasado: donde estaban las piezas. Un encargado sin sede que
+    # despieza en el obrador lo anuncia en el obrador, no en ningún sitio.
+    donde_id = mia.id if mia else (next(iter(donde)) if donde else None)
+    despiece, result = locking.retry(session, montar, otro_numero)
+    # La carne despiezada es carne nueva en cámara: el que cuenta tiene que
+    # saber que ya no hay una pieza entera, sino cinco cortes con su peso.
+    novedades.anotar(session, user, novedades.DESPIECE, ref=result.tg, label=etiqueta,
+                     pieces=len(result.lots), kg=sum(l.qty for l in result.lots),
+                     site_id=donde_id)
+    return despiece, result
+
+
+def _primer_corte(rows: list[CutRow]) -> str:
+    """Si la pieza no tiene nombre, sirve el del primer corte que sale."""
+    return next((r.name.strip() for r in rows if r.name.strip()), "")
 
 
 def _write_despiece(session: Session, user: User, tg: str, serials: list[str],

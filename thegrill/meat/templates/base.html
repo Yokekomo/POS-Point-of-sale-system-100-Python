@@ -154,35 +154,71 @@ input[type=file]{padding:9px}
 }
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 /* Dos momentos del día, dos pantallas, y se pasa de una a otra sin buscar. */
-/* El aviso de la señal: flotando arriba, encima de todo y en todas las
-   pantallas. Cuando se va la cobertura se queda puesto —hay que saberlo—; y
-   cuando vuelve lo dice y se va solo, que tampoco hace falta un cartel fijo
-   diciendo que todo va bien. */
-.aviso-red{position:fixed;left:50%;transform:translateX(-50%) translateY(-8px);
+/* Los avisos flotantes: arriba, encima de todo y en todas las pantallas.
+   Son de dos clases y conviven en la misma columna, uno debajo de otro, porque
+   dos carteles fijos en el mismo sitio se tapan y no se lee ninguno:
+
+   - el de la señal, que lo pone la cola: cuando se va la cobertura se queda
+     puesto —hay que saberlo—, y cuando vuelve lo dice y se va solo;
+   - los de lo que acaba de pasar en la casa —ha entrado carne, alguien ha
+     despiezado—, que llevan su X y se quedan hasta que se leen. */
+.pila-avisos{position:fixed;left:50%;transform:translateX(-50%);
   top:max(10px,env(safe-area-inset-top));z-index:60;
-  /* Centrado con «la mitad de la pantalla» como punto de partida, el hueco
+  /* `stretch`: todos del ancho del más largo. Centrados y cada uno de su
+     tamaño, la columna queda dentada y parece que se han puesto solos. */
+  display:flex;flex-direction:column;align-items:stretch;gap:8px;
+  /* Centrada con «la mitad de la pantalla» como punto de partida, el hueco
      que le queda a la derecha es la mitad: sin esto, «Esperando cobertura»
      se partía en dos líneas en un móvil. Que mida lo que mide su texto. */
   width:max-content;max-width:min(92vw,520px);
+  /* La columna no se toca: solo los avisos que tengan algo que tocar. Si no,
+     una columna invisible del ancho de la pantalla se come los clics de lo
+     que hay debajo. */
+  pointer-events:none}
+.aviso-red{max-width:100%;
   /* Redondeado, no pastilla: con dos líneas —hay idiomas más largos— una
      pastilla de radio infinito se convierte en un globo enorme. */
   padding:10px 16px;border-radius:16px;font-size:14px;font-weight:600;line-height:1.35;
   box-shadow:0 6px 24px var(--shadow,rgba(0,0,0,.35));border:1px solid var(--line);
   background:var(--card);color:var(--ink);display:flex;align-items:center;gap:8px;
-  /* Dos líneas como mucho: es un aviso, no un párrafo. */
-  overflow:hidden;
-  opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
-.aviso-red.se-ve{opacity:1;transform:translateX(-50%) translateY(0)}
+  opacity:0;transform:translateY(-8px);pointer-events:none;
+  transition:opacity .2s ease,transform .2s ease}
+.aviso-red.se-ve{opacity:1;transform:translateY(0)}
 .aviso-red.malo{background:var(--warnbg);border-color:var(--warn);color:var(--ink)}
 .aviso-red.bien{background:var(--okbg);border-color:var(--ok);color:var(--ink)}
 .aviso-red::before{content:"";width:8px;height:8px;border-radius:50%;flex:0 0 8px;
   background:var(--warn)}
+/* Con dos renglones, el contenido se alinea arriba: un punto y una X flotando
+   en mitad del cartel apuntan a ninguna de las dos líneas. */
+.aviso-red.nuevo{align-items:flex-start}
+.aviso-red.nuevo::before{margin-top:6px}
 .aviso-red.bien::before{background:var(--ok)}
+/* Ni aviso ni enhorabuena: una cosa que ha pasado. Su punto es el color de la
+   casa, para no confundirla con la señal —que es lo urgente—. */
+.aviso-red.nuevo::before{background:var(--accent)}
+/* La X. Un aviso que no se puede quitar acaba tapado con el dedo, así que
+   cada novedad trae la suya —y con sitio para un dedo, no para un ratón—. */
+.aviso-red .x{flex:0 0 auto;margin:-6px -8px -6px 4px;width:36px;height:36px;
+  border:0;background:none;color:inherit;opacity:.75;cursor:pointer;
+  font-size:20px;line-height:1;border-radius:12px;padding:0;
+  display:flex;align-items:center;justify-content:center}
+.aviso-red .x:hover,.aviso-red .x:focus-visible{opacity:1;background:rgba(127,127,127,.18)}
+[dir="rtl"] .aviso-red .x{margin:-6px 4px -6px -8px}
+@media (pointer:coarse){.aviso-red .x{width:44px;height:44px;margin:-9px -10px -9px 4px}}
+.aviso-red.nuevo{pointer-events:auto}
+/* En el teléfono hay una barra arriba con el nombre de la casa y el contador
+   de alertas. Los avisos van **debajo** de ella: taparla deja a la persona sin
+   saber dónde está ni cuántas alertas tiene, que es peor que el aviso. */
+body.con-barra .pila-avisos{top:calc(var(--alto-barra,0px) + 8px)}
+/* Dos renglones: arriba qué ha pasado, y debajo, más pequeño, lo que hace
+   falta para ir a buscarlo. Una línea sola no se lee con las manos ocupadas. */
+.aviso-red .dice{min-width:0;display:block}
+.aviso-red .dice small{display:block;font-weight:500;opacity:.8;font-size:13px}
 @media (prefers-reduced-motion:reduce){.aviso-red{transition:none}}
-/* El aviso de «no hay señal» se queda puesto, así que el contenido se aparta:
-   un cartel encima del título de la pantalla tapa justo lo que hace falta. */
-body.con-aviso main{padding-top:60px}
-@media (orientation:portrait) and (max-width:1024px){body.con-aviso main{padding-top:56px}}
+/* Los avisos que se quedan puestos apartan el contenido: un cartel encima del
+   título de la pantalla tapa justo lo que hace falta leer. Cuánto se aparta lo
+   mide la propia columna, que no siempre trae lo mismo. */
+body.con-aviso main{padding-top:var(--alto-avisos,60px)}
 .tabsrow{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px;border-bottom:1px solid var(--line)}
 .tabsrow a{padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:600;
   font-size:15px;border-bottom:2px solid transparent;margin-bottom:-1px;min-height:44px;
@@ -421,6 +457,68 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
 </div>
 {% endif %}
 
+{# La columna de avisos. Vive fuera de <main> porque flota encima de todas las
+   pantallas, y está siempre puesta —aunque vacía— para que el lector de
+   pantalla anuncie lo que le caiga dentro: una región que se crea en el
+   momento no la lee nadie. #}
+<div class="pila-avisos" id="pilavisos" aria-live="polite"></div>
+<script nonce="{{ nonce }}">
+// La columna de avisos, compartida. Dos sitios ponen carteles ahí arriba —la
+// cola cuando no hay cobertura, y lo que acaba de pasar en la casa—, y si cada
+// uno se pinta por su cuenta en el mismo sitio se tapan el uno al otro y no se
+// lee ninguno. Se apilan; y el hueco que hay que dejarle al contenido lo mide
+// la propia columna, que no siempre lleva lo mismo dentro.
+window.avisos = (function () {
+  var pila = document.getElementById("pilavisos");
+  function medir() {
+    if (!pila) return;
+    // La barra de arriba del teléfono, si la hay: en horizontal y en el
+    // ordenador no existe, y entonces mide cero y la columna va arriba del todo.
+    var barra = document.querySelector(".topbar");
+    var alto_barra = barra ? barra.offsetHeight : 0;
+    document.body.style.setProperty("--alto-barra", alto_barra + "px");
+    document.body.classList.toggle("con-barra", alto_barra > 0);
+    var alto = 0;
+    pila.querySelectorAll(".aviso-red[data-fijo]").forEach(function (el) {
+      if (el.hidden) return;
+      alto = Math.max(alto, el.offsetTop + el.offsetHeight);
+    });
+    // Solo apartan el contenido los que se quedan puestos. Los que se van solos
+    // en dos segundos flotan por encima: bajar la pantalla entera y devolverla
+    // al sitio da un salto peor que el propio cartel.
+    // El hueco es lo que miden los carteles, más los ocho de separación con la
+    // barra y los veinte que la pantalla tiene siempre arriba.
+    document.body.style.setProperty("--alto-avisos", alto ? (alto + 28) + "px" : "0px");
+    document.body.classList.toggle("con-aviso", alto > 0);
+  }
+  // Al girar el teléfono, la barra de arriba aparece o desaparece y el cartel
+  // cambia de ancho: si no se vuelve a medir, se queda flotando en el sitio de
+  // antes o tapando el título.
+  window.addEventListener("resize", medir);
+  window.addEventListener("orientationchange", medir);
+  medir();
+
+  return {
+    medir: medir,
+    nuevo: function (clase) {
+      var el = document.createElement("div");
+      el.className = "aviso-red " + (clase || "");
+      el.hidden = true;
+      if (pila) pila.appendChild(el);
+      return el;
+    },
+    ver: function (el, si) {
+      if (!el) return;
+      el.hidden = !si;
+      // Enseñarlo y pintarlo de golpe se salta la transición: se pide la
+      // altura en medio para que el navegador dibuje el primer estado.
+      if (si) { void el.offsetHeight; el.classList.add("se-ve"); }
+      else { el.classList.remove("se-ve"); }
+      medir();
+    }
+  };
+})();
+</script>
 <script nonce="{{ nonce }}">
 // El ayudante que guarda copia de las pantallas visitadas, para que dentro de
 // la cámara se abran igual. El navegador solo lo permite con certificado o en
@@ -509,35 +607,33 @@ if ("serviceWorker" in navigator) {
     panel.innerHTML = '<b>' + textos.pendiente_titulo + " · " + lista.length + "</b>" + filas;
   }
 
-  // El aviso flotante de la señal. Se pone arriba, en todas las pantallas, y
-  // no hay que ir a buscarlo: si se ha ido la cobertura, se ve; y cuando
-  // vuelve, lo dice y se quita solo.
-  var globo = null, relojGlobo = null;
+  // El aviso flotante de la señal. Se pone arriba del todo, en todas las
+  // pantallas, y no hay que ir a buscarlo: si se ha ido la cobertura, se ve; y
+  // cuando vuelve, lo dice y se quita solo. Se crea vacío ya, antes de que
+  // haga falta, para que quede el primero de la columna: la señal manda sobre
+  // cualquier otra cosa que se apile debajo.
+  var globo = window.avisos ? window.avisos.nuevo("") : null, relojGlobo = null;
+  if (globo) globo.id = "avisored";
   function decir(texto, malo, segundos) {
+    if (!globo) return;
     if (!texto) {
-      if (globo) globo.classList.remove("se-ve");
-      document.body.classList.remove("con-aviso");
+      window.avisos.ver(globo, false);
       return;
-    }
-    if (!globo) {
-      globo = document.createElement("div");
-      globo.className = "aviso-red";
-      globo.id = "avisored";
-      globo.setAttribute("role", "status");
-      globo.setAttribute("aria-live", "polite");
-      document.body.appendChild(globo);
     }
     globo.textContent = texto;
     globo.classList.remove("malo", "bien");
-    globo.classList.add(malo ? "malo" : "bien", "se-ve");
+    globo.classList.add(malo ? "malo" : "bien");
     clearTimeout(relojGlobo);
-    // Lo malo se queda puesto: hay que saber que no hay señal. Lo bueno se va
-    // solo, que un cartel fijo diciendo que todo va bien estorba.
-    document.body.classList.toggle("con-aviso", !segundos);
+    // Lo malo se queda puesto y aparta el contenido: hay que saber que no hay
+    // señal y el cartel no puede taparle el título a la pantalla. Lo bueno se
+    // va solo, flotando por encima: un cartel fijo diciendo que todo va bien
+    // estorba, y mover la página para meterlo y sacarlo, más.
+    if (segundos) { globo.removeAttribute("data-fijo"); }
+    else { globo.setAttribute("data-fijo", "1"); }
+    window.avisos.ver(globo, true);
     if (segundos) {
       relojGlobo = setTimeout(function () {
-        globo.classList.remove("se-ve");
-        document.body.classList.remove("con-aviso");
+        window.avisos.ver(globo, false);
       }, segundos * 1000);
     }
     var viejo = document.getElementById("sinred");   // el de dentro, si lo hay
@@ -722,6 +818,116 @@ if ("serviceWorker" in navigator) {
   poll();
   setInterval(poll, 30000);
   document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
+})();
+</script>
+<script nonce="{{ nonce }}">
+// ======================================= lo que acaba de pasar en la casa
+// Dos personas trabajan la misma carne desde pantallas distintas: el del muelle
+// da de alta seis lomos mientras el de la mesa despieza, y el que está contando
+// no se entera de ninguna de las dos cosas hasta que va a la cámara. En FEFO
+// eso se paga: se saca la pieza vieja porque nadie sabía que había entrado una
+// nueva, o se cierra un inventario sin lo que entró hace diez minutos.
+//
+// Así que lo que pasa sale arriba, en la misma columna que el aviso de la
+// señal, y con su X: se lee y se quita. Y lo quitado no vuelve —ni al recargar,
+// ni al cambiar de pantalla—, porque un aviso que resucita se deja de mirar.
+(function () {
+  // Solo dentro, y solo si la columna está montada: en la portada y en la
+  // pantalla de entrar no hay a quién avisar.
+  if (!window.avisos || !document.getElementById("navbadge")) return;
+  var SUELO = "grill_novedad_suelo";   // hasta dónde ha leído este aparato
+  var QUITADAS = "grill_novedad_x";    // las que se han cerrado por encima del suelo
+  // Cuántas caben a la vez. Con más de tres, la columna se come la pantalla; y
+  // si han pasado cinco cosas, el sitio para verlas no es un cartel: son la
+  // cámara y la pantalla de cada cosa.
+  var MAXIMO = 3;
+  var CERRAR = {{ t("new.close")|tojson }};
+  var puestas = {};                    // id -> el cartel que está puesto
+
+  function leer(clave, porDefecto) {
+    try {
+      var crudo = localStorage.getItem(clave);
+      return crudo === null ? porDefecto : JSON.parse(crudo);
+    } catch (e) { return porDefecto; }
+  }
+  function escribir(clave, valor) {
+    try { localStorage.setItem(clave, JSON.stringify(valor)); } catch (e) {}
+  }
+  function suelo() { return Number(leer(SUELO, 0)) || 0; }
+  function quitadas() { var x = leer(QUITADAS, []); return x instanceof Array ? x : []; }
+
+  // Al cerrar una, el suelo sube todo lo que pueda seguido: si se han cerrado
+  // la 11 y la 12 y el suelo estaba en la 10, el suelo pasa a 12 y la lista se
+  // vacía. Lo que queda son huecos —la 15 cerrada con la 13 sin leer—, y esos
+  // sí hay que recordarlos uno a uno.
+  function cerrar(id) {
+    var el = puestas[id];
+    delete puestas[id];
+    if (el) {
+      window.avisos.ver(el, false);
+      setTimeout(function () { el.remove(); window.avisos.medir(); }, 250);
+    }
+    var fuera = quitadas();
+    if (fuera.indexOf(id) < 0) fuera.push(id);
+    fuera.sort(function (a, b) { return a - b; });
+    var piso = suelo();
+    while (fuera.length && fuera[0] <= piso + 1) { piso = Math.max(piso, fuera.shift()); }
+    escribir(SUELO, piso);
+    escribir(QUITADAS, fuera.slice(-50));
+  }
+
+  function pintar(item) {
+    if (puestas[item.id]) return;
+    var el = window.avisos.nuevo("nuevo");
+    el.setAttribute("data-fijo", "1");
+    el.setAttribute("data-novedad", item.id);
+    var dice = document.createElement("span");
+    dice.className = "dice";
+    dice.textContent = item.titulo || item.texto;
+    if (item.detalle) {
+      var abajo = document.createElement("small");
+      abajo.textContent = item.detalle;
+      dice.appendChild(abajo);
+    }
+    var x = document.createElement("button");
+    x.type = "button";
+    x.className = "x";
+    x.setAttribute("aria-label", CERRAR);
+    x.textContent = "\u00d7";
+    x.addEventListener("click", function () { cerrar(item.id); });
+    el.appendChild(dice);
+    el.appendChild(x);
+    puestas[item.id] = el;
+    window.avisos.ver(el, true);
+    // Si se amontonan, la más vieja se da por leída. Perderla del cartel no es
+    // perderla: está en la cámara y en la pantalla de recepción o de despiece.
+    var ids = Object.keys(puestas).map(Number).sort(function (a, b) { return a - b; });
+    while (ids.length > MAXIMO) { cerrar(ids.shift()); }
+  }
+
+  var primera = leer(SUELO, null) === null;
+
+  function mirar() {
+    if (!navigator.onLine) return;    // sin señal no hay novedades que traer
+    fetch("/api/novedades?desde=" + suelo(), {
+      headers: { Accept: "application/json" }, credentials: "same-origin"
+    }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d) return;
+        // Un aparato que entra por primera vez no se merece la pared de lo que
+        // pasó esta mañana: empieza a contar desde aquí.
+        if (primera) { primera = false; escribir(SUELO, d.ultimo || 0); escribir(QUITADAS, []); return; }
+        var fuera = quitadas();
+        d.items.forEach(function (it) {
+          if (fuera.indexOf(it.id) < 0) pintar(it);
+        });
+      }).catch(function () {});
+  }
+
+  mirar();
+  setInterval(mirar, 30000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) mirar(); });
+  window.addEventListener("online", mirar);
 })();
 </script>
 </body>

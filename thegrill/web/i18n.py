@@ -723,6 +723,12 @@ ES = {
     "off.noted": 'Apuntado. Se manda solo.',
     "off.waiting": 'esperando señal',
     "off.retrying": 'reintentando',
+    # Lo que acaba de pasar en la casa, para el que está en otra pantalla.
+    "new.recepcion": 'Han entrado {n} × {label}',
+    "new.recepcion.det": '{kg} kg · lote {ref} · {who}',
+    "new.despiece": 'Despiezado {label}',
+    "new.despiece.det": '{kg} kg en cámara · {ref} · {who}',
+    "new.close": 'Quitar el aviso',
 }
 
 
@@ -1337,6 +1343,11 @@ EN = {
     "off.noted": 'Noted. It goes out on its own.',
     "off.waiting": 'waiting for signal',
     "off.retrying": 'retrying',
+    "new.recepcion": 'Just in: {n} × {label}',
+    "new.recepcion.det": '{kg} kg · lot {ref} · {who}',
+    "new.despiece": 'Butchered {label}',
+    "new.despiece.det": '{kg} kg into the chiller · {ref} · {who}',
+    "new.close": 'Dismiss',
 }
 
 
@@ -1951,6 +1962,11 @@ FR = {
     "off.noted": 'Noté. Il part tout seul.',
     "off.waiting": 'en attente de réseau',
     "off.retrying": 'nouvel essai',
+    "new.recepcion": 'Entrée : {n} × {label}',
+    "new.recepcion.det": '{kg} kg · lot {ref} · {who}',
+    "new.despiece": 'Découpé : {label}',
+    "new.despiece.det": '{kg} kg en chambre · {ref} · {who}',
+    "new.close": "Fermer l'avis",
 }
 
 
@@ -2565,6 +2581,11 @@ DE = {
     "off.noted": 'Notiert. Geht von selbst raus.',
     "off.waiting": 'wartet auf Empfang',
     "off.retrying": 'wird wiederholt',
+    "new.recepcion": 'Eingegangen: {n} × {label}',
+    "new.recepcion.det": '{kg} kg · Charge {ref} · {who}',
+    "new.despiece": 'Zerlegt: {label}',
+    "new.despiece.det": '{kg} kg in den Kühlraum · {ref} · {who}',
+    "new.close": 'Hinweis schließen',
 }
 
 
@@ -3179,6 +3200,11 @@ NL = {
     "off.noted": 'Genoteerd. Gaat vanzelf weg.',
     "off.waiting": 'wacht op bereik',
     "off.retrying": 'opnieuw proberen',
+    "new.recepcion": 'Binnen: {n} × {label}',
+    "new.recepcion.det": '{kg} kg · partij {ref} · {who}',
+    "new.despiece": 'Uitgebeend: {label}',
+    "new.despiece.det": '{kg} kg de koeling in · {ref} · {who}',
+    "new.close": 'Melding sluiten',
 }
 
 
@@ -3793,6 +3819,11 @@ AR = {
     "off.noted": 'سُجّل. يُرسل وحده.',
     "off.waiting": 'بانتظار التغطية',
     "off.retrying": 'إعادة المحاولة',
+    "new.recepcion": 'دخل: {n} × {label}',
+    "new.recepcion.det": '{kg} كغ · دفعة {ref} · {who}',
+    "new.despiece": 'تم تقطيع {label}',
+    "new.despiece.det": '{kg} كغ إلى الثلاجة · {ref} · {who}',
+    "new.close": 'إغلاق التنبيه',
 }
 
 
@@ -4395,6 +4426,11 @@ HU = {
     "off.noted": 'Feljegyezve. Magától elmegy.',
     "off.waiting": 'térerőre vár',
     "off.retrying": 'újrapróbálkozás',
+    "new.recepcion": 'Beérkezett: {n} × {label}',
+    "new.recepcion.det": '{kg} kg · tétel {ref} · {who}',
+    "new.despiece": 'Feldarabolva: {label}',
+    "new.despiece.det": '{kg} kg a hűtőbe · {ref} · {who}',
+    "new.close": 'Értesítés bezárása',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

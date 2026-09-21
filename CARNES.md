@@ -755,6 +755,48 @@ o en el propio ordenador. En la demo por wifi, sin certificado, no se instala:
 lo que se escribe se sigue guardando igual, pero una pantalla nueva no se abre
 sin señal. Con el despliegue de verdad —dominio y certificado— funciona entero.
 
+## Lo que acaba de pasar, para el de al lado
+
+Dos personas trabajan la misma carne desde pantallas distintas. El del muelle
+da de alta seis lomos mientras el de la mesa despieza, y el que está contando
+no se entera de ninguna de las dos cosas hasta que va a la cámara y se lo
+encuentra. En FEFO eso se paga: se saca la pieza vieja porque nadie sabía que
+había entrado una nueva, o se cierra un inventario sin lo que entró hace diez
+minutos y las diferencias salen del sitio equivocado.
+
+Así que **cada entrada de carne y cada despiece salen arriba**, en la pantalla
+de quien esté trabajando, sea la que sea:
+
+> ● **Han entrado 6 × Ribeye AUS MB7**
+> 56,1 kg · lote L-260921-1 · Paco
+
+Dos renglones: arriba lo que hay que entender de un vistazo con las manos
+ocupadas, y debajo, en pequeño, lo que hace falta para ir a buscarlo —los
+kilos, el lote y quién lo metió—.
+
+Cuatro decisiones, y ninguna es de adorno:
+
+- **Con su X.** Se lee, se quita, y no vuelve: ni al recargar, ni al cambiar de
+  pantalla, ni al día siguiente. Un aviso que resucita se deja de mirar a los
+  diez minutos, y entonces ya no avisa de nada. Lo cerrado se recuerda en el
+  propio aparato, así que cerrar funciona también sin cobertura.
+- **Lo tuyo no se te avisa.** Quien acaba de recibir ya sabe que ha recibido.
+  El aviso es para los demás.
+- **Solo lo de tu sede y solo lo de hoy.** Lo que entra en el obrador no le hace
+  falta al local de la playa, y una novedad de anoche no es una novedad: es
+  historia, y la historia está en su pantalla. Doce horas y se cae.
+- **Se guarda el hecho, no la frase.** Cuántas piezas, de qué, cuántos kilos, con
+  qué lote y quién. La frase se arma al leerla, en el idioma de quien lee: el
+  del muelle escribe en español y el jefe de cocina lo lee en francés.
+
+Comparten columna con el aviso de la señal, uno debajo de otro y la señal
+arriba: dos carteles fijos en el mismo sitio se tapan y no se lee ninguno. Y la
+columna va **debajo** de la barra del teléfono, nunca encima —tapar el contador
+de alertas para avisar de otra cosa es cambiar un aviso por otro—.
+
+Como mucho tres a la vez. Si han pasado cinco cosas, el sitio para verlas no es
+un cartel: son la cámara y la pantalla de cada cosa.
+
 ## Que no se ponga lenta con los años
 
 Una pantalla que tarda medio segundo no se abre: el cocinero mira el papel de

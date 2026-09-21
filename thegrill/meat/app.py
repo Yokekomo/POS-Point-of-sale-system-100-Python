@@ -12,7 +12,7 @@ Corre por su cuenta, con su propia base de datos:
 import json
 import logging
 import os
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import (HTMLResponse, JSONResponse, RedirectResponse, Response)
@@ -21,7 +21,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from thegrill import db
-from thegrill.meat import billing, bugs, gateway, mailer, perms, privacy, security
+from thegrill.meat import billing, bugs, gateway, mailer, novedades, perms, privacy, security
 from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
 from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, CountPeriod,
@@ -1917,10 +1917,39 @@ def notifications_api(request: Request, ctx=Depends(require_user),
                       session: Session = Depends(get_db)):
     user, _ = ctx
     rows = service.recent_notifications(session, user.id, limit=5)
+    # El número va: sin él, la pantalla no sabe cuál es nueva y la alerta
+    # crítica que debía saltar al teléfono no saltaba nunca.
     return JSONResponse({"unread": service.unread_count(session, user.id),
-                         "items": [{"title": n.title, "body": n.body,
+                         "items": [{"id": n.id, "title": n.title, "body": n.body,
                                     "severity": n.severity.value, "read": n.read_at is not None}
                                    for n in rows]})
+
+
+@app.get("/api/novedades")
+def news_api(request: Request, desde: int = 0, ctx=Depends(require_user),
+             session: Session = Depends(get_db)):
+    """Lo que ha pasado en la casa desde la última vez que este aparato miró.
+
+    Lo suyo no se le cuenta —quien acaba de recibir ya sabe que ha recibido— y
+    lo de otra sede tampoco. `ultimo` es el número de la última novedad haya
+    salido o no en la lista: así el aparato avanza por encima de las suyas y no
+    vuelve a preguntar por ellas cada treinta segundos.
+    """
+    user, _ = ctx
+    mia = sites.of_user(session, user)
+    lang = lang_for(request, session, user)
+    filas = novedades.recientes(session, user.restaurant_id, desde_id=desde,
+                                site_id=mia.id if mia else None, salvo_user=user.id)
+
+    def contar(n):
+        titulo, detalle = novedades.frase(lang, n)
+        return {"id": n.id, "kind": n.kind, "titulo": titulo, "detalle": detalle,
+                "texto": f"{titulo} · {detalle}",
+                "cuando": n.created_at.replace(tzinfo=timezone.utc).isoformat()}
+
+    return JSONResponse({
+        "ultimo": novedades.ultimo_id(session, user.restaurant_id),
+        "items": [contar(n) for n in filas]})
 
 
 # ========================================================= CONFIGURACIÓN

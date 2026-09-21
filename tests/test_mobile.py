@@ -779,6 +779,99 @@ def test_the_button_for_browser_alerts_really_does_something(browser):
     context.close()
 
 
+def _pasa_algo(texto_lote="L-AVISO", kind="RECEPCION"):
+    """Alguien **de otra pantalla** da de alta carne. Escrito a mano en la base
+    porque lo que se prueba aquí es el aviso, no la recepción."""
+    from thegrill.models import Novedad, Restaurant, User
+
+    with db.session_scope() as session:
+        casa = (session.query(Restaurant)
+                .filter(Restaurant.platform.isnot(True)).first())
+        yo = session.query(User).filter_by(email="ana0@banco.com").one()
+        otro = (session.query(User)
+                .filter(User.restaurant_id == casa.id, User.id != yo.id).first())
+        fila = Novedad(restaurant_id=casa.id, kind=kind, ref=texto_lote,
+                       label="Ribeye AUS", pieces=6, kg=54.2, site_id=None,
+                       by_user_id=(otro.id if otro else yo.id + 999),
+                       by_name="Marta")
+        session.add(fila)
+        session.flush()
+        return fila.id
+
+
+# Esta también va antes de la edición de cocina, por lo mismo: a partir de ahí
+# la casa de carnes ya no existe en este proceso.
+def test_what_just_happened_shows_up_and_the_x_puts_it_away(browser):
+    """Ha entrado carne mientras estabas en otra pantalla: te enteras arriba.
+
+    Y te enteras **con una X**: se lee, se quita, y no vuelve ni al recargar.
+    Un aviso que resucita cada vez que cambias de pantalla se deja de mirar a
+    los diez minutos, y entonces ya no avisa de nada.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    entra(page, base)                     # la primera entrada pone el punto de partida
+    page.wait_for_function("() => localStorage.getItem('grill_novedad_suelo') !== null",
+                           timeout=5000)
+
+    _pasa_algo()
+    page.goto(f"{base}/inventario")       # otra pantalla cualquiera: el aviso va en todas
+    aviso = page.locator(".aviso-red.nuevo")
+    aviso.wait_for(state="visible", timeout=5000)
+    assert "Ribeye AUS" in aviso.inner_text()
+    assert "L-AVISO" in aviso.inner_text()      # con qué lote: es lo que manda en FEFO
+    assert "Marta" in aviso.inner_text()        # y quién lo metió
+
+    # Y no tapa el título de la pantalla: el contenido se aparta lo que mide.
+    hueco = page.evaluate("() => parseInt(getComputedStyle(document.querySelector('main'))"
+                          ".paddingTop, 10)")
+    caja = aviso.bounding_box()
+    assert hueco >= caja["height"], f"el aviso mide {caja['height']} y solo aparta {hueco}"
+
+    page.click(".aviso-red.nuevo .x")
+    aviso.wait_for(state="hidden", timeout=3000)
+    # Al quitarlo, la pantalla recupera su sitio.
+    page.wait_for_function("() => !document.body.classList.contains('con-aviso')",
+                           timeout=3000)
+
+    page.reload()
+    page.wait_for_timeout(700)
+    assert page.locator(".aviso-red.nuevo").count() == 0, "el aviso cerrado ha vuelto"
+    context.close()
+
+
+def test_the_signal_notice_and_the_news_do_not_cover_each_other(browser):
+    """Dos carteles fijos en el mismo sitio se tapan y no se lee ninguno.
+
+    Van en la misma columna, uno debajo de otro, y el de la señal arriba: sin
+    cobertura, lo que hay que ver primero es que no hay cobertura.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    entra(page, base)
+    page.wait_for_function("() => localStorage.getItem('grill_novedad_suelo') !== null",
+                           timeout=5000)
+
+    _pasa_algo(texto_lote="L-JUNTOS")
+    page.goto(f"{base}/carne")
+    page.locator(".aviso-red.nuevo").wait_for(state="visible", timeout=5000)
+
+    page.evaluate("() => window.dispatchEvent(new Event('offline'))")
+    page.wait_for_selector("#avisored.se-ve", timeout=3000)
+
+    señal = page.locator("#avisored").bounding_box()
+    nueva = page.locator(".aviso-red.nuevo").bounding_box()
+    assert señal["y"] + señal["height"] <= nueva["y"] + 1, (señal, nueva)
+
+    # Y la pantalla se aparta lo que miden los dos, no lo que mide uno.
+    hueco = page.evaluate("() => parseInt(getComputedStyle(document.querySelector('main'))"
+                          ".paddingTop, 10)")
+    assert hueco >= señal["height"] + nueva["height"], hueco
+    context.close()
+
+
 @pytest.fixture(scope="module")
 def cocina(tmp_path_factory):
     """La plataforma de cocina, servida aparte: tiene su propia plantilla."""
