@@ -20,6 +20,7 @@ where git >nul 2>nul || goto :singit
 if exist "%CARPETA%\thegrill\" goto :alDia
 
 echo   Bajando el programa. La primera vez tarda un poco...
+echo   (no cierres esta ventana: cuando este lista, la demo se abre sola)
 git clone --branch "%RAMA%" "%REPO%" "%CARPETA%" || goto :error
 goto :arrancar
 

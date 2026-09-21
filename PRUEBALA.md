@@ -11,12 +11,22 @@ Si no quieres saber nada de carpetas ni de consolas, **copia esta línea**, pega
 en la consola de Windows (tecla Windows, escribe `cmd`, Intro) y dale a Intro:
 
 ```
-powershell -c "iwr https://raw.githubusercontent.com/Yokekomo/POS-Point-of-sale-system-100-Python/claude/cool-bohr-jct64l/carnes.bat -OutFile $env:USERPROFILE\Desktop\carnes.bat"
+powershell -c "$d=[Environment]::GetFolderPath('Desktop'); iwr 'https://raw.githubusercontent.com/Yokekomo/POS-Point-of-sale-system-100-Python/claude/cool-bohr-jct64l/carnes.bat' -OutFile (Join-Path $d 'carnes.bat'); explorer $d"
 ```
 
-Te deja un **`carnes.bat` en el Escritorio**. A partir de ahí, doble clic y ya:
-se baja el programa la primera vez, se pone al día las siguientes y lo arranca.
-Da igual desde dónde: el fichero sabe adónde ir.
+Te deja un **`carnes.bat` en el Escritorio** y te abre la carpeta para que lo
+veas. A partir de ahí, doble clic y ya: se baja el programa la primera vez, se
+pone al día las siguientes y lo arranca. Da igual desde dónde esté el fichero
+—Escritorio, Descargas, donde sea—: él sabe adónde ir.
+
+Se pregunta al propio Windows dónde está tu Escritorio en vez de darlo por
+supuesto: con OneDrive no es `C:\Users\TuNombre\Desktop`, y un fichero
+guardado ahí no aparece por ningún lado.
+
+Y cuando le des doble clic: **espera y no abras el navegador**. La primera vez
+tarda un par de minutos montando el mes de trabajo, y hasta que no acaba el
+navegador solo sabe decir «no se puede acceder a este sitio web». **Se abre
+sola** cuando está lista.
 
 Solo hace falta tener **git** (una vez, desde <https://git-scm.com/download/win>,
 siguiente-siguiente) y **Python** (desde <https://www.python.org/downloads/>,

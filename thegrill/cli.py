@@ -19,6 +19,36 @@ def _lan_addresses() -> list[str]:
     return [ip for ip in salida if ip and not ip.startswith("127.")]
 
 
+def _open_when_ready(puerto: int, espera: float = 40.0) -> None:
+    """Abre el navegador cuando la demo esté sirviendo de verdad, no antes.
+
+    Montar la demo la primera vez lleva un minuto largo, y durante ese rato el
+    navegador solo sabe decir «no se puede acceder a este sitio web». Quien lo
+    ve no tiene manera de saber si aquello está trabajando o se ha roto. Así
+    que la pantalla la abre el programa, y la abre cuando hay algo que enseñar.
+    """
+    import socket
+    import threading
+    import time
+    import webbrowser
+
+    def esperar():
+        limite = time.monotonic() + espera
+        while time.monotonic() < limite:
+            with socket.socket() as prueba:
+                prueba.settimeout(0.5)
+                if prueba.connect_ex(("127.0.0.1", puerto)) == 0:
+                    print(f"  Abriendo http://127.0.0.1:{puerto} …")
+                    try:
+                        webbrowser.open(f"http://127.0.0.1:{puerto}/")
+                    except Exception:
+                        pass          # sin navegador —un servidor, Docker—: da igual
+                    return
+            time.sleep(0.4)
+
+    threading.Thread(target=esperar, daemon=True).start()
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="thegrill")
     p.add_argument("--db", default="sqlite:///thegrill.db")
@@ -45,6 +75,8 @@ def main(argv=None):
     d.add_argument("--dias", type=int, default=30, help="cuánto trabajo de mentira")
     d.add_argument("--reiniciar", action="store_true", help="borra lo que hubiera y la rehace")
     d.add_argument("--solo-montar", action="store_true", help="la monta y no la sirve")
+    d.add_argument("--no-abrir", action="store_true",
+                   help="no abre el navegador solo cuando esté lista")
     b = sub.add_parser("banco", help="monta casas de mentira, las hace trabajar y busca fallos")
     b.add_argument("--casas", type=int, default=50, help="cuántas, la mitad con varias sedes")
     b.add_argument("--dias", type=int, default=30, help="cuántos días de trabajo")
@@ -125,6 +157,8 @@ def main(argv=None):
         import uvicorn
 
         from thegrill.meat.app import create_app
+        if not args.no_abrir:
+            _open_when_ready(args.puerto)
         uvicorn.run(create_app(args.db), host=args.host, port=args.puerto)
     elif args.cmd == "banco":
         db.create_all()

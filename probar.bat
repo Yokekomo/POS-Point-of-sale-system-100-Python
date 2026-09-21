@@ -7,7 +7,10 @@ cd /d "%~dp0"
 where py >nul 2>nul && (set PY=py -3) || (set PY=python)
 
 echo.
-echo   Preparando la demo. La primera vez tarda un par de minutos.
+echo   Preparando la demo.
+echo.
+echo   LA PRIMERA VEZ TARDA UN PAR DE MINUTOS. No cierres esta ventana
+echo   y no abras todavia el navegador: cuando este lista se abre sola.
 echo.
 
 REM Si se bajo con git, se trae lo ultimo antes de arrancar.
@@ -20,9 +23,14 @@ python -m pip install --upgrade pip >nul
 python -m pip install -r requirements.txt || goto :error
 
 echo.
-echo   Listo. Arrancando...
+echo   Montando la demo y arrancando. Ahora si: un par de minutos.
 echo.
 python -m thegrill.cli --db sqlite:///demo.db demo
+echo.
+echo   La demo se ha parado. Si ha sido un fallo, esta escrito aqui arriba:
+echo   copialo y mandamelo.
+echo.
+pause
 goto :fin
 
 :sinpython
