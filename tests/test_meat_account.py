@@ -646,9 +646,17 @@ def test_the_scripts_carry_a_number_that_changes_every_time(client):
     """Sin esto, un script inyectado se ejecutaría igual que los nuestros."""
     una = client.get("/login")
     otra = client.get("/login")
-    n1 = re.search(r'script nonce="([^"]+)"', una.text)
-    n2 = re.search(r'script nonce="([^"]+)"', otra.text)
+    n1 = re.search(r"'nonce-([^']+)'", una.headers["content-security-policy"])
+    n2 = re.search(r"'nonce-([^']+)'", otra.headers["content-security-policy"])
     assert n1 and n2 and n1.group(1) != n2.group(1)
+
+    # Y el guion que lleve una pantalla tiene que traer el número de esa misma
+    # respuesta: si no, el navegador no lo ejecuta —que es lo que se quiere—.
+    como_dueno(client)
+    dentro = client.get("/hoy")
+    suyo = re.search(r"'nonce-([^']+)'", dentro.headers["content-security-policy"])
+    for marca in re.findall(r'<script nonce="([^"]+)"', dentro.text):
+        assert marca == suyo.group(1)
     assert f"'nonce-{n1.group(1)}'" in una.headers["Content-Security-Policy"]
     assert "script-src 'self' 'nonce-" in una.headers["Content-Security-Policy"]
     assert "unsafe-inline" not in una.headers["Content-Security-Policy"].split("style-src")[0]

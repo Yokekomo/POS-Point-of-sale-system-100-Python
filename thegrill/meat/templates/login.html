@@ -1,36 +1,43 @@
-{% extends "base.html" %}{% block title %}{{ t("login.title") }}{% endblock %}
-{% block body %}
-<p class="muted"><a href="/">&larr; {{ t("m.app.title") }}</a></p>
-<h1>{{ t("login.title") }}</h1>
-<p class="sub">{{ t("m.app.title") }} · {{ t("m.app.tagline") }}</p>
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
-<div class="card">
-<form method="post" action="/login">
-  <label for="email">{{ t("common.email") }}</label>
-  <input id="email" name="email" type="email" autocomplete="username" required autofocus>
-  <label for="password">{{ t("common.password") }}</label>
-  <input id="password" name="password" type="password" autocomplete="current-password" required>
-  <button class="wide" type="submit">{{ t("login.submit") }}</button>
-</form>
-<details class="muted" style="margin-top:14px">
-  <summary>{{ t("login.forgot") }}</summary>
-  <p class="help">{{ t("login.forgot_help") }}</p>
-</details>
-</div>
-<div class="card">
-  <p class="muted" style="margin:0 0 10px">{{ t("login.first_time") }}</p>
-  <div class="rowflex">
-    <a class="btn ghost" href="/solicitar">{{ t("pub.request") }}</a>
-    <a class="btn ghost" href="/precios">{{ t("pub.pricing") }}</a>
+{% extends "public_shell.html" %}
+{% block title %}{{ t("login.title") }} · {{ t("m.app.title") }}{% endblock %}
+{% block shell %}
+<section class="wrap inner" style="max-width:520px">
+  <a class="back" href="/">&larr; {{ t("m.app.title") }}</a>
+  <h1>{{ t("login.title") }}</h1>
+  <p class="sub">{{ t("m.app.tagline") }}</p>
+  {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+  <div class="card">
+    <form method="post" action="/login">
+      <label for="email">{{ t("common.email") }}</label>
+      <input id="email" name="email" type="email" autocomplete="username" required autofocus>
+      <label for="password">{{ t("common.password") }}</label>
+      <input id="password" name="password" type="password"
+             autocomplete="current-password" required>
+      <button class="wide" type="submit">{{ t("login.submit") }}</button>
+    </form>
+    <details class="muted" style="margin-top:14px">
+      <summary>{{ t("login.forgot") }}</summary>
+      <p class="help">{{ t("login.forgot_help") }}</p>
+    </details>
   </div>
-</div>
-<div class="card">
-  <p class="muted" style="margin:0">{{ t("common.language") }}</p>
-  <div class="langbar">
-    {% for code, l in languages.items() %}
-      <a href="/idioma/{{ code }}?next=/login" class="{{ 'on' if code == lang }}"
-         hreflang="{{ code }}">{{ l.name }}</a>
-    {% endfor %}
+
+  <div class="card">
+    <p class="muted" style="margin:0 0 12px">{{ t("login.first_time") }}</p>
+    <div class="cta-row" style="margin-top:0">
+      <a class="btn ghost small" href="/solicitar">{{ t("pub.request") }}</a>
+      <a class="btn ghost small" href="/precios">{{ t("pub.pricing") }}</a>
+    </div>
   </div>
-</div>
+
+  <div class="card">
+    <p class="muted" style="margin:0 0 6px">{{ t("common.language") }}</p>
+    <div class="langbar">
+      {% for code, l in languages.items() %}
+        <a href="/idioma/{{ code }}?next=/login" class="{{ 'on' if code == lang }}"
+           hreflang="{{ code }}">{{ l.name }}</a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
 {% endblock %}

@@ -187,28 +187,18 @@ img,svg,video{max-width:100%;height:auto}
 {% endif %}
 <main>{% block body %}{% endblock %}
 {% if not user %}
-<div class="card" id="cookiebar" hidden>
+{% if not cookies_seen %}
+<div class="card" id="cookiebar">
   <div class="rowflex">
     <div style="flex:1" class="muted">{{ t("cook.bar") }}
       <a href="/cookies">{{ t("cook.more") }}</a></div>
-    <button class="ghost" type="button" id="cookieok">{{ t("cook.ok") }}</button>
+    <form method="post" action="/cookies/visto" style="margin:0">
+      <input type="hidden" name="next" value="{{ here }}">
+      <button class="ghost" type="submit">{{ t("cook.ok") }}</button>
+    </form>
   </div>
 </div>
-<script nonce="{{ nonce }}">
-// El aviso no pide permiso —estas cookies no lo necesitan—, solo informa, y se
-// guarda en el navegador que ya lo has leído. Sin cookie y sin rastro nuestro.
-(function () {
-  var bar = document.getElementById("cookiebar"), ok = document.getElementById("cookieok");
-  if (!bar || !ok) return;
-  var visto;
-  try { visto = window.localStorage.getItem("cookie-aviso"); } catch (e) { visto = "1"; }
-  if (!visto) bar.hidden = false;
-  ok.addEventListener("click", function () {
-    bar.hidden = true;
-    try { window.localStorage.setItem("cookie-aviso", "1"); } catch (e) {}
-  });
-})();
-</script>
+{% endif %}
 {% endif %}
 </main>
 <script nonce="{{ nonce }}">

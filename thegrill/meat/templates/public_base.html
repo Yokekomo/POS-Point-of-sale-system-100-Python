@@ -1,28 +1,16 @@
-{% extends "base.html" %}
-{% block body %}
-<header class="top" style="position:static;margin:-20px -16px 20px">
-  <div class="topwrap">
-    <a class="brand" href="/">{{ t("m.app.title") }}<small>{{ t("m.app.tagline") }}</small></a>
-    <nav>
-      <a href="/">{{ t("pub.home") }}</a>
-      <a href="/#como">{{ t("pub.how") }}</a>
-      <a href="/precios">{{ t("pub.pricing") }}</a>
-      <a href="/solicitar">{{ t("pub.request") }}</a>
-      <a href="/login">{{ t("pub.enter") }}</a>
-      <a href="/cookies">{{ t("cook.title") }}</a>
-    </nav>
-  </div>
-</header>
-{% block public %}{% endblock %}
+{% extends "public_shell.html" %}
+{% block shell %}
+<section class="wrap inner">
+  {% block public %}{% endblock %}
 
-
-<div class="card">
-  <p class="muted" style="margin:0 0 10px">{{ t("common.language") }}</p>
-  <div class="langbar">
-    {% for code, l in languages.items() %}
-      <a href="/idioma/{{ code }}?next={{ here }}" class="{{ 'on' if code == lang }}"
-         hreflang="{{ code }}">{{ l.name }}</a>
-    {% endfor %}
+  <div class="card" style="margin-top:28px">
+    <p class="muted" style="margin:0 0 6px">{{ t("common.language") }}</p>
+    <div class="langbar">
+      {% for code, l in languages.items() %}
+        <a href="/idioma/{{ code }}?next={{ here }}" class="{{ 'on' if code == lang }}"
+           hreflang="{{ code }}">{{ l.name }}</a>
+      {% endfor %}
+    </div>
   </div>
-</div>
+</section>
 {% endblock %}

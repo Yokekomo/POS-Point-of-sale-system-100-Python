@@ -407,26 +407,58 @@ def test_the_kitchen_edition_keeps_the_same_rules(cocina_phone):
 
 
 # --------------------------------------------- el aviso de cookies, que se va
-def test_the_cookie_notice_actually_goes_away_when_you_tap_it(browser):
-    """Pulsar «Entendido» y que el aviso siga ahí es el fallo más tonto y el más visible.
+def test_the_cookie_notice_goes_away_and_stays_away(browser):
+    """Pulsar «Entendido» y que el aviso vuelva en la siguiente página es lo mismo
+    que no tener botón.
 
-    Pasaba: la regla de estilo del aviso —`display:flex`— le ganaba al atributo
-    `hidden`, así que el botón hacía su trabajo y no se notaba.
+    Pasaron dos cosas: la regla de estilo del aviso le ganaba al atributo que lo
+    esconde, y luego lo que se recordaba vivía en el navegador —se borraba al
+    cerrar y no viajaba entre ventanas—. Ahora lo recuerda el servidor con una
+    cookie técnica, que es justo para lo que sirven.
     """
     base, chromium = browser
     context = telefono(chromium)
     try:
         page = context.new_page()
         page.goto(f"{base}/")
-        aviso = page.locator("#cookiebar")
-        assert aviso.is_visible(), "el aviso no aparece la primera vez"
+        assert page.locator("#cookiebar").is_visible(), "el aviso no aparece la primera vez"
 
-        page.click("#cookieok")
-        assert not aviso.is_visible(), "el aviso no se va al pulsar"
+        page.click("#cookiebar button")
+        page.wait_for_load_state("networkidle")
+        assert page.locator("#cookiebar").count() == 0, "el aviso no se va al pulsar"
 
-        # Y no vuelve al recargar: se recuerda en el navegador, sin cookie nuestra.
-        page.reload()
-        assert not page.locator("#cookiebar").is_visible()
+        for ruta in ("/", "/precios", "/cookies", "/login"):
+            page.goto(f"{base}{ruta}")
+            assert page.locator("#cookiebar").count() == 0, ruta
+
+        # Y en una ventana nueva del mismo navegador tampoco vuelve.
+        otra = context.new_page()
+        otra.goto(f"{base}/")
+        assert otra.locator("#cookiebar").count() == 0, "vuelve en una ventana nueva"
+    finally:
+        context.close()
+
+
+def test_login_opens_as_a_window_without_leaving_the_page(browser):
+    """Entrar sin perder de vista lo que estabas leyendo."""
+    base, chromium = browser
+    context = telefono(chromium)
+    try:
+        page = context.new_page()
+        page.goto(f"{base}/")
+        ventana = page.locator("#entrar")
+        assert not ventana.is_visible(), "la ventana de entrar sale sola"
+
+        page.click("header nav a[href='#entrar']")
+        assert ventana.is_visible(), "no se abre al pulsar Entrar"
+        assert page.locator("#entrar input[name=email]").is_visible()
+
+        page.click("#entrar .close")
+        assert not ventana.is_visible(), "no se cierra con la equis"
+
+        # Y la página de siempre sigue ahí para quien llegue directo.
+        page.goto(f"{base}/login")
+        assert page.locator("#password").is_visible()      # el de la página, no el de la ventana
     finally:
         context.close()
 
@@ -438,7 +470,7 @@ def test_the_notice_fits_and_can_be_tapped_on_a_phone(browser):
         page = context.new_page()
         page.goto(f"{base}/")
         caja = page.locator("#cookiebar").bounding_box()
-        boton = page.locator("#cookieok").bounding_box()
+        boton = page.locator("#cookiebar button").bounding_box()
         assert caja["width"] <= PHONE["width"], caja
         assert boton["height"] >= 40, boton
         ancho, ventana = page.evaluate(

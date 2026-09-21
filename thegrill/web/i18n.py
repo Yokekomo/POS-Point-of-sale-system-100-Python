@@ -695,6 +695,9 @@ ES = {
     'bug.not_mailed': 'sin correo',
     'bug.no_mail_admin': 'El correo no está configurado: los partes se guardan aquí, pero no se avisa a nadie.',
     'pub.home': 'Inicio',
+    'cook.notice_purpose': 'Recordar que ya has leído este aviso, para no volver a enseñártelo.',
+    'cook.notice_life': 'Un año.',
+    'cook.full': 'Ver la página entera',
 }
 
 
@@ -1281,6 +1284,9 @@ EN = {
     'bug.not_mailed': 'not mailed',
     'bug.no_mail_admin': 'Mail is not configured: reports are stored here, but nobody is notified.',
     'pub.home': 'Home',
+    'cook.notice_purpose': 'Remembering that you have read this notice, so it is not shown again.',
+    'cook.notice_life': 'One year.',
+    'cook.full': 'See the full page',
 }
 
 
@@ -1867,6 +1873,9 @@ FR = {
     'bug.not_mailed': 'sans courrier',
     'bug.no_mail_admin': "Le courrier n'est pas configuré : les signalements restent ici, mais personne n'est prévenu.",
     'pub.home': 'Accueil',
+    'cook.notice_purpose': 'Se souvenir que vous avez lu cet avis, pour ne plus vous le montrer.',
+    'cook.notice_life': 'Un an.',
+    'cook.full': 'Voir la page entière',
 }
 
 
@@ -2453,6 +2462,9 @@ DE = {
     'bug.not_mailed': 'ohne Mail',
     'bug.no_mail_admin': 'Kein Mailversand eingerichtet: die Meldungen bleiben hier, aber niemand wird benachrichtigt.',
     'pub.home': 'Start',
+    'cook.notice_purpose': 'Merken, dass du diesen Hinweis gelesen hast, damit er nicht wieder erscheint.',
+    'cook.notice_life': 'Ein Jahr.',
+    'cook.full': 'Ganze Seite ansehen',
 }
 
 
@@ -3039,6 +3051,9 @@ NL = {
     'bug.not_mailed': 'zonder mail',
     'bug.no_mail_admin': 'Geen mail ingesteld: de meldingen blijven hier, maar niemand krijgt bericht.',
     'pub.home': 'Start',
+    'cook.notice_purpose': 'Onthouden dat je deze melding hebt gelezen, zodat ze niet terugkomt.',
+    'cook.notice_life': 'Eén jaar.',
+    'cook.full': 'De hele pagina bekijken',
 }
 
 
@@ -3625,6 +3640,9 @@ AR = {
     'bug.not_mailed': 'بلا بريد',
     'bug.no_mail_admin': 'البريد غير مُعدّ: تبقى البلاغات هنا، لكن لا يُخطَر أحد.',
     'pub.home': 'الرئيسية',
+    'cook.notice_purpose': 'تذكّر أنك قرأت هذا التنبيه، كي لا يظهر لك مرة أخرى.',
+    'cook.notice_life': 'سنة واحدة.',
+    'cook.full': 'عرض الصفحة كاملة',
 }
 
 
@@ -4199,6 +4217,9 @@ HU = {
     'bug.not_mailed': 'levél nélkül',
     'bug.no_mail_admin': 'Nincs levelezés beállítva: a jelentések itt maradnak, de senki nem kap értesítést.',
     'pub.home': 'Kezdőlap',
+    'cook.notice_purpose': 'Megjegyezni, hogy elolvastad ezt a tájékoztatót, hogy ne jelenjen meg újra.',
+    'cook.notice_life': 'Egy év.',
+    'cook.full': 'A teljes oldal megtekintése',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

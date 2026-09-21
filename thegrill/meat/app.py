@@ -39,6 +39,12 @@ MEAT_TEMPLATES = os.path.join(os.path.dirname(__file__), "templates")
 KITCHEN_TEMPLATES = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                                  "web", "templates")
 XLSX_MEDIA = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+# El aviso de cookies se recuerda en una cookie técnica, no en el navegador: el
+# almacenamiento del navegador se borra al cerrar, se bloquea en algunas
+# configuraciones y no viaja entre ventanas, así que el aviso volvía a salir una
+# y otra vez. Una cookie de un año, sin nada dentro más que un uno.
+COOKIE_NOTICE = "grill_cookies"
+NOTICE_YEAR = 365 * 24 * 3600
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 PHOTO_DIR = os.path.join(STATIC_DIR, "fotos")
 # Las fotos de la portada. Se llaman así y se dejan caer en esa carpeta; la
@@ -126,6 +132,7 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
          session: Session | None = None, **ctx):
     lang = ctx.pop("lang", None) or lang_for(request, session, user)
     base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
+            "cookies_seen": bool(request.cookies.get(COOKIE_NOTICE)),
             "today": date.today().isoformat(), "can": perms.checker(user),
             "here": request.url.path,
             "nonce": getattr(request.state, "nonce", ""),
@@ -271,6 +278,21 @@ async def gateway_webhook(request: Request, session: Session = Depends(get_db)):
     log.info("pasarela: %s %s -> %s", result.kind, result.event_id,
              result.ignored or (result.now.value if result.now else "sin cambio"))
     return JSONResponse({"ok": True, "applied": not result.ignored})
+
+
+@app.post("/cookies/visto")
+def cookie_notice_seen(request: Request, next: str = Form("/")):
+    """«Entendido»: se apunta que ya se ha leído y se vuelve a donde estabas.
+
+    Sin JavaScript a propósito: así funciona igual en un teléfono viejo, con el
+    navegador en modo estricto o con los guiones desactivados.
+    """
+    destino = next if next.startswith("/") and not next.startswith("//") else "/"
+    response = RedirectResponse(destino, status_code=303)
+    response.set_cookie(COOKIE_NOTICE, "1", max_age=NOTICE_YEAR, path="/",
+                        samesite="lax", httponly=True,
+                        secure=is_https(request))
+    return response
 
 
 @app.get("/cookies", response_class=HTMLResponse)

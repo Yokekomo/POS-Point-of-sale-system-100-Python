@@ -190,3 +190,64 @@ def test_you_can_always_get_back_from_the_login_screen(client):
     # En esta edición nadie se registra solo: /join lleva a /login, y es ahí
     # donde tiene que haber salida.
     assert 'href="/"' in fuera.get("/login").text
+
+
+# ------------------------------------- el aviso de cookies, recordado de verdad
+def test_the_notice_is_remembered_by_the_server_not_by_the_browser(client):
+    """Lo que se guardaba en el navegador se borraba al cerrar y no pasaba de ventana.
+
+    Con una cookie técnica de un año, «entendido» significa entendido: en esta
+    página, en la siguiente y mañana.
+    """
+    fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
+    assert 'id="cookiebar"' in fuera.get("/").text
+
+    visto = fuera.post("/cookies/visto", data={"next": "/precios"})
+    assert visto.status_code == 303 and visto.headers["location"] == "/precios"
+
+    for ruta in ("/", "/precios", "/cookies", "/login"):
+        assert 'id="cookiebar"' not in fuera.get(ruta).text, ruta
+
+
+def test_the_notice_does_not_need_javascript(client):
+    """Un teléfono viejo o un navegador estricto también tienen que poder cerrarlo."""
+    fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
+    html = fuera.get("/").text
+    barra = html[html.index('id="cookiebar"'):html.index('id="cookiebar"') + 600]
+    assert 'action="/cookies/visto"' in barra and "<script" not in barra
+
+
+def test_the_way_back_cannot_be_sent_somewhere_else(client):
+    """El «volver a donde estabas» no puede llevar a otra web."""
+    fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
+    for malo in ("//evil.example", "https://evil.example", "javascript:alert(1)"):
+        respuesta = fuera.post("/cookies/visto", data={"next": malo})
+        assert respuesta.headers["location"] == "/", malo
+
+
+def test_login_and_cookies_open_as_windows_on_the_public_pages(client):
+    """Entrar sin salir de la portada, y el detalle de las cookies sin cambiar de página."""
+    fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
+    portada = fuera.get("/").text
+    assert 'id="entrar"' in portada and 'id="cookies-info"' in portada
+    assert 'href="#entrar"' in portada
+    # Y las direcciones de siempre siguen existiendo para quien llegue directo.
+    assert fuera.get("/login").status_code == 200
+    assert fuera.get("/cookies").status_code == 200
+
+
+def test_every_public_page_wears_the_same_clothes(client):
+    """Precios, Cookies, Solicitar y Entrar son la misma casa que la portada.
+
+    Antes heredaban el diseño de la pantalla de trabajo y parecían otro
+    programa, que es lo que hace dudar a quien va a escribir su contraseña.
+    """
+    fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
+    portada = fuera.get("/").text
+    for ruta in ("/precios", "/cookies", "/solicitar", "/login"):
+        html = fuera.get(ruta).text
+        assert "--ember" in html, ruta                      # la misma paleta
+        assert 'class="brand"' in html, ruta                # la misma cabecera
+        assert "<footer>" in html, ruta                     # y el mismo pie
+        assert 'href="/solicitar"' in html, ruta
+    assert "--ember" in portada
