@@ -22,6 +22,7 @@ pasarela que se encargue de eso, que para eso está certificada.
 """
 import secrets
 import time
+from datetime import datetime
 from collections import defaultdict, deque
 
 # Intentos de acceso: cuántos fallos seguidos se aguantan y cuánto se espera.
@@ -152,3 +153,45 @@ def reset(session=None) -> None:
         from thegrill.models import AccessBrake
         session.query(AccessBrake).delete(synchronize_session=False)
         session.flush()
+
+
+# ------------------------------------------------- envíos que llegan dos veces
+class AlreadyDone(Exception):
+    """Ese envío ya se aplicó: no se vuelve a tocar nada."""
+
+
+def first_time(session, key: str, restaurant_id: int | None = None,
+               user_id: int | None = None, path: str | None = None) -> bool:
+    """Apunta el envío y dice si es la primera vez que llega.
+
+    Un teléfono sin cobertura reintenta, y a veces el primer intento sí había
+    llegado —se cayó la respuesta, no la escritura—. Aquí se decide con la
+    regla de la base de datos, que es la única que no se equivoca cuando los
+    dos intentos entran a la vez: el primero apunta su número, el segundo choca
+    y se le dice que ya estaba hecho.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    from thegrill.models import Submission
+    key = (key or "").strip()[:64]
+    if not key:
+        return True                  # sin número no hay nada que recordar
+    try:
+        session.add(Submission(key=key, restaurant_id=restaurant_id, user_id=user_id,
+                               path=(path or "")[:96]))
+        session.flush()
+    except IntegrityError:
+        session.rollback()
+        return False
+    return True
+
+
+def forget_old_submissions(session, days: int = 30) -> int:
+    """Los números viejos ya no hacen falta: ningún teléfono guarda un mes."""
+    from datetime import timedelta
+
+    from thegrill.models import Submission
+    limite = datetime.utcnow() - timedelta(days=days)
+    n = (session.query(Submission).filter(Submission.created_at < limite)
+         .delete(synchronize_session=False))
+    return n

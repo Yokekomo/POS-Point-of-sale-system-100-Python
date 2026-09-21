@@ -145,7 +145,7 @@
 <div class="card">
 <div class="banner ok" id="sinred" hidden></div>
 <p class="help">{{ t("off.help") }}</p>
-<form method="post" action="/maduracion/conteo" data-keep="maduracion-{{ today }}">
+<form method="post" action="/maduracion/conteo" data-keep="maduracion-{{ today }}" data-cola>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="scroll"><table>
   <tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.sku") }}</th>

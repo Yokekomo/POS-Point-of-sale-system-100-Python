@@ -715,6 +715,11 @@ ES = {
     "defrost.closing_now": 'Otra persona está cerrando este turno en este momento. Espera un segundo y mira cómo ha quedado antes de repetirlo.',
     "inv.other_sheet": 'Esa hoja de inventario ya no es la que está abierta: vuelve a abrir la pantalla.',
     "inv.together": 'Podéis contar varios a la vez desde vuestros móviles: cada uno con sus estantes. Al guardar, la hoja se pone al día con lo que hayan apuntado los demás.',
+    "off.rejected": 'Un envío no lo ha aceptado el programa: míralo en «sin mandar». Lo demás sigue en cola.',
+    "off.queued": 'Apuntado. Se manda en cuanto le toque, sin que tengas que esperar.',
+    "off.pending_nav": 'Sin mandar',
+    "off.gone": 'Sin señal. Se guarda aquí y se manda solo.',
+    "off.back": 'Ha vuelto la señal.',
 }
 
 
@@ -1321,6 +1326,11 @@ EN = {
     "defrost.closing_now": 'Someone else is closing this shift right now. Wait a second and check how it ended before doing it again.',
     "inv.other_sheet": 'That count sheet is no longer the open one: reload the screen.',
     "inv.together": 'Several of you can count at once from your phones, each with your own shelves. Saving brings the sheet up to date with what the others have written.',
+    "off.rejected": 'One submission was not accepted: check it under “not sent”. The rest stays queued.',
+    "off.queued": 'Noted. It goes out when its turn comes, without you waiting.',
+    "off.pending_nav": 'Not sent',
+    "off.gone": 'No signal. Saved here, sent on its own.',
+    "off.back": 'The signal is back.',
 }
 
 
@@ -1927,6 +1937,11 @@ FR = {
     "defrost.closing_now": "Quelqu'un d'autre est en train de clôturer ce service. Attends une seconde et regarde le résultat avant de recommencer.",
     "inv.other_sheet": "Cette feuille d'inventaire n'est plus celle qui est ouverte : recharge l'écran.",
     "inv.together": 'Vous pouvez compter à plusieurs depuis vos téléphones, chacun ses étagères. En enregistrant, la feuille se met à jour avec ce que les autres ont noté.',
+    "off.rejected": "Un envoi n'a pas été accepté : regarde-le dans « non envoyé ». Le reste reste en file.",
+    "off.queued": "Noté. Il part dès que c'est son tour, sans que tu attendes.",
+    "off.pending_nav": 'Non envoyé',
+    "off.gone": "Pas de réseau. Enregistré ici, envoyé tout seul.",
+    "off.back": 'Le réseau est revenu.',
 }
 
 
@@ -2533,6 +2548,11 @@ DE = {
     "defrost.closing_now": 'Jemand anderes schließt diese Schicht gerade ab. Warte kurz und sieh dir das Ergebnis an, bevor du es wiederholst.',
     "inv.other_sheet": 'Dieser Zählbogen ist nicht mehr der offene: Lade den Bildschirm neu.',
     "inv.together": 'Ihr könnt zu mehreren gleichzeitig von euren Handys zählen, jeder seine Regale. Beim Speichern wird der Bogen mit dem aktualisiert, was die anderen eingetragen haben.',
+    "off.rejected": 'Eine Sendung wurde nicht angenommen: schau sie unter „nicht gesendet“ an. Der Rest bleibt in der Schlange.',
+    "off.queued": 'Notiert. Geht raus, wenn es dran ist, ohne dass du wartest.',
+    "off.pending_nav": 'Nicht gesendet',
+    "off.gone": 'Kein Empfang. Liegt hier, geht von selbst raus.',
+    "off.back": 'Der Empfang ist zurück.',
 }
 
 
@@ -3139,6 +3159,11 @@ NL = {
     "defrost.closing_now": 'Iemand anders sluit deze dienst nu af. Wacht even en kijk hoe het is geëindigd voordat je het opnieuw doet.',
     "inv.other_sheet": 'Dat telformulier is niet meer het openstaande: herlaad het scherm.',
     "inv.together": 'Jullie kunnen met meerderen tegelijk tellen vanaf jullie telefoons, elk zijn eigen schappen. Bij het opslaan wordt het formulier bijgewerkt met wat de anderen hebben genoteerd.',
+    "off.rejected": 'Eén verzending is niet geaccepteerd: bekijk hem bij “niet verstuurd”. De rest blijft in de rij.',
+    "off.queued": 'Genoteerd. Gaat weg zodra het zijn beurt is, zonder dat je wacht.',
+    "off.pending_nav": 'Niet verstuurd',
+    "off.gone": 'Geen bereik. Staat hier, gaat vanzelf weg.',
+    "off.back": 'Het bereik is terug.',
 }
 
 
@@ -3745,6 +3770,11 @@ AR = {
     "defrost.closing_now": 'شخص آخر يغلق هذه الوردية الآن. انتظر لحظة وانظر النتيجة قبل أن تعيدها.',
     "inv.other_sheet": 'ورقة الجرد هذه لم تعد المفتوحة: أعد تحميل الشاشة.',
     "inv.together": 'يمكنكم العدّ معًا من هواتفكم، كلٌّ على رفوفه. وعند الحفظ تتحدّث الورقة بما سجّله الآخرون.',
+    "off.rejected": 'أحد الإرسالات لم يُقبل: راجعه في «لم يُرسل». وبقيّتها في الطابور.',
+    "off.queued": 'سُجّل. يُرسل حين يحين دوره دون أن تنتظر.',
+    "off.pending_nav": 'لم يُرسل',
+    "off.gone": 'لا تغطية. يُحفظ هنا ويُرسل وحده.',
+    "off.back": 'عادت التغطية.',
 }
 
 
@@ -4339,6 +4369,11 @@ HU = {
     "defrost.closing_now": 'Valaki más most zárja ezt a műszakot. Várj egy pillanatot, és nézd meg az eredményt, mielőtt megismétled.',
     "inv.other_sheet": 'Ez a leltárív már nem a nyitott: töltsd újra a képernyőt.',
     "inv.together": 'Többen is számolhattok egyszerre a telefonjaitokról, mindenki a saját polcait. Mentéskor az ív frissül azzal, amit a többiek beírtak.',
+    "off.rejected": 'Egy küldést nem fogadott el a program: nézd meg a „nem elküldve” alatt. A többi sorban marad.',
+    "off.queued": 'Feljegyezve. Elmegy, amint sorra kerül, anélkül hogy várnod kellene.',
+    "off.pending_nav": 'Nem elküldve',
+    "off.gone": 'Nincs térerő. Itt marad, magától elmegy.',
+    "off.back": 'Visszatért a térerő.',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

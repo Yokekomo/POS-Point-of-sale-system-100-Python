@@ -19,7 +19,7 @@
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 
 <div class="card">
-<form method="post" action="/merma">
+<form method="post" action="/merma" data-cola>
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="grid">
     <div>

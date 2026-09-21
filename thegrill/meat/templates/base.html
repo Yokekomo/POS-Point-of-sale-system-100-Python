@@ -154,6 +154,27 @@ input[type=file]{padding:9px}
 }
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 /* Dos momentos del día, dos pantallas, y se pasa de una a otra sin buscar. */
+/* El aviso de la señal: flotando arriba, encima de todo y en todas las
+   pantallas. Cuando se va la cobertura se queda puesto —hay que saberlo—; y
+   cuando vuelve lo dice y se va solo, que tampoco hace falta un cartel fijo
+   diciendo que todo va bien. */
+.aviso-red{position:fixed;left:50%;transform:translateX(-50%) translateY(-8px);
+  top:max(10px,env(safe-area-inset-top));z-index:60;max-width:min(92vw,520px);
+  padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;
+  box-shadow:0 6px 24px var(--shadow,rgba(0,0,0,.35));border:1px solid var(--line);
+  background:var(--card);color:var(--ink);display:flex;align-items:center;gap:8px;
+  opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+.aviso-red.se-ve{opacity:1;transform:translateX(-50%) translateY(0)}
+.aviso-red.malo{background:var(--warnbg);border-color:var(--warn);color:var(--ink)}
+.aviso-red.bien{background:var(--okbg);border-color:var(--ok);color:var(--ink)}
+.aviso-red::before{content:"";width:8px;height:8px;border-radius:50%;flex:0 0 8px;
+  background:var(--warn)}
+.aviso-red.bien::before{background:var(--ok)}
+@media (prefers-reduced-motion:reduce){.aviso-red{transition:none}}
+/* El aviso de «no hay señal» se queda puesto, así que el contenido se aparta:
+   un cartel encima del título de la pantalla tapa justo lo que hace falta. */
+body.con-aviso main{padding-top:60px}
+@media (orientation:portrait) and (max-width:1024px){body.con-aviso main{padding-top:56px}}
 .tabsrow{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px;border-bottom:1px solid var(--line)}
 .tabsrow a{padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:600;
   font-size:15px;border-bottom:2px solid transparent;margin-bottom:-1px;min-height:44px;
@@ -404,102 +425,229 @@ if ("serviceWorker" in navigator) {
 }
 </script>
 <script nonce="{{ nonce }}">
-// ================================================ contar sin cobertura
-// Dentro de una cámara no hay señal. El recuento se escribe igual, se guarda
-// en el propio teléfono según se teclea, y se manda solo cuando vuelve la
-// cobertura. Nadie vuelve a contar dos veces por culpa de una raya de menos.
+// ================================================ trabajar sin cobertura
+// En un restaurante la señal falla: la cámara no tiene, el sótano tampoco y la
+// wifi va y viene. Trabajar no puede depender de eso.
+//
+// Lo que se escribe se guarda en el propio teléfono mientras se teclea, y al
+// darle a guardar **sin red el trabajo se da por hecho**: la pantalla sigue
+// adelante y el envío se queda en una cola aquí dentro. Se manda solo, en
+// orden y de uno en uno, en cuanto vuelva la señal —al volver, al abrir
+// cualquier pantalla y cada poco rato—, porque el aviso del navegador no
+// existe en el iPhone y esperarlo sería no mandarlo nunca.
+//
+// Cada envío lleva su número, puesto aquí antes del primer intento y el mismo
+// en todos los reintentos. Si un intento entró y se perdió la respuesta, el
+// servidor reconoce el número y contesta «ya está hecho» sin tocar los kilos.
 (function () {
-  var form = document.querySelector("form[data-keep]");
-  if (!form || !window.localStorage) return;
-  var clave = "cuenta:" + form.dataset.keep;
-  var aviso = document.getElementById("sinred");
+  if (!window.localStorage) return;
+  var COLA = "grill_cola";
   var textos = {
     guardado: {{ t("off.saved")|tojson }},
     pendiente: {{ t("off.pending")|tojson }},
     enviando: {{ t("off.sending")|tojson }},
     enviado: {{ t("off.sent")|tojson }},
-    fallo: {{ t("off.failed")|tojson }}
+    fallo: {{ t("off.failed")|tojson }},
+    rechazado: {{ t("off.rejected")|tojson }},
+    encola: {{ t("off.queued")|tojson }},
+    pendiente_titulo: {{ t("off.pending_nav")|tojson }},
+    sinsenal: {{ t("off.gone")|tojson }},
+    vuelve: {{ t("off.back")|tojson }}
   };
 
-  function leer() { try { return JSON.parse(localStorage.getItem(clave) || "{}"); }
-                    catch (e) { return {}; } }
-  function escribir(d) { try { localStorage.setItem(clave, JSON.stringify(d)); } catch (e) {} }
-  function decir(texto, malo) {
-    if (!aviso) return;
-    aviso.textContent = texto;
-    aviso.hidden = !texto;
-    aviso.className = "banner " + (malo ? "warn" : "ok");
+  function cola() {
+    try { return JSON.parse(localStorage.getItem(COLA) || "[]"); } catch (e) { return []; }
+  }
+  function guardarCola(lista) {
+    try { localStorage.setItem(COLA, JSON.stringify(lista)); } catch (e) {}
+    pintarContador(lista);
+  }
+  function numero() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return String(Date.now()) + "-" + Math.random().toString(16).slice(2);
   }
 
-  // Lo que se escribió antes vuelve a su sitio, aunque la pantalla se haya
-  // cerrado o el móvil se haya apagado.
-  var guardado = leer();
-  var había = false;
-  for (var nombre in guardado) {
-    var campo = form.elements[nombre];
-    if (campo && !campo.value) { campo.value = guardado[nombre]; había = true; }
+  // Lo que falta por mandar se ve en todas las pantallas, con su hora y su
+  // estado. Si no se ve, nadie se entera de que su recuento sigue en el
+  // teléfono —y eso es peor que no tener cola—.
+  function pintarContador(lista) {
+    lista = lista || cola();
+    document.querySelectorAll("[data-cola-cuenta]").forEach(function (marca) {
+      marca.textContent = lista.length;
+      marca.hidden = lista.length === 0;
+    });
+    var panel = document.getElementById("colapanel");
+    var main = document.querySelector("main");
+    if (!lista.length) { if (panel) panel.remove(); return; }
+    if (!panel && main) {
+      panel = document.createElement("div");
+      panel.id = "colapanel";
+      panel.className = "card";
+      main.insertBefore(panel, main.firstChild);
+    }
+    if (!panel) return;
+    var filas = lista.map(function (x) {
+      var hora = new Date(x.cuando).toTimeString().slice(0, 5);
+      var que = (x.accion || "").replace("/", "").replace("/", " · ");
+      var estado = x.rechazado ? textos.rechazado
+                 : (x.intentos ? textos.fallo : textos.pendiente);
+      return '<div class="rowflex" style="gap:10px;padding:6px 0">' +
+             '<span class="tag ' + (x.rechazado ? "bad" : "warn") + '">' + hora + "</span>" +
+             "<b>" + que + '</b><span class="muted" style="flex:1">' + estado + "</span></div>";
+    }).join("");
+    panel.innerHTML = '<b>' + textos.pendiente_titulo + " · " + lista.length + "</b>" + filas;
   }
-  if (había) decir(textos.guardado, false);
 
-  form.addEventListener("input", function (ev) {
-    var campo = ev.target;
-    if (!campo.name || campo.type === "hidden") return;
-    var datos = leer();
-    if (campo.value) { datos[campo.name] = campo.value; } else { delete datos[campo.name]; }
-    escribir(datos);
+  // El aviso flotante de la señal. Se pone arriba, en todas las pantallas, y
+  // no hay que ir a buscarlo: si se ha ido la cobertura, se ve; y cuando
+  // vuelve, lo dice y se quita solo.
+  var globo = null, relojGlobo = null;
+  function decir(texto, malo, segundos) {
+    if (!texto) {
+      if (globo) globo.classList.remove("se-ve");
+      document.body.classList.remove("con-aviso");
+      return;
+    }
+    if (!globo) {
+      globo = document.createElement("div");
+      globo.className = "aviso-red";
+      globo.id = "avisored";
+      globo.setAttribute("role", "status");
+      globo.setAttribute("aria-live", "polite");
+      document.body.appendChild(globo);
+    }
+    globo.textContent = texto;
+    globo.classList.remove("malo", "bien");
+    globo.classList.add(malo ? "malo" : "bien", "se-ve");
+    clearTimeout(relojGlobo);
+    // Lo malo se queda puesto: hay que saber que no hay señal. Lo bueno se va
+    // solo, que un cartel fijo diciendo que todo va bien estorba.
+    document.body.classList.toggle("con-aviso", !segundos);
+    if (segundos) {
+      relojGlobo = setTimeout(function () {
+        globo.classList.remove("se-ve");
+        document.body.classList.remove("con-aviso");
+      }, segundos * 1000);
+    }
+    var viejo = document.getElementById("sinred");   // el de dentro, si lo hay
+    if (viejo) {
+      viejo.textContent = texto;
+      viejo.hidden = false;
+      viejo.className = "banner " + (malo ? "warn" : "ok");
+    }
+  }
+
+  // ------------------------------------------------ lo escrito, en el aparato
+  var form = document.querySelector("form[data-keep]");
+  if (form) {
+    var clave = "cuenta:" + form.dataset.keep;
+    function leer() { try { return JSON.parse(localStorage.getItem(clave) || "{}"); }
+                      catch (e) { return {}; } }
+    var guardado = leer(), había = false;
+    for (var nombre in guardado) {
+      var campo = form.elements[nombre];
+      if (campo && !campo.value) { campo.value = guardado[nombre]; había = true; }
+    }
+    if (había) decir(textos.guardado, false);
+    form.addEventListener("input", function (ev) {
+      var campo = ev.target;
+      if (!campo.name || campo.type === "hidden") return;
+      var datos = leer();
+      if (campo.value) { datos[campo.name] = campo.value; } else { delete datos[campo.name]; }
+      try { localStorage.setItem(clave, JSON.stringify(datos)); } catch (e) {}
+    });
+  }
+
+  // --------------------------------------- guardar sin red: se apunta y sigue
+  document.querySelectorAll("form[data-cola]").forEach(function (formulario) {
+    formulario.addEventListener("submit", function (ev) {
+      if (navigator.onLine && !cola().length) {
+        if (form && formulario === form) localStorage.removeItem("cuenta:" + form.dataset.keep);
+        return;                       // hay red y no hay cola: va directo
+      }
+      // Sin red, o con algo esperando delante: se pone en la cola y el
+      // trabajo se da por hecho. Colarse rompería el orden —una pieza no se
+      // puede despiezar antes de recibirla—.
+      ev.preventDefault();
+      var datos = {};
+      new FormData(formulario).forEach(function (v, k) { datos[k] = v; });
+      datos.envio = numero();
+      var lista = cola();
+      lista.push({id: datos.envio, accion: formulario.getAttribute("action"),
+                  datos: datos, cuando: Date.now(), intentos: 0});
+      guardarCola(lista);
+      if (form && formulario === form) localStorage.removeItem("cuenta:" + form.dataset.keep);
+      formulario.reset();
+      decir(navigator.onLine ? textos.encola : textos.pendiente, true);
+      mandar();
+    });
   });
 
-  function pendiente() { return localStorage.getItem(clave + ":envio"); }
-
-  form.addEventListener("submit", function (ev) {
-    if (navigator.onLine) { localStorage.removeItem(clave); return; }
-    ev.preventDefault();
-    var datos = {};
-    new FormData(form).forEach(function (v, k) { datos[k] = v; });
-    try { localStorage.setItem(clave + ":envio", JSON.stringify(datos)); } catch (e) {}
-    decir(textos.pendiente, true);
-  });
-
-  // Mandando uno cada vez, y con reloj: una red de cocina se cae a medias y
-  // el envío se queda colgado sin fallar nunca. Sin esto, el aviso se quedaba
-  // en «mandando el recuento…» para siempre y no lo volvía a intentar aunque
-  // la señal estuviera de vuelta: el recuento seguía en el móvil y nadie lo
-  // sabía. Quince segundos y, si no, se vuelve a la cola.
+  // ------------------------------------------- la cola, de uno en uno y en orden
   var mandando = false;
 
   function mandar() {
-    var guardadoEnvio = pendiente();
-    if (!guardadoEnvio || !navigator.onLine || mandando) return;
+    var lista = cola();
+    if (!lista.length || mandando || !navigator.onLine) return;
+    var primero = lista[0];
+    if (primero.rechazado) return;    // eso lo tiene que mirar una persona
     mandando = true;
     decir(textos.enviando, true);
-    var cuerpo = new URLSearchParams(JSON.parse(guardadoEnvio));
+    var cuerpo = new URLSearchParams(primero.datos);
     var corte = ("AbortController" in window) ? new AbortController() : null;
     var reloj = setTimeout(function () { if (corte) corte.abort(); }, 15000);
-    fetch(form.action, {
+    fetch(primero.accion, {
       method: "POST", body: cuerpo, credentials: "same-origin",
       headers: {"Content-Type": "application/x-www-form-urlencoded"},
       signal: corte ? corte.signal : undefined
     }).then(function (r) {
-      if (!r.ok) throw new Error(r.status);
       clearTimeout(reloj);
       mandando = false;
-      localStorage.removeItem(clave + ":envio");
-      localStorage.removeItem(clave);
-      decir(textos.enviado, false);
-      setTimeout(function () { location.reload(); }, 600);
+      var ahora = cola();
+      if (r.ok || r.status === 303) {
+        ahora = ahora.filter(function (x) { return x.id !== primero.id; });
+        guardarCola(ahora);
+        decir(ahora.length ? textos.enviando : textos.enviado, ahora.length > 0,
+              ahora.length ? 0 : 4);
+        if (ahora.length) { mandar(); }
+        else { setTimeout(function () { location.reload(); }, 600); }
+        return;
+      }
+      // El servidor lo ha rechazado: la hoja se cerró, la pieza ya no está.
+      // Eso no se reintenta solo; se enseña para que alguien lo mire.
+      if (r.status >= 400 && r.status < 500) {
+        ahora.forEach(function (x) { if (x.id === primero.id) x.rechazado = r.status; });
+        guardarCola(ahora);
+        decir(textos.rechazado, true);
+        return;
+      }
+      throw new Error(r.status);      // 5xx: culpa del servidor, se reintenta
     }).catch(function () {
       clearTimeout(reloj);
-      mandando = false;          // sigue guardado: se reintenta al volver
+      mandando = false;
+      var ahora = cola();
+      ahora.forEach(function (x) { if (x.id === primero.id) x.intentos = (x.intentos || 0) + 1; });
+      guardarCola(ahora);
       decir(textos.fallo, true);
     });
   }
 
-  window.addEventListener("online", mandar);
-  // Y se reintenta cada poco mientras haya algo esperando, que es lo que hace
-  // el cocinero sin darse cuenta al salir de la cámara y volver a mirar.
-  setInterval(function () { if (pendiente() && navigator.onLine) mandar(); }, 8000);
-  window.addEventListener("offline", function () { decir(textos.pendiente, true); });
-  if (pendiente()) { navigator.onLine ? mandar() : decir(textos.pendiente, true); }
+  // Se reintenta al volver la señal, al abrir cualquier pantalla y cada poco:
+  // el aviso del navegador no llega en el iPhone, así que no se espera solo a él.
+  // Se avisa de la señal aunque no haya nada en la cola: quien está contando
+  // tiene que saber que se ha quedado sin red antes de escribir veinte pesos.
+  window.addEventListener("online", function () {
+    decir(textos.vuelve, false, 4);
+    mandar();
+  });
+  window.addEventListener("offline", function () { decir(textos.sinsenal, true); });
+  if (!navigator.onLine) decir(textos.sinsenal, true);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) mandar();
+  });
+  setInterval(mandar, 8000);
+  pintarContador();
+  if (cola().length && navigator.onLine) mandar();
 })();
 </script>
 <script nonce="{{ nonce }}">

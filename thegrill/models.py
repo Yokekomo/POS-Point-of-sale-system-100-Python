@@ -1217,6 +1217,32 @@ class GatewayEvent(Base):
     received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class Submission(Base):
+    """Un envío que ya se aplicó, apuntado para no aplicarlo dos veces.
+
+    Un teléfono sin cobertura guarda lo que se escribe y lo manda cuando puede.
+    A veces lo manda dos veces: porque el primero se quedó colgado y no se supo
+    si llegó, porque el cocinero abrió la pantalla en dos sitios, o porque el
+    navegador reintentó por su cuenta. Sin esto, la misma merma se apunta dos
+    veces y los kilos se van de la cámara dos veces.
+
+    Cada envío lleva su número, puesto por el teléfono antes de mandarlo y el
+    mismo en todos los reintentos. El primero que llega se queda con el número;
+    los que vengan después con ese mismo número se contestan «ya está hecho» y
+    no se tocan los kilos. La regla la sujeta la base de datos, no el código:
+    dos reintentos a la vez no pasan los dos.
+    """
+    __tablename__ = "submissions"
+    __table_args__ = (UniqueConstraint("key", name="uq_submission_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(64), index=True)
+    restaurant_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer)
+    path: Mapped[str | None] = mapped_column(String(96))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
 class AccessBrake(Base):
     """Los intentos fallidos, apuntados donde los ven todos los procesos.
 

@@ -706,18 +706,40 @@ primero y con quién entrar, está en **[PRUEBALA.md](PRUEBALA.md)**.
 
 Dentro de una cámara frigorífica no hay señal. Tampoco en el sótano del
 almacén, ni cuando la wifi de la casa va y viene, ni con una barra en el patio.
-Da igual dónde: un recuento a medias perdido es una hora de trabajo tirada. Así
-que:
+En un restaurante la señal falla, y **el trabajo no puede depender de eso**.
+
+La regla es que **sin red se trabaja igual**: se escribe, se guarda y se sigue.
+Lo que se manda espera en una cola dentro del propio teléfono y sale solo
+cuando hay señal, en orden y de uno en uno. Así:
 
 - **Lo que se teclea se guarda en el propio teléfono** según se escribe. Si la
   pantalla se recarga, si el móvil se bloquea o si se va la batería, lo
   escrito sigue ahí al volver.
-- **Al darle a guardar sin señal**, el recuento se queda esperando en el
-  teléfono y lo dice con todas las letras. **Cuando vuelve la cobertura se
-  manda solo**, sin que nadie tenga que acordarse de volver a darle al botón.
-- **Las pantallas de contar se abren sin red**: el programa deja una copia de
-  ellas en el aparato. Si se entra en una que no estaba guardada, sale una
-  página que lo explica en vez de la del dinosaurio.
+- **Al darle a guardar sin señal, el trabajo se da por hecho.** La pantalla
+  sigue adelante y se puede hacer lo siguiente: contar otra pieza, apuntar otra
+  merma, dar de alta otro lote. No se espera a nadie.
+- **La cola sale sola y en orden**, de uno en uno. Se intenta al volver la
+  señal, al abrir cualquier pantalla y cada poco rato: el aviso de «ya hay red»
+  del navegador **no existe en el iPhone**, y esperarlo sería no mandarlo nunca.
+- **Se avisa de la señal, arriba y en todas las pantallas.** Cuando se va, el
+  aviso se queda puesto y el contenido se aparta para no taparlo: quien está
+  contando tiene que enterarse antes de escribir veinte pesos, no al darle a
+  guardar. Cuando vuelve, lo dice y se quita solo.
+- **Se ve lo que falta por mandar**, con su hora y su estado, en todas las
+  pantallas. Un recuento esperando en un teléfono sin que nadie lo sepa es
+  peor que no tener cola.
+- **Mandar dos veces no apunta dos veces.** Cada envío lleva su número, puesto
+  por el teléfono antes del primer intento y el mismo en todos los reintentos.
+  Si uno entró y se perdió la respuesta —que es lo que pasa con media raya—,
+  el servidor reconoce el número y contesta «ya está hecho» sin tocar los
+  kilos. La regla la sujeta la base de datos, así que dos reintentos a la vez
+  tampoco pasan los dos.
+- **Lo que el programa rechaza no se reintenta a ciegas.** Si la hoja se cerró
+  o la pieza ya no está, ese envío se marca y se enseña para que lo mire una
+  persona; lo demás sigue saliendo.
+- **Todas las pantallas de trabajo se abren sin red**: el programa deja una
+  copia de cada una en el aparato al entrar. Si se entra en una que no estaba
+  guardada, sale una página que lo explica en vez de la del dinosaurio.
 - Lo que se manda **no se guarda nunca**: un envío sin red falla, y lo recoge
   el guardado del formulario. Nada se manda dos veces.
 - Y un envío que se queda colgado —media raya de cobertura, que es lo normal en

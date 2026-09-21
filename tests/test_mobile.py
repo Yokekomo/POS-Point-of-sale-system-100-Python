@@ -451,21 +451,25 @@ def test_a_count_survives_having_no_signal_in_the_chiller(browser):
         context.set_offline(True)
         campo.fill("7.5")          # el campo es numérico: punto, como el teclado
         page.click("form[data-keep] button[type=submit]")
-        aviso = page.locator("#sinred")
-        assert aviso.is_visible() and "guardado" in aviso.text_content().lower()
+        # El recuento se da por hecho aunque no haya red: se apunta en la cola
+        # del propio teléfono y la pantalla sigue adelante.
+        page.wait_for_timeout(200)
+        assert page.evaluate("() => JSON.parse(localStorage.grill_cola || '[]').length") == 1
+        assert page.locator("#colapanel").is_visible()
 
         # La pantalla se vuelve a abrir sin señal —el móvil se bloqueó y el
-        # navegador tiró la pestaña— y se sirve la copia guardada, con lo
-        # escrito en su sitio.
+        # navegador tiró la pestaña— y se sirve la copia guardada, con lo que
+        # está esperando a la vista.
         page.goto(f"{base}/inventario")
         page.wait_for_timeout(300)
         assert page.locator(f"input[name='kg:{serial}']").count() == 1, (
             "sin señal no se sirvió la copia: " + page.title() + " · " +
             page.evaluate("() => navigator.serviceWorker.controller ? 'con ayudante' : 'sin ayudante'"))
-        assert page.locator(f"input[name='kg:{serial}']").input_value() == "7.5"
+        assert page.locator("#colapanel").is_visible()
 
         # Se sale de la cámara y vuelve la señal: se manda solo, sin que nadie
         # se acuerde de volver a darle al botón.
+        assert page.evaluate("() => JSON.parse(localStorage.grill_cola || '[]').length") == 1
         context.set_offline(False)
         # El aviso de «ya hay red» se da varias veces si hace falta: en una
         # máquina cargada, el primero puede llegar cuando el navegador todavía
@@ -476,13 +480,13 @@ def test_a_count_survives_having_no_signal_in_the_chiller(browser):
             page.evaluate("() => window.dispatchEvent(new Event('online'))")
             try:
                 page.wait_for_function(
-                    "() => !Object.keys(localStorage).some(k => k.endsWith(':envio'))",
+                    "() => JSON.parse(localStorage.grill_cola || '[]').length === 0",
                     timeout=5000)
                 break
             except Exception:
                 if intento == 5:
                     pendiente = page.evaluate(
-                        "() => Object.keys(localStorage).filter(k => k.endsWith(':envio'))")
+                        "() => localStorage.grill_cola")
                     aviso = page.locator("#sinred").text_content()
                     raise AssertionError(
                         f"el recuento no se mandó al volver la red: {pendiente} · {aviso}")
@@ -554,6 +558,139 @@ def test_a_lot_with_many_pieces_gets_the_lines_it_needs(browser):
     page.click("button[type=submit]")
     page.wait_for_selector(".banner.ok")
     assert "Ribeye AUS" in page.content()
+    context.close()
+
+
+def test_you_can_keep_working_with_no_signal(browser):
+    """Sin señal se sigue trabajando: se apunta todo y se manda solo después.
+
+    En un restaurante la señal falla a ratos, y el trabajo no espera. Lo que se
+    comprueba aquí es el caso entero: se corta la red, se hacen **dos** cosas
+    seguidas —una merma y otra merma— sin que la pantalla se quede colgada,
+    vuelve la señal y las dos llegan a la base de datos, en orden y una sola
+    vez cada una.
+    """
+    from thegrill.models import IngredientMovement, MovementKind
+
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    entra(page, base)
+    page.goto(f"{base}/merma")
+    page.wait_for_selector("form[data-cola]")
+
+    with db.session_scope() as session:
+        antes = (session.query(IngredientMovement)
+                 .filter_by(kind=MovementKind.WASTE, source="waste").count())
+
+    context.set_offline(True)
+    corte = page.locator("#ingredient_id option").nth(1).get_attribute("value")
+    for kg, razon in (("0.05", "hueso"), ("0.03", "grasa")):
+        page.select_option("#ingredient_id", corte)
+        page.fill("input[name=kg]", kg)
+        page.fill("input[name=reason]", razon)
+        page.click("form[data-cola] button[type=submit]")
+        page.wait_for_timeout(150)
+    # Se ve lo que está esperando, con su hora: nadie se queda a ciegas.
+    assert page.locator("#colapanel").is_visible()
+    assert page.evaluate("() => JSON.parse(localStorage.grill_cola).length") == 2
+
+    context.set_offline(False)
+    page.evaluate("() => window.dispatchEvent(new Event('online'))")
+    for _ in range(8):
+        page.wait_for_timeout(1000)
+        if page.evaluate("() => JSON.parse(localStorage.grill_cola || '[]').length") == 0:
+            break
+    pendientes = page.evaluate("() => JSON.parse(localStorage.grill_cola || '[]')")
+    assert pendientes == [], f"quedó algo sin mandar: {pendientes}"
+
+    with db.session_scope() as session:
+        ahora = (session.query(IngredientMovement)
+                 .filter_by(kind=MovementKind.WASTE, source="waste").all())
+        razones = [m.source_ref or "" for m in ahora]
+        assert len(ahora) == antes + 2, razones[-4:]
+        assert sum("hueso" in r for r in razones) == 1
+        assert sum("grasa" in r for r in razones) == 1
+    context.close()
+
+
+def test_losing_the_signal_says_so_and_getting_it_back_says_so_too(browser):
+    """Quedarse sin señal se avisa arriba; volver se avisa y el aviso se va.
+
+    Quien está contando tiene que enterarse **antes** de escribir veinte pesos,
+    no al darle a guardar. Y cuando vuelve la cobertura, un cartel fijo
+    diciendo que todo va bien estorba: lo dice y se quita.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    entra(page, base)
+    page.goto(f"{base}/carne")
+
+    assert page.locator("#avisored.se-ve").count() == 0      # con red, ni se ve
+
+    context.set_offline(True)
+    page.evaluate("() => window.dispatchEvent(new Event('offline'))")
+    aviso = page.locator("#avisored")
+    aviso.wait_for(state="visible", timeout=3000)
+    assert "se-ve" in (aviso.get_attribute("class") or "")
+    assert "malo" in (aviso.get_attribute("class") or "")
+    assert aviso.inner_text().strip()
+
+    # Y se queda puesto: no hay señal, y eso no es una noticia de dos segundos.
+    page.wait_for_timeout(1200)
+    assert "se-ve" in (aviso.get_attribute("class") or "")
+
+    context.set_offline(False)
+    page.evaluate("() => window.dispatchEvent(new Event('online'))")
+    page.wait_for_function(
+        "() => document.getElementById('avisored').classList.contains('bien')",
+        timeout=3000)
+    # Y se va solo.
+    page.wait_for_function(
+        "() => !document.getElementById('avisored').classList.contains('se-ve')",
+        timeout=8000)
+    context.close()
+
+
+def test_the_same_submission_arriving_twice_is_written_once(browser):
+    """El reintento de un envío que sí llegó no puede tirar kilos dos veces."""
+    from thegrill.models import IngredientMovement, MovementKind
+
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    entra(page, base)
+    page.goto(f"{base}/merma")
+
+    with db.session_scope() as session:
+        antes = (session.query(IngredientMovement)
+                 .filter_by(kind=MovementKind.WASTE, source="waste").count())
+
+    # El mismo envío, con su mismo número, mandado dos veces: es lo que hace
+    # un teléfono cuando la primera respuesta se pierde por el camino.
+    enviado = page.evaluate("""async () => {
+      const csrf = document.querySelector("input[name=csrf]").value;
+      const corte = document.querySelector("#ingredient_id option:nth-child(2)").value;
+      const cuerpo = new URLSearchParams({csrf: csrf, kg: "0.04", reason: "repetida",
+                                          ingredient_id: corte,
+                                          envio: "prueba-mismo-numero"});
+      const uno = await fetch("/merma", {method: "POST", body: cuerpo,
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        credentials: "same-origin"});
+      const dos = await fetch("/merma", {method: "POST", body: cuerpo,
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        credentials: "same-origin"});
+      return [uno.status, dos.status];
+    }""")
+    assert all(200 <= c < 400 for c in enviado), enviado
+
+    with db.session_scope() as session:
+        ahora = (session.query(IngredientMovement)
+                 .filter_by(kind=MovementKind.WASTE, source="waste").all())
+        repetidas = [m for m in ahora if "repetida" in (m.source_ref or "")]
+        assert len(ahora) == antes + 1, [m.source_ref for m in ahora[-3:]]
+        assert len(repetidas) == 1
     context.close()
 
 

@@ -173,6 +173,21 @@ def _guard(request, session, user, auth_session, csrf: str) -> None:
         raise HTTPException(status_code=403, detail=str(e)) from None
 
 
+def _ya_estaba(request, session, user, envio: str, destino: str):
+    """Si este envío ya se aplicó, se contesta que sí y no se toca nada.
+
+    El teléfono que estuvo sin cobertura reintenta, y a veces el intento de
+    antes sí había entrado: se perdió la respuesta, no la escritura. Devolver
+    aquí la misma pantalla de siempre es lo que hace que reintentar sea gratis.
+    """
+    if not (envio or "").strip():
+        return None
+    if security.first_time(session, envio, restaurant_id=user.restaurant_id,
+                           user_id=user.id, path=str(request.url.path)):
+        return None
+    return RedirectResponse(destino, status_code=303)
+
+
 def _own(session: Session, user: User, model, obj_id: int, request: Request):
     row = session.get(model, obj_id)
     if row is None or row.restaurant_id != user.restaurant_id:
@@ -543,6 +558,9 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
+    repetido = _ya_estaba(request, session, user, str(form.get("envio") or ""), "/recepcion")
+    if repetido is not None:
+        return repetido
 
     lot = (form.get("lot") or "").strip()
     sku = (form.get("sku") or "").strip()
@@ -724,11 +742,15 @@ def _defrost(request, user, auth_session, session, *, shift="", done="", error="
 @app.post("/descongelado/salida", response_class=HTMLResponse)
 def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form(...),
                    total_kg: str = Form(...), shift: str = Form(""), note: str = Form(""),
-                   csrf: str = Form(""), ctx=Depends(needs(perms.DEFROST)),
+                   csrf: str = Form(""), envio: str = Form(""),
+                   ctx=Depends(needs(perms.DEFROST)),
                    session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
+    repetido = _ya_estaba(request, session, user, envio, "/descongelado")
+    if repetido is not None:
+        return repetido
     pedido = serial.strip()
     # Lo congelado está en espera: esta salida es lo que lo pone a la venta,
     # así que conviene decir con qué número sale.
@@ -755,10 +777,14 @@ def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form
 @app.post("/descongelado/recuento", response_class=HTMLResponse)
 def defrost_count(request: Request, serial: str = Form(...), pieces: int = Form(...),
                   total_kg: str = Form(...), shift: str = Form(""), note: str = Form(""),
-                  csrf: str = Form(""), ctx=Depends(needs(perms.DEFROST)),
+                  csrf: str = Form(""), envio: str = Form(""),
+                  ctx=Depends(needs(perms.DEFROST)),
                   session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
+    repetido = _ya_estaba(request, session, user, envio, "/descongelado/recuento")
+    if repetido is not None:
+        return repetido
     try:
         defrost.count(session, user, serial.strip(), pieces, _num(total_kg, 0.0) or 0.0,
                       shift=shift.strip(), note=note.strip() or None)
@@ -871,6 +897,9 @@ async def aging_daily_count(request: Request, ctx=Depends(needs(perms.COUNT)),
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
+    repetido = _ya_estaba(request, session, user, str(form.get("envio") or ""), "/maduracion")
+    if repetido is not None:
+        return repetido
     lecturas = []
     for key, value in form.multi_items():
         if not key.startswith("kg:") or not str(value).strip():
@@ -1472,6 +1501,9 @@ async def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
+    repetido = _ya_estaba(request, session, user, str(form.get("envio") or ""), "/inventario")
+    if repetido is not None:
+        return repetido
     count = _open_sheet(session, user, str(form.get("hoja") or ""), lang)
     for key, value in form.multi_items():
         if not key.startswith("kg:") or not str(value).strip():
@@ -1566,10 +1598,14 @@ def waste_page(request: Request, ctx=Depends(needs(perms.WASTE)),
 @app.post("/merma", response_class=HTMLResponse)
 def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
                  ingredient_id: str = Form(""), pieces: str = Form(""), reason: str = Form(""),
-                 csrf: str = Form(""), ctx=Depends(needs(perms.WASTE)),
+                 csrf: str = Form(""), envio: str = Form(""),
+                 ctx=Depends(needs(perms.WASTE)),
                  session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
+    repetido = _ya_estaba(request, session, user, envio, "/merma")
+    if repetido is not None:
+        return repetido
     try:
         result = waste.record(
             session, user, kg=_num(kg, 0.0) or 0.0, serial=serial.strip() or None,
@@ -2141,8 +2177,12 @@ const CACHE = 'carnes-v1';
 
 // Las pantallas de contar se guardan nada más entrar, sin esperar a que
 // alguien las visite: en la cámara puede tocar abrir una por primera vez.
+// Todas las pantallas de trabajo, guardadas al entrar: en un restaurante la
+// señal falla en cualquier sitio, no solo en la cámara, y lo que no esté
+// guardado antes no se abre después.
 const DE_MANO = ['/hoy', '/inventario', '/maduracion', '/carne', '/descongelado',
-                 '/descongelado/recuento'];
+                 '/descongelado/recuento', '/recepcion', '/despiece', '/merma',
+                 '/traslados', '/cortes', '/ventas', '/parte', '/trazabilidad'];
 
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', event => {

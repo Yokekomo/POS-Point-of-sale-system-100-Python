@@ -760,3 +760,41 @@ def test_the_menu_groups_fold_up(client):
     assert en_inventario[control] is True, en_inventario
     catalogo = list(en_inventario)[2]
     assert en_inventario[catalogo] is False, en_inventario
+
+
+# ------------------------------------------------- lo que se manda dos veces
+def test_a_submission_that_arrives_twice_is_applied_once(client):
+    """El teléfono reintenta cuando no sabe si el primero entró. Y a veces sí.
+
+    Sin esto, el reintento da de alta el camión otra vez: las mismas piezas,
+    duplicadas, con sus kilos y su dinero. El número del envío lo pone el
+    teléfono antes del primer intento y es el mismo en todos los reintentos,
+    así que el servidor reconoce al segundo y contesta que ya está hecho sin
+    tocar nada.
+    """
+    signup(client)
+    form = client.get("/recepcion")
+    datos = {"csrf": csrf_from(form.text), "lot": "L-REPE", "sku": "Striploin AUS",
+             "price_kg": "30", "serial:0": "9001", "kg:0": "9,4",
+             "serial:1": "9002", "kg:1": "10,2", "envio": "mismo-numero-de-envio"}
+
+    primera = client.post("/recepcion", data=datos)
+    segunda = client.post("/recepcion", data=datos)
+    assert primera.status_code == 200
+    assert segunda.status_code == 303          # «ya está hecho», sin escribir
+
+    with db.session_scope() as s:
+        piezas = [p.serial for p in s.query(Primal).order_by(Primal.serial)]
+        assert piezas == ["9001", "9002"], piezas
+
+
+def test_two_different_submissions_are_both_applied(client):
+    """Y dos envíos distintos son dos: la protección no puede comerse trabajo."""
+    signup(client)
+    for numero, serial in (("uno", "9001"), ("dos", "9002")):
+        form = client.get("/recepcion")
+        client.post("/recepcion", data={
+            "csrf": csrf_from(form.text), "lot": "L-DOS", "sku": "Striploin AUS",
+            "price_kg": "30", "serial:0": serial, "kg:0": "9,4", "envio": numero})
+    with db.session_scope() as s:
+        assert [p.serial for p in s.query(Primal).order_by(Primal.serial)] == ["9001", "9002"]
