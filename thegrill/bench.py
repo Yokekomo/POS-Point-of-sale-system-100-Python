@@ -28,9 +28,10 @@ from sqlalchemy.orm import Session
 
 from thegrill.meat import billing
 from thegrill.meat import service as meat
-from thegrill.models import (Billing, ConsumptionMode, Ingredient, IngredientLot,
+from thegrill.models import (Billing, ConsumptionMode, Despiece, Ingredient, IngredientLot,
                              IngredientMovement, MovementKind, Primal, PrimalStatus,
-                             PrimalWeighing, Role, Site, SiteKind, Storage, User)
+                             PrimalWeighing, Role, ShiftClosure, Site, SiteKind, Storage,
+                             User)
 from thegrill.web import aging, auth, costing, defrost, inventory, sites, waste
 
 EPSILON = 1e-6
@@ -526,6 +527,28 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
             out.append(Finding("dinero_inventado", pieza.serial,
                                f"la pieza costó {pieza.piece_cost_usd:.2f} y sus cortes "
                                f"suman {repartido:.2f}"))
+
+    # --- una pieza se despieza una vez: si sale en dos, alguien la cortó dos
+    # veces y en cámara hay kilos que nunca existieron
+    de_quien: dict[str, list[str]] = {}
+    for despiece in session.query(Despiece).filter_by(restaurant_id=restaurant_id):
+        for link in despiece.primals:
+            if link.serial:
+                de_quien.setdefault(link.serial, []).append(despiece.tg)
+    for serial, cuales in de_quien.items():
+        if len(cuales) > 1:
+            out.append(Finding("pieza_despiezada_dos_veces", serial,
+                               f"sale en {', '.join(sorted(cuales))}"))
+
+    # --- un turno, un cuadre: dos filas del mismo turno doblan el mes
+    turnos: dict[tuple, int] = {}
+    for fila in session.query(ShiftClosure).filter_by(restaurant_id=restaurant_id):
+        clave = (fila.date, fila.shift or "", fila.site_id or 0)
+        turnos[clave] = turnos.get(clave, 0) + 1
+    for (dia, turno, sede), veces in turnos.items():
+        if veces > 1:
+            out.append(Finding("turno_cerrado_dos_veces", f"{dia} {turno}".strip(),
+                               f"{veces} cuadres en la sede {sede}"))
 
     # --- lo que madura tiene contra qué medirse
     for pieza in piezas:

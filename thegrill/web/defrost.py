@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from sqlalchemy import and_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from thegrill import config
@@ -24,7 +25,7 @@ from thegrill.engine.recipes import explode
 from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, DefrostEntry, DefrostKind,
                              Ingredient, IngredientLot, IngredientMovement, MovementKind,
                              SalesByProduct, ShiftClosure, User)
-from thegrill.web import aging, costing, service, sites
+from thegrill.web import aging, costing, locking, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-6
@@ -48,6 +49,9 @@ class ShiftClose:
     # Las piezas que maduran y hoy no se han pesado. Maduran en el local, son
     # carne fresca abierta y se cuentan todas las noches, como lo descongelado.
     aging_pending: list[str] = field(default_factory=list)
+    # Piezas que este turno ya había descontado antes: se vuelven a sumar en el
+    # cuadre, pero no se vuelven a sacar de la cámara.
+    already: list[str] = field(default_factory=list)
     alerts: list[Alert] = field(default_factory=list)
 
     @property
@@ -121,8 +125,11 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
         unit_cost=lot.unit_cost, pieces=salen, piece_weight_g=lot.piece_weight_g,
         nominal_piece_g=lot.nominal_piece_g, grade=lot.grade, origin=lot.origin,
         frozen=False, site_id=lot.site_id, chamber=lot.chamber)
-    lot.qty_remaining = round(lot.qty_remaining - movido, 6)
     session.add(hijo)
+    if not locking.take(session, IngredientLot, lot.id, "qty_remaining", movido):
+        raise DefrostError(
+            f"Del número {lot.serial} ya no quedan {movido:.10g} kg en el congelador: "
+            "otra persona acaba de sacarlos. Mira lo que queda y repítelo.")
     session.flush()
     # Lo que sale del arcón no se ha vendido ni se ha tirado, pero del número
     # han salido kilos: quedan apuntados en los dos, o el lote no se explica.
@@ -259,6 +266,33 @@ def theoretical_for(session: Session, restaurant_id: int, on: date) -> tuple[dic
     return needed, units
 
 
+def _taken_before(session: Session, restaurant_id: int, on: date,
+                  shift: str) -> dict[str, dict]:
+    """Lo que este turno ya sacó de la cámara, pieza a pieza.
+
+    Un turno se puede cerrar dos veces —porque faltaba un recuento, o porque
+    dos personas le dieron al botón—, y el cuadre se rehace entero. Lo que no
+    se puede rehacer es el descuento: la carne solo sale una vez.
+    """
+    out: dict[str, dict] = {}
+    rows = (session.query(IngredientMovement)
+            .filter(IngredientMovement.restaurant_id == restaurant_id,
+                    IngredientMovement.date == on,
+                    IngredientMovement.source == "defrost").all())
+    for movement in rows:
+        ref = (movement.source_ref or "").split(" · ")[0].strip()
+        partes = ref.split(" ", 1)
+        serial = partes[0]
+        if (partes[1].strip() if len(partes) > 1 else "") != (shift or ""):
+            continue
+        fila = out.setdefault(serial, {"cost": 0.0, "drip_kg": 0.0, "drip_cost": 0.0})
+        if movement.kind == MovementKind.WASTE:
+            fila["drip_kg"] = round(fila["drip_kg"] + abs(movement.qty or 0.0), 6)
+            fila["drip_cost"] = round(fila["drip_cost"] + abs(movement.cost or 0.0), 6)
+        fila["cost"] = round(fila["cost"] + abs(movement.cost or 0.0), 6)
+    return out
+
+
 def close(session: Session, user: User, on: date | None = None, shift: str = "",
           lang: str | None = None) -> ShiftClose:
     """Cierra el turno: descuenta lo consumido de verdad y lo compara con lo teórico."""
@@ -270,6 +304,14 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
     states = shift_states(session, user.restaurant_id, on, shift,
                           site_id=mia.id if mia else None)
     result.consumed = reconcile(states)
+    # El turno se coge antes de tocar la cámara. Si otra persona le está dando
+    # a cerrar en este mismo momento, una de las dos escribe y la otra se
+    # entera; lo que no pasa es que las dos descuenten los mismos kilos.
+    cuadre = _claim_shift(session, user, result, mia.id if mia else None, lang)
+    # Y lo que ya había salido se mira **después** de coger el turno: si se
+    # mirara antes, la que llega segunda habría leído la cámara cuando la otra
+    # todavía no había guardado, y volvería a sacar los mismos kilos.
+    taken = _taken_before(session, user.restaurant_id, on, shift or "")
 
     # Lo que la carta dice que debería haberse gastado por lo vendido. Hace
     # falta antes de tocar el almacén: lo que sobre de ahí es merma, no venta.
@@ -294,8 +336,32 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
             result.not_by_count.append(row.serial)
             continue
         cost_by_name.setdefault(row.ingredient, lot.unit_cost)
+
+        # ¿Esta pieza ya se descontó en este mismo turno? Pasa más de lo que
+        # parece: dos personas le dan a cerrar a la vez, o el móvil se queda
+        # pensando y el cocinero pulsa otra vez. Sin esto, los mismos ocho
+        # kilos salen dos veces de la cámara y el stock se queda a cero solo.
+        # El cuadre sí los vuelve a sumar —el turno gastó lo que gastó—, pero
+        # de la carne no se saca nada: ya estaba sacada.
+        visto = taken.get(row.serial)
+        if visto is not None:
+            result.already.append(row.serial)
+            result.cost = round(result.cost + visto["cost"], 6)
+            result.drip_kg = round(result.drip_kg + visto["drip_kg"], 6)
+            result.drip_cost = round(result.drip_cost + visto["drip_cost"], 6)
+            real_by_name[row.ingredient] = round(
+                real_by_name.get(row.ingredient, 0.0) + row.kg, 6)
+            continue
+
+        # Y se sacan con la resta metida en la propia orden: si otra persona se
+        # llevó esos kilos mientras tanto, la cámara no se queda en negativo.
         take = min(row.kg, lot.qty_remaining)
-        lot.qty_remaining = round(lot.qty_remaining - take, 6)
+        if take > EPSILON and not locking.take(session, IngredientLot, lot.id,
+                                               "qty_remaining", take):
+            session.refresh(lot, ["qty_remaining"])
+            take = min(row.kg, lot.qty_remaining)
+            if take > EPSILON:
+                locking.take(session, IngredientLot, lot.id, "qty_remaining", take)
         cost = round(take * lot.unit_cost, 6)
         result.cost = round(result.cost + cost, 6)
 
@@ -339,26 +405,63 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
     result.aging_pending = aging.pending_today(session, user.restaurant_id, on,
                                                site_id=mia.id if mia else None)
 
-    _save_closure(session, user, result, mia.id if mia else None)
+    _save_closure(session, user, result, mia.id if mia else None, cuadre)
     session.flush()
     _raise_alerts(session, user, result, lang)
     return result
 
 
+def _claim_shift(session: Session, user: User, result: ShiftClose,
+                 site_id: int | None, lang: str) -> ShiftClosure:
+    """Coge el cuadre de este turno, o dice quién lo tiene cogido.
+
+    La primera vez es una fila nueva, y la regla de la base de datos —un turno,
+    una fila— decide quién la escribe si son dos a la vez. Cuando el turno ya
+    estaba cerrado, se vuelve a coger pisando la hora: solo lo consigue quien
+    lee la misma hora que había, así que de dos que rehacen el cuadre a la vez
+    solo pasa uno.
+    """
+    row = (session.query(ShiftClosure)
+           .filter_by(restaurant_id=user.restaurant_id, date=result.date,
+                      shift=result.shift or "", site_id=site_id).first())
+    if row is not None:
+        if not locking.claim(session, ShiftClosure, row.id,
+                             {"closed_at": row.closed_at},
+                             {"closed_at": datetime.utcnow()}):
+            raise DefrostError(t(lang, "defrost.closing_now"))
+        return row
+    row = ShiftClosure(restaurant_id=user.restaurant_id, date=result.date,
+                       shift=result.shift or "", site_id=site_id,
+                       site_key=site_id or 0, closed_by=user.id)
+    try:
+        session.add(row)
+        session.flush()
+    except IntegrityError:
+        # La otra persona escribió su cuadre mientras montábamos el nuestro.
+        # Se deshace lo de aquí entero —que no había tocado la cámara todavía—
+        # y se le dice que mire cómo ha quedado el turno.
+        session.rollback()
+        raise DefrostError(t(lang, "defrost.closing_now")) from None
+    return row
+
+
 def _save_closure(session: Session, user: User, result: ShiftClose,
-                  site_id: int | None) -> ShiftClosure:
+                  site_id: int | None, row: ShiftClosure | None = None) -> ShiftClosure:
     """Deja escrito el cuadre del turno, para que el mes se sume solo.
 
     Si el mismo turno se vuelve a cerrar, se pisa la fila: un turno tiene un
     cuadre, el último, y no tres versiones de lo mismo.
     """
-    row = (session.query(ShiftClosure)
-           .filter_by(restaurant_id=user.restaurant_id, date=result.date,
-                      shift=result.shift or "", site_id=site_id).first())
+    if row is None:
+        row = (session.query(ShiftClosure)
+               .filter_by(restaurant_id=user.restaurant_id, date=result.date,
+                          shift=result.shift or "", site_id=site_id).first())
     if row is None:
         row = ShiftClosure(restaurant_id=user.restaurant_id, date=result.date,
-                           shift=result.shift or "", site_id=site_id)
+                           shift=result.shift or "", site_id=site_id,
+                           site_key=site_id or 0)
         session.add(row)
+    row.site_key = site_id or 0
     row.cost = round(result.cost, 4)
     row.loss_kg = round(result.loss_kg, 6)
     row.loss_cost = round(result.loss_cost, 4)

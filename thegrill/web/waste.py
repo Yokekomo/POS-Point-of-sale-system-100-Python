@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Alert, AlertSeverity, Ingredient, IngredientLot,
                              IngredientMovement, LossKind, MovementKind, Primal,
                              PrimalWeighing, User)
-from thegrill.web import costing, service, sites
+from thegrill.web import costing, locking, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -79,7 +79,10 @@ def record(session: Session, user: User, kg: float, serial: str | None = None,
     before = lot.unit_cost
     value = round(lot.qty_remaining * lot.unit_cost, 6)   # lo que valía el lote entero
     thrown = round(kg * lot.unit_cost, 6)
-    lot.qty_remaining = round(lot.qty_remaining - kg, 6)
+    if not locking.take(session, IngredientLot, lot.id, "qty_remaining", kg):
+        raise WasteError(
+            f"Del lote {lot.serial or lot.id} ya no quedan {kg:.10g} kg: otra persona "
+            "acaba de gastarlos. Mira lo que queda y repítelo.")
 
     absorbed = False
     if absorb and lot.qty_remaining > EPSILON:

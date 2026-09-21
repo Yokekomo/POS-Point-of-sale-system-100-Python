@@ -669,6 +669,8 @@ def inventory_page(request: Request, ctx=Depends(require_user),
                   .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
     return page(request, "inventory.html", user, auth_session, session, done=bool(done),
                 count=open_count, last=inventory.last_closed(session, user.restaurant_id),
+                counters={u.id: u.name for u in
+                          session.query(User).filter_by(restaurant_id=user.restaurant_id)},
                 month=inventory.monthly_status(session, user.restaurant_id),
                 periods=list(CountPeriod),
                 items=(session.query(IngredientItem)
@@ -720,7 +722,10 @@ def cancel_inventory(request: Request, reason: str = Form(""), csrf: str = Form(
              .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
     if count is None:
         raise HTTPException(status_code=404, detail="")
-    inventory.cancel_count(session, user, count, reason)
+    try:
+        inventory.cancel_count(session, user, count, reason)
+    except inventory.InventoryError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from None
     return RedirectResponse("/inventario", status_code=303)
 
 
@@ -781,7 +786,10 @@ def close_inventory(request: Request, csrf: str = Form(""),
              .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
     if count is None:
         raise HTTPException(status_code=404, detail="")
-    inventory.close_count(session, user, count)
+    try:
+        inventory.close_count(session, user, count)
+    except inventory.InventoryError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from None
     return RedirectResponse("/inventario", status_code=303)
 
 

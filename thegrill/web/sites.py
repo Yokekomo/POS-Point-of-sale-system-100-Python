@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from thegrill.models import (Ingredient, IngredientLot, IngredientMovement, MovementKind,
                              Primal, PrimalStatus, Site, SiteKind, SitePar, Transfer, User)
+from thegrill.web import locking
 
 EPSILON = 1e-9
 PRIMAL = "PRIMAL"
@@ -263,7 +264,15 @@ def send_primal(session: Session, user: User, serial: str, to_site_id: int,
 
     coste = (primal.piece_cost_usd if primal.piece_cost_usd is not None
              else (primal.landed_usd_per_kg or 0) * (primal.weight_kg or 0) or None)
-    primal.site_id = destino.id
+    # La pieza se mueve con su sitio de antes metido en la orden: si otra
+    # persona la acaba de mandar a otro local —o la ha despiezado—, este
+    # traslado no se escribe. Si no, el albarán dice que la misma pieza salió
+    # para dos sitios y allí la esperan los dos.
+    if not locking.claim(session, Primal, primal.id,
+                         {"site_id": primal.site_id, "status": PrimalStatus.IN_STOCK},
+                         {"site_id": destino.id}):
+        raise SiteError(f"La pieza {primal.serial} la acaba de mover o despiezar otra "
+                        "persona: mírala antes de volver a mandarla.")
     session.add(Transfer(restaurant_id=user.restaurant_id, date=on, kind=PRIMAL,
                          serial=primal.serial, label=primal.sku,
                          kg=round(primal.weight_kg or 0.0, 6), cost=coste,
@@ -305,8 +314,10 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
     entero = kg >= lot.qty_remaining - EPSILON
     nuevo_serial = None
     if entero:
-        lot.site_id = destino.id
         movido = lot.qty_remaining
+        if not locking.claim(session, IngredientLot, lot.id, {"site_id": lot.site_id},
+                             {"site_id": destino.id}):
+            raise SiteError(f"El corte {lot.serial} lo acaba de mover otra persona.")
     else:
         movido = round(kg, 6)
         nuevo_serial = _child_serial(session, user.restaurant_id, lot.serial)
@@ -323,7 +334,14 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
             nominal_piece_g=lot.nominal_piece_g, grade=lot.grade, origin=lot.origin,
             frozen=lot.frozen, site_id=destino.id)     # sin cámara: la de allí la ponen ellos
         session.add(hijo)
-        lot.qty_remaining = round(lot.qty_remaining - movido, 6)
+        # Los kilos se sacan del lote con la resta dentro de la orden: dos
+        # personas mandando del mismo lote a la vez sacaban cada una lo suyo
+        # sobre el mismo número de partida, y del lote salían más kilos de los
+        # que tenía.
+        if not locking.take(session, IngredientLot, lot.id, "qty_remaining", movido):
+            raise SiteError(
+                f"Del lote {lot.serial} ya no quedan {movido:.10g} kg: otra persona "
+                "acaba de mandar o gastar parte. Mira lo que queda y repítelo.")
         session.flush()
         journal_split(session, user, lot, hijo, movido, on, "transfer", destino.name)
 

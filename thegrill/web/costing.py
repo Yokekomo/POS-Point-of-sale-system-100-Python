@@ -29,7 +29,7 @@ from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, Ingredient,
                              IngredientItem, IngredientLot, IngredientMovement,
                              MovementKind, PosMatch, PosProduct, Recipe, RecipeKind,
                              Restaurant, SalesByProduct, Site, User)
-from thegrill.web import service, sites
+from thegrill.web import locking, service, sites
 from thegrill.web.i18n import DEFAULT_LANG, t
 
 EPSILON = 1e-9
@@ -258,7 +258,16 @@ def take_from_stock(session: Session, user: User, ingredient: Ingredient, qty: f
         if pending <= EPSILON:
             break
         take = min(lot.qty_remaining, pending)
-        lot.qty_remaining = round(lot.qty_remaining - take, 6)
+        # La resta va dentro de la orden, no en Python: si otra persona acaba
+        # de gastar de este lote, aquí no se saca lo que ya no está. Si no
+        # llega, se relee lo que queda de verdad y se coge eso.
+        if take > EPSILON and not locking.take(session, IngredientLot, lot.id,
+                                               "qty_remaining", take):
+            session.refresh(lot, ["qty_remaining"])
+            take = min(lot.qty_remaining, pending)
+            if take <= EPSILON or not locking.take(session, IngredientLot, lot.id,
+                                                   "qty_remaining", take):
+                continue
         line_cost = round(take * lot.unit_cost, 6)
         cost += line_cost
         pending = round(pending - take, 6)

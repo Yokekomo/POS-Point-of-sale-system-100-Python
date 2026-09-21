@@ -1,7 +1,7 @@
 """Acceso a base de datos: SQLite para empezar, PostgreSQL cambiando la URL."""
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
@@ -16,9 +16,36 @@ _SessionFactory = None
 def init_engine(database_url: str = "sqlite:///thegrill.db"):
     global _engine, _SessionFactory
     connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
+    if database_url.startswith("sqlite"):
+        # Treinta segundos de espera: en una casa hay dos o tres personas
+        # escribiendo a la vez, no doscientas. Lo que no puede pasar es que a
+        # la que llega segunda le salga un error rojo porque la otra estaba
+        # guardando en ese momento.
+        connect_args["timeout"] = 30.0
     _engine = create_engine(database_url, connect_args=connect_args, future=True)
+    if database_url.startswith("sqlite"):
+        event.listen(_engine, "connect", _sqlite_ready)
     _SessionFactory = sessionmaker(bind=_engine, expire_on_commit=False, class_=Session)
     return _engine
+
+
+def _sqlite_ready(connection, _record) -> None:
+    """Pone la base de datos en modo de varios a la vez.
+
+    De serie, SQLite deja escribir a uno y a los demás les cierra la puerta
+    entera: mientras el del obrador guarda un despiece, el del local que está
+    mirando el inventario se lleva un error. Con WAL, el que lee no molesta al
+    que escribe, y los que escriben hacen cola en vez de rebotar.
+    """
+    cursor = connection.cursor()
+    try:
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+    except Exception:
+        pass          # en memoria no hay WAL, y no pasa nada: ahí no hay dos
+    finally:
+        cursor.close()
 
 
 def create_all():

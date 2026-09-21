@@ -15,7 +15,7 @@ la hora la pone el servidor, nunca el cliente.
 import enum
 from datetime import date, datetime
 
-from sqlalchemy import (Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer,
+from sqlalchemy import (Boolean, Date, DateTime, Enum, Float, ForeignKey, Index, Integer,
                         String, Text, UniqueConstraint)
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
@@ -925,6 +925,12 @@ class CountItemKind(str, enum.Enum):
 class MeatCount(TenantMixin, Base):
     """Inventario físico de carne: se cuenta pieza a pieza y se cuadra."""
     __tablename__ = "meat_counts"
+    # Una cámara, una hoja abierta, y que lo diga la base de datos: dos
+    # encargados dándole a «abrir inventario» a la vez abrían dos hojas de la
+    # misma cámara, y cada uno contaba en la suya. La columna solo lleva
+    # número mientras la hoja está abierta; al cerrarla se queda vacía, y una
+    # columna vacía no choca con otra, así que las hojas cerradas no estorban.
+    __table_args__ = (Index("uq_count_open", "restaurant_id", "open_key", unique=True),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     date: Mapped[date] = mapped_column(Date, index=True)
@@ -940,6 +946,8 @@ class MeatCount(TenantMixin, Base):
     # La cámara que se ha contado. Vacío es la casa entera, que es como se
     # contaba antes de que hubiera sedes.
     site_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    # La sede mientras la hoja está abierta; vacío en cuanto se cierra.
+    open_key: Mapped[int | None] = mapped_column(Integer)
 
     lines: Mapped[list["MeatCountLine"]] = relationship(
         back_populates="count", cascade="all, delete-orphan", order_by="MeatCountLine.label")
@@ -961,6 +969,15 @@ class MeatCountLine(Base):
     unit_cost: Mapped[float | None] = mapped_column(Float)
     outcome: Mapped[str | None] = mapped_column(String(16))       # resultado al cerrar
     note: Mapped[str | None] = mapped_column(Text)
+    # Quién la contó y cuándo. Una cámara grande se cuenta entre dos, cada uno
+    # con su móvil, y hace falta saber de quién es cada número: si el que se
+    # guarda no es el que uno escribió, se ve a quién preguntarle.
+    counted_by: Mapped[int | None] = mapped_column(Integer)
+    counted_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # Dos personas contaron la misma pieza y no les dio lo mismo. Manda el
+    # último, pero queda dicho: una pieza en discusión no es una pieza contada.
+    # Admite vacío para que le llegue también a las casas que ya funcionaban.
+    disputed: Mapped[bool | None] = mapped_column(Boolean, default=False)
 
     count: Mapped["MeatCount"] = relationship(back_populates="lines")
 
@@ -1021,11 +1038,18 @@ class ShiftClosure(TenantMixin, Base):
     escrito turno a turno, con su sede, y el mes se suma solo.
     """
     __tablename__ = "shift_closures"
+    # Un turno, un cuadre, y que lo diga la base de datos: dos personas dándole
+    # a cerrar a la vez escribían dos filas y el mes salía el doble. La sede va
+    # también en número, con cero para la casa de un solo local: una columna
+    # vacía no choca con otra vacía, y entonces la regla no sujetaba nada.
+    __table_args__ = (Index("uq_shift_closure", "restaurant_id", "date", "shift",
+                            "site_key", unique=True),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     date: Mapped[date] = mapped_column(Date, index=True)
     shift: Mapped[str] = mapped_column(String(16), default="")
     site_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    site_key: Mapped[int | None] = mapped_column(Integer, default=0)
     cost: Mapped[float] = mapped_column(Float, default=0.0)         # lo gastado de verdad
     loss_kg: Mapped[float] = mapped_column(Float, default=0.0)      # desvío contra la carta
     loss_cost: Mapped[float] = mapped_column(Float, default=0.0)

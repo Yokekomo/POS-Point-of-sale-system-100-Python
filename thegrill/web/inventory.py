@@ -13,6 +13,7 @@ pieza a pieza. Al cerrarlo:
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from thegrill.engine.inventory import (MATCH, NOT_FOUND, OVER, SHORT, UNCOUNTED, UNKNOWN,
@@ -20,7 +21,7 @@ from thegrill.engine.inventory import (MATCH, NOT_FOUND, OVER, SHORT, UNCOUNTED,
 from thegrill.models import (Alert, AlertSeverity, CountItemKind, CountPeriod, CountStatus,
                              Ingredient, IngredientLot, IngredientMovement, MeatCount,
                              MeatCountLine, MovementKind, Primal, PrimalStatus, Storage, User)
-from thegrill.web import aging, costing, service, sites
+from thegrill.web import aging, costing, locking, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -100,19 +101,36 @@ def open_count(session: Session, user: User, period: CountPeriod = CountPeriod.M
         raise InventoryError(f"Ya hay un inventario abierto del {already.date}")
 
     count = MeatCount(restaurant_id=user.restaurant_id, date=on, period=period,
-                      note=note, created_by=user.id, site_id=site_id)
+                      note=note, created_by=user.id, site_id=site_id,
+                      open_key=site_id or 0)
     for item in expected_now(session, user.restaurant_id, site_id):
         count.lines.append(MeatCountLine(
             kind=CountItemKind(item.kind), serial=item.serial, label=item.label,
             expected_kg=item.kg, unit_cost=item.unit_cost))
     session.add(count)
-    session.flush()
+    try:
+        session.flush()
+    except IntegrityError:
+        # Dos encargados le han dado a abrir en el mismo segundo. Se deshace lo
+        # de aquí —que no es más que una lista— y se cuenta en la que ya está.
+        session.rollback()
+        raise InventoryError("Otra persona acaba de abrir el inventario de esta cámara") \
+            from None
     return count
 
 
 def record(session: Session, user: User, count: MeatCount, serial: str, kg: float,
-           pieces: int | None = None, note: str | None = None) -> MeatCountLine:
-    """Apunta lo contado de una pieza. Si no estaba en la lista, se añade."""
+           pieces: int | None = None, note: str | None = None,
+           lang: str | None = None) -> MeatCountLine:
+    """Apunta lo contado de una pieza. Si no estaba en la lista, se añade.
+
+    Una cámara grande se cuenta entre dos, y los dos escriben en la misma hoja
+    desde su móvil. Eso está bien: lo que no puede pasar es que el segundo pise
+    al primero sin que nadie se entere. Si la pieza ya estaba contada por otra
+    persona y no les da lo mismo, se guarda el último —el que está delante de
+    la pieza ahora— pero la línea queda marcada y con los dos números escritos.
+    Al cerrar se avisa, porque una pieza en discusión no es una pieza contada.
+    """
     if count.status != CountStatus.OPEN:
         raise InventoryError("El inventario ya está cerrado")
     if kg < 0:
@@ -122,10 +140,32 @@ def record(session: Session, user: User, count: MeatCount, serial: str, kg: floa
         line = MeatCountLine(count_id=count.id, kind=CountItemKind.CUT, serial=serial,
                              label=serial, expected_kg=0.0)
         count.lines.append(line)
+
+    # Guardar la hoja manda **todo** lo que hay en la pantalla, no solo lo que
+    # uno acaba de escribir. Si el número que llega es el mismo que ya estaba,
+    # no se toca nada: ni cambia de dueño ni hay discusión. Si no, la columna
+    # «quién» diría que la contó el último que le dio a guardar.
+    if (line.counted_kg is not None and abs(line.counted_kg - kg) <= EPSILON
+            and line.counted_pieces == pieces and not note):
+        return line
+
+    otro = (line.counted_by is not None and line.counted_by != user.id
+            and line.counted_kg is not None)
+    if otro and abs((line.counted_kg or 0.0) - kg) > EPSILON:
+        lang = lang or service.restaurant_language(session, user.restaurant_id)
+        quien = session.get(User, line.counted_by)
+        aviso = t(lang, "inv.clash", who=(quien.name if quien else "?"),
+                  kg=f"{line.counted_kg:.10g}",
+                  when=(line.counted_at or datetime.utcnow()).strftime("%H:%M"))
+        line.note = " · ".join(x for x in (line.note, aviso) if x)[:1000]
+        line.disputed = True
+
     line.counted_kg = kg
     line.counted_pieces = pieces
+    line.counted_by = user.id
+    line.counted_at = datetime.utcnow()
     if note:
-        line.note = note
+        line.note = " · ".join(x for x in (line.note, note) if x)[:1000] if line.disputed else note
     session.flush()
     return line
 
@@ -138,6 +178,16 @@ def close_count(session: Session, user: User, count: MeatCount,
         raise InventoryError("Ese inventario ya estaba cerrado")
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     now = datetime.utcnow()
+
+    # La hoja se coge antes de ajustar nada. Dos personas dándole a cerrar a la
+    # vez —el encargado desde el móvil y el jefe desde el ordenador— escribían
+    # los dos el mismo ajuste: los kilos quedaban bien, porque el segundo
+    # re-ancla sobre lo mismo, pero el libro se llevaba dos apuntes de dinero
+    # por la misma merma y el mes salía el doble de malo de lo que fue.
+    if not locking.claim(session, MeatCount, count.id, {"status": CountStatus.OPEN},
+                         {"status": CountStatus.CLOSED, "closed_by": user.id,
+                          "closed_at": now, "open_key": None}):
+        raise InventoryError(t(lang, "inv.closed_by_other"))
 
     # Lo esperado se relee al cerrar: el ajuste tiene que cuadrar contra el
     # estado de ahora, no contra el de cuando se abrió la hoja.
@@ -172,9 +222,6 @@ def close_count(session: Session, user: User, count: MeatCount,
         else:
             _flag_primal(session, user, row, result, count=count, lang=lang)
 
-    count.status = CountStatus.CLOSED
-    count.closed_by = user.id
-    count.closed_at = now
     count.complete = summary.complete
     session.flush()
     _raise_alerts(session, user, result, lang, now)
@@ -229,6 +276,16 @@ def _raise_alerts(session: Session, user: User, result: CloseResult, lang: str,
     summary = result.summary
     targets = [uid for uid in service.manager_ids(session, user.restaurant_id) if uid != user.id]
 
+    # Lo que contaron dos personas y no les dio lo mismo. El número que manda
+    # es el último, pero el jefe se entera de cuáles hay que volver a mirar.
+    disputed = [l.serial for l in result.count.lines if l.disputed]
+    if disputed:
+        result.alerts.append(Alert(
+            restaurant_id=user.restaurant_id, code="count.disputed",
+            message=t(lang, "alert.count_disputed", n=len(disputed),
+                      serials=", ".join(disputed[:8])),
+            severity=AlertSeverity.WARNING, created_at=now))
+
     if not summary.complete:
         pending = [l.serial for l in summary.of(UNCOUNTED)]
         result.alerts.append(Alert(
@@ -282,10 +339,11 @@ def cancel_count(session: Session, user: User, count: MeatCount,
     """Cancela un inventario a medias. No ajusta nada y no cuenta para el mes."""
     if count.status != CountStatus.OPEN:
         raise InventoryError("Solo se puede cancelar un inventario abierto")
-    count.status = CountStatus.CANCELLED
+    if not locking.claim(session, MeatCount, count.id, {"status": CountStatus.OPEN},
+                         {"status": CountStatus.CANCELLED, "closed_by": user.id,
+                          "closed_at": datetime.utcnow(), "open_key": None}):
+        raise InventoryError("Otra persona acaba de cerrar o cancelar este inventario")
     count.cancel_reason = (reason or "").strip() or None
-    count.closed_by = user.id
-    count.closed_at = datetime.utcnow()
     count.complete = False
     session.flush()
     return count

@@ -1378,6 +1378,8 @@ def inventory_page(request: Request, ctx=Depends(needs(perms.COUNT)),
     open_count = inventory.open_now(session, user.restaurant_id, suya)
     return page(request, "inventory.html", user, auth_session, session, done=bool(done),
                 count=open_count, site=mia,
+                counters={u.id: u.name for u in
+                          session.query(User).filter_by(restaurant_id=user.restaurant_id)},
                 last=inventory.last_closed(session, user.restaurant_id, suya),
                 month=inventory.monthly_status(session, user.restaurant_id, site_id=suya),
                 sites=[] if mia else sites.all_sites(session, user.restaurant_id),
@@ -1407,6 +1409,26 @@ def open_inventory(request: Request, period: str = Form("MONTHLY"), site: str = 
     return RedirectResponse("/inventario", status_code=303)
 
 
+def _open_sheet(session: Session, user, form_id: str = "", lang: str = "es") -> MeatCount:
+    """La hoja de inventario **de tu cámara**, no la primera que aparezca.
+
+    En una casa con obrador y locales hay varias hojas abiertas a la vez, una
+    por cámara. Buscando «la abierta» sin más, el carnicero del local acababa
+    escribiendo el peso de su costillar en la hoja del obrador: la suya salía
+    sin contar y la otra, con una pieza que allí no está.
+
+    Y si la pantalla venía de una pestaña vieja, el número de hoja que trae no
+    es el de ahora: mejor un aviso que apuntar en la hoja equivocada.
+    """
+    mia = sites.of_user(session, user)
+    hoja = inventory.open_now(session, user.restaurant_id, mia.id if mia else None)
+    if hoja is None:
+        raise HTTPException(status_code=404, detail="")
+    if form_id.strip() and form_id.strip().isdigit() and int(form_id) != hoja.id:
+        raise HTTPException(status_code=409, detail=i18n.t(lang, "inv.other_sheet"))
+    return hoja
+
+
 @app.post("/inventario/contar")
 async def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
                        session: Session = Depends(get_db)):
@@ -1414,45 +1436,46 @@ async def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
     user, auth_session = ctx
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
-    count = (session.query(MeatCount)
-             .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
-    if count is None:
-        raise HTTPException(status_code=404, detail="")
+    lang = lang_for(request, session, user)
+    count = _open_sheet(session, user, str(form.get("hoja") or ""), lang)
     for key, value in form.multi_items():
         if not key.startswith("kg:") or not str(value).strip():
             continue
         serial = key.split(":", 1)[1]
         try:
             inventory.record(session, user, count, serial, _num(value, 0.0) or 0.0,
-                             pieces=int(_num(form.get(f"pieces:{serial}"), 0) or 0) or None)
+                             pieces=int(_num(form.get(f"pieces:{serial}"), 0) or 0) or None,
+                             lang=lang)
         except (inventory.InventoryError, ValueError):
             continue
     return RedirectResponse("/inventario", status_code=303)
 
 
 @app.post("/inventario/cerrar")
-def close_inventory(request: Request, csrf: str = Form(""), ctx=Depends(needs(perms.INVENTORY)),
+def close_inventory(request: Request, csrf: str = Form(""), hoja: str = Form(""),
+                    ctx=Depends(needs(perms.INVENTORY)),
                     session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
-    count = (session.query(MeatCount)
-             .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
-    if count is None:
-        raise HTTPException(status_code=404, detail="")
-    inventory.close_count(session, user, count, lang=lang_for(request, session, user))
+    count = _open_sheet(session, user, hoja, lang_for(request, session, user))
+    try:
+        inventory.close_count(session, user, count, lang=lang_for(request, session, user))
+    except inventory.InventoryError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from None
     return RedirectResponse("/inventario", status_code=303)
 
 
 @app.post("/inventario/cancelar")
 def cancel_inventory(request: Request, reason: str = Form(""), csrf: str = Form(""),
+                     hoja: str = Form(""),
                      ctx=Depends(needs(perms.INVENTORY)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
-    count = (session.query(MeatCount)
-             .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
-    if count is None:
-        raise HTTPException(status_code=404, detail="")
-    inventory.cancel_count(session, user, count, reason)
+    count = _open_sheet(session, user, hoja, lang_for(request, session, user))
+    try:
+        inventory.cancel_count(session, user, count, reason)
+    except inventory.InventoryError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from None
     return RedirectResponse("/inventario", status_code=303)
 
 

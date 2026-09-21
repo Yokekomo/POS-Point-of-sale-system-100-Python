@@ -10,9 +10,11 @@ que una cocina de carne pueda trabajar sola:
 - la carta: un plato de carne es un corte y unos gramos, atado a su POS;
 - el resumen de lo que está pendiente hoy.
 """
+import re
 from dataclasses import dataclass, field
 from datetime import date
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from thegrill.models import (ConsumptionMode, CountStatus, Despiece, DespieceCut,
@@ -21,7 +23,7 @@ from thegrill.models import (ConsumptionMode, CountStatus, Despiece, DespieceCut
                              RecipeKind, RecipeLine, Rotation, Storage, Unit, User)
 from thegrill.web import aging as aging_mod
 from thegrill.web import waste as waste_mod
-from thegrill.web import butchery, costing, defrost, inventory, sites
+from thegrill.web import butchery, costing, defrost, inventory, locking, sites
 from thegrill.web.i18n import t
 
 MAX_CUTS = 10
@@ -30,6 +32,9 @@ MAX_CUTS = 10
 SMALL = {Unit.KG: ("g", 1000.0), Unit.L: ("ml", 1000.0), Unit.UNIT: ("", 1.0)}
 CATEGORY = "carne"      # lo que se despieza, se cuenta y se descuenta
 EXTRA = "extra"         # lo que acompaña en el plato: solo interesa su coste
+
+
+AUTO_TG = re.compile(r"^TG-\d{4}$")      # el que propone la pantalla
 
 
 class MeatError(ValueError):
@@ -46,6 +51,9 @@ class PrimalRow:
     grade: str | None = None
     origin: str | None = None
     use_by: date | None = None
+    # El número lo ha puesto la casa, no el proveedor: si otra recepción se
+    # adelanta con ese mismo número, este se puede cambiar sin preguntar.
+    auto: bool = False
 
 
 def next_lot(session: Session, restaurant_id: int, on: date | None = None) -> str:
@@ -104,6 +112,8 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
     # al abrir la pantalla: dos personas recibiendo a la vez no se pisan, y el
     # que abre y cierra no deja un hueco en la serie.
     faltan = [r for r in rows if not r.serial.strip()]
+    for row in faltan:
+        row.auto = True           # numerada por la casa: si choca, se renumera
     if faltan:
         libres = next_serials(session, user.restaurant_id, len(faltan) + len(rows))
         escritos = {r.serial.strip() for r in rows if r.serial.strip()}
@@ -126,10 +136,63 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
         if serial in seen:
             raise MeatError(t(lang, "m.rec.dup", serial=serial))
         seen.add(serial)
-        if (session.query(Primal)
+        # Al número que ha escrito una persona se le dice aquí que ya existe,
+        # que es lo que quiere oír: se ha equivocado de pieza. Al que ha puesto
+        # la casa no se le dice nada —lo elegimos nosotros—: si justo lo acaba
+        # de coger otra recepción, se cambia al guardar y nadie se entera.
+        if not getattr(row, "auto", False) and (
+                session.query(Primal)
                 .filter_by(restaurant_id=user.restaurant_id, serial=serial).first()):
             raise MeatError(t(lang, "m.rec.dup", serial=serial))
 
+    return _save_primals(session, user, rows, lot, received, destino, chamber, lang)
+
+
+def _save_primals(session: Session, user: User, rows: list[PrimalRow], lot: str,
+                  received: date, destino, chamber: str | None, lang: str,
+                  intentos: int = 3) -> list[Primal]:
+    """Escribe las piezas. Si dos muelles dan de alta a la vez, se renumera.
+
+    Los números automáticos se piden justo antes de guardar, pero entre pedirlos
+    y guardarlos cabe otra recepción: los dos piden el 8016 y el segundo se
+    estrellaba con un error rojo con el camión esperando y la hoja entera por
+    volver a escribir. Ahora se vuelve a intentar con los siguientes libres y
+    el de fuera ni se entera.
+    """
+    automaticos = [r for r in rows if getattr(r, "auto", False)]
+
+    def otros_numeros():
+        if not automaticos:
+            raise MeatError(t(lang, "m.rec.dup", serial=rows[0].serial)) from None
+        _renumber(session, user.restaurant_id, rows, automaticos, lang)
+
+    def escribir():
+        return _insert_primals(session, user, rows, lot, received, destino, chamber)
+
+    try:
+        return locking.retry(session, escribir, otros_numeros, intentos=intentos)
+    except IntegrityError:
+        raise MeatError(t(lang, "m.rec.dup", serial=rows[0].serial)) from None
+
+
+def _renumber(session: Session, restaurant_id: int, rows: list[PrimalRow],
+              automaticos: list[PrimalRow], lang: str) -> None:
+    """Vuelve a repartir los números que había puesto la casa."""
+    libres = next_serials(session, restaurant_id, len(automaticos) + len(rows) + 4)
+    ocupados = {r.serial.strip() for r in rows if r not in automaticos}
+    for row in automaticos:
+        while libres and (libres[0] in ocupados or
+                          session.query(Primal).filter_by(
+                              restaurant_id=restaurant_id, serial=libres[0]).first()):
+            libres.pop(0)
+        if not libres:
+            raise MeatError(t(lang, "m.rec.needs"))
+        row.serial = libres.pop(0)
+        ocupados.add(row.serial)
+
+
+def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: str,
+                    received: date, destino, chamber: str | None) -> list[Primal]:
     created = []
     for row in rows:
         primal = Primal(
@@ -380,8 +443,37 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
     if not tg:
         raise MeatError("El despiece necesita su número")
     if session.query(Despiece).filter_by(restaurant_id=user.restaurant_id, tg=tg).first():
-        raise MeatError(f"Ya hay un despiece con el número {tg}")
+        # Si el número lo puso la casa —TG-0007, el que propone la pantalla—,
+        # dos carniceros que abren la hoja a la vez traen el mismo y el segundo
+        # perdía el despiece entero por un número. Se le da el siguiente libre.
+        # Si el número lo escribió una persona, no se toca: ahí sí hay que
+        # mirar qué despiece es el que ya existe.
+        libre = _free_tg(session, user.restaurant_id) if AUTO_TG.match(tg) else None
+        if libre is None:
+            raise MeatError(f"Ya hay un despiece con el número {tg}")
+        tg = libre
 
+    numero = {"tg": tg}
+
+    def otro_numero():
+        libre = (_free_tg(session, user.restaurant_id)
+                 if AUTO_TG.match(numero["tg"]) else None)
+        if libre is None:
+            raise MeatError(f"Ya hay un despiece con el número {numero['tg']}") from None
+        numero["tg"] = libre
+
+    def montar():
+        return _write_despiece(session, user, numero["tg"], serials, before_kg, rows,
+                               waste_kg, on, staff, country, grade)
+
+    return locking.retry(session, montar, otro_numero)
+
+
+def _write_despiece(session: Session, user: User, tg: str, serials: list[str],
+                    before_kg: float, rows: list[CutRow], waste_kg: float,
+                    on: date | None, staff: str | None, country: str | None,
+                    grade: str | None) -> tuple[Despiece, butchery.PostResult]:
+    """Escribe el despiece entero. Se monta de cero en cada intento."""
     despiece = Despiece(restaurant_id=user.restaurant_id, tg=tg, date=on or date.today(),
                         staff=(staff or None), weight_before_kg=before_kg,
                         waste_kg=waste_kg, country=(country or None), grade=(grade or None))
@@ -417,6 +509,19 @@ def next_tg(session: Session, restaurant_id: int) -> str:
     """El siguiente número de despiece, para no tener que acordarse."""
     n = session.query(Despiece).filter_by(restaurant_id=restaurant_id).count()
     return f"TG-{n + 1:04d}"
+
+
+def _free_tg(session: Session, restaurant_id: int) -> str | None:
+    """Un número de despiece que no esté cogido, empezando por el siguiente."""
+    usados = {d.tg for d in session.query(Despiece.tg)
+              .filter(Despiece.restaurant_id == restaurant_id)}
+    n = len(usados) + 1
+    for _ in range(200):
+        propuesto = f"TG-{n:04d}"
+        if propuesto not in usados:
+            return propuesto
+        n += 1
+    return None
 
 
 # =================================================================== carta

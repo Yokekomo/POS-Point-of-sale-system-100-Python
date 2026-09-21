@@ -29,7 +29,9 @@ NUEVAS = {
     "users": ["totp_secret", "totp_enabled", "recovery_codes", "site_id"],
     "auth_sessions": ["pending_2fa"],
     "sales_by_product": ["kg"],
-    "meat_counts": ["site_id"],
+    "meat_counts": ["site_id", "open_key"],
+    "meat_count_lines": ["counted_by", "counted_at", "disputed"],
+    "shift_closures": ["site_key"],
     "bug_reports": ["note", "detail"],
     "despiece_cuts": ["by_weight"],
 }
@@ -64,6 +66,11 @@ def test_the_new_columns_come_back_on_their_own(tmp_path):
         for tabla, nombres in NUEVAS.items():
             for nombre in nombres:
                 s.execute(text(f'DROP INDEX IF EXISTS "ix_{tabla}_{nombre}"'))
+                # Y las reglas que se apoyan en esa columna: SQLite no deja
+                # quitar una columna que alguien está mirando.
+                for indice in indices(tabla):
+                    if not indice.startswith("sqlite_"):
+                        s.execute(text(f'DROP INDEX IF EXISTS "{indice}"'))
                 s.execute(text(f'ALTER TABLE "{tabla}" DROP COLUMN "{nombre}"'))
     for tabla, nombres in NUEVAS.items():
         assert not (set(nombres) & columnas(tabla)), tabla
@@ -157,3 +164,24 @@ def test_a_database_from_before_the_sites_gets_them_and_keeps_working(tmp_path):
         assert s.query(Site).count() == 1
         fila = [f for f in sites.stock(s, ana.restaurant_id) if f.site.id == principal.id][0]
         assert fila.primals == 1 and fila.primal_kg == 9.0
+
+
+def test_a_database_from_before_two_people_at_once_gets_the_rule(tmp_path):
+    """La regla de «un turno, un cuadre» tiene que llegar a las casas de antes.
+
+    En una base de datos que ya venía funcionando, la columna nueva se añade
+    sola; lo que hay que comprobar es que detrás va su regla, porque si no, la
+    casa vieja y la nueva tienen la misma forma y no las mismas defensas: dos
+    personas cerrando el turno a la vez seguirían escribiendo dos cuadres.
+    """
+    db.init_engine(f"sqlite:///{tmp_path/'vieja.db'}")
+    db.create_all()
+    with db.session_scope() as s:
+        s.execute(text('DROP INDEX IF EXISTS "uq_shift_closure"'))
+        s.execute(text('ALTER TABLE "shift_closures" DROP COLUMN "site_key"'))
+    assert "site_key" not in columnas("shift_closures")
+
+    añadidas = db.add_missing_columns()
+
+    assert "shift_closures.site_key" in añadidas
+    assert "uq_shift_closure" in indices("shift_closures")

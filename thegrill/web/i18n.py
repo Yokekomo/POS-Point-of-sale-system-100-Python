@@ -706,6 +706,15 @@ ES = {
     'off.help': 'En la cámara no hay cobertura y eso no puede costar un recuento: lo que escribes se guarda en el propio teléfono y se manda cuando salgas.',
     'off.title': 'Sin conexión',
     'off.body': 'Esta pantalla no estaba guardada todavía. Lo que hayas escrito en un recuento sigue en el teléfono y se mandará solo al salir de la cámara.',
+    "inv.who": 'Quién',
+    "inv.who_help": 'Quién apuntó ese peso y a qué hora. Una cámara grande se cuenta entre dos.',
+    "inv.disputed": 'en discusión',
+    "inv.clash": '{who} había contado {kg} kg a las {when}',
+    "inv.closed_by_other": 'Otra persona acaba de cerrar este inventario. Vuelve a abrir la pantalla para ver cómo quedó.',
+    "alert.count_disputed": '{n} piezas contadas dos veces con números distintos: {serials}. Vale el último, pero conviene mirarlas.',
+    "defrost.closing_now": 'Otra persona está cerrando este turno en este momento. Espera un segundo y mira cómo ha quedado antes de repetirlo.',
+    "inv.other_sheet": 'Esa hoja de inventario ya no es la que está abierta: vuelve a abrir la pantalla.',
+    "inv.together": 'Podéis contar varios a la vez desde vuestros móviles: cada uno con sus estantes. Al guardar, la hoja se pone al día con lo que hayan apuntado los demás.',
 }
 
 
@@ -1303,6 +1312,15 @@ EN = {
     'off.help': 'There is no signal in the chiller and that cannot cost you a count: what you type is saved on the phone itself and sent when you walk out.',
     'off.title': 'No connection',
     'off.body': 'This screen had not been saved yet. Anything you typed into a count is still on the phone and will be sent on its own when you leave the chiller.',
+    "inv.who": 'Who',
+    "inv.who_help": 'Who wrote that weight, and when. A big chiller gets counted by two people.',
+    "inv.disputed": 'disputed',
+    "inv.clash": '{who} had counted {kg} kg at {when}',
+    "inv.closed_by_other": 'Someone else has just closed this count. Reload the screen to see how it ended.',
+    "alert.count_disputed": '{n} pieces counted twice with different numbers: {serials}. The last one stands, but they are worth a look.',
+    "defrost.closing_now": 'Someone else is closing this shift right now. Wait a second and check how it ended before doing it again.',
+    "inv.other_sheet": 'That count sheet is no longer the open one: reload the screen.',
+    "inv.together": 'Several of you can count at once from your phones, each with your own shelves. Saving brings the sheet up to date with what the others have written.',
 }
 
 
@@ -1900,6 +1918,15 @@ FR = {
     'off.help': "Il n'y a pas de réseau en chambre et cela ne peut pas coûter un comptage : ce que vous saisissez est enregistré sur le téléphone et envoyé en sortant.",
     'off.title': 'Hors connexion',
     'off.body': "Cet écran n'était pas encore enregistré. Ce que vous avez saisi dans un comptage reste sur le téléphone et partira tout seul en sortant de la chambre.",
+    "inv.who": 'Qui',
+    "inv.who_help": 'Qui a noté ce poids, et à quelle heure. Une grande chambre se compte à deux.',
+    "inv.disputed": 'en désaccord',
+    "inv.clash": '{who} avait compté {kg} kg à {when}',
+    "inv.closed_by_other": "Quelqu'un d'autre vient de clôturer cet inventaire. Recharge l'écran pour voir le résultat.",
+    "alert.count_disputed": '{n} pièces comptées deux fois avec des chiffres différents : {serials}. Le dernier fait foi, mais il faut les revoir.',
+    "defrost.closing_now": "Quelqu'un d'autre est en train de clôturer ce service. Attends une seconde et regarde le résultat avant de recommencer.",
+    "inv.other_sheet": "Cette feuille d'inventaire n'est plus celle qui est ouverte : recharge l'écran.",
+    "inv.together": 'Vous pouvez compter à plusieurs depuis vos téléphones, chacun ses étagères. En enregistrant, la feuille se met à jour avec ce que les autres ont noté.',
 }
 
 
@@ -2497,6 +2524,15 @@ DE = {
     'off.help': 'Im Kühlraum gibt es keinen Empfang, und das darf keine Zählung kosten: Was du eintippst, liegt auf dem Telefon und geht raus, wenn du herauskommst.',
     'off.title': 'Keine Verbindung',
     'off.body': 'Dieser Bildschirm war noch nicht gespeichert. Was du in eine Zählung eingetippt hast, liegt weiter auf dem Telefon und geht von selbst raus, wenn du den Kühlraum verlässt.',
+    "inv.who": 'Wer',
+    "inv.who_help": 'Wer dieses Gewicht eingetragen hat und wann. Eine große Kühlkammer zählen zwei.',
+    "inv.disputed": 'strittig',
+    "inv.clash": '{who} hatte um {when} {kg} kg gezählt',
+    "inv.closed_by_other": 'Jemand anderes hat diese Zählung gerade abgeschlossen. Lade den Bildschirm neu, um das Ergebnis zu sehen.',
+    "alert.count_disputed": '{n} Stücke zweimal mit unterschiedlichen Zahlen gezählt: {serials}. Es gilt die letzte, aber sieh sie dir an.',
+    "defrost.closing_now": 'Jemand anderes schließt diese Schicht gerade ab. Warte kurz und sieh dir das Ergebnis an, bevor du es wiederholst.',
+    "inv.other_sheet": 'Dieser Zählbogen ist nicht mehr der offene: Lade den Bildschirm neu.',
+    "inv.together": 'Ihr könnt zu mehreren gleichzeitig von euren Handys zählen, jeder seine Regale. Beim Speichern wird der Bogen mit dem aktualisiert, was die anderen eingetragen haben.',
 }
 
 
@@ -3094,6 +3130,15 @@ NL = {
     'off.help': 'In de koeling is geen bereik en dat mag geen telling kosten: wat je typt staat op de telefoon zelf en gaat weg zodra je naar buiten loopt.',
     'off.title': 'Geen verbinding',
     'off.body': 'Dit scherm was nog niet bewaard. Wat je in een telling hebt ingetypt staat nog op de telefoon en gaat vanzelf weg als je de koeling uit loopt.',
+    "inv.who": 'Wie',
+    "inv.who_help": "Wie dat gewicht heeft genoteerd, en wanneer. Een grote koelcel tellen ze met z'n tweeën.",
+    "inv.disputed": 'onenigheid',
+    "inv.clash": '{who} had om {when} {kg} kg geteld',
+    "inv.closed_by_other": 'Iemand anders heeft deze telling net afgesloten. Herlaad het scherm om te zien hoe het is geëindigd.',
+    "alert.count_disputed": '{n} stukken twee keer geteld met verschillende cijfers: {serials}. De laatste telt, maar kijk ernaar.',
+    "defrost.closing_now": 'Iemand anders sluit deze dienst nu af. Wacht even en kijk hoe het is geëindigd voordat je het opnieuw doet.',
+    "inv.other_sheet": 'Dat telformulier is niet meer het openstaande: herlaad het scherm.',
+    "inv.together": 'Jullie kunnen met meerderen tegelijk tellen vanaf jullie telefoons, elk zijn eigen schappen. Bij het opslaan wordt het formulier bijgewerkt met wat de anderen hebben genoteerd.',
 }
 
 
@@ -3691,6 +3736,15 @@ AR = {
     'off.help': 'لا تغطية داخل البراد، وهذا لا يجوز أن يكلّف جرداً: ما تكتبه يُحفظ في الهاتف نفسه ويُرسل حين تخرج.',
     'off.title': 'لا اتصال',
     'off.body': 'هذه الشاشة لم تُحفظ بعد. وما كتبته في الجرد ما زال في الهاتف وسيُرسل وحده حين تخرج من البراد.',
+    "inv.who": 'من',
+    "inv.who_help": 'من سجّل هذا الوزن ومتى. الغرفة الكبيرة يعدّها اثنان.',
+    "inv.disputed": 'محل خلاف',
+    "inv.clash": '{who} سجّل {kg} كجم الساعة {when}',
+    "inv.closed_by_other": 'شخص آخر أغلق هذا الجرد للتو. أعد تحميل الشاشة لترى النتيجة.',
+    "alert.count_disputed": '{n} قطع عُدّت مرتين بأرقام مختلفة: {serials}. الأخير هو المعتمد، لكن راجعها.',
+    "defrost.closing_now": 'شخص آخر يغلق هذه الوردية الآن. انتظر لحظة وانظر النتيجة قبل أن تعيدها.',
+    "inv.other_sheet": 'ورقة الجرد هذه لم تعد المفتوحة: أعد تحميل الشاشة.',
+    "inv.together": 'يمكنكم العدّ معًا من هواتفكم، كلٌّ على رفوفه. وعند الحفظ تتحدّث الورقة بما سجّله الآخرون.',
 }
 
 
@@ -4276,6 +4330,15 @@ HU = {
     'off.help': 'A hűtőben nincs térerő, és ez nem kerülhet egy számolásba: amit beírsz, a telefonon marad, és kilépve megy el.',
     'off.title': 'Nincs kapcsolat',
     'off.body': 'Ez a képernyő még nem volt elmentve. Amit egy számolásba beírtál, az a telefonon van, és magától elmegy, amint kijössz a hűtőből.',
+    "inv.who": 'Ki',
+    "inv.who_help": 'Ki írta be ezt a súlyt, és mikor. A nagy hűtőt ketten számolják.',
+    "inv.disputed": 'vitatott',
+    "inv.clash": '{who} {when}-kor {kg} kg-ot számolt',
+    "inv.closed_by_other": 'Valaki más épp lezárta ezt a leltárt. Töltsd újra a képernyőt, hogy lásd az eredményt.',
+    "alert.count_disputed": '{n} darabot kétszer számoltak, más számmal: {serials}. Az utolsó érvényes, de nézd meg őket.',
+    "defrost.closing_now": 'Valaki más most zárja ezt a műszakot. Várj egy pillanatot, és nézd meg az eredményt, mielőtt megismétled.',
+    "inv.other_sheet": 'Ez a leltárív már nem a nyitott: töltsd újra a képernyőt.',
+    "inv.together": 'Többen is számolhattok egyszerre a telefonjaitokról, mindenki a saját polcait. Mentéskor az ív frissül azzal, amit a többiek beírtak.',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

@@ -710,6 +710,61 @@ o en el propio ordenador. En la demo por wifi, sin certificado, no se instala:
 lo que se escribe se sigue guardando igual, pero una pantalla nueva no se abre
 sin señal. Con el despliegue de verdad —dominio y certificado— funciona entero.
 
+## Dos personas a la vez sobre lo mismo
+
+En una casa nadie trabaja solo. Mientras uno cuenta la cámara del local, otro
+despieza en el obrador y un tercero da de alta el camión. Casi siempre tocan
+cosas distintas y no pasa nada; lo que hay que resolver es el rato en que tocan
+**la misma**, porque ahí es donde los números se rompen sin que nadie se entere.
+
+La regla, la misma en todas las pantallas: **el que escribe comprueba en la
+misma orden**. No se pregunta «¿está entera la pieza?» y luego se escribe
+«cortada»; se escribe «ponla cortada *si sigue entera*», y de dos que lo
+intenten a la vez se lo lleva uno. Al otro se le dice, con nombre y apellidos,
+que ha llegado segundo.
+
+Qué pasa en cada caso:
+
+- **Abriendo el inventario entre dos.** Una cámara, una hoja abierta, y lo
+  sujeta la base de datos: si dos encargados le dan a la vez, se abre una y el
+  otro cuenta en esa. Dos hojas de la misma cámara no cuadran nunca.
+- **Contando la misma cámara.** Cada sede cuenta en su hoja y las dos pueden
+  contar a la vez. Dentro de una hoja pueden escribir cuatro personas desde
+  cuatro móviles, cada una con sus estantes: guardar manda toda la pantalla,
+  pero lo que ya estaba escrito **no se pisa con lo mismo** ni cambia de dueño.
+  Cada línea guarda **quién la contó y a qué hora**, y se ve en la pantalla.
+- **Contando la misma pieza dos personas.** Vale el número del que está delante
+  de la pieza ahora —el último—, pero la línea queda marcada **en discusión**
+  con el otro número y el nombre de quien lo puso, y al cerrar salta un aviso
+  con la lista. Una pieza en discusión no es una pieza contada.
+- **Cerrando el inventario entre dos.** Lo cierra uno. El otro recibe «otra
+  persona acaba de cerrar este inventario» en vez de escribir un segundo
+  ajuste: los kilos quedarían igual, pero el libro se llevaría el dinero de la
+  misma merma dos veces y el mes saldría el doble de malo de lo que fue.
+- **Despiezando la misma pieza.** De un lomo de nueve kilos no pueden entrar
+  dieciocho en cámara. Lo despieza uno; al otro se le dice que mire el despiece
+  que ya está hecho. Y si los dos abrieron la hoja a la vez y traen **el mismo
+  número de despiece** —el que propone la pantalla—, el segundo se corre solo
+  al siguiente libre: nadie pierde una hoja escrita a mano por un número que
+  puso la máquina.
+- **Recibiendo en dos muelles.** Igual con la numeración de las piezas: si dos
+  recepciones piden el mismo número, la segunda se renumera al guardar y el del
+  camión ni se entera.
+- **Mandando la misma pieza a dos locales.** Sale un albarán, no dos. La pieza
+  está donde dice el papel, y al segundo se le dice que la acaban de mover.
+- **Mandando kilos del mismo lote.** Los kilos se restan dentro de la propia
+  orden, así que de un lote de diez no salen doce: al segundo se le dice cuánto
+  queda de verdad.
+- **Cerrando el turno dos veces.** El turno tiene un cuadre, y la carne sale de
+  la cámara **una vez**. Volver a cerrarlo —porque faltaba un recuento, o
+  porque el móvil se quedó pensando y se pulsó otra vez— rehace los números sin
+  volver a descontar lo que ya estaba descontado.
+
+Por debajo, la base de datos está puesta en el modo en el que **el que lee no
+molesta al que escribe** y los que escriben hacen cola en vez de rebotar: ocho
+guardados en el mismo segundo entran los ocho, sin errores rojos. Todo esto
+está probado con hilos de verdad escribiendo a la vez, en `tests/test_concurrency.py`.
+
 ## El banco de pruebas
 
 Las pruebas de siempre comprueban lo que alguien pensó comprobar. El banco es

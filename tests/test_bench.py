@@ -8,14 +8,15 @@ azar y la vuelve a pasar.
 
 Si un día falla, el fallo se repite: la semilla es fija.
 """
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 from fastapi.testclient import TestClient
 
 from thegrill import bench, db
 from thegrill.meat import app as meatapp
-from thegrill.models import IngredientLot, IngredientMovement, MovementKind, Role, User
+from thegrill.models import (IngredientLot, IngredientMovement, MovementKind, Primal, Role,
+                             User)
 
 SPANISH = {"accept-language": "es"}
 HOY = date(2026, 9, 20)
@@ -90,6 +91,49 @@ def test_a_split_lot_is_written_down_on_both_sides(casa):
                         .filter_by(lot_id=hijo.id, kind=MovementKind.IN).all())
             assert entradas, f"{hijo.serial} nació sin apunte de entrada"
             assert entradas[0].qty == pytest.approx(hijo.qty, abs=1e-6)
+
+
+def test_the_auditor_catches_a_piece_butchered_twice(casa):
+    """La regla existe porque el fallo existió: de una pieza salieron dos hojas.
+
+    El auditor tiene que saber verlo aunque el programa ya no lo deje hacer:
+    una base de datos de antes puede traerlo escrito.
+    """
+    from thegrill.models import Despiece, DespiecePrimal
+
+    with db.session_scope() as session:
+        pieza = (session.query(Primal)
+                 .filter_by(restaurant_id=casa.restaurant_id).first())
+        for numero in ("TG-9001", "TG-9002"):
+            falso = Despiece(restaurant_id=casa.restaurant_id, tg=numero,
+                             date=date.today(), weight_before_kg=9.0)
+            falso.primals.append(DespiecePrimal(serial=pieza.serial))
+            session.add(falso)
+        session.flush()
+        reglas = {h.rule for h in bench.audit(session, casa.restaurant_id)}
+    assert "pieza_despiezada_dos_veces" in reglas
+
+
+def test_the_auditor_catches_a_shift_closed_twice(casa):
+    """Dos cuadres del mismo turno doblan el mes sin que se note en la pantalla.
+
+    Hoy la base de datos ya no deja escribirlos —por eso hay que meterlos a
+    mano, como los traería una casa de antes de la regla—, pero el auditor
+    tiene que saber verlos: esas filas ya están escritas en alguna parte.
+    """
+    from sqlalchemy import text
+
+    with db.session_scope() as session:
+        for _ in range(2):
+            session.execute(text(
+                'INSERT INTO shift_closures (restaurant_id, date, shift, site_id, '
+                'site_key, cost, loss_kg, loss_cost, drip_kg, drip_cost, pieces, '
+                'closed_at) '
+                "VALUES (:r, :d, 'noche', NULL, NULL, 0, 0, 0, 0, 0, 0, :c)"),
+                {"r": casa.restaurant_id, "d": date.today(),
+                 "c": datetime.utcnow()})
+        reglas = {h.rule for h in bench.audit(session, casa.restaurant_id)}
+    assert "turno_cerrado_dos_veces" in reglas
 
 
 # ------------------------------------------------------------ los martillazos

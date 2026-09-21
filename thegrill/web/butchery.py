@@ -28,6 +28,7 @@ from thegrill.models import (Despiece, DespieceCut, DespiecePrimal, IngredientIt
                              IngredientLot, IngredientMovement, MovementKind, Primal,
                              PrimalStatus, Storage, User)
 from thegrill.rules import TGInput, validate_tg
+from thegrill.web import locking
 
 EPSILON = 1e-9
 MAX_CUTS_PER_PRIMAL = 10      # lo que sale de un primal en la práctica
@@ -201,6 +202,21 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
         use_by = min(expiries)
 
     allocations = allocate(cuts, total_cost)
+
+    # Las piezas se cogen aquí, antes de escribir un solo kilo en cámara, y se
+    # cogen con el estado de antes metido en la orden: «ponla cortada si sigue
+    # entera». Si otra persona la está despiezando en la mesa de al lado, una
+    # de las dos se lo lleva y la otra se entera ahora, no cuando el inventario
+    # de fin de mes diga que sobran nueve kilos que nunca existieron.
+    for primal in primals:
+        if not locking.claim(session, Primal, primal.id,
+                             {"status": PrimalStatus.IN_STOCK},
+                             {"status": PrimalStatus.CUT, "status_ref": despiece.tg,
+                              "status_date": despiece.date}):
+            raise ButcheryError(
+                f"{despiece.tg}: la pieza {primal.serial} la acaba de despiezar otra "
+                "persona. Mira el despiece que ya está hecho antes de repetirlo.")
+
     result = PostResult(tg=despiece.tg, mass=mass,
                         yield_pct=yield_pct(despiece.weight_before_kg, total_cuts_kg),
                         total_cost=total_cost, allocations=allocations)
@@ -252,11 +268,9 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
             lot_id=lot.id, date=despiece.date, kind=MovementKind.IN, qty=alloc.kg,
             cost=alloc.cost, source="butchery", source_ref=serial, created_by=user.id))
 
-    # Un primal solo se marca cortado con el despiece que lo confirma.
+    # Un primal solo se marca cortado con el despiece que lo confirma. El
+    # estado ya se cogió arriba; aquí solo queda dejar dicho cuáles fueron.
     for primal in primals:
-        primal.status = PrimalStatus.CUT
-        primal.status_ref = despiece.tg
-        primal.status_date = despiece.date
         result.serials_cut.append(primal.serial)
 
     despiece.total_cuts_kg = total_cuts_kg
