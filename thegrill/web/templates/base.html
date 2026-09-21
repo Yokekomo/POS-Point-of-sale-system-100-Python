@@ -16,16 +16,23 @@
         --okbg:#1e2b21; --warnbg:#2e2718; --badbg:#2e1c1c;}
 }
 *{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}  /* el iPhone no infla el texto al girar */
 body{margin:0;background:var(--bg);color:var(--ink);
   font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+a,button,.btn,label,summary{touch-action:manipulation}     /* sin el retardo de los 300 ms */
 a{color:var(--accent)}
 header.top{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-.topwrap{max-width:960px;margin:0 auto;padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.topwrap{max-width:960px;margin:0 auto;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+  /* La muesca y la barra del iPhone: el contenido no se mete debajo. */
+  padding:12px max(16px,env(safe-area-inset-right)) 12px max(16px,env(safe-area-inset-left));
+  padding-top:max(12px,env(safe-area-inset-top))}
 .brand{font-weight:650;letter-spacing:-.01em;margin-right:auto}
 .brand small{display:block;font-weight:400;color:var(--muted);font-size:12px}
 nav a{display:inline-block;padding:6px 10px;border-radius:8px;text-decoration:none;font-size:14px}
 nav a:hover{background:var(--bg)}
-main{max-width:960px;margin:0 auto;padding:20px 16px 64px}
+main{max-width:960px;margin:0 auto;
+  padding:20px max(16px,env(safe-area-inset-right)) max(64px,calc(48px + env(safe-area-inset-bottom)))
+          max(16px,env(safe-area-inset-left))}
 h1{font-size:22px;margin:0 0 4px;letter-spacing:-.02em}
 h2{font-size:17px;margin:28px 0 10px;letter-spacing:-.01em}
 p.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
@@ -93,6 +100,49 @@ input[type=file]{padding:9px}
 .langbar a{padding:6px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;
   font-size:13px;color:var(--ink);background:var(--card)}
 .langbar a.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+/* --- El teléfono y la tablet, que es donde se trabaja de verdad.
+   El carnicero no lleva un ordenador a la cámara: lleva el móvil en el
+   bolsillo del delantal y lo toca con el dorso del dedo o con el guante
+   puesto. Así que en pantalla pequeña la barra se desliza en vez de
+   amontonarse, y todo lo que se toca es grande. */
+.topwrap{gap:10px}
+nav{display:flex;flex-wrap:wrap;gap:2px;align-items:center}
+@media (max-width:760px){
+  header.top{position:static}                 /* la barra no se come la pantalla */
+  .topwrap{padding:10px 12px;gap:8px;flex-wrap:nowrap;align-items:flex-start}
+  .brand{font-size:15px}
+  .brand small{font-size:11px}
+  nav{order:3;width:100%;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;
+      -webkit-overflow-scrolling:touch;padding-bottom:4px;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav a{flex:0 0 auto;white-space:nowrap;font-size:15px;padding:10px 12px}
+  main{padding:14px max(12px,env(safe-area-inset-right))
+       max(56px,calc(40px + env(safe-area-inset-bottom))) max(12px,env(safe-area-inset-left))}
+  h1{font-size:20px}
+  .card{padding:13px}
+  .grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  table{font-size:15px}
+  th,td{padding:11px 8px}
+  /* La primera columna se queda quieta: es el número de la pieza, y sin él
+     los kilos de la derecha no dicen de qué son. */
+  .scroll table th:first-child,.scroll table td:first-child{
+    position:sticky;left:0;background:var(--card);z-index:1;
+    box-shadow:1px 0 0 var(--line)}
+  [dir="rtl"] .scroll table th:first-child,[dir="rtl"] .scroll table td:first-child{
+    left:auto;right:0;box-shadow:-1px 0 0 var(--line)}
+}
+/* Dedos, no ratón: nada de lo que se toca baja de 44 píxeles. */
+@media (pointer:coarse){
+  nav a,.langbar a{min-height:44px;display:inline-flex;align-items:center}
+  button,.btn{min-height:46px}
+  button.ghost,.btn.ghost{min-height:44px;padding:11px 14px}
+  input,select,textarea{min-height:46px;font-size:16px}   /* 16px: el iPhone no hace zoom */
+  input[type=checkbox]{width:26px;height:26px}
+  td button,td .btn,td select,td input{min-height:42px}
+  a{-webkit-tap-highlight-color:rgba(138,61,31,.15)}
+}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+img,svg,video{max-width:100%;height:auto}
 </style>
 </head>
 <body>

@@ -309,3 +309,98 @@ def test_the_menu_is_one_swipe_and_not_a_wall_of_links(phone_pages):
     assert barra["enlaces"] >= 10
     assert barra["desliza"], "la barra no se desliza: se amontona"
     assert barra["cabecera"] < 200, barra          # no se come la pantalla
+
+
+# ================================= la edición de cocina, en las mismas manos
+KITCHEN = ["/manager", "/app", "/carne", "/merma", "/inventario", "/recetas",
+           "/ventas", "/ingredientes", "/manager/registros", "/configuracion"]
+
+
+@pytest.fixture(scope="module")
+def cocina(tmp_path_factory):
+    """La plataforma de cocina, servida aparte: tiene su propia plantilla."""
+    import uvicorn
+
+    from thegrill.web import app as webapp
+
+    playwright_module = pytest.importorskip("playwright.sync_api")
+    ruta = tmp_path_factory.mktemp("cocina") / "cocina.db"
+    db.init_engine(f"sqlite:///{ruta}")
+    db.create_all()
+    port = free_port()
+    config = uvicorn.Config(webapp.app, host="127.0.0.1", port=port, log_level="error")
+    server = uvicorn.Server(config)
+    hilo = threading.Thread(target=server.run, daemon=True)
+    hilo.start()
+    for _ in range(100):
+        if server.started:
+            break
+        time.sleep(0.1)
+    assert server.started, "el servidor de cocina no arrancó"
+
+    import httpx
+    alta = httpx.post(f"http://127.0.0.1:{port}/signup",
+                      data={"restaurant": "Casa Pepe", "name": "Ana",
+                            "email": "ana@casa.com", "password": "clave-larga-1"},
+                      follow_redirects=False)
+    assert alta.status_code == 303, alta.text[:200]
+    yield f"http://127.0.0.1:{port}", playwright_module
+    server.should_exit = True
+    hilo.join(timeout=5)
+
+
+@pytest.fixture(scope="module")
+def cocina_phone(cocina, browser):
+    base_cocina, _ = cocina
+    _, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    page.goto(f"{base_cocina}/login")
+    page.fill("input[name=email]", "ana@casa.com")
+    page.fill("input[name=password]", "clave-larga-1")
+    page.click("button[type=submit]")
+    page.wait_for_load_state("networkidle")
+    yield base_cocina, page
+    context.close()
+
+
+def test_the_kitchen_edition_also_fits_in_a_phone(cocina_phone):
+    """La otra edición tiene su propia plantilla: los mismos arreglos o ninguno."""
+    base, page = cocina_phone
+    desbordadas = {}
+    for ruta in KITCHEN:
+        page.goto(f"{base}{ruta}")
+        ancho, ventana = page.evaluate(
+            "() => [document.documentElement.scrollWidth, window.innerWidth]")
+        if ancho > ventana + 1:
+            desbordadas[ruta] = (ancho, ventana)
+    assert not desbordadas, desbordadas
+
+
+def test_the_kitchen_edition_can_be_tapped_with_a_finger(cocina_phone):
+    base, page = cocina_phone
+    pequeños = []
+    for ruta in ("/manager", "/carne", "/merma"):
+        page.goto(f"{base}{ruta}")
+        pequeños += page.evaluate("""() => {
+            const malos = [];
+            for (const el of document.querySelectorAll('nav a, button, .btn, .tile')) {
+                const caja = el.getBoundingClientRect();
+                if (caja.width === 0 && caja.height === 0) continue;
+                if (caja.height < 40) malos.push(el.tagName + ':' + el.innerText.slice(0, 18));
+            }
+            return malos;
+        }""")
+    assert pequeños == [], pequeños[:8]
+
+
+def test_the_kitchen_edition_keeps_the_same_rules(cocina_phone):
+    """Zonas seguras, sin retardo al tocar y zoom permitido: lo mismo que la otra."""
+    base, page = cocina_phone
+    page.goto(f"{base}/manager")
+    meta = page.get_attribute("meta[name=viewport]", "content")
+    assert "user-scalable=no" not in meta and "maximum-scale" not in meta
+    hoja = page.evaluate(
+        "() => [...document.querySelectorAll('style')].map(s => s.textContent).join('')")
+    assert "env(safe-area-inset-left)" in hoja and "pointer:coarse" in hoja
+    assert page.eval_on_selector("nav a", "el => getComputedStyle(el).touchAction") == "manipulation"

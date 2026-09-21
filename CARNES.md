@@ -668,7 +668,10 @@ consigue mirando la pantalla grande:
 
 Se prueba con un navegador de verdad en tres tamaños —teléfono de pie,
 teléfono de lado y tablet—, dando de alta una pieza con el pulgar para ver que
-el camino entero funciona, no solo que la pantalla se dibuja.
+el camino entero funciona, no solo que la pantalla se dibuja. La plataforma de
+cocina tiene su propia plantilla y lleva exactamente los mismos arreglos, con
+sus propias pruebas: dos ediciones con dos comportamientos sería una trampa
+para quien use las dos.
 
 ## El banco de pruebas
 
