@@ -5,6 +5,29 @@ dos locales, y un asador de un solo local—, cinco personas en cada una, piezas
 recibidas, despieces, carne madurando, traslados, ventas, merma e inventario
 cerrado. No hay que escribir nada para empezar a mirar.
 
+## Lo más corto: un icono en el Escritorio
+
+Si no quieres saber nada de carpetas ni de consolas, **copia esta línea**, pega
+en la consola de Windows (tecla Windows, escribe `cmd`, Intro) y dale a Intro:
+
+```
+powershell -c "iwr https://raw.githubusercontent.com/Yokekomo/POS-Point-of-sale-system-100-Python/claude/cool-bohr-jct64l/carnes.bat -OutFile $env:USERPROFILE\Desktop\carnes.bat"
+```
+
+Te deja un **`carnes.bat` en el Escritorio**. A partir de ahí, doble clic y ya:
+se baja el programa la primera vez, se pone al día las siguientes y lo arranca.
+Da igual desde dónde: el fichero sabe adónde ir.
+
+Solo hace falta tener **git** (una vez, desde <https://git-scm.com/download/win>,
+siguiente-siguiente) y **Python** (desde <https://www.python.org/downloads/>,
+marcando **«Add python.exe to PATH»** al instalarlo). Si falta alguno, el
+propio `carnes.bat` te lo dice.
+
+> **Lo que suele fallar:** escribir `python -m thegrill.cli ...` desde
+> `C:\Users\TuNombre`. Ahí no está el programa, así que Python contesta
+> `No module named 'thegrill'`. Hay que estar **dentro de su carpeta** — o usar
+> el `carnes.bat` de arriba, que se encarga él.
+
 ## Antes de nada: bajar el programa
 
 El programa no está en tu ordenador hasta que lo bajas, y hay que **estar
