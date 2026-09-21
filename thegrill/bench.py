@@ -319,17 +319,40 @@ def _one_day(session: Session, bench: Bench, manager: User, carnicero: User, gen
             bench.errors.append(f"{hoy} {fn.__name__}: {e}")
             return None
 
-    # 1. Llega mercancía al obrador, dos de cada tres días.
+    # 1. Llega mercancía al obrador, dos de cada tres días. Una de cada tres
+    # descargas la recibe el carnicero y entra **sin precio**, como en el
+    # muelle de verdad: se queda esperando a que dirección la active, y el
+    # banco la activa un día de estos. Así el mes de mentira pasa también por
+    # ese camino y no solo por el del manager, que lo pone todo de una vez.
     if rnd.random() < 0.7:
+        del_muelle = rnd.random() < 0.34
+        quien = (carnicero_de(session, bench.restaurant_id) or manager) if del_muelle else manager
+        llega = Storage.FROZEN if rnd.random() < 0.15 else Storage.CHILLED
+        al_arcon = llega == Storage.CHILLED and rnd.random() < 0.12
         filas = []
         for _ in range(rnd.randint(1, 3)):
             numero += 1
-            filas.append(meat.PrimalRow(serial=str(numero), kg=round(rnd.uniform(6, 12), 2),
-                                        price_kg=round(rnd.uniform(18, 34), 2),
-                                        sku=rnd.choice(["STRIPLOIN_AUS", "RIBEYE_AUS"]),
-                                        use_by=hoy + timedelta(days=rnd.randint(20, 40))))
-        intenta(meat.receive_primals, session, manager, lot=f"L-{hoy:%m%d}", rows=filas,
+            filas.append(meat.PrimalRow(
+                serial=str(numero), kg=round(rnd.uniform(6, 12), 2),
+                price_kg=None if del_muelle else round(rnd.uniform(18, 34), 2),
+                sku=rnd.choice(["STRIPLOIN_AUS", "RIBEYE_AUS"]),
+                use_by=hoy + timedelta(days=rnd.randint(20, 40)),
+                supplier_lot=f"L-{rnd.randint(80000, 89999)}",
+                producer_plant=rnd.choice(["Teys Biloela", "Rangers Valley", "Discarlux"]),
+                est_code=rnd.choice(["AUS 1234", "ES 10.00123/L"]),
+                breed=rnd.choice(["Angus", "Rubia Gallega", None]),
+                slaughter_date=hoy - timedelta(days=rnd.randint(12, 35)),
+                arrival=llega, frozen_on_arrival=al_arcon,
+                arrival_c=round(rnd.uniform(-22, -16) if llega == Storage.FROZEN
+                                else rnd.uniform(0.5, 4.5), 1)))
+        intenta(meat.receive_primals, session, quien, lot=f"L-{hoy:%m%d}", rows=filas,
                 received=hoy, chamber=rnd.choice(["Cámara 1", "Cámara 2", ""]))
+
+    # 1.b Dirección activa lo que lleve esperando precio: es lo que desatasca
+    # el muelle, y si no se hace la carne se queda parada y no se despieza.
+    for pieza in meat.awaiting_price(session, bench.restaurant_id)[:4]:
+        intenta(meat.set_price, session, manager, pieza.serial,
+                round(rnd.uniform(18, 34), 2))
 
     frescas = [p for p in meat.primals_in_stock(session, bench.restaurant_id,
                                                 site_id=bench.warehouse_id)
@@ -450,6 +473,13 @@ def _one_day(session: Session, bench: Bench, manager: User, carnicero: User, gen
 
 
 # ==================================================================== auditar
+def carnicero_de(session: Session, restaurant_id: int) -> User | None:
+    """El que descarga. El precio no es suyo y no lo pone."""
+    return (session.query(User)
+            .filter_by(restaurant_id=restaurant_id, role=Role.BUTCHER, active=True)
+            .order_by(User.id).first())
+
+
 def audit(session: Session, restaurant_id: int) -> list[Finding]:
     """Lo que nunca puede pasar. Si pasa, sale con su número y su cifra."""
     out: list[Finding] = []
@@ -475,10 +505,33 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
                                f"pesa {pieza.weight_kg:.6g} kg"))
 
     # --- dinero: nunca en blanco, y el kilo de lo que madura no baja
+    #
+    # Una pieza recién descargada **puede** estar sin precio: el muelle apunta
+    # lo que llega y dirección le pone el suyo con la factura delante. Eso no
+    # es un fallo, es el camino normal. Lo que sí lo es: que se quede esperando
+    # una semana —alguien se olvidó y la carne está parada, porque sin precio
+    # no se puede despiezar— o que una pieza haya salido de la cámara sin haber
+    # tenido nunca coste, que es el dinero perdiéndose sin que salte nada.
+    hoy = date.today()
     for pieza in piezas:
+        sin_dinero = not pieza.landed_usd_per_kg and not pieza.piece_cost_usd
+        if not sin_dinero:
+            continue
         if pieza.status == PrimalStatus.IN_STOCK and (pieza.weight_kg or 0) > EPSILON:
-            if not pieza.landed_usd_per_kg and not pieza.piece_cost_usd:
-                out.append(Finding("coste_en_blanco", pieza.serial, "sin precio ni coste"))
+            esperando = (hoy - pieza.received_date).days if pieza.received_date else 0
+            if esperando > 7:
+                out.append(Finding("precio_olvidado", pieza.serial,
+                                   f"{esperando} días esperando precio"))
+        elif pieza.status == PrimalStatus.CUT:
+            out.append(Finding("cortada_sin_precio", pieza.serial,
+                               "despiezada sin haber tenido coste"))
+
+    # --- lo que llegó congelado, y lo que se congeló al entrar, está en el arcón
+    for pieza in piezas:
+        al_arcon = pieza.arrival == Storage.FROZEN or pieza.frozen_on_arrival
+        if al_arcon and pieza.status == PrimalStatus.IN_STOCK and pieza.storage is None:
+            out.append(Finding("arcon_perdido", pieza.serial,
+                               "llegó al congelador y no consta dónde está"))
     for pesada in (session.query(PrimalWeighing)
                    .filter_by(restaurant_id=restaurant_id)):
         if pesada.kind and pesada.kind.value == "EVAPORATION" and pesada.cost_per_kg_before:
