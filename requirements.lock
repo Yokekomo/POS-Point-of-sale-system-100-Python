@@ -18,7 +18,7 @@ annotated-types==0.8.0
 anyio==4.15.1
 certifi==2026.2.25
 click==8.5.0
-cryptography==41.0.7
+cryptography==44.0.1   # 44 es la primera con ruedas para Python 3.13
 et-xmlfile==2.0.0
 fastapi==0.141.1
 greenlet==3.5.5

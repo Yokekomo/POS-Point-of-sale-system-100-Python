@@ -5,12 +5,48 @@ dos locales, y un asador de un solo local—, cinco personas en cada una, piezas
 recibidas, despieces, carne madurando, traslados, ventas, merma e inventario
 cerrado. No hay que escribir nada para empezar a mirar.
 
-## En el ordenador, con Python
+## Antes de nada: bajar el programa
 
-Hace falta Python 3.11 o más nuevo.
+El programa no está en tu ordenador hasta que lo bajas, y hay que **estar
+dentro de su carpeta** para arrancarlo. Desde `C:\Users\TuNombre` no funciona:
+Python contesta `No module named 'thegrill'`, que quiere decir «aquí no hay
+ningún programa que se llame así».
+
+**Sin saber de git**, lo más corto: entra en
+<https://github.com/Yokekomo/POS-Point-of-sale-system-100-Python/tree/claude/cool-bohr-jct64l>,
+botón verde **Code → Download ZIP**, y descomprímelo (por ejemplo en
+`C:\carnes`). Queda una carpeta con el nombre largo dentro.
+
+**Con git**, en la consola:
+
+```
+git clone https://github.com/Yokekomo/POS-Point-of-sale-system-100-Python.git
+cd POS-Point-of-sale-system-100-Python
+git checkout claude/cool-bohr-jct64l
+```
+
+## En Windows, sin pelearse
+
+Dentro de la carpeta del programa hay un **`probar.bat`**. Doble clic y ya:
+prepara lo que haga falta y arranca la demo. La primera vez tarda un par de
+minutos; las siguientes, segundos.
+
+Si prefieres la consola, en esa misma carpeta:
+
+```
+python -m pip install -r requirements.txt
+python -m thegrill.cli --db sqlite:///demo.db demo
+```
+
+Con Python 3.13, instala con **`requirements.txt`** y no con `requirements.lock`:
+el `lock` fija versiones exactas y alguna es anterior a tu Python.
+
+## En el ordenador, con Python (Mac o Linux)
+
+Hace falta Python 3.11 o más nuevo, y estar dentro de la carpeta del programa.
 
 ```bash
-pip install -r requirements.lock
+pip install -r requirements.txt
 python -m thegrill.cli --db sqlite:///demo.db demo
 ```
 
