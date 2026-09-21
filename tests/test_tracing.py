@@ -405,3 +405,24 @@ def test_a_cut_on_target_shows_only_its_food_cost(ctx):
     assert filete.avg_piece_g == filete.nominal_piece_g == 250
     assert "~" not in filete.label               # clavado: no se repite el peso
     assert "% FC" in filete.label and filete.label.startswith("250 g (")
+
+
+def test_meat_that_moved_to_another_site_is_not_unaccounted_for():
+    """Lo que viaja no desaparece: tiene su número y su fila.
+
+    Un corte que sale al local de la playa —o unas piezas que salen del arcón
+    con su propio número— deja de estar en este lote, pero está perfectamente
+    seguido. Contándolo como «sin explicar» se marcaba en rojo toda la carne
+    trasladada, y una columna que avisa de lo que sí cuadra deja de mirarse a
+    la semana.
+    """
+    from thegrill.web.tracing import CutNode
+
+    corte = CutNode(serial="8017-01", name="Entrecot", unit="KG",
+                    produced_kg=5.918, sold_kg=0.0, waste_kg=0.0,
+                    remaining_kg=0.189, moved_kg=5.729)
+    assert corte.unaccounted_kg == 0.0
+
+    # Y lo que de verdad falta sigue saliendo.
+    corte.moved_kg = 5.0
+    assert corte.unaccounted_kg == 0.729

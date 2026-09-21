@@ -460,6 +460,21 @@ porción. Nadie en una cocina dice «0,2 kg de patata».
 **Ventas.** Lo vendido descuenta de cámara por rotación, plato a plato, dejando
 escrito a qué plato fue cada salida: sin eso no hay food cost por pieza.
 
+**La ficha de una pieza, entera.** Al abrir un primal sale, en este orden: su
+etiqueta —de dónde viene—, lo que dejó la pieza en total, y debajo **el
+desglose de todos los cortes que salieron de ella**. De cada corte: cuántas
+piezas salieron y a qué peso medio —con el desvío contra el peso de carta—, lo
+vendido, **lo que queda**, lo tirado, lo que se fue a otra sede, y las ventas
+una a una con su día y su plato. El despiece dice el rendimiento, los kilos que
+fueron a cortes, la merma y lo aprovechado.
+
+**Y el dinero solo para dirección**: lo que ingresó cada corte, lo que costó lo
+vendido de él, **lo que se ha ganado con ese corte** y su food cost. Por corte y
+no solo por pieza, que es donde se ve la verdad: del mismo primal, el filete
+deja dinero y el recorte se lo come, y comparándolos solo por food cost no se
+sabe cuál de los dos paga la pieza. El carnicero ve los kilos y las piezas; los
+euros, no.
+
 **Trazabilidad: la ficha abre por de dónde viene.** Antes de los cortes, las
 ventas y el margen, la historia de una pieza enseña su etiqueta: lote del
 proveedor, matadero, registro sanitario, país, raza, calidad, sacrificio,

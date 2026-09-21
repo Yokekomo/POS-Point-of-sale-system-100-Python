@@ -211,8 +211,31 @@ def test_the_butcher_sees_the_cuts_of_a_piece_without_its_money(client):
     luis = alta(client, "luis@marina.com", "Luis", Role.BUTCHER)
     historia = luis.get("/trazabilidad?serial=8017").text
     assert "8017-01" in historia                # los cortes de esa pieza
+    assert "Salió" in historia                  # y sus kilos, que son su trabajo
     assert "Ingresó" not in historia            # lo que dejó, no
     assert "Ganado" not in historia
+    assert "Food cost" not in historia
+    # El precio del kilo del corte se colaba en la cabecera de cada corte, sin
+    # mirar quién estaba delante: es dinero y no es suyo.
+    assert "43.0000" not in historia
+    assert "/ KG" not in historia
+
+
+def test_the_manager_sees_what_each_cut_of_the_piece_left(client):
+    """De un mismo primal, el filete deja dinero y el recorte se lo come.
+
+    Por eso el desglose lleva lo ganado **por corte**, y no solo el de la pieza
+    entera: sin eso se comparan dos cortes por su food cost sin saber cuál de
+    los dos paga el primal.
+    """
+    con_carne(client)
+    historia = client.get("/trazabilidad?serial=8017").text
+    assert "8017-01" in historia
+    for cifra in ("Salió", "Vendido", "Queda", "Ingresó", "Coste", "Ganado"):
+        assert cifra in historia, cifra
+    assert "43.0000" in historia                # el coste del kilo, para quien lo ve
+    # Y el food cost todavía no: de este corte no se ha vendido nada, y un
+    # porcentaje sobre cero no es un número que dar.
     assert "Food cost" not in historia
 
 

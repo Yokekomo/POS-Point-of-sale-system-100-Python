@@ -780,6 +780,9 @@ ES = {
     "m.rec.row_diff": 'Distinto en esta pieza',
     "m.rec.row_diff_help": 'Ábrelo solo si esta bolsa trae otra calidad, otra procedencia, su propio lote o se sacrificó otro día. Lo que no toques lo copia de arriba.',
     "m.rec.piece_n": 'Pieza {n}',
+    "trace.cuts_total": 'En cortes',
+    "trace.moved": 'Se fue',
+    "trace.trim_kg": 'Aprovechado',
 }
 
 
@@ -1447,6 +1450,9 @@ EN = {
     "m.rec.row_diff": 'Different on this piece',
     "m.rec.row_diff_help": 'Open it only if this bag comes at another grade, another origin, its own lot or was slaughtered on another day. Whatever you leave alone is copied from above.',
     "m.rec.piece_n": 'Piece {n}',
+    "trace.cuts_total": 'Into cuts',
+    "trace.moved": 'Moved out',
+    "trace.trim_kg": 'Kept as trim',
 }
 
 
@@ -2114,6 +2120,9 @@ FR = {
     "m.rec.row_diff": 'Différent sur cette pièce',
     "m.rec.row_diff_help": "Ouvre-le seulement si ce sachet arrive avec une autre qualité, une autre provenance, son propre lot ou s'il a été abattu un autre jour. Ce que tu ne touches pas est repris du haut.",
     "m.rec.piece_n": 'Pièce {n}',
+    "trace.cuts_total": 'En morceaux',
+    "trace.moved": 'Parti',
+    "trace.trim_kg": 'Récupéré',
 }
 
 
@@ -2781,6 +2790,9 @@ DE = {
     "m.rec.row_diff": 'Bei diesem Stück anders',
     "m.rec.row_diff_help": 'Nur öffnen, wenn dieser Beutel eine andere Qualität, eine andere Herkunft, seine eigene Charge hat oder an einem anderen Tag geschlachtet wurde. Was du stehen lässt, wird von oben übernommen.',
     "m.rec.piece_n": 'Stück {n}',
+    "trace.cuts_total": 'In Teile',
+    "trace.moved": 'Abgegangen',
+    "trace.trim_kg": 'Verwertet',
 }
 
 
@@ -3448,6 +3460,9 @@ NL = {
     "m.rec.row_diff": 'Anders bij dit stuk',
     "m.rec.row_diff_help": 'Open dit alleen als deze zak een andere kwaliteit, een andere herkomst of een eigen partij heeft, of op een andere dag geslacht is. Wat je laat staan wordt van boven overgenomen.',
     "m.rec.piece_n": 'Stuk {n}',
+    "trace.cuts_total": 'In delen',
+    "trace.moved": 'Weggegaan',
+    "trace.trim_kg": 'Benut',
 }
 
 
@@ -4115,6 +4130,9 @@ AR = {
     "m.rec.row_diff": 'مختلف في هذه القطعة',
     "m.rec.row_diff_help": 'افتحه فقط إذا كان هذا الكيس بجودة أخرى أو منشأ آخر أو دفعة خاصة به أو ذُبح في يوم آخر. وما لا تلمسه يُنسخ من الأعلى.',
     "m.rec.piece_n": 'القطعة {n}',
+    "trace.cuts_total": 'إلى أجزاء',
+    "trace.moved": 'خرج',
+    "trace.trim_kg": 'مستفاد منه',
 }
 
 
@@ -4770,6 +4788,9 @@ HU = {
     "m.rec.row_diff": 'Ennél a darabnál más',
     "m.rec.row_diff_help": 'Csak akkor nyisd ki, ha ez a zacskó más minőségű, más származású, saját tétele van, vagy más napon vágták. Amihez nem nyúlsz, azt fentről másolja.',
     "m.rec.piece_n": '{n}. darab',
+    "trace.cuts_total": 'Szeletekbe',
+    "trace.moved": 'Elment',
+    "trace.trim_kg": 'Hasznosítva',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

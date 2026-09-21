@@ -61,6 +61,20 @@ p.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
 .tile b{display:block;font-size:16px;margin-bottom:4px}
 .tile span{color:var(--muted);font-size:13px}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+/* ================================== las cifras de un corte, en una rejilla
+   Producido, vendido, lo que queda, lo tirado y —para quien ve dinero— lo que
+   se ha ganado. En una tabla esto son ocho columnas y en el móvil las del
+   dinero se van fuera de la pantalla, que son justo las que se miran. Cada
+   cifra con su nombre encima y que envuelva sola. */
+.cifras{display:grid;gap:12px;margin-top:12px;
+  grid-template-columns:repeat(auto-fit,minmax(104px,1fr))}
+.cifras .dato{min-width:0}
+.cifras .dato span{display:block;font-size:12px;color:var(--muted);font-weight:600;
+  letter-spacing:.01em}
+.cifras .dato b{display:block;font-size:17px;margin-top:2px;letter-spacing:-.01em}
+.cifras .dato .mas{display:block;font-size:12px;color:var(--muted);font-weight:400;
+  margin-top:1px}
+.cifras .dato.dinero b{color:var(--accent)}
 .kpi b{display:block;font-size:26px;letter-spacing:-.02em;line-height:1.1}
 .kpi span{color:var(--muted);font-size:13px}
 label{display:block;margin:14px 0 4px;font-size:14px;font-weight:550}

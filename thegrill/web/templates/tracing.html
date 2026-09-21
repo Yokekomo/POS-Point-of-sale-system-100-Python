@@ -78,7 +78,9 @@
 <h2>{{ t("trace.butchery") }} {{ h.butchery.tg }}</h2>
 <p class="sub">{{ h.butchery.date }} · {{ t("trace.yield") }}:
    {{ "%.1f"|format(h.butchery.yield_pct or 0) }}% ·
+   {{ t("trace.cuts_total") }}: {{ "%.3f"|format(h.butchery.total_cuts_kg) }} kg ·
    {{ t("trace.waste_kg") }}: {{ h.butchery.waste_kg }}
+   {% if h.butchery.trim_kg %} · {{ t("trace.trim_kg") }}: {{ "%.3f"|format(h.butchery.trim_kg) }} kg{% endif %}
    {% if h.butchery.shared_with %} · {{ t("trace.shared") }}:
      {% for other in h.butchery.shared_with %}<a href="/trazabilidad?serial={{ other }}">{{ other }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
    {% endif %}</p>
@@ -89,7 +91,6 @@
     <b style="flex:1">{{ cut.name }} <span class="muted">{{ cut.serial }}</span>
       {% if cut.label %}<span class="tag ok">{{ cut.label }}</span>{% endif %}
       {% if cut.is_trim %}<span class="tag warn">{{ t("trace.trim") }}</span>{% endif %}</b>
-    <span class="muted">{{ "%.4f"|format(cut.unit_cost) }} / {{ cut.unit }}</span>
   </div>
   {% if cut.pieces %}
   <p class="muted" style="margin:4px 0 0">
@@ -103,27 +104,42 @@
     {% endif %}
   </p>
   {% endif %}
-  <div class="scroll"><table>
-  <tr><th class="num">{{ t("trace.produced") }}</th><th class="num">{{ t("trace.sold") }}</th>
-      <th class="num">{{ t("trace.remaining") }}</th><th class="num">{{ t("trace.waste_kg") }}</th>
-      {% if can("money") %}<th class="num">{{ t("trace.revenue") }}</th>
-      <th class="num">{{ t("rec.food_cost") }}</th>{% endif %}
-      <th class="num">{{ t("trace.unaccounted") }}</th></tr>
-  <tr>
-    <td class="num">{{ "%.3f"|format(cut.produced_kg) }}</td>
-    <td class="num">{{ "%.3f"|format(cut.sold_kg) }}{% if cut.sold_pieces %}
-        <div class="muted">~{{ cut.sold_pieces }} {{ t("meat.pieces") | lower }}</div>{% endif %}</td>
-    <td class="num">{{ "%.3f"|format(cut.remaining_kg) }}{% if cut.remaining_pieces is not none %}
-        <div class="muted">~{{ cut.remaining_pieces }} {{ t("meat.pieces") | lower }}</div>{% endif %}</td>
-    <td class="num">{{ "%.3f"|format(cut.waste_kg) }}{% if cut.waste_pieces %}
-        <div class="muted">~{{ cut.waste_pieces }} {{ t("meat.pieces") | lower }}</div>{% endif %}</td>
-    {% if can("money") %}
-    <td class="num">{{ "%.2f"|format(cut.revenue) }}</td>
-    <td class="num">{% if cut.food_cost_pct is not none %}{{ cut.food_cost_pct | ceil_pct }}%{% endif %}</td>
+  {# Lo que salió de este corte y en qué se ha convertido. En rejilla y no en
+     tabla: en el móvil las columnas del dinero se iban fuera de la pantalla, y
+     son las que se miran. #}
+  <div class="cifras">
+    <div class="dato"><span>{{ t("trace.produced") }}</span>
+      <b>{{ "%.3f"|format(cut.produced_kg) }}</b>
+      {% if cut.pieces %}<span class="mas">{{ cut.pieces }} {{ t("meat.pieces")|lower }}</span>{% endif %}</div>
+    <div class="dato"><span>{{ t("trace.sold") }}</span>
+      <b>{{ "%.3f"|format(cut.sold_kg) }}</b>
+      {% if cut.sold_pieces %}<span class="mas">~{{ cut.sold_pieces }} {{ t("meat.pieces")|lower }}</span>{% endif %}</div>
+    <div class="dato"><span>{{ t("trace.remaining") }}</span>
+      <b>{{ "%.3f"|format(cut.remaining_kg) }}</b>
+      {% if cut.remaining_pieces is not none %}<span class="mas">~{{ cut.remaining_pieces }} {{ t("meat.pieces")|lower }}</span>{% endif %}</div>
+    <div class="dato"><span>{{ t("trace.waste_kg") }}</span>
+      <b>{{ "%.3f"|format(cut.waste_kg) }}</b>
+      {% if cut.waste_pieces %}<span class="mas">~{{ cut.waste_pieces }} {{ t("meat.pieces")|lower }}</span>{% endif %}</div>
+    {% if cut.moved_kg %}
+    <div class="dato"><span>{{ t("trace.moved") }}</span>
+      <b>{{ "%.3f"|format(cut.moved_kg) }}</b></div>
     {% endif %}
-    <td class="num">{% if cut.unaccounted_kg %}<span class="tag bad">{{ "%.3f"|format(cut.unaccounted_kg) }}</span>{% endif %}</td>
-  </tr>
-  </table></div>
+    {% if can("money") %}
+    <div class="dato"><span>{{ t("trace.revenue") }}</span>
+      <b>{{ "%.2f"|format(cut.revenue) }}</b></div>
+    <div class="dato"><span>{{ t("rec.line_cost") }}</span>
+      <b>{{ "%.2f"|format(cut.sold_cost) }}</b>
+      <span class="mas">{{ "%.4f"|format(cut.unit_cost) }} / {{ cut.unit }}</span></div>
+    <div class="dato dinero"><span>{{ t("trace.margin") }}</span>
+      <b>{{ "%.2f"|format(cut.margin) }}</b>
+      {% if cut.food_cost_pct is not none %}
+      <span class="mas">{{ t("rec.food_cost") }} {{ cut.food_cost_pct | ceil_pct }}%</span>{% endif %}</div>
+    {% endif %}
+    {% if cut.unaccounted_kg %}
+    <div class="dato"><span>{{ t("trace.unaccounted") }}</span>
+      <b><span class="tag bad">{{ "%.3f"|format(cut.unaccounted_kg) }}</span></b></div>
+    {% endif %}
+  </div>
 
   {% if cut.sales %}
   <div class="scroll" style="margin-top:8px"><table>

@@ -131,10 +131,29 @@ class CutNode:
         return round(self.sold_cost / self.revenue * 100, 2)
 
     @property
+    def margin(self) -> float:
+        """Lo ganado con este corte: lo cobrado menos lo que costó esa parte.
+
+        Por corte y no solo por pieza, que es donde se ve la verdad: de un
+        mismo primal, el filete deja dinero y el recorte se lo come. Sin esta
+        columna se compara el food cost de dos cortes sin saber cuál de los
+        dos paga el primal.
+        """
+        return round(self.revenue - self.sold_cost, 2)
+
+    @property
     def unaccounted_kg(self) -> float:
-        """Lo que ni se vendió, ni se tiró, ni queda. Debería ser cero."""
+        """Lo que ni se vendió, ni se tiró, ni se fue, ni queda. Debe ser cero.
+
+        Lo que se fue cuenta: un corte que viaja al local de la playa, o unas
+        piezas que salen del arcón con su propio número, dejan de estar aquí
+        pero están perfectamente seguidas —tienen su número y su fila—. Sin
+        restarlo, toda la carne trasladada salía marcada en rojo como si
+        hubiera desaparecido, y una columna que avisa de lo que sí cuadra deja
+        de mirarse a la semana.
+        """
         return round(self.produced_kg - self.sold_kg - self.waste_kg
-                     - self.remaining_kg + self.adjust_kg, 4)
+                     - self.moved_kg - self.remaining_kg + self.adjust_kg, 4)
 
 
 @dataclass
