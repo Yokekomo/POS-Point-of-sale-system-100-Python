@@ -117,10 +117,10 @@
       <div><label for="label_product" title="{{ t('m.rec.label_name_help') }}">{{ t("m.rec.label_name") }}</label>
         <input id="label_product" name="label_product" title="{{ t('m.rec.label_name_help') }}"
                value="{{ previo.get('label_product','') }}"></div>
-      <div class="rowflex" style="align-items:center;gap:10px">
+      <label class="casilla" for="halal">
         <input id="halal" name="halal" type="checkbox" value="1"
                {% if previo.get('halal') %}checked{% endif %}>
-        <label for="halal" style="margin:0">{{ t("m.rec.halal") }}</label></div>
+        <span>{{ t("m.rec.halal") }}</span></label>
     </div>
 
     {# Cómo bajó del camión. No es lo mismo una pieza que llega congelada que
@@ -145,10 +145,11 @@
     <div class="help">{{ t("m.rec.arrival_c_help") }}</div>
     {# Solo tiene sentido si llega fresca: lo que ya viene congelado no se
        vuelve a congelar. El guion de abajo lo esconde cuando no toca. #}
-    <div class="rowflex" id="alarcon" style="align-items:center;gap:10px;margin-top:12px">
-      <input id="frozen_on_arrival" name="frozen_on_arrival" type="checkbox" value="1"
-             {% if previo.get('frozen_on_arrival') %}checked{% endif %}>
-      <label for="frozen_on_arrival" style="margin:0">{{ t("m.rec.freeze_now") }}</label>
+    <div id="alarcon" style="margin-top:12px">
+      <label class="casilla" for="frozen_on_arrival">
+        <input id="frozen_on_arrival" name="frozen_on_arrival" type="checkbox" value="1"
+               {% if previo.get('frozen_on_arrival') %}checked{% endif %}>
+        <span>{{ t("m.rec.freeze_now") }}</span></label>
     </div>
     <div class="help" id="alarconayuda">{{ t("m.rec.freeze_now_help") }}</div>
   </details>

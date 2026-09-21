@@ -55,6 +55,16 @@ h2{font-size:17px;margin:28px 0 10px;letter-spacing:-.01em}
 p.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
 .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+/* Las casillas de una fila se alinean por abajo, no por arriba: si un nombre
+   ocupa dos líneas —«Temperatura al recibir (°C)»— y el de al lado una, los
+   dos huecos de escribir quedaban a distinta altura y la fila parecía torcida.
+   Pegadas al suelo de la fila, se leen como una línea.
+
+   Solo donde hay un nombre encima de un hueco: la misma rejilla se usa para
+   los recuadros de cifras, y ahí bajarlo todo al suelo dejaría los números
+   flotando. Un navegador que no entienda `:has` se queda como estaba. */
+.grid > div:has(> label){display:flex;flex-direction:column;justify-content:flex-end}
+.grid > div:has(> label) > label{margin-bottom:auto}
 .tile{display:block;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   padding:16px;text-decoration:none;color:inherit}
 .tile:hover{border-color:var(--accent)}
