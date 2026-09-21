@@ -219,6 +219,10 @@ def test_the_butcher_sees_the_cuts_of_a_piece_without_its_money(client):
     # mirar quién estaba delante: es dinero y no es suyo.
     assert "43.0000" not in historia
     assert "/ KG" not in historia
+    # Y el food cost iba escondido dentro de la etiqueta verde del corte
+    # —«330 g (28 % FC) · MB9+»—, que se pintaba igual para todos. El peso y la
+    # calidad sí son suyos; el porcentaje al que sale el corte, no.
+    assert "% FC" not in historia
 
 
 def test_the_manager_sees_what_each_cut_of_the_piece_left(client):

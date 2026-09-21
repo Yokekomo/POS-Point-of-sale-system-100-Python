@@ -150,6 +150,13 @@ def demo(session: Session, days: int = 30, seed: int = 21,
                 who=f"{user.name} · {user.role.value.lower()} · {casa.name}",
                 email=user.email, password=DEMO_PASSWORD,
                 sees=(f"{etiqueta}: {sede}" if sede else f"{etiqueta}: la casa entera")))
+    # El camión de esta mañana: entra con la etiqueta del proveedor y sin
+    # precio, que es como entra de verdad. Así la demo abre con algo que hacer
+    # —piezas esperando que dirección las active— y con una ficha que se puede
+    # abrir para ver de dónde viene la carne.
+    for casa in (grupo, asador):
+        _camion_de_hoy(session, casa, until or date.today())
+
     dueno = session.query(User).filter_by(role=Role.OWNER).first()
     if dueno is not None:
         dueno.password_hash = auth.hash_password(DEMO_PASSWORD)
@@ -158,6 +165,38 @@ def demo(session: Session, days: int = 30, seed: int = 21,
                                 sees="las casas, el recibo y los fallos contados"))
     session.flush()
     return gente
+
+
+# Etiquetas de proveedor verosímiles: cada pieza de un sitio, con su número de
+# canal y su día de sacrificio, que es lo que de verdad llega en una caja.
+ETIQUETAS = [
+    ("Teys Biloela", "AUS 1234", "AUS", "Angus", "CUBE ROLL GF YG", "Ribeye AUS MB7", "MB7"),
+    ("Rangers Valley", "AUS 5512", "AUS", "Black Angus", "STRIPLOIN F1", "Striploin AUS MB9+", "MB9+"),
+    ("Discarlux", "ES 10.00123/L", "ESP", "Rubia Gallega", "LOMO ALTO MADURADO", "Lomo alto ESP", "Extra"),
+]
+
+
+def _camion_de_hoy(session: Session, casa: "Bench", hoy: date) -> None:
+    """Una recepción de hoy, con etiqueta y sin precio. Como en el muelle."""
+    quien = (session.query(User)
+             .filter_by(restaurant_id=casa.restaurant_id, role=Role.BUTCHER)
+             .order_by(User.id).first())
+    if quien is None:
+        return
+    siguiente = meat.next_serials(session, casa.restaurant_id, len(ETIQUETAS) + 1)
+    filas = []
+    for i, (planta, registro, pais, raza, etiqueta, sku, calidad) in enumerate(ETIQUETAS):
+        filas.append(meat.PrimalRow(
+            serial=siguiente[i], kg=round(8.6 + i * 0.7, 2), price_kg=None,
+            sku=sku, grade=calidad, origin=pais, use_by=hoy + timedelta(days=45),
+            supplier_lot=f"L-88{213 + i}", producer_plant=planta, est_code=registro,
+            breed=raza, label_product=etiqueta, halal=(i == 0),
+            slaughter_date=hoy - timedelta(days=24 + i),
+            pack_date=hoy - timedelta(days=21 + i)))
+    try:
+        meat.receive_primals(session, quien, f"L-{hoy:%y%m%d}-9", filas, received=hoy)
+    except meat.MeatError:
+        pass            # la demo no se cae por un número cogido: es de mentira
 
 
 def demo_accounts(session: Session) -> list[Account]:

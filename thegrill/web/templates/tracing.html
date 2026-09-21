@@ -89,7 +89,8 @@
 <div class="card">
   <div class="rowflex">
     <b style="flex:1">{{ cut.name }} <span class="muted">{{ cut.serial }}</span>
-      {% if cut.label %}<span class="tag ok">{{ cut.label }}</span>{% endif %}
+      {% set etiqueta = cut.label_with(can("money")) %}
+      {% if etiqueta %}<span class="tag ok">{{ etiqueta }}</span>{% endif %}
       {% if cut.is_trim %}<span class="tag warn">{{ t("trace.trim") }}</span>{% endif %}</b>
   </div>
   {% if cut.pieces %}

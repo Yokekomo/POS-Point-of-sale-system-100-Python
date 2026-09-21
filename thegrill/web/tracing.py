@@ -84,18 +84,23 @@ class CutNode:
             return None
         return round((real - target) / target * 100, 1)
 
-    @property
-    def label(self) -> str:
+    def label_with(self, money: bool = True) -> str:
         """«330 g (~354 g · 31,8 % FC) · MB9+ · AUS».
 
         Delante el peso de carta, que es lo que se vende y lo que manda en el
         escandallo. Entre paréntesis la realidad: el promedio que salió y el
         food cost al que está saliendo el corte. El food cost solo aparece
         cuando ya se ha vendido algo: antes de eso no hay número que dar.
+
+        Y solo para quien ve dinero. El food cost iba dentro de esta etiqueta,
+        que se pintaba igual para todos: el carnicero tiene que saber el peso
+        de sus piezas y su calidad, pero a qué porcentaje sale el corte no es
+        cosa suya, igual que no lo es el precio del kilo.
         """
         from thegrill.web.butchery import piece_label
         bits = []
-        weight = piece_label(self.nominal_piece_g, self.avg_piece_g, self.food_cost_pct)
+        weight = piece_label(self.nominal_piece_g, self.avg_piece_g,
+                             self.food_cost_pct if money else None)
         if weight:
             bits.append(weight)
         if self.grade:
@@ -103,6 +108,10 @@ class CutNode:
         if self.origin:
             bits.append(self.origin)
         return " · ".join(bits)
+
+    @property
+    def label(self) -> str:
+        return self.label_with(True)
 
     @property
     def remaining_pieces(self) -> int | None:

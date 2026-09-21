@@ -426,3 +426,23 @@ def test_meat_that_moved_to_another_site_is_not_unaccounted_for():
     # Y lo que de verdad falta sigue saliendo.
     corte.moved_kg = 5.0
     assert corte.unaccounted_kg == 0.729
+
+
+def test_the_food_cost_inside_the_cut_label_is_only_for_who_sees_money():
+    """La etiqueta verde del corte llevaba el food cost dentro.
+
+    «330 g (28 % FC) · MB9+ · AUS» se pintaba igual para todos, así que el
+    carnicero veía a qué porcentaje salía cada corte. El peso de sus piezas y
+    la calidad sí son suyos; el porcentaje, no, igual que no lo es el precio
+    del kilo.
+    """
+    from thegrill.web.tracing import CutNode
+
+    corte = CutNode(serial="8017-01", name="Entrecot", unit="KG", pieces=18,
+                    nominal_piece_g=300.0, produced_kg=5.4, grade="MB9+", origin="AUS",
+                    revenue=372.48, sold_cost=100.75)
+    assert "% FC" in corte.label_with(True)
+    assert "% FC" not in corte.label_with(False)
+    # Lo que sí es suyo se queda en las dos.
+    for texto in (corte.label_with(True), corte.label_with(False)):
+        assert "300 g" in texto and "MB9+" in texto and "AUS" in texto
