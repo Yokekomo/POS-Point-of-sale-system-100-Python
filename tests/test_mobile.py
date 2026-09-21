@@ -536,12 +536,12 @@ def test_a_lot_with_many_pieces_gets_the_lines_it_needs(browser):
     entra(page, base)
     page.goto(f"{base}/recepcion")
 
-    assert page.locator("#piezas tr").count() == 9          # cabecera y ocho
+    assert page.locator("#piezas .pieza").count() == 8      # una ficha por pieza
     page.fill("input[name='kg:0']", "9.4")
     primero = page.locator("input[name='serial:0']").get_attribute("placeholder")
 
     page.click("#masfilas")
-    assert page.locator("#piezas tr").count() == 17          # ocho más
+    assert page.locator("#piezas .pieza").count() == 16      # ocho más
     assert page.input_value("input[name='kg:0']") == "9.4"   # no se ha perdido
 
     # Los números propuestos siguen la serie, sin repetirse.

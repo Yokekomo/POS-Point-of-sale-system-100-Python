@@ -219,6 +219,34 @@ body.con-barra .pila-avisos{top:calc(var(--alto-barra,0px) + 8px)}
    título de la pantalla tapa justo lo que hace falta leer. Cuánto se aparta lo
    mide la propia columna, que no siempre trae lo mismo. */
 body.con-aviso main{padding-top:var(--alto-avisos,60px)}
+/* ================================================= una ficha por pieza
+   Lo que se rellena en el muelle, con el móvil en una mano. En una tabla de
+   ocho columnas hay que arrastrar de lado y se pierde de vista qué pieza estás
+   escribiendo: así es como los kilos de una acaban en la de al lado. Cada
+   pieza es un bloque, cada campo lleva su nombre encima, y lo que solo cambia
+   a veces se abre cuando hace falta. */
+fieldset.pieza{border:1px solid var(--line);border-radius:12px;margin:0 0 10px;
+  padding:12px;background:var(--bg)}
+fieldset.pieza .campos{display:grid;gap:10px;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+fieldset.pieza label{display:block;font-size:13px;color:var(--muted);font-weight:600;
+  margin:0}
+fieldset.pieza label input{margin-top:4px;width:100%}
+fieldset.pieza details{margin-top:10px}
+fieldset.pieza summary{font-size:13px;color:var(--muted);cursor:pointer;
+  padding:6px 0;min-height:32px;display:flex;align-items:center;gap:8px}
+/* `display:flex` en un summary se lleva por delante el triangulito del
+   navegador, y sin él no se ve que aquello se abre. Se pone uno propio. */
+fieldset.pieza summary::-webkit-details-marker{display:none}
+fieldset.pieza summary::before{content:"›";font-size:17px;line-height:1;
+  transition:transform .15s ease;display:inline-block}
+fieldset.pieza details[open]>summary::before{transform:rotate(90deg)}
+[dir="rtl"] fieldset.pieza summary::before{content:"‹"}
+[dir="rtl"] fieldset.pieza details[open]>summary::before{transform:rotate(-90deg)}
+fieldset.pieza summary:hover{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){fieldset.pieza summary::before{transition:none}}
+@media (pointer:coarse){fieldset.pieza summary{min-height:44px}}
+fieldset.pieza details .help{margin:0 0 8px}
 .tabsrow{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px;border-bottom:1px solid var(--line)}
 .tabsrow a{padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:600;
   font-size:15px;border-bottom:2px solid transparent;margin-bottom:-1px;min-height:44px;
@@ -365,8 +393,13 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
   {% endcall %}
 
   {% call grupo(t("m.nav.g_control"), ['/inventario', '/merma', '/traslados',
-                                       '/trazabilidad', '/parte'], sitio) %}
+                                       '/trazabilidad', '/parte',
+                                       '/recepcion/precios'], sitio) %}
   {% if can("count") %}<a class="item {{ 'on' if aqui == '/inventario' }}" href="/inventario">{{ t("nav.inventory") }}</a>{% endif %}
+  {# Va en control y no en el trabajo del día: es cosa de dirección, y en el
+     grupo de arriba —que está siempre abierto— el menú dejaba de caber de una
+     pieza en la pantalla de un portátil. #}
+  {% if can("money") %}<a class="item {{ 'on' if aqui == '/recepcion/precios' }}" href="/recepcion/precios">{{ t("m.price.nav") }}</a>{% endif %}
   {% if can("waste") %}<a class="item {{ 'on' if aqui == '/merma' }}" href="/merma">{{ t("nav.waste") }}</a>{% endif %}
   {% if can("stock") %}<a class="item {{ 'on' if aqui == '/traslados' }}" href="/traslados">{{ t("m.nav.transfers") }}</a>
   <a class="item {{ 'on' if aqui == '/trazabilidad' }}" href="/trazabilidad">{{ t("nav.tracing") }}</a>{% endif %}

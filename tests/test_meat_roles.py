@@ -41,6 +41,7 @@ PANTALLAS = {
     "/inventario": {Role.MANAGER, Role.BUTCHER, Role.EMPLOYEE},
     "/maduracion": {Role.MANAGER, Role.BUTCHER, Role.EMPLOYEE},
     "/recepcion": {Role.MANAGER, Role.BUTCHER},
+    "/recepcion/precios": {Role.MANAGER},      # el dinero, solo dirección
     "/despiece": {Role.MANAGER, Role.BUTCHER},
     "/carta": {Role.MANAGER},
     "/ingredientes": {Role.MANAGER},
@@ -145,8 +146,17 @@ def test_the_butcher_can_do_the_whole_meat_round(client):
     recepcion = luis.get("/recepcion")
     assert luis.post("/recepcion", data={
         "csrf": csrf_from(recepcion.text), "lot": "DXB1", "sku": "Striploin AUS",
-        "price_kg": "32", "use_by": str(HOY + timedelta(days=40)),
+        "use_by": str(HOY + timedelta(days=40)),
         "serial:0": "8017", "kg:0": "9,4"}).status_code == 200
+
+    # El precio no es suyo: el carnicero descarga y apunta lo que llega, y la
+    # pieza se queda esperando a que dirección la active. Hasta entonces no se
+    # puede despiezar, porque el despiece reparte el coste entre los cortes.
+    assert "8017" not in luis.get("/despiece").text
+    precios = client.get("/recepcion/precios")
+    assert client.post("/recepcion/precios", data={
+        "csrf": csrf_from(precios.text), "serial": ["8017"],
+        "all_price": "32"}).status_code == 200
 
     despiece = luis.get("/despiece")
     assert luis.post("/despiece", data={

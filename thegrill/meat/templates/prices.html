@@ -1,0 +1,63 @@
+{% extends "base.html" %}{% block title %}{{ t("m.price.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.price.title") }}</h1>
+<p class="sub">{{ t("m.price.sub") }}</p>
+{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+{% if not pending %}
+<div class="card muted">{{ t("m.price.none") }}</div>
+{% else %}
+<div class="card">
+<form method="post" action="/recepcion/precios" data-cola data-keep="precios">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid">
+    <div><label for="all_price" title="{{ t('m.price.all_help') }}">{{ t("m.price.all") }}</label>
+      <input id="all_price" name="all_price" inputmode="decimal"
+             title="{{ t('m.price.all_help') }}"></div>
+  </div>
+  <div class="help">{{ t("m.price.all_help") }}</div>
+
+  {# Una ficha por pieza, como en el muelle: aquí lo que se viene a escribir es
+     el precio, y en una tabla de ocho columnas el precio se queda fuera de la
+     pantalla del móvil. Lo que hay que saber para ponerlo —qué es, cuánto pesa
+     y de dónde viene— va debajo, leyéndose entero. #}
+  <div style="margin-top:14px">
+  {% for p in pending %}
+  <fieldset class="pieza">
+    <div class="campos">
+      <label>{{ t("m.rec.serial") }}
+        <div style="margin-top:4px"><a href="/trazabilidad?serial={{ p.serial }}"
+           ><b>{{ p.serial }}</b></a></div></label>
+      <label>{{ t("m.rec.row_sku") }}
+        <div style="margin-top:4px;color:var(--ink);font-weight:650">{{ p.sku }}</div></label>
+      <label>{{ t("m.rec.kg") }}
+        <div style="margin-top:4px;color:var(--ink);font-weight:650"
+           >{{ "%.2f"|format(p.weight_kg) }}</div></label>
+      <label>{{ t("m.rec.price_kg") }}
+        <input type="hidden" name="serial" value="{{ p.serial }}">
+        <input name="price:{{ p.serial }}" inputmode="decimal"
+               aria-label="{{ t('m.rec.price_kg') }} {{ p.serial }}"></label>
+    </div>
+    <div class="muted" style="margin-top:8px;font-size:13px">
+      {% set etq = [] %}
+      {% if p.grade %}{% set _ = etq.append(p.grade) %}{% endif %}
+      {% if p.origin %}{% set _ = etq.append(p.origin) %}{% endif %}
+      {% if p.breed %}{% set _ = etq.append(p.breed) %}{% endif %}
+      {% if p.lot %}{% set _ = etq.append(p.lot) %}{% endif %}
+      {% if p.supplier_lot %}{% set _ = etq.append(p.supplier_lot) %}{% endif %}
+      {% if p.producer_plant %}{% set _ = etq.append(p.producer_plant) %}{% endif %}
+      {% if p.est_code %}{% set _ = etq.append(p.est_code) %}{% endif %}
+      {% if p.slaughter_date %}{% set _ = etq.append(t("m.rec.slaughter") ~ " " ~ p.slaughter_date) %}{% endif %}
+      {{ etq | join(" · ") }}
+      {% if p.photo_ref %} · <a href="/carne/{{ p.serial }}/etiqueta" target="_blank"
+         rel="noopener">{{ t("m.rec.photo_seen") }}</a>{% endif %}
+    </div>
+  </fieldset>
+  {% endfor %}
+  </div>
+  <button class="wide" type="submit">{{ t("m.price.submit") }}</button>
+</form>
+</div>
+{% endif %}
+{% endblock %}

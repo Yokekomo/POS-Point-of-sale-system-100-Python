@@ -12,6 +12,7 @@ Corre por su cuenta, con su propia base de datos:
 import json
 import logging
 import os
+from urllib.parse import quote
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
@@ -47,6 +48,10 @@ COOKIE_NOTICE = "grill_cookies"
 NOTICE_YEAR = 365 * 24 * 3600
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 PHOTO_DIR = os.path.join(STATIC_DIR, "fotos")
+# Las fotos de las etiquetas no van en /static: ahí las vería cualquiera que
+# acertara la dirección. Se guardan fuera y se sirven por una ruta que primero
+# mira de qué casa es quien las pide.
+UPLOAD_DIR = os.environ.get("GRILL_UPLOAD_DIR", "uploads")
 # Las fotos de la portada. Se llaman así y se dejan caer en esa carpeta; la
 # portada usa las que encuentre y se arregla sin las que falten.
 PHOTO_SLOTS = ("primal", "cortes", "plato")
@@ -535,18 +540,20 @@ MAX_RECEPCION = 60
 
 @app.get("/recepcion", response_class=HTMLResponse)
 def reception_page(request: Request, ctx=Depends(needs(perms.RECEIVE)),
-                   session: Session = Depends(get_db), filas: int = FILAS_RECEPCION):
+                   session: Session = Depends(get_db), filas: int = FILAS_RECEPCION,
+                   foto: str = ""):
     user, auth_session = ctx
-    return _reception(request, user, auth_session, session, filas=filas)
+    return _reception(request, user, auth_session, session, filas=filas, foto=foto)
 
 
 def _reception(request, user, auth_session, session, *, done=None, error="",
-               filas: int = FILAS_RECEPCION):
+               filas: int = FILAS_RECEPCION, foto: str = ""):
     cuantas = max(FILAS_RECEPCION, min(int(filas or FILAS_RECEPCION), MAX_RECEPCION))
     # Se proponen el lote y los números; se cogen de verdad al dar de alta.
     return page(request, "reception.html", user, auth_session, session, done=done, error=error,
                 rows=range(cuantas), recent=meat.recent_primals(session, user.restaurant_id),
                 lot=meat.next_lot(session, user.restaurant_id), maximo=MAX_RECEPCION,
+                foto=(foto or "")[:200],
                 serials=meat.next_serials(session, user.restaurant_id, cuantas))
 
 
@@ -567,7 +574,22 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
     grade = (form.get("grade") or "").strip() or None
     origin = (form.get("origin") or "").strip() or None
     use_by = (form.get("use_by") or "").strip()
-    price = form.get("price_kg")
+    # El precio no lo pone el muelle. Quien descarga apunta lo que llega —qué
+    # es, cuánto pesa, de qué calidad y de dónde viene—; el dinero es de
+    # dirección y además llega después, en la factura. Si quien recibe es el
+    # manager, lo pone de una vez y se ahorra el segundo paso.
+    puede_dinero = perms.can(user, perms.MONEY)
+    price = form.get("price_kg") if puede_dinero else None
+    # La etiqueta del proveedor: lo que es igual para todo el camión se escribe
+    # una vez aquí arriba y se copia a cada pieza. Lo que cambia de una bolsa a
+    # otra se escribe en su línea y manda sobre esto.
+    planta = (form.get("producer_plant") or "").strip() or None
+    registro = (form.get("est_code") or "").strip() or None
+    raza = (form.get("breed") or "").strip() or None
+    etiqueta = (form.get("label_product") or "").strip() or None
+    halal = True if form.get("halal") else None
+    envasado = (form.get("pack_date") or "").strip()
+    sacrificio = (form.get("slaughter_date") or "").strip()
     try:
         rows = []
         for i in range(MAX_RECEPCION):
@@ -575,17 +597,75 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
             kg = form.get(f"kg:{i}")
             if not serial and not (kg or "").strip():
                 continue
+            fecha_sac = (form.get(f"slaughter:{i}") or "").strip() or sacrificio
             rows.append(meat.PrimalRow(
                 serial=serial, kg=_num(kg, 0.0) or 0.0,
-                price_kg=_num(form.get(f"price:{i}"), _num(price)),
+                price_kg=(_num(form.get(f"price:{i}"), _num(price))
+                          if puede_dinero else None),
                 sku=(form.get(f"sku:{i}") or "").strip() or sku,
-                grade=grade, origin=origin,
-                use_by=date.fromisoformat(use_by) if use_by else None))
+                grade=(form.get(f"grade:{i}") or "").strip() or grade,
+                origin=(form.get(f"origin:{i}") or "").strip() or origin,
+                use_by=date.fromisoformat(use_by) if use_by else None,
+                supplier_lot=(form.get(f"slot:{i}") or "").strip() or None,
+                producer_plant=planta, est_code=registro, breed=raza,
+                label_product=etiqueta, halal=halal,
+                slaughter_date=date.fromisoformat(fecha_sac) if fecha_sac else None,
+                pack_date=date.fromisoformat(envasado) if envasado else None))
         created = meat.receive_primals(session, user, lot, rows, lang=lang)
     except (meat.MeatError, ValueError) as e:
         return _reception(request, user, auth_session, session, error=str(e))
     return _reception(request, user, auth_session, session,
                       done=i18n.t(lang, "m.rec.done", n=len(created), lot=lot or "—"))
+
+
+@app.get("/recepcion/precios", response_class=HTMLResponse)
+def prices_page(request: Request, ctx=Depends(needs(perms.MONEY)),
+                session: Session = Depends(get_db)):
+    """Las piezas que esperan precio para poder trabajarse."""
+    user, auth_session = ctx
+    return _prices(request, user, auth_session, session)
+
+
+def _prices(request, user, auth_session, session, *, done="", error=""):
+    mia = sites.of_user(session, user)
+    return page(request, "prices.html", user, auth_session, session, done=done,
+                error=error, site=mia,
+                pending=meat.awaiting_price(session, user.restaurant_id,
+                                            site_id=mia.id if mia else None))
+
+
+@app.post("/recepcion/precios", response_class=HTMLResponse)
+async def save_prices(request: Request, ctx=Depends(needs(perms.MONEY)),
+                      session: Session = Depends(get_db)):
+    """Activa las piezas: a cada una su precio, o el mismo a todas."""
+    user, auth_session = ctx
+    form = await request.form()
+    _guard(request, session, user, auth_session, form.get("csrf"))
+    lang = lang_for(request, session, user)
+    repetido = _ya_estaba(request, session, user, str(form.get("envio") or ""),
+                          "/recepcion/precios")
+    if repetido is not None:
+        return repetido
+
+    # «El mismo a todas» es lo normal: un albarán trae un precio por artículo.
+    # Lo que se escriba en la línea de una pieza manda sobre eso.
+    todas = _num(form.get("all_price"))
+    puestas = 0
+    try:
+        for serial in form.getlist("serial"):
+            precio = _num(form.get(f"price:{serial}"), todas)
+            if precio is None:
+                continue
+            meat.set_price(session, user, serial, precio, lang=lang)
+            puestas += 1
+    except (meat.MeatError, ValueError) as e:
+        session.rollback()
+        return _prices(request, user, auth_session, session, error=str(e))
+    if not puestas:
+        return _prices(request, user, auth_session, session,
+                       error=i18n.t(lang, "m.price.nothing"))
+    return _prices(request, user, auth_session, session,
+                   done=i18n.t(lang, "m.price.done", n=puestas))
 
 
 # ============================================================ DESPIECE
@@ -602,7 +682,10 @@ def _butchery(request, user, auth_session, session, *, done=None, issues=(), err
                 issues=list(issues), error=error, rows=range(meat.MAX_CUTS), site=mia,
                 tg=meat.next_tg(session, user.restaurant_id),
                 primals=meat.primals_in_stock(session, user.restaurant_id,
-                                              site_id=mia.id if mia else None),
+                                              site_id=mia.id if mia else None,
+                                              priced_only=True),
+                sin_precio=len(meat.awaiting_price(session, user.restaurant_id,
+                                                   site_id=mia.id if mia else None)),
                 articles=meat.articles(session, user.restaurant_id),
                 recent=meat.recent_butchery(session, user.restaurant_id))
 
@@ -647,6 +730,58 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
 
 
 # ============================================================== CÁMARA
+@app.post("/carne/{serial}/foto")
+async def upload_label_photo(serial: str, request: Request,
+                             ctx=Depends(needs(perms.RECEIVE)),
+                             session: Session = Depends(get_db)):
+    """La foto de la etiqueta de una pieza.
+
+    Va aparte del formulario de recepción y no por la cola de sin cobertura: en
+    la cola caben textos, no ficheros, y meter ahí una foto de tres megas por
+    pieza llenaría el teléfono y no se mandaría nunca. Así que la recepción se
+    guarda igual sin señal y las fotos se suben cuando hay línea. La foto es el
+    respaldo de lo que se tecleó: el día que un número no cuadre con la
+    etiqueta, la etiqueta está.
+    """
+    from starlette.datastructures import UploadFile
+
+    user, auth_session = ctx
+    form = await request.form()
+    _guard(request, session, user, auth_session, form.get("csrf"))
+    lang = lang_for(request, session, user)
+    volver = str(form.get("next") or "/recepcion")
+    pieza = (session.query(Primal)
+             .filter_by(restaurant_id=user.restaurant_id, serial=serial.strip()).first())
+    if pieza is None:
+        raise HTTPException(status_code=404, detail=i18n.t(lang, "m.rec.no_piece",
+                                                           serial=serial))
+    subida = form.get("foto")
+    if not isinstance(subida, UploadFile) or not subida.filename:
+        return RedirectResponse(volver, status_code=303)
+    try:
+        meat.store_label_photo(session, pieza, subida.content_type or "",
+                               await subida.read(), UPLOAD_DIR, lang=lang)
+    except meat.MeatError as e:
+        return RedirectResponse(f"{volver}?foto={quote(str(e))}", status_code=303)
+    return RedirectResponse(volver, status_code=303)
+
+
+@app.get("/carne/{serial}/etiqueta")
+def label_photo(serial: str, request: Request, ctx=Depends(needs(perms.STOCK)),
+                session: Session = Depends(get_db)):
+    """La foto guardada, solo para gente de esta casa."""
+    user, _ = ctx
+    lang = lang_for(request, session, user)
+    pieza = (session.query(Primal)
+             .filter_by(restaurant_id=user.restaurant_id, serial=serial.strip()).first())
+    if pieza is None or not pieza.photo_ref or not os.path.exists(pieza.photo_ref):
+        raise HTTPException(status_code=404,
+                            detail=i18n.t(lang, "error.photo_not_found"))
+    with open(pieza.photo_ref, "rb") as fh:
+        return Response(fh.read(), media_type=meat.photo_type(pieza.photo_ref),
+                        headers={"Cache-Control": "private, max-age=3600"})
+
+
 @app.get("/carne", response_class=HTMLResponse)
 def chamber(request: Request, ctx=Depends(needs(perms.STOCK)),
             session: Session = Depends(get_db), closed: str = "", error: str = ""):
@@ -2210,8 +2345,9 @@ const CACHE = 'carnes-v1';
 // señal falla en cualquier sitio, no solo en la cámara, y lo que no esté
 // guardado antes no se abre después.
 const DE_MANO = ['/hoy', '/inventario', '/maduracion', '/carne', '/descongelado',
-                 '/descongelado/recuento', '/recepcion', '/despiece', '/merma',
-                 '/traslados', '/cortes', '/ventas', '/parte', '/trazabilidad'];
+                 '/descongelado/recuento', '/recepcion', '/recepcion/precios',
+                 '/despiece', '/merma', '/traslados', '/cortes', '/ventas', '/parte',
+                 '/trazabilidad'];
 
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', event => {

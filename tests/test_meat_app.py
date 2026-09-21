@@ -6,6 +6,7 @@ propio, sale a descongelar, se cuenta al cerrar el turno, se vende, se cuadra en
 el inventario y se puede seguir su historia. Y que no hay ninguna puerta a la
 cocina general: aquí solo hay carne.
 """
+import os
 import re
 from datetime import date, timedelta
 
@@ -953,3 +954,243 @@ class TestNovedades:
         assert "items" in datos
         for aviso in datos["items"]:
             assert isinstance(aviso.get("id"), int)
+
+
+# ================== la etiqueta del proveedor y el precio de dirección
+class TestEtiquetaYPrecio:
+    """De dónde viene cada pieza, y quién dice lo que vale.
+
+    En el muelle se apunta lo que llega —qué es, cuánto pesa, de qué calidad y
+    de dónde viene, con la etiqueta del proveedor delante— y se le hace una
+    foto. El precio no lo sabe quien descarga, ni tiene por qué: el dinero es
+    de dirección y además llega después, en la factura. Así que la pieza entra
+    sin precio, se queda esperando, y no se puede despiezar hasta que alguien
+    la activa.
+    """
+
+    def recibir(self, client, **extra):
+        form = client.get("/recepcion")
+        data = {"csrf": csrf_from(form.text), "lot": "L-ETQ", "sku": "Ribeye AUS",
+                "grade": "MB7", "origin": "AUS",
+                "producer_plant": "Teys Biloela", "est_code": "ES 10.00123/L",
+                "breed": "Angus", "slaughter_date": str(HOY - timedelta(days=21)),
+                "pack_date": str(HOY - timedelta(days=18)),
+                "label_product": "CUBE ROLL GF", "halal": "1",
+                "use_by": str(HOY + timedelta(days=40)),
+                "serial:0": "8017", "kg:0": "9,4", "slot:0": "L-88213",
+                "serial:1": "8018", "kg:1": "9,8", "slot:1": "L-88214",
+                "grade:1": "MB9+", "slaughter:1": str(HOY - timedelta(days=20))}
+        data.update(extra)
+        return client.post("/recepcion", data=data)
+
+    def test_each_piece_keeps_the_label_it_came_with(self, client):
+        signup(client)
+        assert self.recibir(client).status_code == 200
+        with db.session_scope() as s:
+            piezas = {p.serial: p for p in s.query(Primal)}
+            uno, dos = piezas["8017"], piezas["8018"]
+            # Lo que es igual para el camión se escribe una vez y se copia.
+            assert uno.producer_plant == dos.producer_plant == "Teys Biloela"
+            assert uno.est_code == "ES 10.00123/L" and uno.breed == "Angus"
+            assert uno.label_product == "CUBE ROLL GF" and uno.halal is True
+            assert uno.pack_date == HOY - timedelta(days=18)
+            # Y lo que cambia de una bolsa a otra, va en su línea.
+            assert uno.supplier_lot == "L-88213" and dos.supplier_lot == "L-88214"
+            assert uno.grade == "MB7" and dos.grade == "MB9+"
+            assert uno.slaughter_date == HOY - timedelta(days=21)
+            assert dos.slaughter_date == HOY - timedelta(days=20)
+
+    def test_a_label_date_that_could_not_have_happened_is_refused(self, client):
+        """Un dedo en el teclado es peor que no tener el dato: se guarda y miente."""
+        signup(client)
+        r = self.recibir(client, slaughter_date=str(HOY + timedelta(days=3)))
+        assert r.status_code == 200 and "8017" in r.text
+        with db.session_scope() as s:
+            assert s.query(Primal).count() == 0        # o entra todo, o no entra nada
+
+    def test_meat_cannot_be_packed_before_it_is_slaughtered(self, client):
+        signup(client)
+        r = self.recibir(client, pack_date=str(HOY - timedelta(days=30)))
+        assert r.status_code == 200
+        with db.session_scope() as s:
+            assert s.query(Primal).count() == 0
+
+    def test_the_label_is_what_the_traceability_screen_opens_with(self, client):
+        signup(client)
+        self.recibir(client)
+        ficha = client.get("/trazabilidad?serial=8017").text
+        for dato in ("Teys Biloela", "ES 10.00123/L", "Angus", "L-88213", "CUBE ROLL GF"):
+            assert dato in ficha, dato
+
+    def test_a_recall_call_finds_the_pieces_by_what_the_caller_knows(self, client):
+        """Quien llama para retirar algo no sabe nuestro número: sabe el suyo."""
+        signup(client)
+        self.recibir(client)
+        for termino in ("L-88213", "Teys", "10.00123"):
+            encontrado = client.get(f"/trazabilidad?serial={termino}").text
+            assert "8017" in encontrado, termino
+
+    # ------------------------------------------------ el precio y la activación
+    def test_the_dock_does_not_set_prices(self, client):
+        """El carnicero recibe; el dinero no es suyo y no se le enseña."""
+        signup(client)
+        paco = add_user(client, email="paco@marina.com", name="Paco", role=Role.BUTCHER)
+        assert 'name="price_kg"' not in paco.get("/recepcion").text
+        # Y aunque lo escriba a mano en el formulario, no entra.
+        self.recibir(paco, price_kg="32")
+        with db.session_scope() as s:
+            assert all(p.landed_usd_per_kg is None for p in s.query(Primal))
+
+    def test_a_piece_without_a_price_cannot_be_butchered(self, client):
+        """Repartir cero entre los cortes es perder el rastro del dinero."""
+        signup(client)
+        items = setup_cuts(client)
+        paco = add_user(client, email="paco@marina.com", name="Paco", role=Role.BUTCHER)
+        self.recibir(paco)
+
+        # No sale en la lista de la pantalla…
+        assert "8017" not in paco.get("/despiece").text
+        # …y tampoco entra escribiéndola a mano.
+        r = butcher(paco, items)
+        assert "8017" in r.text
+        with db.session_scope() as s:
+            assert s.query(Despiece).count() == 0
+
+    def test_management_is_told_there_are_prices_waiting(self, client):
+        from thegrill.models import Notification
+
+        signup(client)
+        paco = add_user(client, email="paco@marina.com", name="Paco", role=Role.BUTCHER)
+        self.recibir(paco)
+        with db.session_scope() as s:
+            avisos = s.query(Notification).all()
+            assert len(avisos) == 1
+            assert "2" in avisos[0].title
+            assert "Paco" in avisos[0].body and "L-ETQ" in avisos[0].body
+        # Y le aparece en el contador de la cabecera, que es donde mira.
+        assert client.get("/api/notificaciones").json()["unread"] == 1
+
+    def test_management_activates_the_pieces_and_then_they_can_be_cut(self, client):
+        signup(client)
+        items = setup_cuts(client)
+        paco = add_user(client, email="paco@marina.com", name="Paco", role=Role.BUTCHER)
+        self.recibir(paco)
+
+        pantalla = client.get("/recepcion/precios")
+        assert pantalla.status_code == 200
+        assert "8017" in pantalla.text and "Teys Biloela" in pantalla.text
+        puesto = client.post("/recepcion/precios", data={
+            "csrf": csrf_from(pantalla.text), "serial": ["8017", "8018"],
+            "all_price": "32", "price:8018": "34"})
+        assert puesto.status_code == 200
+
+        with db.session_scope() as s:
+            piezas = {p.serial: p for p in s.query(Primal)}
+            assert piezas["8017"].landed_usd_per_kg == 32       # el de todas
+            assert piezas["8018"].landed_usd_per_kg == 34       # salvo el suyo
+            assert piezas["8017"].piece_cost_usd == round(9.4 * 32, 4)
+            assert piezas["8018"].piece_cost_usd == round(9.8 * 34, 4)
+
+        # Y ahora sí se despieza.
+        assert "8017" in paco.get("/despiece").text
+        assert butcher(paco, items).status_code == 200
+        with db.session_scope() as s:
+            assert s.query(Despiece).count() == 1
+
+    def test_a_price_of_zero_is_not_a_price(self, client):
+        signup(client)
+        paco = add_user(client, email="paco@marina.com", name="Paco", role=Role.BUTCHER)
+        self.recibir(paco)
+        pantalla = client.get("/recepcion/precios")
+        r = client.post("/recepcion/precios", data={
+            "csrf": csrf_from(pantalla.text), "serial": ["8017"], "price:8017": "0"})
+        assert r.status_code == 200
+        with db.session_scope() as s:
+            assert s.query(Primal).filter_by(serial="8017").one().landed_usd_per_kg is None
+
+    def test_only_management_touches_prices(self, client):
+        signup(client)
+        paco = add_user(client, email="paco@marina.com", name="Paco", role=Role.BUTCHER)
+        assert paco.get("/recepcion/precios").status_code == 403
+        assert paco.post("/recepcion/precios",
+                         data={"csrf": "x", "serial": ["8017"]}).status_code == 403
+
+    def test_the_manager_who_receives_prices_on_the_spot(self, client):
+        """Quien ve el dinero no necesita el segundo paso."""
+        signup(client)
+        assert 'name="price_kg"' in client.get("/recepcion").text
+        self.recibir(client, price_kg="32")
+        with db.session_scope() as s:
+            assert all(p.landed_usd_per_kg == 32 for p in s.query(Primal))
+            assert s.query(Primal).count() == 2
+        assert "8017" in client.get("/despiece").text
+        # Y no hay nada esperando ni nadie a quien avisar.
+        assert t_sin_precio(client) == 0
+
+    def test_what_is_waiting_shows_up_on_the_front_screen(self, client):
+        signup(client)
+        paco = add_user(client, email="paco@marina.com", name="Paco", role=Role.BUTCHER)
+        self.recibir(paco)
+        assert t_sin_precio(client) == 2
+        assert "2" in client.get("/hoy").text
+
+    # ------------------------------------------------------------- la foto
+    def test_a_piece_carries_the_photo_of_its_label(self, client, tmp_path, monkeypatch):
+        monkeypatch.setattr(meatapp, "UPLOAD_DIR", str(tmp_path / "subidas"))
+        signup(client)
+        self.recibir(client, price_kg="32")
+        token = csrf_from(client.get("/recepcion").text)
+
+        r = client.post("/carne/8017/foto", data={"csrf": token, "next": "/recepcion"},
+                        files={"foto": ("etiqueta.png", PNG, "image/png")})
+        assert r.status_code == 303
+        with db.session_scope() as s:
+            guardada = s.query(Primal).filter_by(serial="8017").one().photo_ref
+            assert guardada and os.path.exists(guardada)
+
+        # Se sirve, pero solo a gente de esta casa y no desde /static.
+        foto = client.get("/carne/8017/etiqueta")
+        assert foto.status_code == 200 and foto.content == PNG
+        assert "/static/" not in client.get("/trazabilidad?serial=8017").text.split(
+            "etiqueta")[0][-120:]
+
+    def test_a_second_photo_replaces_the_first_and_the_old_file_goes(self, client,
+                                                                     tmp_path, monkeypatch):
+        monkeypatch.setattr(meatapp, "UPLOAD_DIR", str(tmp_path / "subidas"))
+        signup(client)
+        self.recibir(client, price_kg="32")
+        token = csrf_from(client.get("/recepcion").text)
+        client.post("/carne/8017/foto", data={"csrf": token},
+                    files={"foto": ("uno.png", PNG, "image/png")})
+        with db.session_scope() as s:
+            primera = s.query(Primal).filter_by(serial="8017").one().photo_ref
+        client.post("/carne/8017/foto", data={"csrf": token},
+                    files={"foto": ("dos.png", PNG, "image/png")})
+        with db.session_scope() as s:
+            segunda = s.query(Primal).filter_by(serial="8017").one().photo_ref
+        assert segunda != primera
+        assert os.path.exists(segunda) and not os.path.exists(primera)
+
+    def test_a_file_that_is_not_a_photo_is_refused(self, client, tmp_path, monkeypatch):
+        monkeypatch.setattr(meatapp, "UPLOAD_DIR", str(tmp_path / "subidas"))
+        signup(client)
+        self.recibir(client, price_kg="32")
+        token = csrf_from(client.get("/recepcion").text)
+        r = client.post("/carne/8017/foto", data={"csrf": token},
+                        files={"foto": ("virus.exe", b"MZ", "application/x-msdownload")})
+        assert r.status_code == 303
+        with db.session_scope() as s:
+            assert s.query(Primal).filter_by(serial="8017").one().photo_ref is None
+
+
+def t_sin_precio(client) -> int:
+    from thegrill.meat import service as meatsvc
+    with db.session_scope() as s:
+        casa = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        return len(meatsvc.awaiting_price(s, casa.id))
+
+
+# Un PNG de un píxel: lo justo para que el navegador y el programa lo den por foto.
+PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06"
+       b"\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05"
+       b"\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")

@@ -32,6 +32,12 @@
   </div>
 
   <h2>{{ t("m.tg.primals") }}</h2>
+  {# Las que están en la cámara pero todavía no valen nada no salen en la
+     lista. Decirlo evita el rato de buscar una pieza que sabes que entró. #}
+  {% if sin_precio %}
+  <div class="banner warn">{{ t("m.home.no_price", n=sin_precio) }}{% if can("money") %}
+    <a href="/recepcion/precios">{{ t("m.price.nav") }}</a>{% endif %}</div>
+  {% endif %}
   {% if primals %}
   <div class="card scroll" style="margin:0 0 14px">
   <table>

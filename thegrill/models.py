@@ -487,9 +487,19 @@ class Primal(TenantMixin, Base):
     status: Mapped[PrimalStatus] = mapped_column(Enum(PrimalStatus), default=PrimalStatus.IN_STOCK)
     status_ref: Mapped[str | None] = mapped_column(String(16))
     status_date: Mapped[date | None] = mapped_column(Date)
+    # ---- lo que viene escrito en la etiqueta del proveedor, pieza a pieza.
+    # Dos bolsas de la misma caja no son la misma carne: pueden traer distinto
+    # número de canal, distinta fecha de sacrificio y distinta calificación. Lo
+    # que se copia de aquí es lo que contesta «¿de dónde salió esta pieza?»
+    # cuando lo preguntan por teléfono, y sin ello el recorrido empieza en el
+    # muelle en vez de en el matadero.
     label_product: Mapped[str | None] = mapped_column(String(128))
-    producer_plant: Mapped[str | None] = mapped_column(String(128))
-    est_code: Mapped[str | None] = mapped_column(String(32))
+    # El número de la etiqueta del proveedor: el que traza al animal o al grupo.
+    # No es nuestro lote de recepción —ese lo ponemos nosotros—, es el suyo.
+    supplier_lot: Mapped[str | None] = mapped_column(String(48), index=True)
+    producer_plant: Mapped[str | None] = mapped_column(String(128), index=True)
+    est_code: Mapped[str | None] = mapped_column(String(32), index=True)
+    breed: Mapped[str | None] = mapped_column(String(48))
     slaughter_date: Mapped[date | None] = mapped_column(Date)
     pack_date: Mapped[date | None] = mapped_column(Date)
     expiry_label: Mapped[date | None] = mapped_column(Date)

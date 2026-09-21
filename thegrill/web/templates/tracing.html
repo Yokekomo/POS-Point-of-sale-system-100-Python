@@ -28,7 +28,33 @@
    {{ t("trace.received") }}: {{ h.received or "—" }} ·
    {{ h.weight_kg }} kg{% if can("money") %} · {{ t("trace.cost") }}: {{ "%.2f"|format(h.cost) }}{% endif %}
    {% if h.sold_out %}<span class="tag ok">{{ t("trace.sold_out") }}</span>{% endif %}
+   {% if h.awaiting_price %}<span class="tag warn">{{ t("m.price.waiting") }}</span>{% endif %}
    {% if h.suspect_phantom %}<span class="tag bad">{{ t("trace.suspect") }}</span>{% endif %}</p>
+
+{# El principio del recorrido: de dónde salió esta carne antes de ser nuestra. #}
+<h2>{{ t("trace.origin") }}</h2>
+<div class="card">
+{% if h.label %}
+  <dl class="terms">
+  {% if h.label.supplier_lot %}<dt>{{ t("m.rec.supplier_lot") }}</dt><dd>{{ h.label.supplier_lot }}</dd>{% endif %}
+  {% if h.label.producer_plant %}<dt>{{ t("m.rec.plant") }}</dt><dd>{{ h.label.producer_plant }}</dd>{% endif %}
+  {% if h.label.est_code %}<dt>{{ t("m.rec.est") }}</dt><dd>{{ h.label.est_code }}</dd>{% endif %}
+  {% if h.label.origin %}<dt>{{ t("m.rec.origin") }}</dt><dd>{{ h.label.origin }}</dd>{% endif %}
+  {% if h.label.breed %}<dt>{{ t("m.rec.breed") }}</dt><dd>{{ h.label.breed }}</dd>{% endif %}
+  {% if h.label.grade %}<dt>{{ t("m.rec.grade") }}</dt><dd>{{ h.label.grade }}</dd>{% endif %}
+  {% if h.label.slaughter_date %}<dt>{{ t("m.rec.slaughter") }}</dt><dd>{{ h.label.slaughter_date }}</dd>{% endif %}
+  {% if h.label.pack_date %}<dt>{{ t("m.rec.pack") }}</dt><dd>{{ h.label.pack_date }}</dd>{% endif %}
+  {% if h.label.label_product %}<dt>{{ t("m.rec.label_name") }}</dt><dd>{{ h.label.label_product }}</dd>{% endif %}
+  {% if h.label.halal %}<dt>{{ t("m.rec.halal") }}</dt><dd>✓</dd>{% endif %}
+  </dl>
+  {% if h.label.has_photo %}
+  <p style="margin-top:12px"><a href="/carne/{{ h.serial }}/etiqueta" target="_blank"
+     rel="noopener">{{ t("m.rec.photo_seen") }}</a></p>
+  {% endif %}
+{% else %}
+  <div class="muted">{{ t("trace.no_label") }}</div>
+{% endif %}
+</div>
 
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
   {% if can("money") %}

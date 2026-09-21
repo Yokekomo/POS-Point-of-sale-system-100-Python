@@ -151,6 +151,33 @@ class ButcheryNode:
 
 
 @dataclass
+class Label:
+    """Lo que venía escrito en la etiqueta del proveedor.
+
+    Es el principio del recorrido: sin esto, la historia de una pieza empieza
+    en el muelle —«llegó y costó tanto»— y no contesta de dónde salió la carne,
+    que es lo que preguntan el día que hay un problema con un lote.
+    """
+    supplier_lot: str | None = None
+    producer_plant: str | None = None
+    est_code: str | None = None
+    breed: str | None = None
+    origin: str | None = None
+    grade: str | None = None
+    slaughter_date: date | None = None
+    pack_date: date | None = None
+    label_product: str | None = None
+    halal: bool | None = None
+    has_photo: bool = False
+
+    def __bool__(self) -> bool:
+        """Vacía si el proveedor no trajo etiqueta o nadie la copió."""
+        return any([self.supplier_lot, self.producer_plant, self.est_code, self.breed,
+                    self.origin, self.grade, self.slaughter_date, self.pack_date,
+                    self.label_product, self.halal, self.has_photo])
+
+
+@dataclass
 class PrimalHistory:
     serial: str
     sku: str
@@ -160,6 +187,8 @@ class PrimalHistory:
     cost: float
     received: date | None
     suspect_phantom: bool = False
+    awaiting_price: bool = False
+    label: Label = field(default_factory=Label)
     butchery: ButcheryNode | None = None
 
     # --- resumen
@@ -205,6 +234,14 @@ class PrimalHistory:
 
     @property
     def sold_out(self) -> bool:
+        """Agotada es haberla vendido, no no haberla cortado todavía.
+
+        Sin despiece no hay cortes, así que «lo que queda» sale cero y una
+        pieza recién recibida, entera y colgada en la cámara, se anunciaba como
+        agotada.
+        """
+        if self.butchery is None:
+            return False
         return self.remaining_kg <= EPSILON
 
     @property
@@ -268,7 +305,17 @@ def history(session: Session, restaurant_id: int, serial: str) -> PrimalHistory:
     out = PrimalHistory(serial=primal.serial, sku=primal.sku, status=primal.status.value,
                         lot=primal.lot, weight_kg=primal.weight_kg or 0.0,
                         cost=primal_cost(primal) or 0.0, received=primal.received_date,
-                        suspect_phantom=primal.suspect_phantom)
+                        suspect_phantom=primal.suspect_phantom,
+                        awaiting_price=primal.landed_usd_per_kg is None,
+                        label=Label(
+                            supplier_lot=primal.supplier_lot,
+                            producer_plant=primal.producer_plant,
+                            est_code=primal.est_code, breed=primal.breed,
+                            origin=primal.origin, grade=primal.grade,
+                            slaughter_date=primal.slaughter_date,
+                            pack_date=primal.pack_date,
+                            label_product=primal.label_product, halal=primal.halal,
+                            has_photo=bool(primal.photo_ref)))
 
     link = (session.query(DespiecePrimal)
             .filter_by(serial=primal.serial)
@@ -338,7 +385,13 @@ def search(session: Session, restaurant_id: int, term: str) -> list[Primal]:
     if not term:
         return []
     like = f"%{term}%"
+    # También por lo que trae la etiqueta del proveedor: quien llama para
+    # retirar algo no dice nuestro número de pieza —no lo conoce—, dice su
+    # lote, o el matadero, o el número de registro.
     return (session.query(Primal)
             .filter(Primal.restaurant_id == restaurant_id,
-                    (Primal.serial.ilike(like)) | (Primal.lot.ilike(like)))
+                    (Primal.serial.ilike(like)) | (Primal.lot.ilike(like))
+                    | (Primal.supplier_lot.ilike(like))
+                    | (Primal.producer_plant.ilike(like))
+                    | (Primal.est_code.ilike(like)))
             .order_by(Primal.serial).limit(50).all())

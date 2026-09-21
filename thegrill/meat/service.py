@@ -10,20 +10,24 @@ que una cocina de carne pueda trabajar sola:
 - la carta: un plato de carne es un corte y unos gramos, atado a su POS;
 - el resumen de lo que está pendiente hoy.
 """
+import os
 import re
+import uuid
 from dataclasses import dataclass, field
 from datetime import date
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from thegrill.models import (ConsumptionMode, CountStatus, Despiece, DespieceCut,
-                             DespiecePrimal, Ingredient, IngredientItem, IngredientLot,
-                             MeatCount, PosProduct, Primal, PrimalStatus, Recipe,
-                             RecipeKind, RecipeLine, Rotation, Storage, Unit, User)
+from thegrill.models import (AlertSeverity, ConsumptionMode, CountStatus, Despiece,
+                             DespieceCut, DespiecePrimal, Ingredient, IngredientItem,
+                             IngredientLot, MeatCount, NotificationKind, PosProduct,
+                             Primal, PrimalStatus, Recipe, RecipeKind, RecipeLine,
+                             Rotation, Storage, Unit, User)
 from thegrill.meat import novedades
 from thegrill.web import aging as aging_mod
 from thegrill.web import waste as waste_mod
+from thegrill.web import service as plataforma
 from thegrill.web import butchery, costing, defrost, inventory, locking, sites
 from thegrill.web.i18n import t
 
@@ -36,6 +40,7 @@ EXTRA = "extra"         # lo que acompaña en el plato: solo interesa su coste
 
 
 AUTO_TG = re.compile(r"^TG-\d{4}$")      # el que propone la pantalla
+TIPOS_FOTO = {v: k for k, v in plataforma.ALLOWED_IMAGE_TYPES.items()}
 
 
 class MeatError(ValueError):
@@ -52,6 +57,18 @@ class PrimalRow:
     grade: str | None = None
     origin: str | None = None
     use_by: date | None = None
+    # ---- la etiqueta del proveedor, la de esta pieza.
+    # Lo que es igual para todo el camión se escribe una vez arriba y se copia
+    # a cada línea; lo que cambia de una bolsa a otra —el número de canal, la
+    # fecha de sacrificio, la calificación— se escribe en su línea.
+    supplier_lot: str | None = None
+    producer_plant: str | None = None
+    est_code: str | None = None
+    breed: str | None = None
+    slaughter_date: date | None = None
+    pack_date: date | None = None
+    label_product: str | None = None
+    halal: bool | None = None
     # El número lo ha puesto la casa, no el proveedor: si otra recepción se
     # adelanta con ese mismo número, este se puede cambiar sin preguntar.
     auto: bool = False
@@ -146,6 +163,9 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
                 .filter_by(restaurant_id=user.restaurant_id, serial=serial).first()):
             raise MeatError(t(lang, "m.rec.dup", serial=serial))
 
+    for row in rows:
+        _check_label(row, received, lang)
+
     created = _save_primals(session, user, rows, lot, received, destino, chamber, lang)
     # Que se entere el que está en otra pantalla: en la cámara hay carne que
     # hace un minuto no estaba, y contar sin ella deja el inventario corto.
@@ -153,7 +173,32 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
                      label=_lo_que_mas_entro(created), pieces=len(created),
                      kg=sum(p.weight_kg or 0.0 for p in created),
                      site_id=destino.id if destino else None)
+    _ask_for_prices(session, user, created, lot, lang)
     return created
+
+
+def _ask_for_prices(session: Session, user: User, created: list[Primal], lot: str,
+                    lang: str) -> None:
+    """Si han entrado piezas sin precio, se le dice a dirección.
+
+    Sin esto, la pieza se queda en la cámara esperando un precio que nadie sabe
+    que hace falta: no se puede despiezar, y el día que alguien va a cortarla se
+    encuentra con que no está en la lista y no entiende por qué. El aviso va al
+    contador de la cabecera del manager, que es donde mira, y se queda ahí
+    hasta que lo lee.
+    """
+    faltan = [p for p in created if p.landed_usd_per_kg is None]
+    if not faltan:
+        return
+    destinatarios = [uid for uid in plataforma.manager_ids(session, user.restaurant_id)
+                     if uid != user.id]
+    if not destinatarios:
+        return
+    plataforma.notify(
+        session, user.restaurant_id, destinatarios,
+        title=t(lang, "notif.price_title", n=len(faltan)),
+        body=t(lang, "notif.price_body", n=len(faltan), lot=lot or "—", who=user.name),
+        severity=AlertSeverity.INFO, kind=NotificationKind.ALERT)
 
 
 def _lo_que_mas_entro(created: list[Primal]) -> str:
@@ -167,6 +212,24 @@ def _lo_que_mas_entro(created: list[Primal]) -> str:
     for pieza in created:
         cuenta[pieza.sku or ""] = cuenta.get(pieza.sku or "", 0) + 1
     return max(cuenta, key=lambda k: (cuenta[k], k)) if cuenta else ""
+
+
+def _check_label(row: PrimalRow, received: date, lang: str) -> None:
+    """Las fechas de la etiqueta tienen que poder haber pasado, y en orden.
+
+    Un dato de etiqueta mal tecleado es peor que no tenerlo: se guarda, nadie
+    lo vuelve a mirar, y el día que hay que contestar de dónde salió la pieza
+    se contesta mal. Una fecha de sacrificio de la semana que viene, o una
+    carne envasada antes de sacrificarla, es un dedo en el teclado.
+    """
+    sacrificio, envasado = row.slaughter_date, row.pack_date
+    if sacrificio and sacrificio > received:
+        raise MeatError(t(lang, "m.rec.bad_slaughter", serial=row.serial.strip() or "—"))
+    if envasado and envasado > received:
+        raise MeatError(t(lang, "m.rec.bad_pack", serial=row.serial.strip() or "—"))
+    if sacrificio and envasado and sacrificio > envasado:
+        raise MeatError(t(lang, "m.rec.pack_before_slaughter",
+                          serial=row.serial.strip() or "—"))
 
 
 def _save_primals(session: Session, user: User, rows: list[PrimalRow], lot: str,
@@ -225,7 +288,12 @@ def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: st
             chamber=(chamber or "").strip()[:48] or None,
             landed_usd_per_kg=row.price_kg,
             piece_cost_usd=round(row.kg * row.price_kg, 4) if row.price_kg else None,
-            frozen_use_by=row.use_by, status=PrimalStatus.IN_STOCK)
+            frozen_use_by=row.use_by, status=PrimalStatus.IN_STOCK,
+            supplier_lot=(row.supplier_lot or None),
+            producer_plant=(row.producer_plant or None),
+            est_code=(row.est_code or None), breed=(row.breed or None),
+            slaughter_date=row.slaughter_date, pack_date=row.pack_date,
+            label_product=(row.label_product or None), halal=row.halal)
         session.add(primal)
         created.append(primal)
     session.flush()
@@ -233,19 +301,107 @@ def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: st
 
 
 def primals_in_stock(session: Session, restaurant_id: int,
-                     site_id: int | None = None) -> list[Primal]:
+                     site_id: int | None = None,
+                     priced_only: bool = False) -> list[Primal]:
     """Las piezas enteras que todavía se pueden despiezar.
 
     Con sede, las que están en esa sede: el local corta lo suyo, no lo que
     está colgado en el obrador.
+
+    `priced_only` deja fuera las que todavía no tienen precio. Están en la
+    cámara y se ven en la cámara —existen, pesan y ocupan sitio—, pero no se
+    pueden despiezar: el despiece reparte el coste del primal entre los cortes,
+    y repartir cero es perder el rastro del dinero sin que salte nada.
     """
     rows = (session.query(Primal)
             .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK)
             .order_by(Primal.sku, Primal.serial).all())
+    if priced_only:
+        rows = [p for p in rows if p.landed_usd_per_kg is not None]
     if not site_id:
         return rows
     principal = sites.main(session, restaurant_id).id
     return [p for p in rows if (p.site_id or principal) == site_id]
+
+
+def awaiting_price(session: Session, restaurant_id: int,
+                   site_id: int | None = None) -> list[Primal]:
+    """Las piezas que han entrado y todavía no valen nada.
+
+    En el muelle se apunta lo que llega: qué es, cuánto pesa, de qué calidad y
+    de dónde viene. El precio no lo sabe quien descarga —ni tiene por qué: el
+    dinero es cosa de dirección— y viene en la factura, que llega después. Así
+    que la pieza entra sin precio, se ve en la cámara, y espera a que alguien
+    la active poniéndole el suyo.
+    """
+    rows = [p for p in session.query(Primal)
+            .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK)
+            .order_by(Primal.received_date.desc(), Primal.lot, Primal.serial)
+            if p.landed_usd_per_kg is None]
+    if not site_id:
+        return rows
+    principal = sites.main(session, restaurant_id).id
+    return [p for p in rows if (p.site_id or principal) == site_id]
+
+
+def set_price(session: Session, user: User, serial: str, price_kg: float,
+              lang: str = "es") -> Primal:
+    """Activa una pieza: le pone el precio del kilo y con él su coste.
+
+    Ese coste es el que el despiece reparte después entre los cortes, así que
+    ponerlo mal aquí desordena el dinero de todo lo que salga de la pieza. Por
+    eso solo lo toca quien ve dinero, y por eso no se deja en blanco ni en cero.
+    """
+    pieza = (session.query(Primal)
+             .filter_by(restaurant_id=user.restaurant_id, serial=(serial or "").strip())
+             .first())
+    if pieza is None:
+        raise MeatError(t(lang, "m.rec.no_piece", serial=serial))
+    if price_kg is None or price_kg <= 0:
+        raise MeatError(t(lang, "m.rec.price_needed", serial=pieza.serial))
+    pieza.landed_usd_per_kg = float(price_kg)
+    pieza.piece_cost_usd = round((pieza.received_kg or pieza.weight_kg or 0.0) * price_kg, 4)
+    session.flush()
+    return pieza
+
+
+def photo_type(path: str) -> str:
+    """El tipo de la foto, por su extensión: es la que pusimos al guardarla."""
+    return TIPOS_FOTO.get(os.path.splitext(path)[1].lower(), "application/octet-stream")
+
+
+def store_label_photo(session: Session, primal: Primal, content_type: str,
+                      payload: bytes, upload_dir: str, lang: str = "es") -> Primal:
+    """Guarda la foto de la etiqueta de una pieza y la cuelga de ella.
+
+    Una sola por pieza: la etiqueta es una. Si se vuelve a hacer —porque la
+    primera salió movida, que en una cámara pasa— la nueva sustituye a la
+    vieja y el fichero de antes se borra, que si no el disco se llena de
+    fotos que no mira nadie.
+    """
+    if content_type not in plataforma.ALLOWED_IMAGE_TYPES:
+        raise MeatError(t(lang, "valid.photo_type", type=content_type or "—"))
+    if not payload:
+        raise MeatError(t(lang, "valid.photo_empty"))
+    if len(payload) > plataforma.MAX_UPLOAD_BYTES:
+        raise MeatError(t(lang, "valid.photo_too_big",
+                          n=plataforma.MAX_UPLOAD_BYTES // (1024 * 1024)))
+
+    carpeta = os.path.join(upload_dir, str(primal.restaurant_id), "etiquetas")
+    os.makedirs(carpeta, exist_ok=True)
+    destino = os.path.join(carpeta, f"{uuid.uuid4().hex}"
+                                    f"{plataforma.ALLOWED_IMAGE_TYPES[content_type]}")
+    with open(destino, "wb") as fh:
+        fh.write(payload)
+    anterior = primal.photo_ref
+    primal.photo_ref = destino
+    session.flush()
+    if anterior and anterior != destino and os.path.exists(anterior):
+        try:
+            os.remove(anterior)
+        except OSError:
+            pass              # si no se deja borrar, mejor una foto de más
+    return primal
 
 
 def recent_primals(session: Session, restaurant_id: int, limit: int = 50) -> list[Primal]:
@@ -450,6 +606,14 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
     piezas = (session.query(Primal)
               .filter(Primal.restaurant_id == user.restaurant_id,
                       Primal.serial.in_(serials)).all())
+    # Una pieza sin precio no se despieza. El despiece reparte el coste del
+    # primal entre los cortes por su índice de valor; si la pieza vale cero,
+    # todos los cortes salen a cero y el rastro del dinero se pierde ahí, sin
+    # que nada avise. Se para aquí y no solo en la lista de la pantalla, porque
+    # un formulario escrito a mano se salta la lista.
+    sin_precio = [p.serial for p in piezas if p.landed_usd_per_kg is None]
+    if sin_precio:
+        raise MeatError(t(lang, "m.tg.no_price", serial=", ".join(sorted(sin_precio))))
     principal = sites.main(session, user.restaurant_id).id
     donde = {(p.site_id or principal) for p in piezas}
     mia = sites.of_user(session, user)
@@ -854,6 +1018,7 @@ class Today:
     stock_value: float = 0.0
     thawing: int = 0
     uncounted: int = 0
+    no_price: int = 0
     open_count: MeatCount | None = None
     month_due: bool = False
     aging: aging_mod.Summary | None = None
@@ -900,8 +1065,13 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
     open_count = inventory.open_now(session, restaurant_id, site_id)
     unposted = (session.query(Despiece)
                 .filter_by(restaurant_id=restaurant_id, posted=False).count())
+    # Piezas en la cámara que todavía no valen nada: no se pueden despiezar y
+    # nadie se entera hasta que alguien va a cortarlas y no están en la lista.
+    sin_precio = awaiting_price(session, restaurant_id, site_id=site_id)
 
     pending = []
+    if sin_precio:
+        pending.append(t(lang, "m.home.no_price", n=len(sin_precio)))
     if uncounted:
         pending.append(t(lang, "m.home.defrost_open", n=len(uncounted)))
     if not month.done:
@@ -919,6 +1089,7 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
         pending.append(t(lang, "m.home.aging_unweighed", n=len(stale)))
 
     return Today(status=status, pending=pending, stock_value=value,
+                 no_price=len(sin_precio),
                  thawing=len(thawing), uncounted=len(uncounted),
                  open_count=open_count, month_due=not month.done,
                  aging=aging_mod.summary(session, restaurant_id, on=on, site_id=site_id,

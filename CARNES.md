@@ -234,11 +234,55 @@ caducan y despieces empezados sin volcar. Debajo, primales, kilos en cámara y
 el valor de lo que hay.
 
 **Recepción.** Los primales llegan en grupo, bajo un lote de recepción común.
-Cada pieza recibe su número y su coste, y el precio puede ser distinto por
-pieza. Dos piezas no pueden compartir número: o entra el lote entero, o no
-entra nada. La pantalla abre con ocho líneas y se añaden las que hagan falta
-—hasta sesenta, un camión— sin perder lo ya escrito: el corte se pone una vez
-arriba y solo se repite en la línea de la pieza que sea distinta.
+Dos piezas no pueden compartir número: o entra el lote entero, o no entra nada.
+La pantalla abre con ocho fichas y se añaden las que hagan falta —hasta sesenta,
+un camión— sin perder lo ya escrito.
+
+**Una ficha por pieza, no una fila de una tabla.** Esto se rellena en el muelle
+con el móvil en una mano: en una tabla de ocho columnas hay que arrastrar de
+lado y se pierde de vista qué pieza estás escribiendo, que es exactamente como
+los kilos de una acaban en la de al lado. Cada pieza es un bloque con su número,
+su corte y sus kilos a la vista, y lo que solo cambia a veces se abre debajo.
+
+**Y con la etiqueta del proveedor delante.** El recorrido de la carne no empieza
+en el muelle: empieza en el matadero. Así que se copia lo que viene escrito en
+la etiqueta —matadero o productor, número de registro sanitario, raza, país,
+calidad, fecha de sacrificio, fecha de envasado, el nombre que le da el
+proveedor y si es halal— y **de cada pieza el suyo**, porque dos bolsas de la
+misma caja no son la misma carne: pueden traer distinto número de canal,
+distinta fecha de sacrificio y distinta calificación. Lo que es igual para todo
+el camión se escribe una vez arriba y se copia a cada ficha; lo que cambia, en
+la ficha que cambie.
+
+Las fechas se comprueban: una carne sacrificada después de llegar, o envasada
+antes de sacrificarla, es un dedo en el teclado. Y un dato de etiqueta mal
+tecleado es peor que no tenerlo, porque se guarda, no lo vuelve a mirar nadie, y
+el día que hay que contestar de dónde salió la pieza se contesta mal.
+
+**Y una foto de la etiqueta por pieza**, con la cámara del móvil, desde la misma
+pantalla. Es el respaldo de lo tecleado: el día que un número no cuadre, la
+etiqueta está. La foto va aparte del formulario y no por la cola de sin
+cobertura —ahí caben textos, no ficheros de tres megas— así que la recepción se
+guarda igual sin señal y las fotos suben cuando hay línea. No se sirven desde
+`/static`: cada una pasa por una ruta que primero mira de qué casa es quien la
+pide.
+
+**El precio no lo pone el muelle.** Quien descarga apunta lo que llega; el
+dinero es de dirección y además llega después, en la factura. Así que al
+carnicero no se le enseña la casilla del precio, y si la escribe a mano en el
+formulario no entra. La pieza queda **esperando precio**: está en la cámara, se
+ve en la cámara, y **no se puede despiezar**, porque el despiece reparte el
+coste del primal entre los cortes y repartir cero es perder el rastro del dinero
+sin que salte nada. Se para en el motor y no solo en la lista de la pantalla,
+que un formulario escrito a mano se salta la lista.
+
+A dirección le salta el aviso en el contador de la cabecera —«3 piezas esperando
+precio», con el lote y quién las recibió— y en **Precios pendientes** las activa:
+el mismo precio para todas, que es lo que trae un albarán, y el suyo a la que
+sea distinta. Cada pieza se enseña ahí con lo que hace falta para ponerle
+precio: qué es, cuánto pesa, de qué calidad, de dónde viene y su etiqueta
+entera. Si quien recibe es el manager, lo pone de una vez y se ahorra el
+segundo paso.
 
 **Despiece.** Se marcan las piezas que entran, se escriben hasta diez cortes
 con sus piezas y sus gramos, y se vuelca a cámara. Cada corte sale con **serial
@@ -415,6 +459,13 @@ porción. Nadie en una cocina dice «0,2 kg de patata».
 
 **Ventas.** Lo vendido descuenta de cámara por rotación, plato a plato, dejando
 escrito a qué plato fue cada salida: sin eso no hay food cost por pieza.
+
+**Trazabilidad: la ficha abre por de dónde viene.** Antes de los cortes, las
+ventas y el margen, la historia de una pieza enseña su etiqueta: lote del
+proveedor, matadero, registro sanitario, país, raza, calidad, sacrificio,
+envasado y la foto. Y el buscador encuentra por todo eso —no solo por nuestro
+número—, porque quien llama para retirar un lote no sabe cómo lo numeramos
+nosotros: sabe su lote, o el matadero, o el número de registro.
 
 **Inventario, merma y trazabilidad.** Los mismos de la plataforma de cocina:
 inventario mensual que re-ancla el stock, merma que la paga lo que queda del
@@ -936,10 +987,17 @@ de la versión siguiente.
 
 ## Por dónde seguir
 
-1. Que el traslado entre sedes pueda ir en camino: hoy sale de una cámara y
+1. **La etiqueta que sale**, no solo la que entra: imprimir la del corte
+   —serial, lote de origen, fecha de despiece, consumo preferente y un QR que
+   abra su trazabilidad— para pegarla en la bolsa. Sin ella la cadena vive solo
+   en el ordenador y en la cámara se hace FEFO de memoria.
+2. **La retirada de un lote, hacia delante**: hoy se pregunta de dónde viene una
+   pieza; la llamada que llega un martes es la contraria —«el lote está
+   retirado, ¿dónde ha ido?»— y hay que ir pieza a pieza.
+3. Que el traslado entre sedes pueda ir en camino: hoy sale de una cámara y
    entra en la otra en el mismo momento, y un grupo con reparto quiere saber
-   qué hay en la furgoneta.
-2. Caducidades y etiquetas por sede en el parte del día, para el pase de cada
+   qué hay en la furgoneta y qué llegó de verdad.
+4. Caducidades y etiquetas por sede en el parte del día, para el pase de cada
    local.
-3. Las fotos de la portada: dejar `primal`, `cortes` y `plato` en
+5. Las fotos de la portada: dejar `primal`, `cortes` y `plato` en
    `thegrill/meat/static/fotos/`.

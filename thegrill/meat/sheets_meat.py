@@ -38,15 +38,22 @@ class Sheet:
 
 
 SHEETS: list[Sheet] = [
+    # El papel del muelle lleva las mismas columnas que la pantalla, la etiqueta
+    # del proveedor incluida: si el papel no la pide, nadie la copia luego.
     Sheet("recepcion", "m.rec.title", "m.rec.sub", [
         Column("m.rec.lot", "DXB20260910", 18),
         Column("m.rec.serial", "8017", 12),
         Column("m.rec.sku", "Striploin AUS", 24),
+        Column("m.rec.kg", "9,4", 10),
         Column("m.rec.grade", "MB9+", 10),
         Column("m.rec.origin", "AUS", 10),
-        Column("m.rec.kg", "9,4", 10),
-        Column("m.rec.price_kg", "32,00", 12),
+        Column("m.rec.supplier_lot", "L-88213", 16),
+        Column("m.rec.plant", "Teys Biloela", 22),
+        Column("m.rec.est", "ES 10.00123/L", 16),
+        Column("m.rec.breed", "Angus", 12),
+        Column("m.rec.slaughter", "2026-08-30", 14),
         Column("m.rec.use_by", "2026-12-20", 14),
+        Column("m.rec.price_kg", "32,00", 12),
     ]),
     Sheet("despiece", "m.tg.title", "m.tg.sub", [
         Column("m.tg.number", "TG-0010", 12),

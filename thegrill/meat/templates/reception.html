@@ -20,34 +20,82 @@
       <input id="grade" name="grade" placeholder="MB9+"></div>
     <div><label for="origin">{{ t("m.rec.origin") }}</label>
       <input id="origin" name="origin" placeholder="AUS"></div>
+    {% if can("money") %}
     <div><label for="price_kg">{{ t("m.rec.price_kg") }}</label>
       <input id="price_kg" name="price_kg" inputmode="decimal"></div>
+    {% endif %}
     <div><label for="use_by">{{ t("m.rec.use_by") }}</label>
       <input id="use_by" name="use_by" type="date"></div>
   </div>
 
+  <h2>{{ t("m.rec.label") }}</h2>
+  <p class="help">{{ t("m.rec.label_sub") }}</p>
+  <div class="grid">
+    <div><label for="producer_plant" title="{{ t('m.rec.plant_help') }}">{{ t("m.rec.plant") }}</label>
+      <input id="producer_plant" name="producer_plant" title="{{ t('m.rec.plant_help') }}"></div>
+    <div><label for="est_code" title="{{ t('m.rec.est_help') }}">{{ t("m.rec.est") }}</label>
+      <input id="est_code" name="est_code" placeholder="ES 10.00123/L"
+             title="{{ t('m.rec.est_help') }}"></div>
+    <div><label for="breed">{{ t("m.rec.breed") }}</label>
+      <input id="breed" name="breed" placeholder="Angus"></div>
+    <div><label for="slaughter_date" title="{{ t('m.rec.slaughter_help') }}">{{ t("m.rec.slaughter") }}</label>
+      <input id="slaughter_date" name="slaughter_date" type="date"
+             title="{{ t('m.rec.slaughter_help') }}"></div>
+    <div><label for="pack_date">{{ t("m.rec.pack") }}</label>
+      <input id="pack_date" name="pack_date" type="date"></div>
+    <div><label for="label_product" title="{{ t('m.rec.label_name_help') }}">{{ t("m.rec.label_name") }}</label>
+      <input id="label_product" name="label_product" title="{{ t('m.rec.label_name_help') }}"></div>
+    <div class="rowflex" style="align-items:center;gap:10px">
+      <input id="halal" name="halal" type="checkbox" value="1">
+      <label for="halal" style="margin:0">{{ t("m.rec.halal") }}</label></div>
+  </div>
+
   <h2>{{ t("m.rec.serial") }}</h2>
   <p class="help">{{ t("m.rec.auto_help") }}</p>
-  <div class="scroll"><table id="piezas">
-  <tr><th title="{{ t('m.rec.serial_help') }}">{{ t("m.rec.serial") }}</th>
-      <th title="{{ t('m.rec.kg_help') }}">{{ t("m.rec.kg") }}</th>
-      <th title="{{ t('m.rec.price_help') }}">{{ t("m.rec.price_kg") }}</th>
-      <th title="{{ t('m.rec.row_sku_help') }}">{{ t("m.rec.row_sku") }}</th></tr>
+  {# Una ficha por pieza, no una fila de una tabla ancha. En el muelle esto se
+     rellena con el móvil en una mano: con ocho columnas hay que arrastrar de
+     lado y se pierde de vista qué pieza estás escribiendo, que es justo la
+     manera de meterle los kilos de una a otra. Lo de todos los días —número,
+     nombre y kilos— queda a la vista; lo que solo cambia a veces se abre. #}
+  <div id="piezas">
   {% for i in rows %}
-  <tr>
-    <td><input name="serial:{{ i }}" autocomplete="off" style="max-width:140px"
+  <fieldset class="pieza">
+    <div class="campos">
+      <label>{{ t("m.rec.serial") }}
+        <input name="serial:{{ i }}" autocomplete="off"
                placeholder="{{ serials[i] if serials|length > i else '' }}"
-               title="{{ t('m.rec.serial_help') }}"></td>
-    <td><input name="kg:{{ i }}" inputmode="decimal" style="max-width:110px"
-               title="{{ t('m.rec.kg_help') }}"></td>
-    <td><input name="price:{{ i }}" inputmode="decimal" style="max-width:110px"
-               title="{{ t('m.rec.price_help') }}"></td>
-    <td><input name="sku:{{ i }}" style="max-width:220px"
-               placeholder="{{ t('m.rec.row_sku_ph') }}"
-               title="{{ t('m.rec.row_sku_help') }}"></td>
-  </tr>
+               title="{{ t('m.rec.serial_help') }}"></label>
+      <label>{{ t("m.rec.row_sku") }}
+        <input name="sku:{{ i }}" placeholder="{{ t('m.rec.row_sku_ph') }}"
+               title="{{ t('m.rec.row_sku_help') }}"></label>
+      <label>{{ t("m.rec.kg") }}
+        <input name="kg:{{ i }}" inputmode="decimal"
+               title="{{ t('m.rec.kg_help') }}"></label>
+      {% if can("money") %}
+      <label>{{ t("m.rec.price_kg") }}
+        <input name="price:{{ i }}" inputmode="decimal"
+               title="{{ t('m.rec.price_help') }}"></label>
+      {% endif %}
+    </div>
+    <details class="masetq">
+      <summary>{{ t("m.rec.row_diff") }}</summary>
+      <p class="help">{{ t("m.rec.row_diff_help") }}</p>
+      <div class="campos">
+        <label>{{ t("m.rec.supplier_lot") }}
+          <input name="slot:{{ i }}" autocomplete="off"
+                 title="{{ t('m.rec.supplier_lot_help') }}"></label>
+        <label>{{ t("m.rec.grade") }}
+          <input name="grade:{{ i }}" title="{{ t('m.rec.row_grade_help') }}"></label>
+        <label>{{ t("m.rec.origin") }}
+          <input name="origin:{{ i }}"></label>
+        <label>{{ t("m.rec.slaughter") }}
+          <input name="slaughter:{{ i }}" type="date"
+                 title="{{ t('m.rec.row_slaughter_help') }}"></label>
+      </div>
+    </details>
+  </fieldset>
   {% endfor %}
-  </table></div>
+  </div>
   <div class="help">{{ t("m.rec.rows_help") }}</div>
   <div class="rowflex" style="margin:10px 0">
     <button class="ghost" type="button" id="masfilas" hidden
@@ -61,18 +109,18 @@
 </div>
 
 <script nonce="{{ nonce }}">
-// Un lote puede traer treinta piezas del mismo corte, y ocho lineas se quedan
-// cortas. Se anaden aqui, sin recargar: lo que ya este escrito se queda donde
-// esta, que es lo que importa cuando el camion espera en el muelle.
+// Un lote puede traer treinta piezas del mismo corte, y ocho fichas se quedan
+// cortas. Se añaden aquí, sin recargar: lo que ya esté escrito se queda donde
+// está, que es lo que importa cuando el camión espera en el muelle.
 (function () {
   var boton = document.getElementById("masfilas");
-  var tabla = document.getElementById("piezas");
-  if (!boton || !tabla) return;
+  var caja = document.getElementById("piezas");
+  if (!boton || !caja) return;
   var tope = {{ maximo }};
   boton.hidden = false;
 
   function siguiente(numero) {
-    // Los numeros de pieza se proponen seguidos: 8053, 8054, 8055…
+    // Los números de pieza se proponen seguidos: 8053, 8054, 8055…
     if (!/^\d+$/.test(numero)) return "";
     var ancho = numero.length;
     var uno = String(Number(numero) + 1);
@@ -81,55 +129,95 @@
   }
 
   boton.addEventListener("click", function () {
-    var filas = tabla.rows.length - 1;          // la primera es la cabecera
-    var ultima = tabla.rows[tabla.rows.length - 1];
+    var fichas = caja.querySelectorAll(".pieza");
+    var ultima = fichas[fichas.length - 1];
     var propuesto = ultima.querySelector("input[name^='serial:']").placeholder || "";
-    for (var n = 0; n < 8 && filas + n < tope; n++) {
+    for (var n = 0; n < 8 && fichas.length + n < tope; n++) {
       var nueva = ultima.cloneNode(true);
-      var indice = filas + n;
+      var indice = fichas.length + n;
       propuesto = siguiente(propuesto);
+      // Plegado: se abre solo la que tenga algo distinto que decir.
+      var mas = nueva.querySelector("details");
+      if (mas) mas.open = false;
       nueva.querySelectorAll("input").forEach(function (campo) {
         campo.name = campo.name.replace(/:\d+$/, ":" + indice);
         campo.value = "";
         if (campo.name.indexOf("serial:") === 0) campo.placeholder = propuesto;
       });
-      tabla.appendChild(nueva);
+      caja.appendChild(nueva);
       ultima = nueva;
     }
-    if (tabla.rows.length - 1 >= tope) {
+    if (caja.querySelectorAll(".pieza").length >= tope) {
       boton.hidden = true;
       boton.insertAdjacentHTML("afterend",
         '<span class="help">' + {{ t("m.rec.rows_max", n="TOPE") | tojson }}
         .replace("TOPE", tope) + "</span>");
     }
-    tabla.rows[tabla.rows.length - 8 > 0 ? tabla.rows.length - 8 : 1]
-      .querySelector("input").focus();
+    var todas = caja.querySelectorAll(".pieza");
+    var vuelta = todas[todas.length - 8] || todas[0];
+    if (vuelta) vuelta.querySelector("input").focus();
   });
 })();
 </script>
 
 <h2>{{ t("m.rec.recent") }}</h2>
+<p class="help">{{ t("m.rec.photo_help") }}</p>
+{% if foto %}<div class="banner bad">{{ foto }}</div>{% endif %}
 <div class="card scroll">
 <table>
 <tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.row_sku") }}</th><th>{{ t("m.rec.lot") }}</th>
     <th class="num">kg</th>
     {% if can("money") %}<th class="num">{{ t("m.rec.cost") }}</th>{% endif %}
+    <th>{{ t("m.rec.photo") }}</th>
     <th>{{ t("common.status") }}</th></tr>
 {% for p in recent %}
 <tr>
   <td><a href="/trazabilidad?serial={{ p.serial }}">{{ p.serial }}</a></td>
   <td>{{ p.sku }}{% if p.grade %} <span class="muted">{{ p.grade }}</span>{% endif %}
       {% if p.origin %} <span class="muted">{{ p.origin }}</span>{% endif %}</td>
-  <td class="muted">{{ p.lot or "" }}</td>
+  <td class="muted">{{ p.lot or "" }}{% if p.supplier_lot %}
+      <div class="muted">{{ p.supplier_lot }}</div>{% endif %}</td>
   <td class="num">{{ "%.2f"|format(p.weight_kg) }}</td>
   {% if can("money") %}
   <td class="num">{% if p.piece_cost_usd %}{{ "%.2f"|format(p.piece_cost_usd) }}{% endif %}</td>
   {% endif %}
-  <td><span class="tag {{ 'ok' if p.status.value == 'IN_STOCK' else '' }}">{{ p.status.value }}</span></td>
+  {# Una foto por pieza. El fichero no cabe en la cola de sin cobertura, así
+     que esto es su propio envío: lo escrito ya está guardado pase lo que pase
+     con la foto. #}
+  <td>
+    <form method="post" action="/carne/{{ p.serial }}/foto" enctype="multipart/form-data"
+          style="margin:0" class="fotoform">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="next" value="/recepcion">
+      <input type="file" name="foto" accept="image/*" capture="environment"
+             id="foto-{{ p.serial }}" hidden>
+      <label class="btn ghost" for="foto-{{ p.serial }}">{% if p.photo_ref %}{{ t("m.rec.photo_again") }}{% else %}{{ t("m.rec.photo_add") }}{% endif %}</label>
+      <noscript><button class="ghost" type="submit">{{ t("common.save") }}</button></noscript>
+    </form>
+    {% if p.photo_ref %}<a class="muted" href="/carne/{{ p.serial }}/etiqueta"
+        target="_blank" rel="noopener">{{ t("m.rec.photo_seen") }}</a>{% endif %}
+  </td>
+  <td>{% if p.status.value == 'IN_STOCK' and p.landed_usd_per_kg is none %}
+      <span class="tag warn">{{ t("m.price.waiting") }}</span>
+      {% else %}
+      <span class="tag {{ 'ok' if p.status.value == 'IN_STOCK' else '' }}">{{ p.status.value }}</span>
+      {% endif %}</td>
 </tr>
 {% else %}
-<tr><td colspan="6" class="muted">{{ t("m.rec.none") }}</td></tr>
+<tr><td colspan="8" class="muted">{{ t("m.rec.none") }}</td></tr>
 {% endfor %}
 </table>
 </div>
+
+<script nonce="{{ nonce }}">
+// Elegir la foto la manda: un botón más para confirmar sobra cuando lo que se
+// acaba de hacer es apuntar con la cámara a la etiqueta.
+(function () {
+  document.querySelectorAll("form.fotoform input[type=file]").forEach(function (campo) {
+    campo.addEventListener("change", function () {
+      if (campo.files && campo.files.length) campo.form.submit();
+    });
+  });
+})();
+</script>
 {% endblock %}
