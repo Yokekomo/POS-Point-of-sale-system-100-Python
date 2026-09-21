@@ -460,13 +460,21 @@ porción. Nadie en una cocina dice «0,2 kg de patata».
 **Ventas.** Lo vendido descuenta de cámara por rotación, plato a plato, dejando
 escrito a qué plato fue cada salida: sin eso no hay food cost por pieza.
 
-**La ficha de una pieza, entera.** Al abrir un primal sale, en este orden: su
-etiqueta —de dónde viene—, lo que dejó la pieza en total, y debajo **el
-desglose de todos los cortes que salieron de ella**. De cada corte: cuántas
+**La ficha de una pieza, entera.** Al abrir un primal sale, en este orden: **la
+foto de su etiqueta** —la que se hizo en el muelle, a tamaño de leerla— con los
+datos que se copiaron de ella, lo que dejó la pieza en total, y debajo **el
+desglose de todos los cortes que salieron de ella**. El despiece dice el
+rendimiento, los kilos que fueron a cortes, **cuántas raciones salieron y a
+cuántos gramos de media**, la merma y lo aprovechado. De cada corte: cuántas
 piezas salieron y a qué peso medio —con el desvío contra el peso de carta—, lo
-vendido, **lo que queda**, lo tirado, lo que se fue a otra sede, y las ventas
-una a una con su día y su plato. El despiece dice el rendimiento, los kilos que
-fueron a cortes, la merma y lo aprovechado.
+vendido, **lo que queda**, lo tirado y lo que se fue a otra sede.
+
+**Y dónde ha ido cada corte**, junto y por plato: «HAMBURGUESA · 0,540 kg ·
+49,50 · TARTAR · 0,240 kg · 38,00». Con lo aprovechado es la pregunta de verdad
+—el recorte de un lomo caro acaba en la hamburguesa o en el tartar, y saber en
+cuál de los dos es lo que dice si ese recorte se está pagando—. Las ventas una
+a una, con su día, siguen estando, plegadas debajo: es el detalle, y casi nunca
+es lo que se viene a ver.
 
 **Y el dinero solo para dirección**: lo que ingresó cada corte, lo que costó lo
 vendido de él, **lo que se ha ganado con ese corte** y su food cost. Por corte y

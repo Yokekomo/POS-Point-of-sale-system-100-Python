@@ -446,3 +446,62 @@ def test_the_food_cost_inside_the_cut_label_is_only_for_who_sees_money():
     # Lo que sí es suyo se queda en las dos.
     for texto in (corte.label_with(True), corte.label_with(False)):
         assert "300 g" in texto and "MB9+" in texto and "AUS" in texto
+
+
+def test_a_butchery_says_how_many_portions_came_out_and_at_what_weight():
+    """De nueve kilos salieron treinta y ocho raciones, a 228 g de media.
+
+    Es el número con el que se mira un despiece de un vistazo y el que se
+    compara con el de la semana pasada. Lo que sale entero para cortarlo
+    delante del cliente no tiene raciones, y meter sus kilos en la media la
+    hunde sin que nadie haya cortado ancho ni estrecho.
+    """
+    from datetime import date as fecha
+
+    from thegrill.web.tracing import ButcheryNode, CutNode
+
+    despiece = ButcheryNode(
+        tg="TG-9100", date=fecha(2026, 9, 9), weight_before_kg=9.4, waste_kg=0.55,
+        trim_kg=0.6, total_cuts_kg=8.68, yield_pct=92.3, cuts=[
+            CutNode(serial="a", name="Entrecot", unit="KG", pieces=18, produced_kg=5.4),
+            CutNode(serial="b", name="Solomillo", unit="KG", pieces=10, produced_kg=2.2),
+            # A peso: entra entero en cámara y no se cuenta en la media.
+            CutNode(serial="c", name="Lomo a peso", unit="KG", pieces=None,
+                    produced_kg=1.08)])
+    assert despiece.pieces == 28
+    assert despiece.avg_piece_g == 271.4          # (5,4 + 2,2) kg entre 28
+
+    # Un despiece que sale entero a peso no se inventa una media.
+    solo_peso = ButcheryNode(tg="TG-1", date=fecha(2026, 9, 9), weight_before_kg=9.0,
+                             waste_kg=0.0, trim_kg=0.0, total_cuts_kg=9.0, yield_pct=100.0,
+                             cuts=[CutNode(serial="x", name="Lomo", unit="KG",
+                                           pieces=None, produced_kg=9.0)])
+    assert solo_peso.pieces == 0
+    assert solo_peso.avg_piece_g is None
+
+
+def test_a_cut_says_which_dishes_it_ended_up_in():
+    """La pregunta de verdad sobre lo aprovechado: ¿dónde ha ido?
+
+    El recorte de un lomo caro acaba en la hamburguesa o en el tartar, y saber
+    en cuál de los dos es lo que dice si ese recorte se está pagando. Las
+    ventas estaban una a una con su día: el detalle se veía y lo importante no.
+    """
+    from datetime import date as fecha
+
+    from thegrill.web.tracing import CutNode, SaleLine
+
+    corte = CutNode(serial="8017-04", name="Recorte de vacuno", unit="KG", is_trim=True,
+                    sales=[
+        SaleLine(date=fecha(2026, 9, 10), dish="HAMBURGUESA", kg=0.18, cost=1.0,
+                 revenue=16.5, source="pos"),
+        SaleLine(date=fecha(2026, 9, 11), dish="TARTAR", kg=0.12, cost=0.7,
+                 revenue=19.0, source="pos"),
+        SaleLine(date=fecha(2026, 9, 12), dish="HAMBURGUESA", kg=0.18, cost=1.0,
+                 revenue=16.5, source="pos")])
+
+    # Juntos por plato, y el que más carne se ha llevado, primero.
+    assert corte.by_dish == [("HAMBURGUESA", 0.36, 33.0), ("TARTAR", 0.12, 19.0)]
+
+    # Un corte que no se ha vendido no inventa platos.
+    assert CutNode(serial="x", name="y", unit="KG").by_dish == []

@@ -140,6 +140,25 @@ class CutNode:
         return round(self.sold_cost / self.revenue * 100, 2)
 
     @property
+    def by_dish(self) -> list[tuple[str, float, float]]:
+        """En qué platos ha acabado este corte: plato, kilos e ingreso.
+
+        Las ventas están una a una, con su día, y así se ve el detalle pero no
+        se ve lo importante. La pregunta que se hace de verdad es «¿dónde ha
+        ido?» —sobre todo con lo aprovechado: el recorte de un lomo de cien
+        euros el kilo acaba en la hamburguesa o en el tartar, y saber en cuál
+        de los dos es lo que dice si ese recorte se está pagando—.
+        """
+        juntos: dict[str, list[float]] = {}
+        for line in self.sales:
+            fila = juntos.setdefault(line.dish or "—", [0.0, 0.0])
+            fila[0] = round(fila[0] + line.kg, 6)
+            fila[1] = round(fila[1] + line.revenue, 4)
+        return [(plato, kg, round(ingreso, 2))
+                for plato, (kg, ingreso) in sorted(juntos.items(),
+                                                   key=lambda x: -x[1][0])]
+
+    @property
     def margin(self) -> float:
         """Lo ganado con este corte: lo cobrado menos lo que costó esa parte.
 
@@ -176,6 +195,30 @@ class ButcheryNode:
     yield_pct: float | None
     shared_with: list[str] = field(default_factory=list)   # otros primales del mismo TG
     cuts: list[CutNode] = field(default_factory=list)
+
+    @property
+    def pieces(self) -> int:
+        """Cuántas raciones salieron de la pieza, sumando todos los cortes.
+
+        Es el número con el que se mira un despiece de un vistazo: de nueve
+        kilos y medio salieron treinta y ocho raciones, y eso es lo que se
+        compara con el de la semana pasada.
+        """
+        return sum(c.pieces or 0 for c in self.cuts)
+
+    @property
+    def avg_piece_g(self) -> float | None:
+        """A cuántos gramos salió la ración media de este despiece.
+
+        Solo cuenta lo que sale en raciones: un corte que sale entero para
+        cortarlo delante del cliente no tiene piezas, y meter sus kilos en la
+        media la hunde sin que nadie haya cortado ancho ni estrecho.
+        """
+        piezas = self.pieces
+        if not piezas:
+            return None
+        kg = sum(c.produced_kg for c in self.cuts if c.pieces)
+        return round(kg * 1000 / piezas, 1) if kg > 0 else None
 
 
 @dataclass

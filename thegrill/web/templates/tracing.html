@@ -1,7 +1,10 @@
 {% extends "base.html" %}{% block title %}{{ t("trace.title") }}{% endblock %}
 {% block body %}
 <h1>{{ t("trace.title") }}</h1>
-<p class="sub">{{ t("trace.sub") }}</p>
+{# Explicar para qué sirve la pantalla solo hace falta cuando está vacía. Con
+   una pieza abierta —casi siempre se llega tocando su número, no buscando— son
+   tres líneas entre el título y lo que se viene a ver. #}
+{% if not history %}<p class="sub">{{ t("trace.sub") }}</p>{% endif %}
 
 <div class="card">
 <form method="get" action="/trazabilidad" class="rowflex">
@@ -35,6 +38,15 @@
 <h2>{{ t("trace.origin") }}</h2>
 <div class="card">
 {% if h.label %}
+  {# La etiqueta, primero y de verdad: la foto que se hizo en el muelle. Un
+     enlace que hay que pulsar no la enseña, y lo que se quiere aquí es
+     comparar de un vistazo lo tecleado con lo que pone el papel. #}
+  {% if h.label.has_photo %}
+  <a class="fotoetq" href="/carne/{{ h.serial }}/etiqueta" target="_blank" rel="noopener">
+    <img src="/carne/{{ h.serial }}/etiqueta" alt="{{ t('m.rec.photo') }} {{ h.serial }}"
+         loading="lazy">
+  </a>
+  {% endif %}
   <dl class="terms">
   {% if h.label.supplier_lot %}<dt>{{ t("m.rec.supplier_lot") }}</dt><dd>{{ h.label.supplier_lot }}</dd>{% endif %}
   {% if h.label.producer_plant %}<dt>{{ t("m.rec.plant") }}</dt><dd>{{ h.label.producer_plant }}</dd>{% endif %}
@@ -47,10 +59,6 @@
   {% if h.label.label_product %}<dt>{{ t("m.rec.label_name") }}</dt><dd>{{ h.label.label_product }}</dd>{% endif %}
   {% if h.label.halal %}<dt>{{ t("m.rec.halal") }}</dt><dd>✓</dd>{% endif %}
   </dl>
-  {% if h.label.has_photo %}
-  <p style="margin-top:12px"><a href="/carne/{{ h.serial }}/etiqueta" target="_blank"
-     rel="noopener">{{ t("m.rec.photo_seen") }}</a></p>
-  {% endif %}
 {% else %}
   <div class="muted">{{ t("trace.no_label") }}</div>
 {% endif %}
@@ -79,6 +87,9 @@
 <p class="sub">{{ h.butchery.date }} · {{ t("trace.yield") }}:
    {{ "%.1f"|format(h.butchery.yield_pct or 0) }}% ·
    {{ t("trace.cuts_total") }}: {{ "%.3f"|format(h.butchery.total_cuts_kg) }} kg ·
+   {% if h.butchery.pieces %}{{ h.butchery.pieces }} {{ t("meat.pieces")|lower }}{% if h.butchery.avg_piece_g %} ·
+     {{ t("trace.avg_piece") }} {{ "%.10g"|format(h.butchery.avg_piece_g) }} g{% endif %} ·
+   {% endif %}
    {{ t("trace.waste_kg") }}: {{ h.butchery.waste_kg }}
    {% if h.butchery.trim_kg %} · {{ t("trace.trim_kg") }}: {{ "%.3f"|format(h.butchery.trim_kg) }} kg{% endif %}
    {% if h.butchery.shared_with %} · {{ t("trace.shared") }}:
@@ -142,7 +153,26 @@
     {% endif %}
   </div>
 
+  {% if cut.by_dish %}
+  {# Dónde ha ido, junto y por plato. Con lo aprovechado es la pregunta de
+     verdad: el recorte de un lomo caro acaba en la hamburguesa o en el tartar,
+     y saber en cuál dice si ese recorte se está pagando. #}
+  <div style="margin-top:12px">
+    <div class="muted" style="font-size:12px;font-weight:600">{{ t("trace.went_to") }}</div>
+    <div class="rowflex" style="gap:8px;flex-wrap:wrap;margin-top:6px">
+    {% for plato, kg, ingreso in cut.by_dish %}
+      <span class="tag">{{ plato }} · {{ "%.3f"|format(kg) }} kg{% if can("money") %} ·
+        {{ "%.2f"|format(ingreso) }}{% endif %}</span>
+    {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   {% if cut.sales %}
+  {# El día a día, plegado: es largo y casi nunca es lo que se viene a ver. #}
+  <details style="margin-top:10px">
+    <summary class="muted" style="font-size:13px;cursor:pointer;padding:6px 0"
+      >{{ t("trace.sale_days") }} ({{ cut.sales|length }})</summary>
   <div class="scroll" style="margin-top:8px"><table>
   <tr><th>{{ t("common.date") }}</th><th>{{ t("trace.dish") }}</th>
       <th class="num">kg</th>
@@ -158,6 +188,7 @@
   </tr>
   {% endfor %}
   </table></div>
+  </details>
   {% endif %}
 </div>
 {% endfor %}

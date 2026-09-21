@@ -783,6 +783,8 @@ ES = {
     "trace.cuts_total": 'En cortes',
     "trace.moved": 'Se fue',
     "trace.trim_kg": 'Aprovechado',
+    "trace.went_to": 'Dónde ha ido',
+    "trace.sale_days": 'Las ventas, día a día',
 }
 
 
@@ -1453,6 +1455,8 @@ EN = {
     "trace.cuts_total": 'Into cuts',
     "trace.moved": 'Moved out',
     "trace.trim_kg": 'Kept as trim',
+    "trace.went_to": 'Where it went',
+    "trace.sale_days": 'The sales, day by day',
 }
 
 
@@ -2123,6 +2127,8 @@ FR = {
     "trace.cuts_total": 'En morceaux',
     "trace.moved": 'Parti',
     "trace.trim_kg": 'Récupéré',
+    "trace.went_to": 'Où elle est allée',
+    "trace.sale_days": 'Les ventes, jour par jour',
 }
 
 
@@ -2793,6 +2799,8 @@ DE = {
     "trace.cuts_total": 'In Teile',
     "trace.moved": 'Abgegangen',
     "trace.trim_kg": 'Verwertet',
+    "trace.went_to": 'Wohin es ging',
+    "trace.sale_days": 'Die Verkäufe, Tag für Tag',
 }
 
 
@@ -3463,6 +3471,8 @@ NL = {
     "trace.cuts_total": 'In delen',
     "trace.moved": 'Weggegaan',
     "trace.trim_kg": 'Benut',
+    "trace.went_to": 'Waar het heen is gegaan',
+    "trace.sale_days": 'De verkopen, dag voor dag',
 }
 
 
@@ -4133,6 +4143,8 @@ AR = {
     "trace.cuts_total": 'إلى أجزاء',
     "trace.moved": 'خرج',
     "trace.trim_kg": 'مستفاد منه',
+    "trace.went_to": 'إلى أين ذهب',
+    "trace.sale_days": 'المبيعات، يوماً بيوم',
 }
 
 
@@ -4791,6 +4803,8 @@ HU = {
     "trace.cuts_total": 'Szeletekbe',
     "trace.moved": 'Elment',
     "trace.trim_kg": 'Hasznosítva',
+    "trace.went_to": 'Hová került',
+    "trace.sale_days": 'Az eladások, naponként',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

@@ -75,6 +75,14 @@ p.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
 .cifras .dato .mas{display:block;font-size:12px;color:var(--muted);font-weight:400;
   margin-top:1px}
 .cifras .dato.dinero b{color:var(--accent)}
+/* La foto de la etiqueta del proveedor, dentro de la ficha de la pieza. Se ve,
+   no se enlaza: lo que se quiere es comparar de un vistazo lo que se tecleó
+   con lo que pone el papel, y un enlace que hay que pulsar no lo enseña.
+   Fondo blanco porque una etiqueta es papel: en modo oscuro, una foto
+   recortada sin fondo queda flotando en el negro. */
+a.fotoetq{display:block;margin:0 0 14px;border:1px solid var(--line);border-radius:12px;
+  overflow:hidden;background:#fff;max-width:420px}
+a.fotoetq img{display:block;width:100%;height:auto;max-height:340px;object-fit:contain}
 .kpi b{display:block;font-size:26px;letter-spacing:-.02em;line-height:1.1}
 .kpi span{color:var(--muted);font-size:13px}
 label{display:block;margin:14px 0 4px;font-size:14px;font-weight:550}
