@@ -508,6 +508,14 @@ def crawl(client, lang: str = "es", money: bool = True, extra: dict | None = Non
             if filtradas:
                 out.append(Finding("dinero_a_la_vista", ruta,
                                    ", ".join(t(lang, k) for k in filtradas)))
+        # El móvil es el sitio donde más se usa esto: cada pantalla tiene que
+        # declararse para pantalla pequeña y no puede prohibir el zoom, que es
+        # lo que necesita quien no ve de cerca.
+        meta = re.search(r'<meta name="viewport" content="([^"]+)"', response.text)
+        if meta is None:
+            out.append(Finding("sin_movil", ruta, "la pantalla no declara viewport"))
+        elif "user-scalable=no" in meta.group(1) or "maximum-scale" in meta.group(1):
+            out.append(Finding("zoom_prohibido", ruta, meta.group(1)))
     return out
 
 

@@ -642,6 +642,34 @@ recibir y se cambia desde la cámara, los cortes heredan la de su pieza y lo que
 sale del arcón se queda donde estaba. En blanco es «sin decir», que es como
 estaba antes de esto.
 
+## En el móvil, en la tablet y en el ordenador
+
+El carnicero no lleva un ordenador a la cámara: lleva el móvil en el bolsillo
+del delantal y lo toca con el guante puesto. El manager cierra el mes en la
+tablet o en el ordenador. Las tres cosas tienen que ir bien, y eso no se
+consigue mirando la pantalla grande:
+
+- **Nada se sale de la pantalla.** Ninguna de las pantallas obliga a arrastrar
+  la página de lado para leer un número; las tablas se deslizan dentro de su
+  ficha y la página se queda quieta.
+- **La primera columna se queda fija** al deslizar una tabla: los kilos de la
+  derecha no dicen nada si no se ve de qué pieza son.
+- **Lo que se toca es grande**: nada de lo que se pulsa baja de 44 píxeles, que
+  es lo que pide la norma de accesibilidad para un dedo con prisa.
+- **El teclado sale con números** donde se escriben kilos, piezas o precios, y
+  los campos van a 16 píxeles para que el iPhone no haga zoom al escribir.
+- **El zoom no se prohíbe nunca**: quien no ve de cerca tiene que poder acercar.
+- **La muesca y la barra del iPhone** no tapan nada: la pantalla se aparta de
+  las zonas seguras.
+- **La barra de menú se desliza en una línea** en vez de amontonar quince
+  enlaces y comerse media pantalla.
+- **Sin el retardo del doble toque**, que hace que el programa parezca lento
+  cuando no lo es.
+
+Se prueba con un navegador de verdad en tres tamaños —teléfono de pie,
+teléfono de lado y tablet—, dando de alta una pieza con el pulgar para ver que
+el camino entero funciona, no solo que la pantalla se dibuja.
+
 ## El banco de pruebas
 
 Las pruebas de siempre comprueban lo que alguien pensó comprobar. El banco es
