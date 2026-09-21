@@ -31,7 +31,7 @@ from thegrill.meat import service as meat
 from thegrill.models import (Billing, ConsumptionMode, Ingredient, IngredientLot,
                              IngredientMovement, MovementKind, Primal, PrimalStatus,
                              PrimalWeighing, Role, Site, SiteKind, Storage, User)
-from thegrill.web import aging, costing, defrost, inventory, sites, waste
+from thegrill.web import aging, auth, costing, defrost, inventory, sites, waste
 
 EPSILON = 1e-6
 TOLERANCE = 0.005          # cinco gramos: el redondeo de una balanza, no un agujero
@@ -114,8 +114,81 @@ def population(session: Session, houses: int = 50, days: int = 30, seed: int = 1
     return out
 
 
+PASSWORD = "clave-larga-1"       # en el banco toda la casa comparte contraseña
+DEMO_PASSWORD = "demo-2026"      # para probar, no para trabajar
+
+
+@dataclass
+class Account:
+    """Una cuenta de la demo, tal y como hay que escribirla para entrar."""
+    who: str
+    email: str
+    password: str
+    sees: str
+
+
+def demo(session: Session, days: int = 30, seed: int = 21,
+         until: date | None = None) -> list[Account]:
+    """Dos casas con un mes de trabajo dentro y las claves para entrar.
+
+    Una con obrador y dos locales, para ver los traslados y el conteo de cada
+    sede; otra de un solo local, que es como trabaja la mayoría. Las
+    contraseñas son iguales para todos y se dicen en voz alta: esto es para
+    probar, no para trabajar.
+    """
+    grupo = build(session, days=days, seed=seed, until=until, multisite=True, index=0,
+                  password=DEMO_PASSWORD, domain="demo")
+    asador = build(session, days=days, seed=seed + 1, until=until, multisite=False,
+                   index=1, password=DEMO_PASSWORD, domain="demo")
+    gente = []
+    for casa, etiqueta in ((grupo, "grupo"), (asador, "asador")):
+        for user in (session.query(User).filter_by(restaurant_id=casa.restaurant_id)
+                     .order_by(User.id)):
+            sede = of_site(session, user)
+            gente.append(Account(
+                who=f"{user.name} · {user.role.value.lower()} · {casa.name}",
+                email=user.email, password=DEMO_PASSWORD,
+                sees=(f"{etiqueta}: {sede}" if sede else f"{etiqueta}: la casa entera")))
+    dueno = session.query(User).filter_by(role=Role.OWNER).first()
+    if dueno is not None:
+        dueno.password_hash = auth.hash_password(DEMO_PASSWORD)
+        gente.insert(0, Account(who="Dueño de la plataforma", email=dueno.email,
+                                password=DEMO_PASSWORD,
+                                sees="las casas, el recibo y los fallos contados"))
+    session.flush()
+    return gente
+
+
+def demo_accounts(session: Session) -> list[Account]:
+    """Las cuentas de una demo ya montada, para volver a decir las claves."""
+    gente = []
+    dueno = session.query(User).filter_by(role=Role.OWNER).first()
+    if dueno is not None:
+        gente.append(Account(who="Dueño de la plataforma", email=dueno.email,
+                             password=DEMO_PASSWORD,
+                             sees="las casas, el recibo y los fallos contados"))
+    from thegrill.models import Restaurant
+    for casa in (session.query(Restaurant).filter(Restaurant.platform.isnot(True))
+                 .order_by(Restaurant.id)):
+        etiqueta = "grupo" if casa.name.startswith("Grupo") else "asador"
+        for user in (session.query(User).filter_by(restaurant_id=casa.id)
+                     .order_by(User.id)):
+            sede = of_site(session, user)
+            gente.append(Account(
+                who=f"{user.name} · {user.role.value.lower()} · {casa.name}",
+                email=user.email, password=DEMO_PASSWORD,
+                sees=(f"{etiqueta}: {sede}" if sede else f"{etiqueta}: la casa entera")))
+    return gente
+
+
+def of_site(session: Session, user: User) -> str:
+    sede = sites.of_user(session, user)
+    return sede.name if sede else ""
+
+
 def build(session: Session, days: int = 30, seed: int = 7, until: date | None = None,
-          multisite: bool = True, index: int = 0) -> Bench:
+          multisite: bool = True, index: int = 0, password: str = PASSWORD,
+          domain: str = "banco") -> Bench:
     """Levanta una casa y la hace trabajar. Misma semilla, mismo mes.
 
     Cinco personas, como en una casa de verdad: dos managers —el que abre la
@@ -128,13 +201,13 @@ def build(session: Session, days: int = 30, seed: int = 7, until: date | None = 
     start = until - timedelta(days=days - 1)
     marca = NAMES[index % len(NAMES)]
     nombre = f"{'Grupo' if multisite else 'Asador'} {marca}" + (f" {index}" if index >= len(NAMES) else "")
-    correo = lambda quien: f"{quien}{index}@banco.com"        # noqa: E731
+    correo = lambda quien: f"{quien}{index}@{domain}.com"      # noqa: E731
 
     if not billing.owner_exists(session):
         billing.bootstrap_owner(session, "dueno@plataforma.com", "Dueño", "clave-plataforma-1")
     restaurant, manager = billing.create_account(
         session, name=nombre, manager_name="Ana", manager_email=correo("ana"),
-        password="clave-larga-1", language="es")
+        password=password, language="es")
     restaurant.billing = Billing.ACTIVE
     session.flush()
 
@@ -145,16 +218,16 @@ def build(session: Session, days: int = 30, seed: int = 7, until: date | None = 
 
     # El segundo manager: la casa no la lleva una sola persona.
     segundo = billing.create_user(session, manager, name="Marta", email=correo("marta"),
-                                  password="clave-larga-2", role=Role.BUTCHER)
+                                  password=password, role=Role.BUTCHER)
     segundo.role = Role.MANAGER
     carnicero = billing.create_user(session, manager, name="Paco", email=correo("paco"),
-                                    password="clave-larga-2", role=Role.BUTCHER)
+                                    password=password, role=Role.BUTCHER)
     gente = []
     for puesto, (nombre_p, papel) in enumerate((("Eva", Role.BUTCHER),
                                                 ("Leo", Role.EMPLOYEE))):
         persona = billing.create_user(session, manager, name=nombre_p,
                                       email=correo(nombre_p.lower()),
-                                      password="clave-larga-3", role=papel)
+                                      password=password, role=papel)
         if sedes:
             sites.assign(session, manager, persona, sedes[puesto].id)
         gente.append(persona)

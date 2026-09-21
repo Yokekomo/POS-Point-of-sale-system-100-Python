@@ -673,6 +673,19 @@ cocina tiene su propia plantilla y lleva exactamente los mismos arreglos, con
 sus propias pruebas: dos ediciones con dos comportamientos sería una trampa
 para quien use las dos.
 
+## Probarla
+
+Una demo con un mes de trabajo ya dentro —dos casas, once cuentas, piezas
+madurando, traslados, ventas e inventario cerrado— y sin nada que configurar:
+
+    python -m thegrill.cli --db sqlite:///demo.db demo
+
+Al arrancar escribe las claves y las direcciones, y escucha en toda la red de
+casa: desde el móvil de la misma wifi se abre con la dirección de ese ordenador
+y `:8001` detrás, que es como hay que verlo. Con Docker es
+`docker compose -f docker-compose.demo.yml up --build`. El paseo, con qué mirar
+primero y con quién entrar, está en **[PRUEBALA.md](PRUEBALA.md)**.
+
 ## El banco de pruebas
 
 Las pruebas de siempre comprueban lo que alguien pensó comprobar. El banco es

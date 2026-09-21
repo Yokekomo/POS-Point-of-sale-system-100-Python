@@ -36,7 +36,7 @@ def casa(tmp_path, monkeypatch):
     return montada
 
 
-def entra(email: str, password: str = "clave-larga-3") -> TestClient:
+def entra(email: str, password: str = bench.PASSWORD) -> TestClient:
     client = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
     respuesta = client.post("/login", data={"email": email, "password": password})
     assert respuesta.status_code == 303, respuesta.text[:200]
@@ -133,8 +133,8 @@ def test_a_scale_wobble_never_makes_the_aged_kilo_cheaper(casa):
                                          ("eva0@banco.com", False)])
 def test_every_screen_opens_for_every_role(casa, email, money):
     """Que abran, que no se queden en claves y que el dinero no se escape."""
-    contraseñas = {"ana0@banco.com": "clave-larga-1", "paco0@banco.com": "clave-larga-2"}
-    client = entra(email, contraseñas.get(email, "clave-larga-3"))
+    # En el banco toda la casa comparte contraseña: es de mentira a propósito.
+    client = entra(email)
 
     hallazgos = bench.crawl(client, money=money,
                             extra={"site_id": casa.warehouse_id,

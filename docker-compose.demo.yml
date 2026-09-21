@@ -1,0 +1,27 @@
+# La demo, para probarla y ya. Un solo contenedor, su base de datos dentro y
+# nada que configurar:
+#
+#   docker compose -f docker-compose.demo.yml up --build
+#
+# Y se abre http://localhost:8001 — o, desde el móvil de la misma wifi, la
+# dirección de este ordenador con :8001 detrás. Las claves salen escritas al
+# arrancar, en el propio terminal.
+#
+# Esto NO es para trabajar: los datos son de mentira, las contraseñas están a
+# la vista y va por http. Para lo de verdad está docker-compose.yml.
+services:
+  demo:
+    build: .
+    environment:
+      GRILL_DB: "sqlite:////app/datos/demo.db"
+      GRILL_INSECURE_COOKIE: "1"      # va por http: sin esto no se puede entrar
+    ports:
+      - "8001:8001"
+    volumes:
+      - demo-datos:/app/datos
+    command: >
+      python -m thegrill.cli --db "sqlite:////app/datos/demo.db"
+      demo --host 0.0.0.0 --puerto 8001
+
+volumes:
+  demo-datos:

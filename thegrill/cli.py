@@ -6,6 +6,19 @@ from thegrill import db
 from thegrill.orchestrator.chain import DbCheckpoints, build_default_chain
 
 
+def _lan_addresses() -> list[str]:
+    """La dirección de esta máquina en la wifi, para abrirla desde el móvil."""
+    import socket
+    salida = []
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("192.168.1.1", 1))       # no manda nada: solo mira la ruta
+            salida.append(probe.getsockname()[0])
+    except OSError:
+        pass
+    return [ip for ip in salida if ip and not ip.startswith("127.")]
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="thegrill")
     p.add_argument("--db", default="sqlite:///thegrill.db")
@@ -25,6 +38,13 @@ def main(argv=None):
     o.add_argument("--nombre", required=True)
     o.add_argument("--password", required=True)
     o.add_argument("--idioma", default="es")
+    d = sub.add_parser("demo", help="monta una demo con un mes de trabajo dentro y la sirve")
+    d.add_argument("--puerto", type=int, default=8001)
+    d.add_argument("--host", default="0.0.0.0",
+                   help="0.0.0.0 para poder abrirla desde el móvil de la misma wifi")
+    d.add_argument("--dias", type=int, default=30, help="cuánto trabajo de mentira")
+    d.add_argument("--reiniciar", action="store_true", help="borra lo que hubiera y la rehace")
+    d.add_argument("--solo-montar", action="store_true", help="la monta y no la sirve")
     b = sub.add_parser("banco", help="monta casas de mentira, las hace trabajar y busca fallos")
     b.add_argument("--casas", type=int, default=50, help="cuántas, la mitad con varias sedes")
     b.add_argument("--dias", type=int, default=30, help="cuántos días de trabajo")
@@ -71,6 +91,41 @@ def main(argv=None):
         from thegrill.meat import privacy
         with db.session_scope() as session:
             print(f"borradas {privacy.purge(session, days=args.dias)} solicitudes")
+    elif args.cmd == "demo":
+        import os
+
+        from thegrill import bench
+        from thegrill.models import Restaurant
+
+        # La demo va por http, también desde el móvil: sin esto la cookie de
+        # sesión no se guarda y no se puede entrar.
+        os.environ.setdefault("GRILL_INSECURE_COOKIE", "1")
+        fichero = args.db.replace("sqlite:///", "")
+        if args.reiniciar and fichero and os.path.exists(fichero):
+            os.remove(fichero)
+        db.create_all()
+        with db.session_scope() as session:
+            hay = session.query(Restaurant).filter(Restaurant.platform.isnot(True)).count()
+            cuentas = (bench.demo(session, days=args.dias) if not hay
+                       else bench.demo_accounts(session))
+        print()
+        print("  CONTROL DE CARNES · demo con un mes de trabajo dentro")
+        print("  " + "-" * 66)
+        for cuenta in cuentas:
+            print(f"  {cuenta.who[:34]:34s} {cuenta.email:26s} {cuenta.password}")
+            print(f"  {'':34s} {cuenta.sees}")
+        print("  " + "-" * 66)
+        print(f"  En este ordenador:  http://127.0.0.1:{args.puerto}")
+        for ip in _lan_addresses():
+            print(f"  Desde el móvil:     http://{ip}:{args.puerto}   (misma wifi)")
+        print("  Para parar: Ctrl+C. Para empezar de cero: --reiniciar")
+        print()
+        if args.solo_montar:
+            return 0
+        import uvicorn
+
+        from thegrill.meat.app import create_app
+        uvicorn.run(create_app(args.db), host=args.host, port=args.puerto)
     elif args.cmd == "banco":
         db.create_all()
         from thegrill import bench
