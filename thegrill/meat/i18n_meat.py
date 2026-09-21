@@ -543,6 +543,8 @@ ES = {
     "m.rec.submit_one": 'Dar de alta esta pieza',
     "m.rec.next_piece": 'Sigue con la siguiente: lo del camión se queda escrito.',
     "m.rec.done_one": 'Pieza {serial} · {kg} kg dada de alta en el lote {lot}.',
+    "m.rec.write_on_it": 'Escribe este número en la pieza: con rotulador permanente o en una etiqueta pegada. Es lo que la identifica en la cámara; sin él, hay que buscarla a ojo.',
+    "m.rec.write_now": 'Escribe el {serial} en la pieza —permanente o etiqueta— antes de meterla en la cámara.',
 }
 
 EN = {
@@ -1071,6 +1073,8 @@ EN = {
     "m.rec.submit_one": 'Book this piece in',
     "m.rec.next_piece": 'Carry on with the next one: the delivery details stay put.',
     "m.rec.done_one": 'Piece {serial} · {kg} kg booked in under lot {lot}.',
+    "m.rec.write_on_it": 'Write this number on the piece: with a permanent marker or on a stuck-on label. It is what identifies it in the chiller; without it, you are looking for it by eye.',
+    "m.rec.write_now": 'Write {serial} on the piece — marker or label — before it goes into the chiller.',
 }
 
 FR = {
@@ -1599,6 +1603,8 @@ FR = {
     "m.rec.submit_one": 'Enregistrer cette pièce',
     "m.rec.next_piece": 'Continue avec la suivante : ce qui est au camion reste écrit.',
     "m.rec.done_one": 'Pièce {serial} · {kg} kg enregistrée sous le lot {lot}.',
+    "m.rec.write_on_it": "Écris ce numéro sur la pièce : au marqueur indélébile ou sur une étiquette collée. C'est ce qui l'identifie en chambre ; sans lui, il faut la chercher à l'œil.",
+    "m.rec.write_now": 'Écris le {serial} sur la pièce — marqueur ou étiquette — avant de la mettre en chambre.',
 }
 
 DE = {
@@ -2127,6 +2133,8 @@ DE = {
     "m.rec.submit_one": 'Dieses Stück einbuchen',
     "m.rec.next_piece": 'Weiter mit dem nächsten: die Angaben der Lieferung bleiben stehen.',
     "m.rec.done_one": 'Stück {serial} · {kg} kg unter Charge {lot} eingebucht.',
+    "m.rec.write_on_it": 'Schreib diese Nummer auf das Stück: mit wasserfestem Marker oder auf ein aufgeklebtes Etikett. Daran erkennt man es im Kühlraum; ohne sie sucht man es mit den Augen.',
+    "m.rec.write_now": 'Schreib die {serial} auf das Stück — Marker oder Etikett —, bevor es in den Kühlraum geht.',
 }
 
 NL = {
@@ -2655,6 +2663,8 @@ NL = {
     "m.rec.submit_one": 'Dit stuk inboeken',
     "m.rec.next_piece": 'Ga door met het volgende: wat van de levering is blijft staan.',
     "m.rec.done_one": 'Stuk {serial} · {kg} kg ingeboekt onder partij {lot}.',
+    "m.rec.write_on_it": 'Schrijf dit nummer op het stuk: met een permanente marker of op een opgeplakt etiket. Daaraan herken je het in de koeling; zonder nummer zoek je op het oog.',
+    "m.rec.write_now": 'Schrijf de {serial} op het stuk — marker of etiket — voordat het de koeling in gaat.',
 }
 
 AR = {
@@ -3183,6 +3193,8 @@ AR = {
     "m.rec.submit_one": 'تسجيل هذه القطعة',
     "m.rec.next_piece": 'تابع مع التالية: بيانات الشحنة تبقى مكتوبة.',
     "m.rec.done_one": 'سُجّلت القطعة {serial} · {kg} كغ ضمن الدفعة {lot}.',
+    "m.rec.write_on_it": 'اكتب هذا الرقم على القطعة: بقلم دائم أو على بطاقة ملصقة. هو ما يميّزها في الثلاجة؛ وبدونه تبحث عنها بالنظر.',
+    "m.rec.write_now": 'اكتب {serial} على القطعة — بقلم دائم أو بطاقة — قبل إدخالها الثلاجة.',
 }
 
 
@@ -3713,6 +3725,8 @@ HU = {
     "m.rec.submit_one": 'Ennek a darabnak a bevételezése',
     "m.rec.next_piece": 'Folytasd a következővel: a szállítmány adatai maradnak.',
     "m.rec.done_one": 'A(z) {serial} darab · {kg} kg bevételezve a(z) {lot} tétel alatt.',
+    "m.rec.write_on_it": 'Írd rá ezt a számot a darabra: alkoholos filccel vagy ráragasztott címkére. Ez alapján ismerni fel a hűtőben; enélkül szemre kell keresni.',
+    "m.rec.write_now": 'Írd rá a(z) {serial} számot a darabra — filccel vagy címkével —, mielőtt a hűtőbe kerül.',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

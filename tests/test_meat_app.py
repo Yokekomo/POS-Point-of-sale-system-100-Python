@@ -1247,6 +1247,25 @@ class TestRecepcionDeUnaEnUna:
         # Y lo de la pieza se vacía: la siguiente es otra bolsa.
         assert 'name="kg:0" inputmode="decimal" autofocus' in r.text.replace("\n", " ")
 
+    def test_the_screen_says_to_write_the_number_on_the_meat(self, client):
+        """El número tiene que estar encima de la carne, no solo en la base.
+
+        En la cámara nadie abre el móvil para saber qué bolsa tiene en la mano:
+        si la pieza no lleva su número escrito, la trazabilidad vive en el
+        ordenador y en la cámara se busca a ojo.
+        """
+        signup(client)
+        pantalla = client.get("/recepcion").text
+        assert "rotulador permanente" in pantalla and "etiqueta pegada" in pantalla
+
+        # Y al guardar se dice con el número delante, que es cuando se coge el
+        # rotulador: la pieza todavía está en la mano.
+        form = client.get("/recepcion")
+        r = client.post("/recepcion", data={
+            "csrf": csrf_from(form.text), "lot": "L-ROTU", "sku": "Ribeye AUS",
+            "price_kg": "30", "serial:0": "9210", "kg:0": "9,1"})
+        assert "Escribe el 9210 en la pieza" in r.text
+
     def test_a_phone_with_no_signal_still_books_the_piece(self, client):
         """La foto necesita línea; lo escrito, no. Lo escrito manda."""
         signup(client)

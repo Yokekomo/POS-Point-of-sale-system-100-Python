@@ -639,8 +639,10 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
     # Una pieza cada vez es lo normal; varias, solo cuando vuelve la cola de un
     # teléfono que estuvo sin cobertura. «1 primales» no lo dice nadie.
     if len(created) == 1:
-        hecho = i18n.t(lang, "m.rec.done_one", serial=created[0].serial,
-                       kg=f"{created[0].weight_kg:.10g}", lot=lot or "—")
+        # Y con el número delante, que es el momento de coger el rotulador.
+        hecho = (i18n.t(lang, "m.rec.done_one", serial=created[0].serial,
+                        kg=f"{created[0].weight_kg:.10g}", lot=lot or "—")
+                 + " " + i18n.t(lang, "m.rec.write_now", serial=created[0].serial))
     else:
         hecho = i18n.t(lang, "m.rec.done", n=len(created), lot=lot or "—")
     return _reception(request, user, auth_session, session, previo=_del_camion(form),

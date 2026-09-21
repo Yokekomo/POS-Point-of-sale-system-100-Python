@@ -58,6 +58,10 @@
                  title="{{ t('m.rec.row_slaughter_help') }}"></label>
       </div>
     </details>
+    {# Lo que pasa fuera del programa y sin lo cual nada de esto sirve: el
+       número tiene que estar encima de la carne. En la cámara nadie abre el
+       móvil para saber qué bolsa tiene en la mano. #}
+    <p class="help" style="margin:10px 0 0">{{ t("m.rec.write_on_it") }}</p>
   </fieldset>
 
   <button class="wide" type="submit">{{ t("m.rec.submit_one") }}</button>

@@ -249,6 +249,13 @@ quedan puestos para las siguientes piezas de la misma descarga: veinte piezas de
 la misma caja no son veinte veces el matadero. Va plegado, debajo del botón,
 porque se toca al empezar y ya no se vuelve a mirar.
 
+**Y el número va escrito en la carne.** Con rotulador permanente o en una
+etiqueta pegada, antes de meter la pieza en la cámara. La pantalla lo dice al
+lado del número y lo repite al guardar, con el número delante, que es el momento
+de coger el rotulador —la pieza sigue en la mano—. Sin eso la trazabilidad vive
+solo en el ordenador: en la cámara nadie abre el móvil para saber qué bolsa
+tiene cogida, y se acaba buscando a ojo.
+
 Dos piezas no pueden compartir número: o entra la pieza entera, o no entra nada.
 
 **Y con la etiqueta del proveedor delante.** El recorrido de la carne no empieza
