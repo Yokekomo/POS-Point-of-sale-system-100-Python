@@ -147,43 +147,132 @@ nav{display:flex;flex-wrap:wrap;gap:2px;align-items:center}
 }
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 img,svg,video{max-width:100%;height:auto}
+
+/* ================================================================= el menú
+   Con veinte pantallas, una barra de enlaces en fila se convierte en un muro
+   de tres líneas que tapa el trabajo. Lo que hace todo el mundo y funciona:
+   en el ordenador, una columna a la izquierda con las secciones agrupadas; en
+   el teléfono, una barra abajo con lo de todos los días —donde llega el
+   pulgar— y un «Más» con el resto. Sin guiones: se abre con el enlace. */
+.shell{display:flex;min-height:100vh}
+.side{width:230px;flex:0 0 230px;background:var(--card);border-inline-end:1px solid var(--line);
+  padding:14px 12px 24px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.side .brand{display:block;margin:6px 8px 16px}
+.side .group{margin:16px 0 6px;padding:0 10px;font-size:11px;font-weight:700;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.side a.item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
+  text-decoration:none;color:var(--ink);font-size:15px;line-height:1.2}
+.side a.item:hover{background:var(--bg)}
+.side a.item.on{background:var(--bg);color:var(--accent);font-weight:650;
+  box-shadow:inset 3px 0 0 var(--accent)}
+[dir="rtl"] .side a.item.on{box-shadow:inset -3px 0 0 var(--accent)}
+.side .foot{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
+.side form{margin:0}
+.side .count{margin-inline-start:auto;background:var(--bad);color:#fff;border-radius:999px;
+  font-size:11px;font-weight:700;padding:1px 7px}
+.body{flex:1;min-width:0;display:flex;flex-direction:column}
+/* Un hijo de una caja flexible crece hasta lo que mida su contenido si no se
+   le dice que no: sin esto, una tabla ancha estiraba la pantalla entera y
+   había que arrastrar la página de lado para leer. */
+.body > main,main{min-width:0}
+.tabs{display:none}
+
+@media (max-width:900px){
+  .shell{display:block}
+  .body{display:block}
+  .side{display:none}
+  /* La barra de abajo: cinco sitios, los de todos los días, al alcance del
+     pulgar. Lo demás, en «Más». */
+  .tabs{display:flex;position:fixed;inset:auto 0 0 0;z-index:30;background:var(--card);
+    border-top:1px solid var(--line);
+    padding:6px 4px max(6px,env(safe-area-inset-bottom))}
+  .tabs a{flex:1;text-align:center;text-decoration:none;color:var(--muted);font-size:12px;
+    padding:8px 2px;border-radius:10px;min-height:52px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:3px;line-height:1.15}
+  .tabs a.on{color:var(--accent);background:var(--bg)}
+  .tabs a b{font-size:17px;font-weight:600;line-height:1}
+  main{padding-bottom:96px !important}
+  .topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;
+    padding-top:max(10px,env(safe-area-inset-top));
+    background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  .topbar .brand{margin-inline-end:auto}
+}
+@media (min-width:901px){ .topbar{display:none} }
+
+/* El cajón de «Más», con todo lo que no cabe abajo. */
+.drawer{position:fixed;inset:0;z-index:40;display:none}
+.drawer:target{display:block}
+.drawer .veil{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+.drawer .sheet{position:absolute;inset:auto 0 0 0;background:var(--card);
+  border-radius:18px 18px 0 0;padding:46px 14px max(20px,env(safe-area-inset-bottom));
+  max-height:82vh;overflow-y:auto}
+.drawer .sheet .group{margin:14px 0 4px;padding:0 8px;font-size:11px;font-weight:700;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.drawer .sheet a.item{display:flex;align-items:center;gap:10px;padding:13px 10px;
+  border-radius:10px;text-decoration:none;color:var(--ink);font-size:16px}
+.drawer .sheet a.item.on{color:var(--accent);font-weight:650}
+/* La equis, dentro de la hoja: fuera de ella la recorta el desbordamiento y
+   deja de poder pulsarse, que es peor que no tenerla. */
+.drawer .close{position:absolute;top:6px;inset-inline-end:8px;color:var(--muted);
+  font-size:28px;line-height:1;text-decoration:none;padding:8px 12px;border-radius:10px}
+.drawer .close:hover{color:var(--ink);background:var(--bg)}
 </style>
 </head>
 <body>
-{% if user %}
-<header class="top"><div class="topwrap">
-  <a class="brand" href="/hoy">{{ t("m.app.title") }}<small>{{ user.name }} · {{ t("role." ~ user.role.value) }}</small></a>
-  <nav>
-    <a href="/hoy">{{ t("m.nav.today") }}</a>
-    {% if can("receive") %}<a href="/recepcion">{{ t("m.nav.reception") }}</a>{% endif %}
-    {% if can("butcher") %}<a href="/despiece">{{ t("m.nav.butchery") }}</a>{% endif %}
-    {% if can("stock") %}<a href="/carne">{{ t("m.nav.chamber") }}</a>{% endif %}
-    {% if can("defrost") %}<a href="/descongelado">{{ t("m.nav.defrost") }}</a>{% endif %}
-    {% if can("stock") %}<a href="/maduracion">{{ t("m.nav.aging") }}</a>{% endif %}
-    {% if can("count") %}<a href="/inventario">{{ t("nav.inventory") }}</a>{% endif %}
-    {% if can("waste") %}<a href="/merma">{{ t("nav.waste") }}</a>{% endif %}
-    {% if can("stock") %}<a href="/traslados">{{ t("m.nav.transfers") }}</a>
-    <a href="/trazabilidad">{{ t("nav.tracing") }}</a>
-    <a href="/cortes">{{ t("m.nav.cuts") }}</a>{% endif %}
+{% macro menu(sitio) -%}
+  {% set aqui = here %}
+  <a class="item {{ 'on' if aqui == '/hoy' }}" href="/hoy">{{ t("m.nav.today") }}</a>
+  {% if can("receive") %}<a class="item {{ 'on' if aqui == '/recepcion' }}" href="/recepcion">{{ t("m.nav.reception") }}</a>{% endif %}
+  {% if can("butcher") %}<a class="item {{ 'on' if aqui == '/despiece' }}" href="/despiece">{{ t("m.nav.butchery") }}</a>{% endif %}
+  {% if can("stock") %}<a class="item {{ 'on' if aqui == '/carne' }}" href="/carne">{{ t("m.nav.chamber") }}</a>{% endif %}
+  {% if can("defrost") %}<a class="item {{ 'on' if aqui == '/descongelado' }}" href="/descongelado">{{ t("m.nav.defrost") }}</a>{% endif %}
+  {% if can("stock") %}<a class="item {{ 'on' if aqui == '/maduracion' }}" href="/maduracion">{{ t("m.nav.aging") }}</a>{% endif %}
+
+  <div class="group">{{ t("m.nav.g_control") }}</div>
+  {% if can("count") %}<a class="item {{ 'on' if aqui == '/inventario' }}" href="/inventario">{{ t("nav.inventory") }}</a>{% endif %}
+  {% if can("waste") %}<a class="item {{ 'on' if aqui == '/merma' }}" href="/merma">{{ t("nav.waste") }}</a>{% endif %}
+  {% if can("stock") %}<a class="item {{ 'on' if aqui == '/traslados' }}" href="/traslados">{{ t("m.nav.transfers") }}</a>
+  <a class="item {{ 'on' if aqui == '/trazabilidad' }}" href="/trazabilidad">{{ t("nav.tracing") }}</a>{% endif %}
+  <a class="item {{ 'on' if aqui == '/parte' }}" href="/parte">{{ t("m.rp.title") }}</a>
+
+  {% if can("stock") or can("menu") %}<div class="group">{{ t("m.nav.g_catalogue") }}</div>{% endif %}
+  {% if can("stock") %}<a class="item {{ 'on' if aqui == '/cortes' }}" href="/cortes">{{ t("m.nav.cuts") }}</a>{% endif %}
   {% if can("menu") %}
-    <a href="/carta">{{ t("m.nav.menu") }}</a>
-    <a href="/ingredientes">{{ t("m.nav.extras") }}</a>
-    <a href="/ventas">{{ t("nav.sales") }}</a>
+  <a class="item {{ 'on' if aqui == '/carta' }}" href="/carta">{{ t("m.nav.menu") }}</a>
+  <a class="item {{ 'on' if aqui == '/ingredientes' }}" href="/ingredientes">{{ t("m.nav.extras") }}</a>
+  <a class="item {{ 'on' if aqui == '/ventas' }}" href="/ventas">{{ t("nav.sales") }}</a>
   {% endif %}
+
+  <div class="group">{{ t("m.nav.g_house") }}</div>
   {% if can("team") %}
-    <a href="/manager/alertas">{{ t("nav.alerts") }}</a>
-    <a href="/manager/equipo">{{ t("nav.team") }}</a>
-    <a href="/sedes">{{ t("m.nav.sites") }}</a>
+  <a class="item {{ 'on' if aqui == '/manager/alertas' }}" href="/manager/alertas">{{ t("nav.alerts") }}</a>
+  <a class="item {{ 'on' if aqui == '/manager/equipo' }}" href="/manager/equipo">{{ t("nav.team") }}</a>
+  <a class="item {{ 'on' if aqui == '/sedes' }}" href="/sedes">{{ t("m.nav.sites") }}</a>
   {% endif %}
-    <a class="bell" href="/notificaciones">{{ t("nav.notifications") }}<span class="badge" id="navbadge"
-       {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
-    <a href="/parte">{{ t("m.rp.title") }}</a>
-    <a href="/descargas">{{ t("nav.downloads") }}</a>
-    <a href="/configuracion">{{ t("nav.settings") }}</a>
-    <a href="/fallo?desde={{ here }}" title="{{ t('bug.sub') }}">{{ t("bug.nav") }}</a>
-  </nav>
-  <form method="post" action="/logout" style="margin:0"><button class="ghost" style="padding:6px 12px">{{ t("nav.logout") }}</button></form>
-</div></header>
+  {% if can("platform") %}<a class="item {{ 'on' if aqui == '/admin' }}" href="/admin">{{ t("adm.title") }}</a>{% endif %}
+  <a class="item {{ 'on' if aqui == '/notificaciones' }}" href="/notificaciones">{{ t("nav.notifications") }}
+    <span class="count" id="navbadge{{ sitio }}" {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
+  <a class="item {{ 'on' if aqui == '/descargas' }}" href="/descargas">{{ t("nav.downloads") }}</a>
+  <a class="item {{ 'on' if aqui == '/configuracion' }}" href="/configuracion">{{ t("nav.settings") }}</a>
+  <a class="item" href="/fallo?desde={{ here }}">{{ t("bug.nav") }}</a>
+{%- endmacro %}
+
+{% if user %}
+<div class="shell">
+  <aside class="side">
+    <a class="brand" href="/hoy">{{ t("m.app.title") }}<small>{{ user.name }} · {{ t("role." ~ user.role.value) }}</small></a>
+    <div class="group">{{ t("m.nav.g_work") }}</div>
+    {{ menu("side") }}
+    <div class="foot">
+      <form method="post" action="/logout"><button class="ghost wide">{{ t("nav.logout") }}</button></form>
+    </div>
+  </aside>
+  <div class="body">
+    <div class="topbar">
+      <a class="brand" href="/hoy">{{ t("m.app.title") }}<small>{{ user.name }}</small></a>
+      <a class="bell" href="/notificaciones">{{ t("nav.notifications") }}<span class="badge" id="navbadge"
+         {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
+    </div>
 {% endif %}
 <main>{% block body %}{% endblock %}
 {% if not user %}
@@ -201,6 +290,28 @@ img,svg,video{max-width:100%;height:auto}
 {% endif %}
 {% endif %}
 </main>
+{% if user %}
+  </div>
+</div>
+<nav class="tabs" aria-label="{{ t('m.nav.g_work') }}">
+  <a class="{{ 'on' if here == '/hoy' }}" href="/hoy"><b>◉</b>{{ t("m.nav.today") }}</a>
+  {% if can("stock") %}<a class="{{ 'on' if here == '/carne' }}" href="/carne"><b>▤</b>{{ t("m.nav.chamber") }}</a>{% endif %}
+  {% if can("defrost") %}<a class="{{ 'on' if here == '/descongelado' }}" href="/descongelado"><b>≋</b>{{ t("m.nav.defrost") }}</a>{% endif %}
+  {% if can("stock") %}<a class="{{ 'on' if here == '/maduracion' }}" href="/maduracion"><b>◍</b>{{ t("m.nav.aging") }}</a>{% endif %}
+  <a href="#menu"><b>☰</b>{{ t("m.nav.more") }}</a>
+</nav>
+<div class="drawer" id="menu" role="dialog" aria-modal="true" aria-label="{{ t('m.nav.more') }}">
+  <a class="veil" href="#" aria-label="{{ t('common.back') }}"></a>
+  <div class="sheet">
+    <a class="close" href="#" aria-label="{{ t('common.back') }}">&times;</a>
+    <div class="group">{{ t("m.nav.g_work") }}</div>
+    {{ menu("drawer") }}
+    <div class="foot" style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+      <form method="post" action="/logout"><button class="ghost wide">{{ t("nav.logout") }}</button></form>
+    </div>
+  </div>
+</div>
+{% endif %}
 <script nonce="{{ nonce }}">
 // Refresca el contador de avisos sin recargar la página. Si la persona ha
 // autorizado los avisos del navegador, una alerta crítica salta a su pantalla.

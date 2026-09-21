@@ -79,9 +79,14 @@ def browser(servidor):
 
 
 def telefono(chromium):
-    """Un contexto de teléfono, con su pantalla y sus dedos."""
-    return chromium.new_context(viewport=PHONE, device_scale_factor=3, is_mobile=True,
-                                has_touch=True,
+    """Un contexto de teléfono, con su pantalla y sus dedos.
+
+    Sin `is_mobile`: ese modo del navegador de pruebas inventa una ventana
+    interior más alta que la visible, y lo que está pegado abajo aparece fuera
+    de la pantalla. Lo que se quiere probar —dedo, ancho y reglas de móvil— lo
+    dan el tamaño y `has_touch`.
+    """
+    return chromium.new_context(viewport=PHONE, device_scale_factor=3, has_touch=True,
                                 user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like "
                                            "Mac OS X) AppleWebKit/605.1.15")
 
@@ -281,8 +286,7 @@ def test_the_serial_column_stays_put_while_the_table_scrolls(phone_pages):
 def test_it_also_works_with_the_phone_turned_sideways(browser):
     """La cámara se mira de lado tantas veces como de pie."""
     base, chromium = browser
-    context = chromium.new_context(viewport={"width": 844, "height": 390}, is_mobile=True,
-                                   has_touch=True)
+    context = chromium.new_context(viewport={"width": 844, "height": 390}, has_touch=True)
     try:
         page = context.new_page()
         entra(page, base)
@@ -295,20 +299,56 @@ def test_it_also_works_with_the_phone_turned_sideways(browser):
         context.close()
 
 
-def test_the_menu_is_one_swipe_and_not_a_wall_of_links(phone_pages):
-    """Quince enlaces amontonados tapan la pantalla: se deslizan en una línea."""
+def test_the_menu_on_a_phone_is_a_bottom_bar_and_a_drawer(phone_pages):
+    """Veinte enlaces amontonados tapan la pantalla.
+
+    Lo que hace todo el mundo y funciona: abajo lo de todos los días, donde
+    llega el pulgar, y el resto en un cajón que se abre desde «Más».
+    """
     base, page = phone_pages
     page.goto(f"{base}/hoy")
-    barra = page.evaluate("""() => {
-        const nav = document.querySelector('nav');
-        const caja = nav.getBoundingClientRect();
-        return {alto: caja.height, desliza: nav.scrollWidth > nav.clientWidth + 4,
-                enlaces: nav.querySelectorAll('a').length,
-                cabecera: document.querySelector('header.top').getBoundingClientRect().height};
-    }""")
-    assert barra["enlaces"] >= 10
-    assert barra["desliza"], "la barra no se desliza: se amontona"
-    assert barra["cabecera"] < 200, barra          # no se come la pantalla
+
+    barra = page.locator("nav.tabs")
+    assert barra.is_visible(), "no hay barra de abajo"
+    enlaces = barra.locator("a")
+    assert 3 <= enlaces.count() <= 5, enlaces.count()
+    caja = barra.bounding_box()
+    assert caja["y"] + caja["height"] >= PHONE["height"] - 2, "la barra no está abajo"
+    for i in range(enlaces.count()):
+        assert enlaces.nth(i).bounding_box()["height"] >= 44
+
+    # La cabecera no se come la pantalla.
+    assert page.locator(".topbar").bounding_box()["height"] < 120
+
+    cajon = page.locator("#menu")
+    assert not cajon.is_visible()
+    page.click("nav.tabs a[href='#menu']")
+    assert cajon.is_visible(), "el cajón no se abre"
+    assert cajon.locator("a.item").count() >= 10, "el cajón no trae el resto de pantallas"
+    page.click("#menu .close")
+    assert not cajon.is_visible(), "el cajón no se cierra"
+
+
+def test_the_menu_on_a_computer_is_a_column_on_the_left(browser):
+    """El manager trabaja en pantalla grande: las secciones, a la vista y agrupadas."""
+    base, chromium = browser
+    context = chromium.new_context(viewport={"width": 1280, "height": 860})
+    try:
+        page = context.new_page()
+        entra(page, base)
+        page.goto(f"{base}/carne")
+
+        lado = page.locator("aside.side")
+        assert lado.is_visible(), "no hay columna de menú"
+        assert lado.locator("a.item").count() >= 12
+        assert lado.locator(".group").count() >= 3, "las secciones no están agrupadas"
+        assert not page.locator("nav.tabs").is_visible(), "la barra de abajo sobra aquí"
+
+        # La pantalla en la que estás se ve marcada, que es la mitad de un menú.
+        activo = page.locator("aside.side a.item.on")
+        assert activo.count() == 1 and "/carne" in activo.get_attribute("href")
+    finally:
+        context.close()
 
 
 # ================================= la edición de cocina, en las mismas manos

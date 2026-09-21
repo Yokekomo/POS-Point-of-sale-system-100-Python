@@ -500,6 +500,11 @@ ES = {
     'm.ch.help': 'Una sede grande no tiene una cámara: tiene la de maduración, la de cortes y el arcón del pasillo. El nombre lo pones tú, que es como la llamáis. En blanco, sin decir.',
     'm.ch.example': 'Cámara 2',
     'm.ag.scale': 'la báscula leyó {kg} kg: dentro de su juego, se mantiene el peso anterior',
+    'm.nav.g_work': 'El día',
+    'm.nav.g_control': 'Control',
+    'm.nav.g_catalogue': 'Catálogo',
+    'm.nav.g_house': 'La casa',
+    'm.nav.more': 'Más',
 }
 
 EN = {
@@ -985,6 +990,11 @@ EN = {
     'm.ch.help': 'A big site does not have one chiller: it has the ageing one, the cuts one and the chest freezer down the corridor. You name it, the way you call it there. Blank means not stated.',
     'm.ch.example': 'Chiller 2',
     'm.ag.scale': 'the scale read {kg} kg: within its play, the previous weight is kept',
+    'm.nav.g_work': 'The day',
+    'm.nav.g_control': 'Control',
+    'm.nav.g_catalogue': 'Catalogue',
+    'm.nav.g_house': 'The house',
+    'm.nav.more': 'More',
 }
 
 FR = {
@@ -1470,6 +1480,11 @@ FR = {
     'm.ch.help': "Un grand site n'a pas une chambre : il a celle de maturation, celle des découpes et le congélateur du couloir. Le nom, c'est vous qui le mettez, comme vous l'appelez. Vide, non précisée.",
     'm.ch.example': 'Chambre 2',
     'm.ag.scale': 'la balance a lu {kg} kg : dans son jeu, le poids précédent est conservé',
+    'm.nav.g_work': 'La journée',
+    'm.nav.g_control': 'Contrôle',
+    'm.nav.g_catalogue': 'Catalogue',
+    'm.nav.g_house': 'La maison',
+    'm.nav.more': 'Plus',
 }
 
 DE = {
@@ -1955,6 +1970,11 @@ DE = {
     'm.ch.help': 'Ein großer Standort hat nicht einen Kühlraum: Er hat den Reifeschrank, den für die Teilstücke und die Truhe im Gang. Den Namen gibst du, so wie ihr ihn nennt. Leer heißt nicht angegeben.',
     'm.ch.example': 'Kühlraum 2',
     'm.ag.scale': 'die Waage zeigte {kg} kg: innerhalb ihres Spiels bleibt das vorige Gewicht',
+    'm.nav.g_work': 'Der Tag',
+    'm.nav.g_control': 'Kontrolle',
+    'm.nav.g_catalogue': 'Katalog',
+    'm.nav.g_house': 'Das Haus',
+    'm.nav.more': 'Mehr',
 }
 
 NL = {
@@ -2440,6 +2460,11 @@ NL = {
     'm.ch.help': 'Een grote vestiging heeft niet één koeling: ze heeft de rijpingskast, die voor de delen en de vrieskist op de gang. De naam geef jij, zoals jullie haar noemen. Leeg is niet gezegd.',
     'm.ch.example': 'Koeling 2',
     'm.ag.scale': 'de weegschaal las {kg} kg: binnen haar speling blijft het vorige gewicht staan',
+    'm.nav.g_work': 'De dag',
+    'm.nav.g_control': 'Controle',
+    'm.nav.g_catalogue': 'Catalogus',
+    'm.nav.g_house': 'Het huis',
+    'm.nav.more': 'Meer',
 }
 
 AR = {
@@ -2925,6 +2950,11 @@ AR = {
     'm.ch.help': 'الموقع الكبير ليس فيه براد واحد: فيه براد التعتيق، وبراد التقطيعات، وصندوق الممر. الاسم تضعه أنت كما تسمّونه. والفراغ يعني غير محدد.',
     'm.ch.example': 'البراد 2',
     'm.ag.scale': 'قرأ الميزان {kg} كجم: ضمن هامشه، يُبقى الوزن السابق',
+    'm.nav.g_work': 'اليوم',
+    'm.nav.g_control': 'الرقابة',
+    'm.nav.g_catalogue': 'الدليل',
+    'm.nav.g_house': 'البيت',
+    'm.nav.more': 'المزيد',
 }
 
 
@@ -3412,6 +3442,11 @@ HU = {
     'm.ch.help': 'Egy nagy telephelyen nem egy hűtő van: van az érlelő, a húsoké és a folyosói láda. A nevet te adod, ahogy ti hívjátok. Üresen: nincs megadva.',
     'm.ch.example': '2-es hűtő',
     'm.ag.scale': 'a mérleg {kg} kg-ot mutatott: a játékán belül marad az előző súly',
+    'm.nav.g_work': 'A nap',
+    'm.nav.g_control': 'Ellenőrzés',
+    'm.nav.g_catalogue': 'Katalógus',
+    'm.nav.g_house': 'A ház',
+    'm.nav.more': 'Több',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}
