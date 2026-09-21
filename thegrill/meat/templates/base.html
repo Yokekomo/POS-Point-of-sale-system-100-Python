@@ -146,6 +146,11 @@ nav{display:flex;flex-wrap:wrap;gap:2px;align-items:center}
   a{-webkit-tap-highlight-color:rgba(138,61,31,.15)}
 }
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+/* Una columna que se explica se marca, o nadie sabe que hay explicación. */
+th[title]{text-decoration:underline dotted;text-underline-offset:4px;cursor:help}
+dl.terms{margin:10px 0 0}
+dl.terms dt{font-weight:650;color:var(--ink);margin-top:10px}
+dl.terms dd{margin:2px 0 0}
 img,svg,video{max-width:100%;height:auto}
 
 /* ================================================================= el menú

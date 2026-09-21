@@ -10,7 +10,7 @@
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="grid">
     <div><label for="lot">{{ t("m.rec.lot") }}</label>
-      <input id="lot" name="lot" placeholder="DXB20260910" required></div>
+      <input id="lot" name="lot" value="{{ lot }}" title="{{ t('m.rec.lot_help') }}"></div>
     <div><label for="sku">{{ t("m.rec.sku") }}</label>
       <input id="sku" name="sku" placeholder="Striploin AUS"></div>
     <div><label for="rec_chamber">{{ t("m.ch.name") }}</label>
@@ -26,12 +26,15 @@
   </div>
 
   <h2>{{ t("m.rec.serial") }}</h2>
+  <p class="help">{{ t("m.rec.auto_help") }}</p>
   <div class="scroll"><table>
   <tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.kg") }}</th>
       <th>{{ t("m.rec.price_kg") }}</th><th>{{ t("m.rec.sku") }}</th></tr>
   {% for i in rows %}
   <tr>
-    <td><input name="serial:{{ i }}" autocomplete="off" style="max-width:140px"></td>
+    <td><input name="serial:{{ i }}" autocomplete="off" style="max-width:140px"
+               placeholder="{{ serials[i] if serials|length > i else '' }}"
+               title="{{ t('m.rec.serial_help') }}"></td>
     <td><input name="kg:{{ i }}" inputmode="decimal" style="max-width:110px"></td>
     <td><input name="price:{{ i }}" inputmode="decimal" style="max-width:110px"></td>
     <td><input name="sku:{{ i }}" style="max-width:220px"></td>

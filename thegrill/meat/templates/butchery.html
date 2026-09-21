@@ -58,10 +58,14 @@
 
   <h2>{{ t("m.tg.cuts") }}</h2>
   <div class="scroll"><table>
-  <tr><th>{{ t("m.tg.cut_name") }}</th><th>{{ t("m.tg.article") }}</th>
-      <th class="num">{{ t("meat.pieces") }}</th><th class="num">{{ t("m.tg.g_piece") }}</th>
-      <th>{{ t("m.tg.by_weight") }}</th><th class="num">kg</th>
-      <th class="num">{{ t("m.tg.value_index") }}</th><th>{{ t("m.tg.trim") }}</th></tr>
+  <tr><th title="{{ t('m.tg.h_cut') }}">{{ t("m.tg.cut_name") }}</th>
+      <th title="{{ t('m.tg.h_article') }}">{{ t("m.tg.article") }}</th>
+      <th class="num" title="{{ t('m.tg.h_pieces') }}">{{ t("meat.pieces") }}</th>
+      <th class="num" title="{{ t('m.tg.h_grams') }}">{{ t("m.tg.g_piece") }}</th>
+      <th title="{{ t('m.tg.h_by_weight') }}">{{ t("m.tg.by_weight") }}</th>
+      <th class="num" title="{{ t('m.tg.h_kg') }}">kg</th>
+      <th class="num" title="{{ t('m.tg.h_index') }}">{{ t("m.tg.value_index") }}</th>
+      <th title="{{ t('m.tg.h_trim') }}">{{ t("m.tg.trim") }}</th></tr>
   {% for i in rows %}
   <tr>
     <td><input name="cut:{{ i }}" style="max-width:200px" autocomplete="off"></td>
@@ -78,6 +82,19 @@
   </tr>
   {% endfor %}
   </table></div>
+  <details class="help" style="margin:10px 0">
+    <summary>{{ t("m.tg.what_is_what") }}</summary>
+    <dl class="terms">
+      <dt>{{ t("m.tg.cut_name") }}</dt><dd>{{ t("m.tg.h_cut") }}</dd>
+      <dt>{{ t("m.tg.article") }}</dt><dd>{{ t("m.tg.h_article") }}</dd>
+      <dt>{{ t("meat.pieces") }}</dt><dd>{{ t("m.tg.h_pieces") }}</dd>
+      <dt>{{ t("m.tg.g_piece") }}</dt><dd>{{ t("m.tg.h_grams") }}</dd>
+      <dt>{{ t("m.tg.by_weight") }}</dt><dd>{{ t("m.tg.h_by_weight") }}</dd>
+      <dt>kg</dt><dd>{{ t("m.tg.h_kg") }}</dd>
+      <dt>{{ t("m.tg.value_index") }}</dt><dd>{{ t("m.tg.h_index") }}</dd>
+      <dt>{{ t("m.tg.trim") }}</dt><dd>{{ t("m.tg.h_trim") }}</dd>
+    </dl>
+  </details>
   <div class="help">{{ t("m.tg.rows_help") }}</div>
   <div class="help">{{ t("m.tg.index_help") }}</div>
   <div class="help">{{ t("m.tg.by_weight_help") }}</div>
@@ -89,6 +106,8 @@
 <div class="card scroll">
 <table>
 <tr><th>{{ t("m.tg.number") }}</th><th>{{ t("common.date") }}</th>
+    <th>{{ t("m.tg.what_came_out") }}</th>
+    <th class="num">{{ t("meat.pieces") }}</th>
     <th class="num">{{ t("m.tg.before_kg") }}</th><th class="num">{{ t("meat.cuts") }}</th>
     <th class="num">{{ t("trace.trim") }}</th><th class="num">{{ t("m.tg.waste_kg") }}</th>
     <th class="num">{{ t("trace.yield") }}</th></tr>
@@ -96,6 +115,8 @@
 <tr>
   <td>{{ d.tg }}{% for p in d.primals %} <a class="muted" href="/trazabilidad?serial={{ p.serial }}">{{ p.serial }}</a>{% endfor %}</td>
   <td>{{ d.date }}</td>
+  <td>{% for c in d.cuts %}{{ c.cut_name }}{% if c.pieces %} ({{ c.pieces }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</td>
+  <td class="num">{{ d.cuts | sum(attribute="pieces") }}</td>
   <td class="num">{{ "%.2f"|format(d.weight_before_kg) }}</td>
   <td class="num">{{ "%.2f"|format(d.total_cuts_kg) }}</td>
   <td class="num">{{ "%.2f"|format(d.trim_kg) }}</td>
@@ -103,7 +124,7 @@
   <td class="num">{% if d.yield_pct %}{{ "%.1f"|format(d.yield_pct) }}%{% endif %}</td>
 </tr>
 {% else %}
-<tr><td colspan="7" class="muted">{{ t("m.tg.none") }}</td></tr>
+<tr><td colspan="9" class="muted">{{ t("m.tg.none") }}</td></tr>
 {% endfor %}
 </table>
 </div>

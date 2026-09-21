@@ -519,8 +519,11 @@ def reception_page(request: Request, ctx=Depends(needs(perms.RECEIVE)),
 
 
 def _reception(request, user, auth_session, session, *, done=None, error=""):
+    # Se proponen el lote y los números; se cogen de verdad al dar de alta.
     return page(request, "reception.html", user, auth_session, session, done=done, error=error,
-                rows=range(8), recent=meat.recent_primals(session, user.restaurant_id))
+                rows=range(8), recent=meat.recent_primals(session, user.restaurant_id),
+                lot=meat.next_lot(session, user.restaurant_id),
+                serials=meat.next_serials(session, user.restaurant_id, 8))
 
 
 @app.post("/recepcion", response_class=HTMLResponse)

@@ -505,6 +505,19 @@ ES = {
     'm.nav.g_catalogue': 'Catálogo',
     'm.nav.g_house': 'La casa',
     'm.nav.more': 'Más',
+    'm.rec.lot_help': 'Se propone solo con la fecha de hoy. Puedes escribir el del albarán del proveedor si prefieres seguir el suyo.',
+    'm.rec.serial_help': 'Se pone solo al dar de alta, siguiendo por donde iba la casa. Escribe uno si la pieza ya viene numerada de fábrica.',
+    'm.rec.auto_help': 'Los números se rellenan solos al dar de alta: el que ves es el que le tocaría. Si la pieza trae el suyo, escríbelo y manda ese.',
+    'm.tg.what_is_what': '¿Qué es cada cosa?',
+    'm.tg.what_came_out': 'Qué salió',
+    'm.tg.h_cut': 'El nombre del corte tal y como lo llamáis en la casa: entrecot, solomillo, carrillera.',
+    'm.tg.h_article': 'A qué artículo de la cámara entra. Es lo que luego se cuenta y se descuenta al vender; si no lo eliges, el corte no entra en cámara.',
+    'm.tg.h_pieces': 'Cuántas piezas han salido de ese corte. Sirve para el recuento y para saber el peso real de cada una.',
+    'm.tg.h_grams': 'Lo que pesa una pieza de media, en gramos. Piezas por gramos son los kilos que entran en cámara.',
+    'm.tg.h_by_weight': 'Márcalo si ese corte no se parte en raciones: entra entero y se corta al vender, como la carne madurada. Entonces se escriben los kilos y no las piezas.',
+    'm.tg.h_kg': 'Los kilos que entran en cámara cuando el corte va a peso. Solo para esos.',
+    'm.tg.h_index': 'Cuánto vale ese corte comparado con los demás de la pieza. Uno es lo normal; el solomillo vale más que la falda, y con esto el coste de la pieza se reparte como manda el mercado y no a partes iguales.',
+    'm.tg.h_trim': 'Márcalo si eso no se vende como corte: son recortes que se reaprovechan —picada, guiso—. Entra en cámara con su coste, pero no como pieza de carta.',
 }
 
 EN = {
@@ -995,6 +1008,19 @@ EN = {
     'm.nav.g_catalogue': 'Catalogue',
     'm.nav.g_house': 'The house',
     'm.nav.more': 'More',
+    'm.rec.lot_help': "Proposed on its own from today's date. You can type the supplier's delivery note number if you prefer to follow theirs.",
+    'm.rec.serial_help': 'Assigned on its own when you record the delivery, carrying on from where the house was. Type one if the piece already comes numbered.',
+    'm.rec.auto_help': 'Numbers fill themselves in when you record the delivery: the one you see is the one it would get. If the piece brings its own, type it and that one wins.',
+    'm.tg.what_is_what': 'What is what?',
+    'm.tg.what_came_out': 'What came out',
+    'm.tg.h_cut': 'The name of the cut as you call it in the house: ribeye, tenderloin, cheek.',
+    'm.tg.h_article': 'Which chiller article it goes into. That is what gets counted and deducted when you sell; without it the cut does not enter the chiller.',
+    'm.tg.h_pieces': 'How many pieces came out of that cut. It drives the count and tells you the real weight of each one.',
+    'm.tg.h_grams': 'What one piece weighs on average, in grams. Pieces times grams are the kilos that enter the chiller.',
+    'm.tg.h_by_weight': 'Tick it if that cut is not portioned: it goes in whole and is cut when sold, like aged meat. Then you write the kilos, not the pieces.',
+    'm.tg.h_kg': 'The kilos entering the chiller when the cut goes by weight. Only for those.',
+    'm.tg.h_index': 'What that cut is worth next to the others from the piece. One is normal; tenderloin is worth more than flank, and with this the cost of the piece is shared the way the market says, not equally.',
+    'm.tg.h_trim': 'Tick it if it is not sold as a cut: trimmings that get reused — mince, stew. It enters the chiller with its cost, but not as a menu piece.',
 }
 
 FR = {
@@ -1485,6 +1511,19 @@ FR = {
     'm.nav.g_catalogue': 'Catalogue',
     'm.nav.g_house': 'La maison',
     'm.nav.more': 'Plus',
+    'm.rec.lot_help': 'Proposé tout seul à partir de la date du jour. Vous pouvez saisir celui du bon de livraison si vous préférez suivre le sien.',
+    'm.rec.serial_help': "Attribué tout seul à l'enregistrement, en continuant la série de la maison. Saisissez-en un si la pièce arrive déjà numérotée.",
+    'm.rec.auto_help': "Les numéros se remplissent seuls à l'enregistrement : celui que vous voyez est celui qui lui reviendrait. Si la pièce a le sien, saisissez-le et c'est celui-là.",
+    'm.tg.what_is_what': "Qu'est-ce que c'est ?",
+    'm.tg.what_came_out': 'Ce qui est sorti',
+    'm.tg.h_cut': "Le nom de la découpe comme vous l'appelez dans la maison : entrecôte, filet, joue.",
+    'm.tg.h_article': "Dans quel article de la chambre elle entre. C'est ce qui est compté et décompté à la vente ; sans cela, la découpe n'entre pas en chambre.",
+    'm.tg.h_pieces': 'Combien de pièces sont sorties de cette découpe. Sert au comptage et à connaître le poids réel de chacune.',
+    'm.tg.h_grams': 'Ce que pèse une pièce en moyenne, en grammes. Pièces fois grammes, ce sont les kilos qui entrent en chambre.',
+    'm.tg.h_by_weight': "Cochez si la découpe n'est pas portionnée : elle entre entière et se coupe à la vente, comme la viande maturée. On écrit alors les kilos et non les pièces.",
+    'm.tg.h_kg': 'Les kilos qui entrent en chambre quand la découpe va au poids. Seulement pour celles-là.',
+    'm.tg.h_index': "Ce que vaut cette découpe par rapport aux autres de la pièce. Un, c'est la normale ; le filet vaut plus que la bavette, et ainsi le coût de la pièce se répartit comme le dit le marché, pas à parts égales.",
+    'm.tg.h_trim': 'Cochez si cela ne se vend pas comme découpe : des chutes réutilisées — haché, mijoté. Cela entre en chambre avec son coût, mais pas comme pièce de carte.',
 }
 
 DE = {
@@ -1975,6 +2014,19 @@ DE = {
     'm.nav.g_catalogue': 'Katalog',
     'm.nav.g_house': 'Das Haus',
     'm.nav.more': 'Mehr',
+    'm.rec.lot_help': 'Wird aus dem heutigen Datum selbst vorgeschlagen. Du kannst die Nummer des Lieferscheins eintragen, wenn du lieber deren Nummer führst.',
+    'm.rec.serial_help': 'Wird beim Anlegen selbst vergeben und führt die Reihe des Hauses fort. Trag eine ein, wenn das Stück schon nummeriert ankommt.',
+    'm.rec.auto_help': 'Die Nummern füllen sich beim Anlegen von selbst: die angezeigte ist die, die es bekäme. Bringt das Stück seine eigene mit, trag sie ein — die gilt.',
+    'm.tg.what_is_what': 'Was ist was?',
+    'm.tg.what_came_out': 'Was herauskam',
+    'm.tg.h_cut': 'Der Name des Teilstücks, wie ihr es im Haus nennt: Entrecôte, Filet, Backe.',
+    'm.tg.h_article': 'In welchen Kühlraum-Artikel es eingeht. Das wird gezählt und beim Verkauf abgebucht; ohne ihn kommt das Teilstück nicht in den Kühlraum.',
+    'm.tg.h_pieces': 'Wie viele Stücke aus diesem Teilstück kamen. Davon leben die Zählung und das echte Gewicht je Stück.',
+    'm.tg.h_grams': 'Was ein Stück im Schnitt wiegt, in Gramm. Stücke mal Gramm sind die Kilos, die in den Kühlraum gehen.',
+    'm.tg.h_by_weight': 'Ankreuzen, wenn das Teilstück nicht portioniert wird: Es geht ganz hinein und wird beim Verkauf geschnitten, wie gereiftes Fleisch. Dann schreibt man Kilos statt Stücke.',
+    'm.tg.h_kg': 'Die Kilos, die in den Kühlraum gehen, wenn das Teilstück nach Gewicht läuft. Nur dafür.',
+    'm.tg.h_index': 'Was dieses Teilstück neben den anderen des Stücks wert ist. Eins ist normal; Filet ist mehr wert als Bauchlappen, und so verteilt sich der Preis des Stücks so, wie der Markt sagt, nicht zu gleichen Teilen.',
+    'm.tg.h_trim': 'Ankreuzen, wenn es nicht als Teilstück verkauft wird: Abschnitte zur Weiterverwendung — Hack, Schmorgericht. Es geht mit seinen Kosten in den Kühlraum, aber nicht als Kartenposition.',
 }
 
 NL = {
@@ -2465,6 +2517,19 @@ NL = {
     'm.nav.g_catalogue': 'Catalogus',
     'm.nav.g_house': 'Het huis',
     'm.nav.more': 'Meer',
+    'm.rec.lot_help': 'Wordt zelf voorgesteld met de datum van vandaag. Je kunt het nummer van de pakbon invullen als je dat van de leverancier wilt volgen.',
+    'm.rec.serial_help': 'Wordt bij het vastleggen zelf toegekend, verder tellend waar het huis gebleven was. Vul er een in als het stuk al genummerd binnenkomt.',
+    'm.rec.auto_help': 'De nummers vullen zichzelf in bij het vastleggen: wat je ziet is wat het zou krijgen. Heeft het stuk zijn eigen nummer, vul dat in en dat telt.',
+    'm.tg.what_is_what': 'Wat is wat?',
+    'm.tg.what_came_out': 'Wat eruit kwam',
+    'm.tg.h_cut': 'De naam van het deel zoals jullie het in huis noemen: entrecote, ossenhaas, wang.',
+    'm.tg.h_article': 'In welk koelingsartikel het terechtkomt. Dat wordt geteld en bij verkoop afgeboekt; zonder dat komt het deel niet in de koeling.',
+    'm.tg.h_pieces': 'Hoeveel stuks uit dat deel kwamen. Daarop draaien de telling en het echte gewicht per stuk.',
+    'm.tg.h_grams': "Wat één stuk gemiddeld weegt, in grammen. Stuks maal grammen zijn de kilo's die de koeling in gaan.",
+    'm.tg.h_by_weight': "Vink aan als dat deel niet wordt geportioneerd: het gaat heel naar binnen en wordt bij verkoop gesneden, zoals gerijpt vlees. Dan schrijf je kilo's, geen stuks.",
+    'm.tg.h_kg': "De kilo's die de koeling in gaan als het deel op gewicht loopt. Alleen daarvoor.",
+    'm.tg.h_index': 'Wat dat deel waard is naast de andere van het stuk. Eén is normaal; ossenhaas is meer waard dan vang, en zo wordt de kostprijs van het stuk verdeeld zoals de markt zegt, niet gelijk op.',
+    'm.tg.h_trim': 'Vink aan als het niet als deel wordt verkocht: afsnijdsels die hergebruikt worden — gehakt, stoof. Het gaat met zijn kostprijs de koeling in, maar niet als kaartstuk.',
 }
 
 AR = {
@@ -2955,6 +3020,19 @@ AR = {
     'm.nav.g_catalogue': 'الدليل',
     'm.nav.g_house': 'البيت',
     'm.nav.more': 'المزيد',
+    'm.rec.lot_help': 'يُقترح وحده من تاريخ اليوم. ويمكنك كتابة رقم إشعار التسليم إن فضّلت اتّباع رقم المورّد.',
+    'm.rec.serial_help': 'يُعطى وحده عند التسجيل، مكمّلاً تسلسل البيت. اكتب رقماً إن كانت القطعة تأتي مرقّمة.',
+    'm.rec.auto_help': 'الأرقام تُملأ وحدها عند التسجيل: ما تراه هو ما سيأخذه. وإن كان للقطعة رقمها فاكتبه، وهو الذي يُعتمد.',
+    'm.tg.what_is_what': 'ما هو كل شيء؟',
+    'm.tg.what_came_out': 'ما خرج',
+    'm.tg.h_cut': 'اسم القطعة كما تسمّونها في البيت: أنتركوت، فيليه، خد.',
+    'm.tg.h_article': 'إلى أي صنف في البراد تدخل. هو ما يُعدّ ويُخصم عند البيع؛ وبدونه لا تدخل القطعة البراد.',
+    'm.tg.h_pieces': 'كم قطعة خرجت من ذلك التقطيع. عليه يقوم العدّ ومعرفة الوزن الحقيقي لكل قطعة.',
+    'm.tg.h_grams': 'كم تزن القطعة الواحدة وسطياً، بالغرام. القطع × الغرامات هي الكيلوغرامات الداخلة إلى البراد.',
+    'm.tg.h_by_weight': 'علّمه إذا كان هذا التقطيع لا يُجزّأ: يدخل كاملاً ويُقطّع عند البيع، مثل اللحم المعتَّق. عندها تُكتب الكيلوغرامات لا القطع.',
+    'm.tg.h_kg': 'الكيلوغرامات الداخلة إلى البراد حين يكون التقطيع بالوزن. لهذه فقط.',
+    'm.tg.h_index': 'كم يساوي هذا التقطيع مقارنة ببقية القطعة. واحد هو المعتاد؛ الفيليه أغلى من الخاصرة، وبهذا تتوزّع تكلفة القطعة كما يقول السوق لا بالتساوي.',
+    'm.tg.h_trim': 'علّمه إذا كان لا يُباع كتقطيع: قصاصات يُعاد استعمالها — مفروم، طبخ. تدخل البراد بتكلفتها، لا كصنف في القائمة.',
 }
 
 
@@ -3447,6 +3525,19 @@ HU = {
     'm.nav.g_catalogue': 'Katalógus',
     'm.nav.g_house': 'A ház',
     'm.nav.more': 'Több',
+    'm.rec.lot_help': 'A mai dátumból magától javasolt. Beírhatod a szállítólevél számát is, ha inkább azt követnéd.',
+    'm.rec.serial_help': 'A rögzítéskor magától kapja, onnan folytatva, ahol a ház tartott. Írj be egyet, ha a darab már számozva érkezik.',
+    'm.rec.auto_help': 'A számok a rögzítéskor maguktól kitöltődnek: amit látsz, azt kapná. Ha a darabnak saját száma van, írd be, és az érvényes.',
+    'm.tg.what_is_what': 'Mi micsoda?',
+    'm.tg.what_came_out': 'Mi lett belőle',
+    'm.tg.h_cut': 'A hús neve úgy, ahogy a házban hívjátok: hátszín, bélszín, pofa.',
+    'm.tg.h_article': 'Melyik hűtőcikkbe kerül. Ezt számolják és ezt írják le eladáskor; enélkül a hús nem kerül be a hűtőbe.',
+    'm.tg.h_pieces': 'Hány darab lett abból a húsból. Ezen áll a számolás és az egy darabra jutó valódi súly.',
+    'm.tg.h_grams': 'Mennyit nyom egy darab átlagosan, grammban. Darab × gramm adja a hűtőbe kerülő kilókat.',
+    'm.tg.h_by_weight': 'Jelöld be, ha az a hús nem adagolt: egészben megy be, és eladáskor vágják, mint az érlelt húst. Ilyenkor kilót írsz, nem darabot.',
+    'm.tg.h_kg': 'A hűtőbe kerülő kilók, ha az a hús kimérve megy. Csak azoknál.',
+    'm.tg.h_index': 'Mennyit ér az a hús a darab többi részéhez képest. Az egy a szokásos; a bélszín többet ér a lapockánál, és így a darab költsége úgy oszlik el, ahogy a piac mondja, nem egyenlően.',
+    'm.tg.h_trim': 'Jelöld be, ha nem húsként adják el: újrahasznosított nyesedék — darált, pörkölt. Költségével bekerül a hűtőbe, de nem étlapi tételként.',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

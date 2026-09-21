@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from thegrill import db
 from thegrill.meat import app as meatapp
 from thegrill.meat import bugs
+from thegrill.web import i18n
 from thegrill.models import BugReport, BugStatus, Restaurant, Role, User
 from tests.meat_helpers import SPANISH, add_user, csrf_from, login, signup
 
@@ -251,3 +252,108 @@ def test_every_public_page_wears_the_same_clothes(client):
         assert "<footer>" in html, ruta                     # y el mismo pie
         assert 'href="/solicitar"' in html, ruta
     assert "--ember" in portada
+
+
+# ------------------------- lo que se rellena solo y lo que se explica al pasar
+def test_the_lot_and_the_piece_numbers_fill_themselves_in(client):
+    """En el muelle, con el camión esperando, nadie inventa un código.
+
+    Se proponen; se cogen de verdad al dar de alta, no al abrir la pantalla.
+    """
+    from thegrill import db
+    from thegrill.meat import service as meat
+    from thegrill.models import Primal, Restaurant, User
+
+    pagina = client.get("/recepcion").text
+    assert 'name="lot" value="L-' in pagina                # propuesto, no en blanco
+
+    alta = client.post("/recepcion", data={
+        "lot": "", "sku": "Striploin", "kg:0": "9,4", "price:0": "30",
+        "kg:1": "8,2", "price:1": "30", "csrf": csrf_from(pagina)})
+    assert alta.status_code in (200, 303), alta.text[:200]
+
+    with db.session_scope() as s:
+        piezas = s.query(Primal).order_by(Primal.id).all()
+        assert len(piezas) == 2
+        assert all(p.serial.isdigit() for p in piezas), [p.serial for p in piezas]
+        assert int(piezas[1].serial) == int(piezas[0].serial) + 1   # la serie sigue
+        assert piezas[0].lot and piezas[0].lot.startswith("L-")
+        assert piezas[0].lot == piezas[1].lot                       # un lote común
+
+        # Y la siguiente propuesta ya cuenta con las que acaban de entrar.
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        siguiente = meat.next_serials(s, rest.id, 1)[0]
+        assert int(siguiente) == int(piezas[1].serial) + 1
+
+
+def test_a_number_written_by_hand_wins_over_the_proposed_one(client):
+    """Si la pieza viene numerada de fábrica, manda la etiqueta."""
+    from thegrill import db
+    from thegrill.models import Primal
+
+    pagina = client.get("/recepcion").text
+    client.post("/recepcion", data={"lot": "ALB-77", "sku": "Ribeye",
+                                    "serial:0": "AUS-9001", "kg:0": "9,4", "price:0": "30",
+                                    "kg:1": "7,1", "price:1": "30",
+                                    "csrf": csrf_from(pagina)})
+    with db.session_scope() as s:
+        seriales = {p.serial for p in s.query(Primal)}
+        assert "AUS-9001" in seriales and len(seriales) == 2
+        assert s.query(Primal).filter_by(serial="AUS-9001").one().lot == "ALB-77"
+
+
+def test_opening_the_screen_does_not_burn_a_number(client):
+    """Abrir y cerrar la pantalla no puede dejar huecos en la serie."""
+    from thegrill import db
+    from thegrill.meat import service as meat
+    from thegrill.models import Restaurant
+
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        antes = meat.next_serials(s, rest.id, 1)[0]
+    for _ in range(3):
+        client.get("/recepcion")
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        assert meat.next_serials(s, rest.id, 1)[0] == antes
+
+
+def test_every_column_of_the_butchery_explains_itself(client):
+    """«Índice de valor» no lo entiende nadie la primera vez, y hay que decirlo."""
+    html = client.get("/despiece").text
+    for clave in ("m.tg.h_cut", "m.tg.h_article", "m.tg.h_pieces", "m.tg.h_grams",
+                  "m.tg.h_by_weight", "m.tg.h_index", "m.tg.h_trim"):
+        texto = i18n.t("es", clave)
+        assert texto in html, clave
+    # Al pasar por encima y también abierto, que en un móvil no se pasa por encima.
+    assert 'title="' + i18n.t("es", "m.tg.h_index")[:20] in html
+    assert i18n.t("es", "m.tg.what_is_what") in html
+
+
+def test_the_butchery_history_says_what_came_out_and_how_many(client):
+    """Una lista de despieces sin los cortes ni las piezas no dice nada."""
+    from thegrill import db
+    from thegrill.models import Ingredient, Primal, Restaurant, User
+    from thegrill.meat import service as meat
+
+    pagina = client.get("/recepcion").text
+    client.post("/recepcion", data={"lot": "", "sku": "Striploin", "kg:0": "9,0",
+                                    "price:0": "30", "use_by": "2026-12-31",
+                                    "csrf": csrf_from(pagina)})
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        ana = s.query(User).filter_by(restaurant_id=rest.id).first()
+        corte = meat.create_cut(s, ana, "Entrecot")
+        articulo = meat.add_article(s, ana, corte, "Entrecot AUS")
+        pieza = s.query(Primal).one()
+        item_id, serial = articulo.id, pieza.serial
+
+    despiece = client.get("/despiece").text
+    client.post("/despiece", data={"tg": "TG-0001", "primal": serial, "before_kg": "9,0",
+                                   "cut:0": "Entrecot", "item:0": str(item_id),
+                                   "pieces:0": "12", "grams:0": "650",
+                                   "waste_kg": "1,2", "csrf": csrf_from(despiece)})
+
+    historia = client.get("/despiece").text
+    assert "Entrecot (12)" in historia          # qué salió y cuántas piezas
+    assert i18n.t("es", "m.tg.what_came_out") in historia

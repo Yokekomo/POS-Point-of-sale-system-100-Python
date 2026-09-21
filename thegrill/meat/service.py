@@ -48,6 +48,42 @@ class PrimalRow:
     use_by: date | None = None
 
 
+def next_lot(session: Session, restaurant_id: int, on: date | None = None) -> str:
+    """El número del próximo lote de recepción: la fecha y un orden del día.
+
+    Nadie tiene que inventarse un código en el muelle con el camión esperando.
+    Se propone uno —`L-260921-1`— y se confirma al dar de alta: hasta entonces
+    no existe, así que abrir la pantalla y cerrarla no quema ningún número.
+    """
+    on = on or date.today()
+    base = f"L-{on:%y%m%d}"
+    usados = {p.lot for p in session.query(Primal.lot)
+              .filter(Primal.restaurant_id == restaurant_id,
+                      Primal.lot.like(f"{base}%"))}
+    for n in range(1, 100):
+        propuesto = f"{base}-{n}"
+        if propuesto not in usados:
+            return propuesto
+    return f"{base}-{len(usados) + 1}"
+
+
+def next_serials(session: Session, restaurant_id: int, count: int = 1) -> list[str]:
+    """Los próximos números de pieza, siguiendo por donde iba la casa.
+
+    Si los que hay son números, se sigue contando; si no lo son —porque el
+    proveedor los trae con letras—, se empieza una serie propia. Se proponen,
+    y solo se quedan cogidos cuando la recepción se da de alta.
+    """
+    numeros = []
+    for (serial,) in session.query(Primal.serial).filter_by(restaurant_id=restaurant_id):
+        limpio = (serial or "").strip()
+        if limpio.isdigit():
+            numeros.append(int(limpio))
+    siguiente = (max(numeros) + 1) if numeros else 8001
+    ancho = max(4, len(str(siguiente)))
+    return [f"{siguiente + i:0{ancho}d}" for i in range(max(1, count))]
+
+
 def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow],
                     received: date | None = None, lang: str = "es",
                     chamber: str | None = None) -> list[Primal]:
@@ -62,6 +98,25 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
     if not rows:
         raise MeatError(t(lang, "m.rec.empty"))
     received = received or date.today()
+    lot = (lot or "").strip() or next_lot(session, user.restaurant_id, received)
+
+    # Los números que no se hayan escrito se ponen aquí, al dar de alta, y no
+    # al abrir la pantalla: dos personas recibiendo a la vez no se pisan, y el
+    # que abre y cierra no deja un hueco en la serie.
+    faltan = [r for r in rows if not r.serial.strip()]
+    if faltan:
+        libres = next_serials(session, user.restaurant_id, len(faltan) + len(rows))
+        escritos = {r.serial.strip() for r in rows if r.serial.strip()}
+        for row in faltan:
+            while libres and (libres[0] in escritos or
+                              session.query(Primal).filter_by(
+                                  restaurant_id=user.restaurant_id,
+                                  serial=libres[0]).first()):
+                libres.pop(0)
+            if not libres:
+                raise MeatError(t(lang, "m.rec.needs"))
+            row.serial = libres.pop(0)
+            escritos.add(row.serial)
 
     seen: set[str] = set()
     for row in rows:
