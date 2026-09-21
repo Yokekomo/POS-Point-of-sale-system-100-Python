@@ -77,6 +77,24 @@ misma wifi** se abre con la dirección de ese ordenador y `:8001` detrás —
 
 Es la forma de verlo como lo va a ver un carnicero: con el teléfono en la mano.
 
+## Traerte la última versión
+
+Los arreglos salen casi a diario. Para ponerte al día:
+
+- **Doble clic en `actualizar.bat`** (o `git pull` escrito **dentro de la
+  carpeta del programa**, no en `C:\Users\TuNombre`).
+- Si bajaste el ZIP no hay nada que actualizar: baja el ZIP otra vez. Tus datos
+  están en `demo.db`; copia ese fichero a la carpeta nueva y sigues donde
+  estabas.
+
+Para encontrar dónde la tienes, en la consola:
+
+```
+dir /s /b /ad C:\Users\%USERNAME%\POS-Point-of-sale-system*
+```
+
+y luego `cd /d` con la ruta que salga.
+
 ## Con quién entrar
 
 Todas las cuentas llevan la misma contraseña: **`demo-2026`**. Lo que cambia es

@@ -9,6 +9,9 @@ where py >nul 2>nul && (set PY=py -3) || (set PY=python)
 echo.
 echo   Preparando la demo. La primera vez tarda un par de minutos.
 echo.
+
+REM Si se bajo con git, se trae lo ultimo antes de arrancar.
+if exist ".git\" git pull --ff-only >nul 2>nul
 if not exist ".venv\" (
     %PY% -m venv .venv || goto :sinpython
 )
