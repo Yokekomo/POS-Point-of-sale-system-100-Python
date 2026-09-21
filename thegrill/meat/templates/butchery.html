@@ -5,6 +5,23 @@
   //    que viaja en el envío— la mueve el desplegable, y así no hay que
   //    entender por qué unas columnas se rellenan y otras no.
   function atar(bloque) {
+    // El peso de cada pieza sale de la bandeja: en la mesa se pesa todo junto.
+    var piezas = bloque.querySelector("input[name^='pieces:']");
+    var total = bloque.querySelector("input.total");
+    var dicho = bloque.querySelector(".porpieza");
+    function dividir() {
+      if (!piezas || !total || !dicho) return;
+      var n = parseFloat((piezas.value || "").replace(",", "."));
+      var kg = parseFloat((total.value || "").replace(",", "."));
+      if (!(n > 0) || !(kg > 0)) { dicho.textContent = ""; return; }
+      var g = Math.round(kg * 1000 / n * 10) / 10;
+      dicho.textContent = {{ t("m.tg.per_piece_out", g="GRAMOS")|tojson }}
+        .replace("GRAMOS", String(g).replace(".", ","));
+    }
+    if (piezas) piezas.addEventListener("input", dividir);
+    if (total) total.addEventListener("input", dividir);
+    dividir();
+
     var como = bloque.querySelector(".comosale");
     var casilla = bloque.querySelector(".espeso");
     if (!como || !casilla) return;
@@ -148,13 +165,16 @@
       <label class="enpiezas">{{ t("meat.pieces") }}
         <input name="pieces:{{ i }}" inputmode="numeric"
                title="{{ t('m.tg.h_pieces') }}"></label>
-      <label class="enpiezas">{{ t("m.tg.g_piece") }}
-        <input name="grams:{{ i }}" inputmode="decimal"
+      <label class="enpiezas">{{ t("m.tg.total_kg") }}
+        <input name="total:{{ i }}" inputmode="decimal" class="total"
                title="{{ t('m.tg.h_grams') }}"></label>
       <label class="apeso" hidden>kg
         <input name="kg:{{ i }}" inputmode="decimal"
                title="{{ t('m.tg.h_kg') }}"></label>
     </div>
+    {# Lo que sale de dividir: se enseña mientras se escribe, que es lo que
+       deja ver de un vistazo si el corte va ancho o estrecho. #}
+    <div class="help enpiezas porpieza" aria-live="polite"></div>
 
     <details class="masetq">
       <summary>{{ t("m.tg.more_of_cut") }}</summary>
@@ -231,6 +251,23 @@
   //    que viaja en el envío— la mueve el desplegable, y así no hay que
   //    entender por qué unas columnas se rellenan y otras no.
   function atar(bloque) {
+    // El peso de cada pieza sale de la bandeja: en la mesa se pesa todo junto.
+    var piezas = bloque.querySelector("input[name^='pieces:']");
+    var total = bloque.querySelector("input.total");
+    var dicho = bloque.querySelector(".porpieza");
+    function dividir() {
+      if (!piezas || !total || !dicho) return;
+      var n = parseFloat((piezas.value || "").replace(",", "."));
+      var kg = parseFloat((total.value || "").replace(",", "."));
+      if (!(n > 0) || !(kg > 0)) { dicho.textContent = ""; return; }
+      var g = Math.round(kg * 1000 / n * 10) / 10;
+      dicho.textContent = {{ t("m.tg.per_piece_out", g="GRAMOS")|tojson }}
+        .replace("GRAMOS", String(g).replace(".", ","));
+    }
+    if (piezas) piezas.addEventListener("input", dividir);
+    if (total) total.addEventListener("input", dividir);
+    dividir();
+
     var como = bloque.querySelector(".comosale");
     var casilla = bloque.querySelector(".espeso");
     if (!como || !casilla) return;

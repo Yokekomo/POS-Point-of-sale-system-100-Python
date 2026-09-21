@@ -55,6 +55,19 @@ h2{font-size:17px;margin:28px 0 10px;letter-spacing:-.01em}
 p.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
 .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+/* ==================================== fichas de acción, una detrás de otra
+   Mover una pieza, pesarla, limpiarla, venderla al peso: cada una es un
+   formulario entero. Puestas en columnas se quedan estrechas y se estropean
+   solas —el desplegable corta el número de la pieza, los nombres de los campos
+   envuelven en dos líneas, y la ficha más larga estira a las otras tres, que
+   quedan con un palmo de hueco debajo—. Una debajo de otra se lee cada una de
+   arriba abajo, que es como se rellenan: de una en una. */
+.fichas{display:grid;grid-template-columns:1fr;gap:0}
+/* Y con la ficha a todo el ancho, el hueco de escribir no puede medir un
+   metro: una casilla de «Nota» de novecientos píxeles para escribir «se cayó»
+   se lee peor que una corta, y el ojo tiene que viajar del nombre al hueco. */
+.fichas .card input,.fichas .card select,.fichas .card textarea{max-width:420px}
+.fichas .card .help{max-width:70ch}
 /* Las casillas de una fila se alinean por abajo, no por arriba: si un nombre
    ocupa dos líneas —«Temperatura al recibir (°C)»— y el de al lado una, los
    dos huecos de escribir quedaban a distinta altura y la fila parecía torcida.

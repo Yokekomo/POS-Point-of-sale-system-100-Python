@@ -759,9 +759,19 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
             by_weight = bool(form.get(f"weight:{i}"))
             if not name and not (pieces or "").strip() and not (kg or "").strip():
                 continue
+            # En la mesa se pesa la bandeja entera, no filete a filete: se
+            # escriben los kilos de las piezas juntas y el peso de cada una
+            # sale de ahí. Los gramos por pieza se siguen aceptando —la hoja de
+            # papel los pide así, y la cola de un teléfono puede traerlos—,
+            # pero el total manda cuando viene.
+            cuantas = int(_num(pieces, 0) or 0)
+            gramos = _num(grams, 0.0) or 0.0
+            total = _num(form.get(f"total:{i}"))
+            if total and cuantas > 0:
+                gramos = round(total * 1000 / cuantas, 4)
             rows.append(meat.CutRow(
                 name=name, item_id=int(form.get(f"item:{i}") or 0),
-                pieces=int(_num(pieces, 0) or 0), grams=_num(grams, 0.0) or 0.0,
+                pieces=cuantas, grams=gramos,
                 value_index=_num(form.get(f"index:{i}"), 1.0) or 1.0,
                 is_trim=bool(form.get(f"trim:{i}")),
                 by_weight=by_weight, kg=_num(kg, 0.0) or 0.0))

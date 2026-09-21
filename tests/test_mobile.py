@@ -604,16 +604,23 @@ def test_the_butchery_sheet_shows_only_the_boxes_that_apply(browser):
     assert page.locator("#cortes .corte").count() == 3
 
     primero = page.locator("#cortes .corte").first
-    # En raciones: piezas y gramos; los kilos, escondidos.
+    # En raciones: piezas y el peso de todas juntas; los kilos sueltos, no.
     assert primero.locator("input[name='pieces:0']").is_visible()
-    assert primero.locator("input[name='grams:0']").is_visible()
+    assert primero.locator("input[name='total:0']").is_visible()
     assert primero.locator("input[name='kg:0']").is_hidden()
     assert not primero.locator("input[name='weight:0']").is_checked()
+
+    # Y el peso de cada pieza sale solo, mientras se escribe: en la mesa se
+    # pesa la bandeja entera, no filete a filete.
+    primero.locator("input[name='pieces:0']").fill("18")
+    primero.locator("input[name='total:0']").fill("5,4")
+    page.wait_for_timeout(150)
+    assert "300" in primero.locator(".porpieza").inner_text()
 
     primero.locator(".comosale").select_option("peso")
     assert primero.locator("input[name='kg:0']").is_visible()
     assert primero.locator("input[name='pieces:0']").is_hidden()
-    assert primero.locator("input[name='grams:0']").is_hidden()
+    assert primero.locator("input[name='total:0']").is_hidden()
     # Y la casilla que de verdad se manda ha seguido al desplegable.
     assert primero.locator("input[name='weight:0']").is_checked()
 

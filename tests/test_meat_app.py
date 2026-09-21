@@ -15,7 +15,8 @@ from fastapi.testclient import TestClient
 
 from thegrill import db
 from thegrill.meat import app as meatapp
-from thegrill.models import (Despiece, Ingredient, IngredientItem, IngredientLot,
+from thegrill.models import (Despiece, DespieceCut, Ingredient, IngredientItem,
+                             IngredientLot,
                              IngredientMovement, MovementKind, Primal, PrimalStatus,
                              Recipe, Restaurant, Role, User)
 
@@ -1214,7 +1215,21 @@ class TestRecepcionDeUnaEnUna:
         # La foto va en el propio formulario y abre la cámara de atrás.
         assert 'enctype="multipart/form-data"' in pantalla
         assert 'capture="environment"' in pantalla
-        assert pantalla.index('name="foto"') < pantalla.index('name="kg:0"')
+        # El orden: primero se configura el lote, luego la foto de la etiqueta
+        # de la bolsa que tienes en la mano, y al final sus números.
+        assert (pantalla.index('name="lot"') < pantalla.index('name="foto"')
+                < pantalla.index('name="kg:0"'))
+
+    def test_the_lot_says_which_one_it_is_once_it_is_set(self, client):
+        """Se configura una vez y se le van subiendo piezas: hay que ver cuál es."""
+        signup(client)
+        form = client.get("/recepcion")
+        r = client.post("/recepcion", data={
+            "csrf": csrf_from(form.text), "lot": "L-QUIEN", "sku": "Ribeye AUS MB7",
+            "price_kg": "32", "serial:0": "9500", "kg:0": "9,1"})
+        assert "L-QUIEN" in r.text and "Ribeye AUS MB7" in r.text
+        # Y plegado, porque ya está configurado: lo que se toca es la pieza.
+        assert "<details" in r.text and 'name="lot"' in r.text
 
     def test_the_label_travels_with_the_piece_in_one_go(self, client, tmp_path,
                                                         monkeypatch):
@@ -1281,6 +1296,47 @@ class TestRecepcionDeUnaEnUna:
             pieza = s.query(Primal).filter_by(serial="9202").one()
             assert pieza.photo_ref is None      # se hace luego, desde la lista
             assert pieza.weight_kg == 8.8
+
+
+def test_the_butchery_takes_the_weight_of_the_whole_tray(client):
+    """En la mesa se pesa la bandeja, no filete a filete.
+
+    Se escriben las piezas que han salido y los kilos de todas juntas, y el
+    peso de cada una sale de ahí. Pedir los gramos de una pieza obliga a pesar
+    una y fiarse, o a hacer la división a mano con las manos llenas de grasa.
+    """
+    signup(client)
+    items = setup_cuts(client)
+    deliver(client)
+    form = client.get("/despiece")
+    r = client.post("/despiece", data={
+        "csrf": csrf_from(form.text), "tg": "TG-0001", "date": str(HOY),
+        "before_kg": "10", "waste_kg": "0,6", "primal": "8017",
+        "cut:0": "Striploin steak", "item:0": items["Striploin steak"],
+        "pieces:0": "18", "total:0": "5,4", "index:0": "1"})
+    assert r.status_code == 200
+    with db.session_scope() as s:
+        corte = s.query(DespieceCut).filter_by(cut_name="Striploin steak").one()
+        assert corte.pieces == 18
+        assert corte.weight_per_piece_g == 300      # 5,4 kg entre 18
+        assert corte.total_kg == pytest.approx(5.4)
+
+
+def test_grams_per_piece_still_work_for_what_comes_from_the_paper(client):
+    """La hoja de papel los pide así, y la cola de un teléfono puede traerlos."""
+    signup(client)
+    items = setup_cuts(client)
+    deliver(client)
+    form = client.get("/despiece")
+    r = client.post("/despiece", data={
+        "csrf": csrf_from(form.text), "tg": "TG-0002", "date": str(HOY),
+        "before_kg": "10", "waste_kg": "0,6", "primal": "8017",
+        "cut:0": "Striploin steak", "item:0": items["Striploin steak"],
+        "pieces:0": "20", "grams:0": "250", "index:0": "1"})
+    assert r.status_code == 200
+    with db.session_scope() as s:
+        corte = s.query(DespieceCut).filter_by(cut_name="Striploin steak").one()
+        assert corte.weight_per_piece_g == 250
 
 
 class TestComoLlega:

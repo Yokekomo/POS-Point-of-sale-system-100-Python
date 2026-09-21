@@ -10,25 +10,16 @@
 <form method="post" action="/recepcion" data-cola enctype="multipart/form-data">
   <input type="hidden" name="csrf" value="{{ csrf }}">
 
-  {# 1. La foto. Primero de todo, porque es lo primero que se hace: se coge la
-     bolsa y se le hace la foto a la etiqueta, que es cuando está delante. #}
-  <h2 style="margin-top:0">{{ t("m.rec.photo_first") }}</h2>
-  <p class="help">{{ t("m.rec.photo_first_help") }}</p>
-  <input type="file" name="foto" accept="image/*" capture="environment" id="lafoto" hidden>
-  <div class="rowflex" style="gap:10px;align-items:center;flex-wrap:wrap">
-    <label class="btn ghost" for="lafoto" id="botonfoto">{{ t("m.rec.photo_add") }}</label>
-    <span class="muted" id="fotodicho" hidden></span>
-  </div>
-  <div id="fotovista" hidden><a class="fotoetq" href="#" id="fotoenlace"><img id="fotoimg"
-      alt="{{ t('m.rec.photo') }}"></a></div>
-
-  {# 2. El lote. Va antes que la pieza porque es lo que se abre primero: se
-     apunta de dónde viene la descarga y luego se le van metiendo bolsas. Se
-     escribe una vez y se queda puesto, así que a partir de la segunda pieza
-     viene plegado y no estorba. #}
+  {# 1. El lote. Lo primero de todo: se abre la descarga —de dónde viene, qué
+     trae— y luego se le van metiendo bolsas. Se escribe una vez y se queda
+     puesto, así que a partir de la segunda pieza viene plegado y no estorba. #}
   <details class="masetq" {% if not previo.get("lot") %}open{% endif %}
-           style="margin-top:20px">
-    <summary><b>{{ t("m.rec.lot_step") }}</b></summary>
+           style="margin-top:0">
+    {# Plegado dice cuál es: se configura una vez y luego se le van subiendo
+       piezas, y hay que poder ver de un vistazo que sigues en el lote bueno. #}
+    <summary><b>{{ t("m.rec.lot_step") }}</b>{% if previo.get("lot") %}
+      <span class="muted">· {{ previo.get("lot") }}{% if previo.get("sku") %}
+        · {{ previo.get("sku") }}{% endif %}</span>{% endif %}</summary>
     <p class="help">{{ t("m.rec.lot_step_help") }}</p>
     <div class="grid">
       <div><label for="lot">{{ t("m.rec.lot") }}</label>
@@ -110,6 +101,19 @@
     </div>
     <div class="help" id="alarconayuda">{{ t("m.rec.freeze_now_help") }}</div>
   </details>
+
+  {# 2. La foto de la etiqueta. Va después del lote —el lote se abre una vez y
+     la etiqueta es de cada bolsa— pero antes de teclear la pieza: se coge la
+     bolsa, se le hace la foto, y entonces se escriben sus números. #}
+  <h2>{{ t("m.rec.photo_first") }}</h2>
+  <p class="help">{{ t("m.rec.photo_first_help") }}</p>
+  <input type="file" name="foto" accept="image/*" capture="environment" id="lafoto" hidden>
+  <div class="rowflex" style="gap:10px;align-items:center;flex-wrap:wrap">
+    <label class="btn ghost" for="lafoto" id="botonfoto">{{ t("m.rec.photo_add") }}</label>
+    <span class="muted" id="fotodicho" hidden></span>
+  </div>
+  <div id="fotovista" hidden><a class="fotoetq" href="#" id="fotoenlace"><img id="fotoimg"
+      alt="{{ t('m.rec.photo') }}"></a></div>
 
   {# 3. La pieza que tienes en la mano. #}
   <h2>{{ t("m.rec.piece_step") }}</h2>

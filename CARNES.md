@@ -233,11 +233,13 @@ recuento, el inventario del mes sin hacer, cortes bajo mínimo, lotes que
 caducan y despieces empezados sin volcar. Debajo, primales, kilos en cámara y
 el valor de lo que hay.
 
-**Recepción, una pieza cada vez.** Así se descarga de verdad: se coge una bolsa,
-se le hace la foto a su etiqueta, se apuntan su número y sus kilos, se guarda, y
-se coge la siguiente. La pantalla va en ese orden —**1. la etiqueta, 2. la
-pieza**— y no al revés, porque la foto se hace cuando la etiqueta está delante,
-no cuando ya has dejado la bolsa en la cámara.
+**Recepción, una pieza cada vez.** Se configura el lote que llega y se le van
+subiendo primales: se coge una bolsa, se le hace la foto a su etiqueta, se
+apuntan su número y sus kilos, se guarda, y se coge la siguiente. La pantalla va
+en ese orden —**1. el lote, 2. la etiqueta, 3. la pieza**—, y la foto se hace
+cuando la etiqueta está delante, no cuando ya has dejado la bolsa en la cámara.
+El lote, una vez configurado, se pliega y dice cuál es, para poder ver de un
+vistazo que sigues subiendo piezas al bueno.
 
 La foto se ve en la propia pantalla antes de guardar, para saber que ha salido
 legible, y **viaja con la pieza en el mismo envío**: no hay un segundo paso que
@@ -320,8 +322,13 @@ segundo paso.
 filas por ocho columnas, y de los cuatro huecos de cada corte la mitad sobraban
 según cómo saliera ese corte: «a peso» era una casilla en medio de la fila con
 dos columnas a cada lado y nadie sabía cuáles tocaban. Ahora se elige **cómo
-sale** —en raciones, o a peso— y se enseña solo la pareja que corresponde:
-piezas y gramos, o kilos. Lo que casi nunca se toca —el índice de valor y si es
+sale** —en raciones, o a peso— y se enseña solo lo que corresponde.
+
+**Y se pesa la bandeja, no el filete.** En raciones se escriben las piezas que
+han salido y **los kilos de todas juntas**, que es lo que dice la báscula, y el
+peso de cada una sale solo mientras escribes. Pedir los gramos de una pieza
+obliga a pesar una y fiarse, o a hacer la división a mano con las manos llenas
+de grasa. Lo que casi nunca se toca —el índice de valor y si es
 para reusar— se abre debajo. Tres bloques a la vista y los demás se piden. Cada corte sale con **serial
 propio** —`8017-01`, `8017-02`— y se lleva su parte del coste del primal
 repartida por el índice de valor: un filete vale más por kilo que un recorte.
