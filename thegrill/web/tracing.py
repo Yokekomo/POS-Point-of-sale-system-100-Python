@@ -240,12 +240,18 @@ class Label:
     label_product: str | None = None
     halal: bool | None = None
     has_photo: bool = False
+    # Cómo bajó del camión: no es lo mismo llegar congelada que llegar fresca
+    # y acabar en el arcón el mismo día.
+    arrival: str | None = None
+    arrival_c: float | None = None
+    frozen_on_arrival: bool | None = None
 
     def __bool__(self) -> bool:
         """Vacía si el proveedor no trajo etiqueta o nadie la copió."""
         return any([self.supplier_lot, self.producer_plant, self.est_code, self.breed,
                     self.origin, self.grade, self.slaughter_date, self.pack_date,
-                    self.label_product, self.halal, self.has_photo])
+                    self.label_product, self.halal, self.has_photo,
+                    self.arrival, self.arrival_c, self.frozen_on_arrival])
 
 
 @dataclass
@@ -386,7 +392,10 @@ def history(session: Session, restaurant_id: int, serial: str) -> PrimalHistory:
                             slaughter_date=primal.slaughter_date,
                             pack_date=primal.pack_date,
                             label_product=primal.label_product, halal=primal.halal,
-                            has_photo=bool(primal.photo_ref)))
+                            has_photo=bool(primal.photo_ref),
+                            arrival=(primal.arrival.value if primal.arrival else None),
+                            arrival_c=primal.arrival_c,
+                            frozen_on_arrival=primal.frozen_on_arrival))
 
     link = (session.query(DespiecePrimal)
             .filter_by(serial=primal.serial)

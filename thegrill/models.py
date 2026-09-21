@@ -502,6 +502,16 @@ class Primal(TenantMixin, Base):
     breed: Mapped[str | None] = mapped_column(String(48))
     slaughter_date: Mapped[date | None] = mapped_column(Date)
     pack_date: Mapped[date | None] = mapped_column(Date)
+    # ---- cómo llegó, que no es lo mismo que dónde está ahora.
+    # Una pieza que llega congelada y una que llega fresca y se mete al arcón
+    # acaban las dos en el congelador, pero no son la misma carne: la primera
+    # nunca estuvo fresca en esta casa y la segunda sí. Y la temperatura a la
+    # que bajó del camión es lo primero que se pregunta cuando una pieza sale
+    # mal, así que se apunta al recibirla y no se toca más.
+    arrival: Mapped[Storage | None] = mapped_column(Enum(Storage))
+    arrival_c: Mapped[float | None] = mapped_column(Float)
+    # Llegó fresca y va derecha al arcón, sin pasar por la cámara.
+    frozen_on_arrival: Mapped[bool | None] = mapped_column(Boolean)
     expiry_label: Mapped[date | None] = mapped_column(Date)
     frozen_use_by: Mapped[date | None] = mapped_column(Date)
     # Dónde está y desde cuándo. Madurando se guarda además el peso con el que

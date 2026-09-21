@@ -1264,7 +1264,8 @@ class TestRecepcionDeUnaEnUna:
         r = client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-ROTU", "sku": "Ribeye AUS",
             "price_kg": "30", "serial:0": "9210", "kg:0": "9,1"})
-        assert "Escribe el 9210 en la pieza" in r.text
+        # Con el número y el peso, que es lo que hay que escribir encima.
+        assert "9210 · 9.1 kg" in r.text and "en la pieza" in r.text
 
     def test_a_phone_with_no_signal_still_books_the_piece(self, client):
         """La foto necesita línea; lo escrito, no. Lo escrito manda."""
@@ -1280,3 +1281,71 @@ class TestRecepcionDeUnaEnUna:
             pieza = s.query(Primal).filter_by(serial="9202").one()
             assert pieza.photo_ref is None      # se hace luego, desde la lista
             assert pieza.weight_kg == 8.8
+
+
+class TestComoLlega:
+    """Cómo bajó del camión, que no es lo mismo que dónde está ahora.
+
+    Una pieza que llega congelada y una que llega fresca y se mete al arcón
+    acaban las dos en el congelador, pero no son la misma carne: la primera
+    nunca estuvo fresca en esta casa. Y la temperatura de la caja al abrirla es
+    lo primero que se pregunta el día que una pieza sale mal.
+    """
+
+    def recibir(self, client, **extra):
+        from thegrill.models import Storage
+        form = client.get("/recepcion")
+        data = {"csrf": csrf_from(form.text), "lot": "L-FRIO", "sku": "Ribeye AUS",
+                "price_kg": "32", "use_by": str(HOY + timedelta(days=40)),
+                "serial:0": "9400", "kg:0": "9,4"}
+        data.update(extra)
+        return client.post("/recepcion", data=data)
+
+    def test_chilled_meat_stays_in_the_chiller(self, client):
+        from thegrill.models import Storage
+        signup(client)
+        self.recibir(client, arrival="CHILLED", arrival_c="2,4")
+        with db.session_scope() as s:
+            pieza = s.query(Primal).filter_by(serial="9400").one()
+            assert pieza.arrival == Storage.CHILLED
+            assert pieza.arrival_c == 2.4
+            assert pieza.storage == Storage.CHILLED
+            assert not pieza.frozen_on_arrival
+
+    def test_meat_that_arrives_frozen_is_in_the_freezer_from_day_one(self, client):
+        """Contarla como fresca le pondría el reloj que no es."""
+        from thegrill.models import Storage
+        signup(client)
+        self.recibir(client, arrival="FROZEN", arrival_c="-19")
+        with db.session_scope() as s:
+            pieza = s.query(Primal).filter_by(serial="9400").one()
+            assert pieza.arrival == Storage.FROZEN
+            assert pieza.arrival_c == -19
+            assert pieza.storage == Storage.FROZEN
+            assert pieza.storage_since == HOY
+
+    def test_fresh_meat_that_goes_straight_to_the_freezer(self, client):
+        """Llega fresca y no pasa por la cámara: el arcón manda desde hoy."""
+        from thegrill.models import Storage
+        signup(client)
+        self.recibir(client, arrival="CHILLED", arrival_c="1,8", frozen_on_arrival="1")
+        with db.session_scope() as s:
+            pieza = s.query(Primal).filter_by(serial="9400").one()
+            assert pieza.arrival == Storage.CHILLED     # llegó fresca, eso no cambia
+            assert pieza.frozen_on_arrival is True
+            assert pieza.storage == Storage.FROZEN      # pero está en el arcón
+
+    def test_what_already_comes_frozen_is_not_frozen_again(self, client):
+        """La casilla solo tiene sentido si llega fresca."""
+        signup(client)
+        self.recibir(client, arrival="FROZEN", frozen_on_arrival="1")
+        with db.session_scope() as s:
+            assert not s.query(Primal).filter_by(serial="9400").one().frozen_on_arrival
+
+    def test_the_piece_sheet_says_how_it_arrived(self, client):
+        signup(client)
+        self.recibir(client, arrival="CHILLED", arrival_c="2,4", frozen_on_arrival="1")
+        ficha = client.get("/trazabilidad?serial=9400").text
+        assert "Cómo llegó" in ficha
+        assert "Refrigerada a 2.4 °C" in ficha
+        assert "Congelada al entrar" in ficha

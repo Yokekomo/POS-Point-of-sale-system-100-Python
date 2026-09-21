@@ -122,6 +122,35 @@
                {% if previo.get('halal') %}checked{% endif %}>
         <label for="halal" style="margin:0">{{ t("m.rec.halal") }}</label></div>
     </div>
+
+    {# Cómo bajó del camión. No es lo mismo una pieza que llega congelada que
+       una que llega fresca y se mete al arcón: las dos acaban en el
+       congelador, pero la primera nunca estuvo fresca en esta casa. Y la
+       temperatura de la caja al abrirla es lo primero que se pregunta el día
+       que una pieza sale mal. #}
+    <h3 style="font-size:15px;margin:18px 0 4px">{{ t("m.rec.arrival_title") }}</h3>
+    <div class="grid">
+      <div><label for="arrival">{{ t("m.rec.arrival") }}</label>
+        <select id="arrival" name="arrival">
+          <option value="CHILLED" {% if previo.get('arrival') != 'FROZEN' %}selected{% endif %}
+            >{{ t("m.rec.arrival_chilled") }}</option>
+          <option value="FROZEN" {% if previo.get('arrival') == 'FROZEN' %}selected{% endif %}
+            >{{ t("m.rec.arrival_frozen") }}</option>
+        </select></div>
+      <div><label for="arrival_c" title="{{ t('m.rec.arrival_c_help') }}">{{ t("m.rec.arrival_c") }}</label>
+        <input id="arrival_c" name="arrival_c" inputmode="decimal" placeholder="2,4"
+               title="{{ t('m.rec.arrival_c_help') }}"
+               value="{{ previo.get('arrival_c','') }}"></div>
+    </div>
+    <div class="help">{{ t("m.rec.arrival_c_help") }}</div>
+    {# Solo tiene sentido si llega fresca: lo que ya viene congelado no se
+       vuelve a congelar. El guion de abajo lo esconde cuando no toca. #}
+    <div class="rowflex" id="alarcon" style="align-items:center;gap:10px;margin-top:12px">
+      <input id="frozen_on_arrival" name="frozen_on_arrival" type="checkbox" value="1"
+             {% if previo.get('frozen_on_arrival') %}checked{% endif %}>
+      <label for="frozen_on_arrival" style="margin:0">{{ t("m.rec.freeze_now") }}</label>
+    </div>
+    <div class="help" id="alarconayuda">{{ t("m.rec.freeze_now_help") }}</div>
   </details>
 </form>
 </div>
@@ -137,6 +166,19 @@
   var enlace = document.getElementById("fotoenlace");
   var boton = document.getElementById("botonfoto");
   var dicho = document.getElementById("fotodicho");
+  // Lo que ya viene congelado no se vuelve a congelar: la casilla se esconde.
+  var comoLlega = document.getElementById("arrival");
+  var alArcon = document.getElementById("alarcon");
+  var alArconAyuda = document.getElementById("alarconayuda");
+  function mirarLlegada() {
+    if (!comoLlega || !alArcon) return;
+    var fresca = comoLlega.value !== "FROZEN";
+    alArcon.hidden = !fresca;
+    if (alArconAyuda) alArconAyuda.hidden = !fresca;
+    if (!fresca) document.getElementById("frozen_on_arrival").checked = false;
+  }
+  if (comoLlega) { comoLlega.addEventListener("change", mirarLlegada); mirarLlegada(); }
+
   if (!campo || !vista) return;
   campo.addEventListener("change", function () {
     if (!campo.files || !campo.files.length) return;

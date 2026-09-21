@@ -58,6 +58,14 @@
   {% if h.label.pack_date %}<dt>{{ t("m.rec.pack") }}</dt><dd>{{ h.label.pack_date }}</dd>{% endif %}
   {% if h.label.label_product %}<dt>{{ t("m.rec.label_name") }}</dt><dd>{{ h.label.label_product }}</dd>{% endif %}
   {% if h.label.halal %}<dt>{{ t("m.rec.halal") }}</dt><dd>✓</dd>{% endif %}
+  {% if h.label.arrival %}<dt>{{ t("trace.arrival") }}</dt>
+    <dd>{% set estado = t("m.rec.arrival_frozen") if h.label.arrival == "FROZEN"
+                        else t("m.rec.arrival_chilled") %}
+      {% if h.label.arrival_c is not none %}{{ t("trace.arrival_line", estado=estado,
+          grados="%.10g"|format(h.label.arrival_c)) }}{% else %}{{ estado }}{% endif %}
+      {% if h.label.frozen_on_arrival %}
+      <div class="muted">{{ t("trace.frozen_on_arrival") }}</div>{% endif %}</dd>
+  {% endif %}
   </dl>
 {% else %}
   <div class="muted">{{ t("trace.no_label") }}</div>

@@ -249,12 +249,24 @@ quedan puestos para las siguientes piezas de la misma descarga: veinte piezas de
 la misma caja no son veinte veces el matadero. Va plegado, debajo del botón,
 porque se toca al empezar y ya no se vuelve a mirar.
 
-**Y el número va escrito en la carne.** Con rotulador permanente o en una
-etiqueta pegada, antes de meter la pieza en la cámara. La pantalla lo dice al
+**Y el número y el peso van escritos en la carne.** Con rotulador permanente o
+en una etiqueta pegada, antes de meter la pieza en la cámara. La pantalla lo dice al
 lado del número y lo repite al guardar, con el número delante, que es el momento
 de coger el rotulador —la pieza sigue en la mano—. Sin eso la trazabilidad vive
 solo en el ordenador: en la cámara nadie abre el móvil para saber qué bolsa
 tiene cogida, y se acaba buscando a ojo.
+
+**Cómo bajó del camión, que no es dónde está ahora.** Refrigerada o congelada,
+a cuántos grados marcaba el termómetro al abrir la caja, y —si llega fresca— si
+va derecha al arcón sin pasar por la cámara. Las tres cosas quedan escritas en
+la pieza y salen en su ficha.
+
+No es lo mismo llegar congelada que llegar fresca y acabar en el arcón el mismo
+día: las dos están en el congelador, pero la primera nunca estuvo fresca en esta
+casa. Y una pieza que llega congelada, o que se congela al entrar, está en el
+arcón **desde el primer día**; contarla como fresca le pondría el reloj que no
+es. La temperatura no la juzga nadie: se apunta, y es lo primero que se pregunta
+el día que una pieza sale mal.
 
 Dos piezas no pueden compartir número: o entra la pieza entera, o no entra nada.
 

@@ -69,6 +69,11 @@ class PrimalRow:
     pack_date: date | None = None
     label_product: str | None = None
     halal: bool | None = None
+    # Cómo bajó del camión: refrigerada o congelada, a cuántos grados, y —si
+    # llegó fresca— si va derecha al arcón sin pasar por la cámara.
+    arrival: Storage | None = None
+    arrival_c: float | None = None
+    frozen_on_arrival: bool | None = None
     # El número lo ha puesto la casa, no el proveedor: si otra recepción se
     # adelanta con ese mismo número, este se puede cambiar sin preguntar.
     auto: bool = False
@@ -293,7 +298,16 @@ def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: st
             producer_plant=(row.producer_plant or None),
             est_code=(row.est_code or None), breed=(row.breed or None),
             slaughter_date=row.slaughter_date, pack_date=row.pack_date,
-            label_product=(row.label_product or None), halal=row.halal)
+            label_product=(row.label_product or None), halal=row.halal,
+            arrival=row.arrival, arrival_c=row.arrival_c,
+            frozen_on_arrival=row.frozen_on_arrival or None,
+            # Y dónde queda: lo que llega congelado, y lo que llega fresco y se
+            # mete al arcón, están en el congelador desde el primer día. Si no,
+            # el programa las cuenta como frescas y les pone el reloj que no es.
+            storage=(Storage.FROZEN
+                     if (row.arrival == Storage.FROZEN or row.frozen_on_arrival)
+                     else Storage.CHILLED),
+            storage_since=received)
         session.add(primal)
         created.append(primal)
     session.flush()

@@ -548,7 +548,7 @@ MAX_RECEPCION = 60
 # Lo que vale para todo el camión y no se vuelve a teclear pieza a pieza.
 DEL_CAMION = ("lot", "sku", "chamber", "grade", "origin", "use_by", "price_kg",
               "producer_plant", "est_code", "breed", "pack_date", "slaughter_date",
-              "label_product", "halal")
+              "label_product", "halal", "arrival", "arrival_c", "frozen_on_arrival")
 
 
 @app.get("/recepcion", response_class=HTMLResponse)
@@ -601,6 +601,12 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
     halal = True if form.get("halal") else None
     envasado = (form.get("pack_date") or "").strip()
     sacrificio = (form.get("slaughter_date") or "").strip()
+    # Cómo bajó del camión. Es de la descarga entera, que es como se mide: se
+    # abre la caja, se clava el termómetro y ese número vale para lo que venía
+    # dentro.
+    llegada = Storage.FROZEN if form.get("arrival") == "FROZEN" else Storage.CHILLED
+    grados = _num(form.get("arrival_c"))
+    al_arcon = bool(form.get("frozen_on_arrival")) and llegada == Storage.CHILLED
     try:
         rows = []
         for i in range(MAX_RECEPCION):
@@ -620,6 +626,7 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
                 supplier_lot=(form.get(f"slot:{i}") or "").strip() or None,
                 producer_plant=planta, est_code=registro, breed=raza,
                 label_product=etiqueta, halal=halal,
+                arrival=llegada, arrival_c=grados, frozen_on_arrival=al_arcon,
                 slaughter_date=date.fromisoformat(fecha_sac) if fecha_sac else None,
                 pack_date=date.fromisoformat(envasado) if envasado else None))
         created = meat.receive_primals(session, user, lot, rows, lang=lang)
@@ -642,7 +649,8 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
         # Y con el número delante, que es el momento de coger el rotulador.
         hecho = (i18n.t(lang, "m.rec.done_one", serial=created[0].serial,
                         kg=f"{created[0].weight_kg:.10g}", lot=lot or "—")
-                 + " " + i18n.t(lang, "m.rec.write_now", serial=created[0].serial))
+                 + " " + i18n.t(lang, "m.rec.write_now", serial=created[0].serial,
+                                    kg=f"{created[0].weight_kg:.10g}"))
     else:
         hecho = i18n.t(lang, "m.rec.done", n=len(created), lot=lot or "—")
     return _reception(request, user, auth_session, session, previo=_del_camion(form),
