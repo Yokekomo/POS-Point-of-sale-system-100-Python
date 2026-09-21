@@ -1,5 +1,6 @@
 {% extends "base.html" %}{% block title %}{{ t("join.title") }}{% endblock %}
 {% block body %}
+<p class="muted"><a href="/">&larr; {{ t("m.app.title") }}</a></p>
 <h1>{{ t("join.title") }}</h1>
 <p class="sub">{{ t("m.app.title") }} · {{ t("join.sub") }}</p>
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}

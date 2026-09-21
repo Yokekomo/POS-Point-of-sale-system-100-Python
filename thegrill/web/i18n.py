@@ -694,6 +694,7 @@ ES = {
     'bug.all': 'Todos',
     'bug.not_mailed': 'sin correo',
     'bug.no_mail_admin': 'El correo no está configurado: los partes se guardan aquí, pero no se avisa a nadie.',
+    'pub.home': 'Inicio',
 }
 
 
@@ -1279,6 +1280,7 @@ EN = {
     'bug.all': 'All',
     'bug.not_mailed': 'not mailed',
     'bug.no_mail_admin': 'Mail is not configured: reports are stored here, but nobody is notified.',
+    'pub.home': 'Home',
 }
 
 
@@ -1864,6 +1866,7 @@ FR = {
     'bug.all': 'Tous',
     'bug.not_mailed': 'sans courrier',
     'bug.no_mail_admin': "Le courrier n'est pas configuré : les signalements restent ici, mais personne n'est prévenu.",
+    'pub.home': 'Accueil',
 }
 
 
@@ -2449,6 +2452,7 @@ DE = {
     'bug.all': 'Alle',
     'bug.not_mailed': 'ohne Mail',
     'bug.no_mail_admin': 'Kein Mailversand eingerichtet: die Meldungen bleiben hier, aber niemand wird benachrichtigt.',
+    'pub.home': 'Start',
 }
 
 
@@ -3034,6 +3038,7 @@ NL = {
     'bug.all': 'Alle',
     'bug.not_mailed': 'zonder mail',
     'bug.no_mail_admin': 'Geen mail ingesteld: de meldingen blijven hier, maar niemand krijgt bericht.',
+    'pub.home': 'Start',
 }
 
 
@@ -3619,6 +3624,7 @@ AR = {
     'bug.all': 'الكل',
     'bug.not_mailed': 'بلا بريد',
     'bug.no_mail_admin': 'البريد غير مُعدّ: تبقى البلاغات هنا، لكن لا يُخطَر أحد.',
+    'pub.home': 'الرئيسية',
 }
 
 
@@ -4192,6 +4198,7 @@ HU = {
     'bug.all': 'Mind',
     'bug.not_mailed': 'levél nélkül',
     'bug.no_mail_admin': 'Nincs levelezés beállítva: a jelentések itt maradnak, de senki nem kap értesítést.',
+    'pub.home': 'Kezdőlap',
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

@@ -2,9 +2,10 @@
 {% block body %}
 <header class="top" style="position:static;margin:-20px -16px 20px">
   <div class="topwrap">
-    <div class="brand">{{ t("m.app.title") }}<small>{{ t("m.app.tagline") }}</small></div>
+    <a class="brand" href="/">{{ t("m.app.title") }}<small>{{ t("m.app.tagline") }}</small></a>
     <nav>
-      <a href="/">{{ t("pub.how") }}</a>
+      <a href="/">{{ t("pub.home") }}</a>
+      <a href="/#como">{{ t("pub.how") }}</a>
       <a href="/precios">{{ t("pub.pricing") }}</a>
       <a href="/solicitar">{{ t("pub.request") }}</a>
       <a href="/login">{{ t("pub.enter") }}</a>

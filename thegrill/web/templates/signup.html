@@ -1,5 +1,6 @@
 {% extends "base.html" %}{% block title %}{{ t("signup.title") }}{% endblock %}
 {% block body %}
+<p class="muted"><a href="/">&larr; {{ t("app.title") }}</a></p>
 <h1>{{ t("signup.title") }}</h1>
 <p class="sub">{{ t("signup.sub") }}</p>
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}

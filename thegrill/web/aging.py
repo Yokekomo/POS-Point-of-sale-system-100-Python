@@ -208,6 +208,40 @@ class SaleResult:
 
 
 # ------------------------------------------------------------------ piezas
+@dataclass
+class History:
+    """Todo lo que se ha pesado en la casa, leído una sola vez.
+
+    Antes cada pantalla lo leía tres o cuatro veces: la del tablero, la del
+    resumen y la del conteo del día pedían lo mismo por separado, y con cinco
+    mil pesadas dentro eso son décimas de segundo regaladas en cada visita.
+    Se lee una vez y se pasa a quien lo necesite.
+    """
+    last: dict[str, date] = field(default_factory=dict)
+    trimmed: dict[str, list] = field(default_factory=dict)
+    sold: dict[str, list] = field(default_factory=dict)
+    aging_rows: list = field(default_factory=list)     # las pesadas de maduración
+
+
+def history_of(session: Session, restaurant_id: int) -> History:
+    """Una pasada por las pesadas y otra por las ventas al corte. Nada más."""
+    out = History()
+    for row in (session.query(PrimalWeighing)
+                .filter_by(restaurant_id=restaurant_id)
+                .order_by(PrimalWeighing.date.asc(), PrimalWeighing.id.asc())):
+        out.last[row.serial] = row.date
+        if row.kind == LossKind.TRIM:
+            kept = row.kept_kg or 0.0
+            out.trimmed.setdefault(row.serial, []).append(
+                (row.date, row.loss_kg, kept,
+                 row.waste_kg if row.waste_kg is not None else round(row.loss_kg - kept, 6)))
+        if row.storage == Storage.AGING:
+            out.aging_rows.append(row)
+    for row in session.query(WeightSale).filter_by(restaurant_id=restaurant_id):
+        out.sold.setdefault(row.serial, []).append((row.date, round(row.grams / 1000, 6)))
+    return out
+
+
 def find(session: Session, restaurant_id: int, serial: str) -> Primal:
     """La pieza entera con ese número, si está en la casa y en stock."""
     primal = (session.query(Primal)
@@ -608,7 +642,8 @@ class DailyCount:
 
 
 def to_count(session: Session, restaurant_id: int, on: date | None = None,
-             site_id: int | None = None) -> list[DailyLine]:
+             site_id: int | None = None, rows: list[BoardRow] | None = None,
+             history: History | None = None) -> list[DailyLine]:
     """Lo que hay que pesar hoy: todo lo que madura, que es producto fresco.
 
     Una pieza madurando no está congelada: está en una cámara a dos grados
@@ -620,9 +655,13 @@ def to_count(session: Session, restaurant_id: int, on: date | None = None,
     local todas las noches, que es quien tiene la cámara delante.
     """
     on = on or date.today()
-    ultimas = _last_weighings(session, restaurant_id)
+    history = history or history_of(session, restaurant_id)
+    ultimas = history.last
     out = []
-    for row in board(session, restaurant_id, storage=Storage.AGING, on=on, site_id=site_id):
+    if rows is None:
+        rows = board(session, restaurant_id, storage=Storage.AGING, on=on,
+                     site_id=site_id, history=history)
+    for row in [r for r in rows if r.storage == Storage.AGING]:
         cuando = ultimas.get(row.serial)
         out.append(DailyLine(serial=row.serial, sku=row.sku, days=row.days,
                              yesterday_kg=row.kg, last_weighed=cuando,
@@ -631,10 +670,12 @@ def to_count(session: Session, restaurant_id: int, on: date | None = None,
 
 
 def pending_today(session: Session, restaurant_id: int, on: date | None = None,
-                  site_id: int | None = None) -> list[str]:
+                  site_id: int | None = None,
+                  rows: list[BoardRow] | None = None) -> list[str]:
     """Las piezas que madurando se han quedado hoy sin pesar, sede a sede."""
     on = on or date.today()
-    return [l.serial for l in to_count(session, restaurant_id, on, site_id) if l.kg is None]
+    return [l.serial for l in to_count(session, restaurant_id, on, site_id, rows=rows)
+            if l.kg is None]
 
 
 def count_day(session: Session, user: User, readings: list[tuple[str, float]],
@@ -673,7 +714,8 @@ def count_day(session: Session, user: User, readings: list[tuple[str, float]],
 
 # ---------------------------------------------------------------- la pizarra
 def board(session: Session, restaurant_id: int, storage: Storage | None = None,
-          on: date | None = None, site_id: int | None = None) -> list[BoardRow]:
+          on: date | None = None, site_id: int | None = None,
+          history: History | None = None) -> list[BoardRow]:
     """Lo que hay madurando y lo que hay congelado, pieza a pieza.
 
     Se madura donde se sirve: una pieza puesta a madurar en el local es del
@@ -684,9 +726,8 @@ def board(session: Session, restaurant_id: int, storage: Storage | None = None,
              .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK))
     principal = sites.main(session, restaurant_id)
     nombres = {x.id: x.name for x in sites.all_sites(session, restaurant_id, active=False)}
-    last = _last_weighings(session, restaurant_id)
-    sold = _sold_kg(session, restaurant_id)
-    trimmed = _trimmed_kg(session, restaurant_id)
+    history = history or history_of(session, restaurant_id)
+    last, sold, trimmed = history.last, history.sold, history.trimmed
 
     rows: list[BoardRow] = []
     for primal in query:
@@ -796,9 +837,11 @@ class Summary:
 
 
 def summary(session: Session, restaurant_id: int, on: date | None = None,
-            site_id: int | None = None) -> Summary:
+            site_id: int | None = None, rows: list[BoardRow] | None = None) -> Summary:
     out = Summary()
-    for row in board(session, restaurant_id, on=on, site_id=site_id):
+    if rows is None:
+        rows = board(session, restaurant_id, on=on, site_id=site_id)
+    for row in rows:
         if row.storage == Storage.AGING:
             out.aging_pieces += 1
             out.aging_kg = round(out.aging_kg + row.kg, 6)
@@ -828,7 +871,7 @@ class YieldBand:
 
 
 def yield_by_days(session: Session, restaurant_id: int, minimum: int = 3,
-                  band: int = 15) -> list[YieldBand]:
+                  band: int = 15, history: History | None = None) -> list[YieldBand]:
     """Qué rendimiento deja cada tramo de días, para decidir cuántos madurar.
 
     La pregunta que se hace un asador no es cuánto pierde una pieza, sino si
@@ -840,11 +883,8 @@ def yield_by_days(session: Session, restaurant_id: int, minimum: int = 3,
     piezas no es una media, es una anécdota.
     """
     piezas: dict[str, dict] = {}
-    for row in (session.query(PrimalWeighing)
-                .filter_by(restaurant_id=restaurant_id)
-                .order_by(PrimalWeighing.date.asc(), PrimalWeighing.id.asc())):
-        if row.storage != Storage.AGING:
-            continue
+    history = history or history_of(session, restaurant_id)
+    for row in history.aging_rows:
         dato = piezas.setdefault(row.serial, {"days": 0, "water": 0.0, "trim": 0.0,
                                               "start": row.previous_kg, "end": row.kg})
         dato["days"] = max(dato["days"], row.days or 0)

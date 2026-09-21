@@ -165,11 +165,17 @@ footer a:hover{color:var(--ink)}
 .langs a.on{border-color:var(--ember);color:var(--ember)}
 
 /* --- aviso de cookies */
-#cookiebar{position:fixed;inset:auto 16px 16px;z-index:30;max-width:var(--max);
+#cookiebar{position:fixed;z-index:30;max-width:var(--max);
+  inset:auto max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom))
+        max(16px,env(safe-area-inset-left));
   margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:14px;
-  padding:16px 18px;display:flex;gap:16px;align-items:center;font-size:14px;
+  padding:16px 18px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:14px;
   color:var(--dim);box-shadow:0 30px 60px -30px #000}
+/* Sin esto, el `display:flex` de arriba le gana al atributo `hidden` y el
+   aviso no se va al pulsar: el botón hacía su trabajo y no se notaba. */
+#cookiebar[hidden]{display:none}
 #cookiebar a{color:var(--ember)}
+#cookiebar button{min-height:44px}
 
 @media (max-width:620px){
   .facts{grid-template-columns:1fr}

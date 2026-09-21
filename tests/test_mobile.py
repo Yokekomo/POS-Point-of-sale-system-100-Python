@@ -404,3 +404,45 @@ def test_the_kitchen_edition_keeps_the_same_rules(cocina_phone):
         "() => [...document.querySelectorAll('style')].map(s => s.textContent).join('')")
     assert "env(safe-area-inset-left)" in hoja and "pointer:coarse" in hoja
     assert page.eval_on_selector("nav a", "el => getComputedStyle(el).touchAction") == "manipulation"
+
+
+# --------------------------------------------- el aviso de cookies, que se va
+def test_the_cookie_notice_actually_goes_away_when_you_tap_it(browser):
+    """Pulsar «Entendido» y que el aviso siga ahí es el fallo más tonto y el más visible.
+
+    Pasaba: la regla de estilo del aviso —`display:flex`— le ganaba al atributo
+    `hidden`, así que el botón hacía su trabajo y no se notaba.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    try:
+        page = context.new_page()
+        page.goto(f"{base}/")
+        aviso = page.locator("#cookiebar")
+        assert aviso.is_visible(), "el aviso no aparece la primera vez"
+
+        page.click("#cookieok")
+        assert not aviso.is_visible(), "el aviso no se va al pulsar"
+
+        # Y no vuelve al recargar: se recuerda en el navegador, sin cookie nuestra.
+        page.reload()
+        assert not page.locator("#cookiebar").is_visible()
+    finally:
+        context.close()
+
+
+def test_the_notice_fits_and_can_be_tapped_on_a_phone(browser):
+    base, chromium = browser
+    context = telefono(chromium)
+    try:
+        page = context.new_page()
+        page.goto(f"{base}/")
+        caja = page.locator("#cookiebar").bounding_box()
+        boton = page.locator("#cookieok").bounding_box()
+        assert caja["width"] <= PHONE["width"], caja
+        assert boton["height"] >= 40, boton
+        ancho, ventana = page.evaluate(
+            "() => [document.documentElement.scrollWidth, window.innerWidth]")
+        assert ancho <= ventana + 1
+    finally:
+        context.close()

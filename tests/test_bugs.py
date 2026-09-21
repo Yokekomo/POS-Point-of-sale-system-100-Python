@@ -150,3 +150,43 @@ def test_the_inbox_can_be_filtered_by_state(client):
 def test_the_button_is_on_every_screen(client):
     for ruta in ("/hoy", "/carne", "/maduracion", "/ventas", "/inventario"):
         assert "/fallo?desde=" in client.get(ruta).text
+
+
+# ------------------------------------- volver al principio, que es lo primero
+def test_the_name_always_goes_back_to_the_start(client):
+    """Pulsar el nombre del programa y que no pase nada es perderse.
+
+    En las páginas públicas el nombre era un rótulo y no un enlace, así que
+    desde Precios o Cookies no había manera de volver sin la flecha del
+    navegador. Dentro del programa pasaba lo mismo.
+    """
+    import re
+
+    fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
+    for ruta in ("/precios", "/cookies", "/solicitar"):
+        html = fuera.get(ruta).text
+        marca = re.search(r'<a class="brand" href="([^"]+)"', html)
+        assert marca, f"{ruta}: el nombre no es un enlace"
+        assert marca.group(1) == "/", ruta
+        assert 'href="/">' in html            # y además hay un «Inicio» en la barra
+
+    dentro = client.get("/carne").text
+    marca = re.search(r'<a class="brand" href="([^"]+)"', dentro)
+    assert marca and marca.group(1) == "/hoy"
+
+
+def test_the_public_pages_link_to_each_other(client):
+    """Desde cualquiera de ellas se llega a las demás sin volver atrás a ciegas."""
+    fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
+    for ruta in ("/precios", "/cookies", "/solicitar"):
+        html = fuera.get(ruta).text
+        for destino in ("/precios", "/solicitar", "/login", "/cookies", "/"):
+            assert f'href="{destino}"' in html, (ruta, destino)
+
+
+def test_you_can_always_get_back_from_the_login_screen(client):
+    """Entrar y arrepentirse: la pantalla de entrar también tiene salida."""
+    fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
+    # En esta edición nadie se registra solo: /join lleva a /login, y es ahí
+    # donde tiene que haber salida.
+    assert 'href="/"' in fuera.get("/login").text

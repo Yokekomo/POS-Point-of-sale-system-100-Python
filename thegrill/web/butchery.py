@@ -424,6 +424,7 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
                            session, restaurant_id, site_id).all()
     ingredients = {i.id: i for i in session.query(Ingredient)
                    .filter_by(restaurant_id=restaurant_id)}
+    recuentos = last_counts(session, restaurant_id, on)     # uno para todos los cortes
     grouped: dict[int, list[IngredientLot]] = {}
     for lot in lots:
         grouped.setdefault(lot.ingredient_id, []).append(lot)
@@ -432,7 +433,8 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
         ing = ingredients.get(ingredient_id)
         if ing is None:
             continue
-        thawed_pieces, thawed_kg = _thawed(session, restaurant_id, [l.serial for l in rows], on)
+        thawed_pieces, thawed_kg = _thawed(session, restaurant_id, [l.serial for l in rows],
+                                           on, counts=recuentos)
         soonest = min(l.expiry for l in rows)
         result.cuts.append(CutStock(
             ingredient_id=ingredient_id, name=ing.name, unit=ing.unit.value,
@@ -498,22 +500,35 @@ def _labels(lots: list) -> list[str]:
     return seen
 
 
-def _thawed(session: Session, restaurant_id: int, serials: list[str],
-            on: date) -> tuple[int, float]:
-    """Piezas descongeladas que quedan, según el último recuento de cada serial."""
+def last_counts(session: Session, restaurant_id: int, on: date) -> dict[str, tuple[int, float]]:
+    """El último recuento de descongelado de cada número, de una sola vez.
+
+    Antes se preguntaba número a número, y una casa con seis meses de trabajo
+    hacía ciento cincuenta consultas para pintar la cámara: la pantalla tardaba
+    más cuanto más tiempo llevaba abierta la casa, que es la peor manera de
+    envejecer. Se trae todo en una y se queda el último de cada uno.
+    """
     from thegrill.models import DefrostEntry, DefrostKind
+    out: dict[str, tuple[int, float]] = {}
+    for entry in (session.query(DefrostEntry)
+                  .filter(DefrostEntry.restaurant_id == restaurant_id,
+                          DefrostEntry.kind == DefrostKind.COUNT,
+                          DefrostEntry.date <= on)
+                  .order_by(DefrostEntry.date, DefrostEntry.shift, DefrostEntry.id)):
+        out[entry.lot_serial] = (entry.pieces or 0, entry.total_kg or 0.0)
+    return out
+
+
+def _thawed(session: Session, restaurant_id: int, serials: list[str], on: date,
+            counts: dict[str, tuple[int, float]] | None = None) -> tuple[int, float]:
+    """Piezas descongeladas que quedan, según el último recuento de cada serial."""
+    counts = last_counts(session, restaurant_id, on) if counts is None else counts
     pieces = kg = 0
     for serial in serials:
-        last = (session.query(DefrostEntry)
-                .filter(DefrostEntry.restaurant_id == restaurant_id,
-                        DefrostEntry.lot_serial == serial,
-                        DefrostEntry.kind == DefrostKind.COUNT,
-                        DefrostEntry.date <= on)
-                .order_by(DefrostEntry.date.desc(), DefrostEntry.shift.desc(),
-                          DefrostEntry.id.desc()).first())
-        if last:
-            pieces += last.pieces
-            kg = round(kg + last.total_kg, 6)
+        ultimo = counts.get(serial)
+        if ultimo:
+            pieces += ultimo[0]
+            kg = round(kg + ultimo[1], 6)
     return pieces, kg
 
 
