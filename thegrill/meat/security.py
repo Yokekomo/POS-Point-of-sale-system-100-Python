@@ -59,7 +59,12 @@ def content_policy(nonce: str) -> str:
     Los estilos sí llevan `unsafe-inline`, porque el HTML usa `style=` en
     muchos sitios; un estilo inyectado no ejecuta código.
     """
-    return (f"default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+    # `blob:` en las imágenes: la recepción enseña la foto de la etiqueta recién
+    # hecha antes de mandarla, para saber que ha salido legible. Esa vista es un
+    # `blob:` que crea la propia página con el fichero que acaba de elegir la
+    # persona; no trae nada de fuera y no se puede apuntar a otro sitio.
+    return (f"default-src 'self'; img-src 'self' data: blob:; "
+            f"style-src 'self' 'unsafe-inline'; "
             f"script-src 'self' 'nonce-{nonce}'; form-action 'self'; "
             f"frame-ancestors 'none'; base-uri 'self'; object-src 'none'; "
             f"connect-src 'self'")

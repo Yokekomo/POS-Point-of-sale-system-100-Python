@@ -1194,3 +1194,70 @@ def t_sin_precio(client) -> int:
 PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06"
        b"\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05"
        b"\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
+
+
+class TestRecepcionDeUnaEnUna:
+    """Se descarga pieza a pieza, y la foto se hace al coger la bolsa.
+
+    La pantalla de antes abría con ocho líneas y un botón de añadir ocho más.
+    En el muelle no se descarga así: se coge una bolsa, se le mira la etiqueta,
+    se apunta y se coge la siguiente. Y la foto es de la etiqueta que tienes
+    delante, no de una de ocho.
+    """
+
+    def test_the_screen_asks_for_one_piece_and_the_camera_first(self, client):
+        signup(client)
+        pantalla = client.get("/recepcion").text
+        assert 'name="serial:0"' in pantalla
+        assert 'name="serial:1"' not in pantalla        # una cada vez
+        assert "masfilas" not in pantalla               # sin «añadir 8 líneas»
+        # La foto va en el propio formulario y abre la cámara de atrás.
+        assert 'enctype="multipart/form-data"' in pantalla
+        assert 'capture="environment"' in pantalla
+        assert pantalla.index('name="foto"') < pantalla.index('name="kg:0"')
+
+    def test_the_label_travels_with_the_piece_in_one_go(self, client, tmp_path,
+                                                        monkeypatch):
+        monkeypatch.setattr(meatapp, "UPLOAD_DIR", str(tmp_path / "subidas"))
+        signup(client)
+        form = client.get("/recepcion")
+        r = client.post("/recepcion", data={
+            "csrf": csrf_from(form.text), "lot": "L-UNA", "sku": "Ribeye AUS",
+            "producer_plant": "Teys Biloela", "serial:0": "9200", "kg:0": "9,2",
+            "price_kg": "32"},
+            files={"foto": ("etiqueta.png", PNG, "image/png")})
+        assert r.status_code == 200
+        with db.session_scope() as s:
+            pieza = s.query(Primal).filter_by(serial="9200").one()
+            assert pieza.producer_plant == "Teys Biloela"
+            assert pieza.photo_ref and os.path.exists(pieza.photo_ref)
+
+    def test_what_belongs_to_the_delivery_stays_typed_for_the_next_piece(self, client):
+        """Veinte piezas de la misma caja no son veinte veces el matadero."""
+        signup(client)
+        form = client.get("/recepcion")
+        r = client.post("/recepcion", data={
+            "csrf": csrf_from(form.text), "lot": "L-CAMION", "sku": "Ribeye AUS",
+            "grade": "MB7", "origin": "AUS", "producer_plant": "Teys Biloela",
+            "est_code": "AUS 1234", "breed": "Angus", "price_kg": "32",
+            "serial:0": "9201", "kg:0": "9,2"})
+        assert r.status_code == 200
+        for valor in ("L-CAMION", "Ribeye AUS", "Teys Biloela", "AUS 1234", "Angus"):
+            assert f'value="{valor}"' in r.text, valor
+        # Y lo de la pieza se vacía: la siguiente es otra bolsa.
+        assert 'name="kg:0" inputmode="decimal" autofocus' in r.text.replace("\n", " ")
+
+    def test_a_phone_with_no_signal_still_books_the_piece(self, client):
+        """La foto necesita línea; lo escrito, no. Lo escrito manda."""
+        signup(client)
+        form = client.get("/recepcion")
+        # Sin fichero: es lo que manda la cola del teléfono cuando vuelve.
+        r = client.post("/recepcion", data={
+            "csrf": csrf_from(form.text), "lot": "L-SINRED", "sku": "Ribeye AUS",
+            "price_kg": "30", "serial:0": "9202", "kg:0": "8,8",
+            "envio": "numero-de-la-cola"})
+        assert r.status_code == 200
+        with db.session_scope() as s:
+            pieza = s.query(Primal).filter_by(serial="9202").one()
+            assert pieza.photo_ref is None      # se hace luego, desde la lista
+            assert pieza.weight_kg == 8.8

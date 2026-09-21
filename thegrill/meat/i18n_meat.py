@@ -533,6 +533,16 @@ ES = {
     "m.df.count_help": 'Se cuenta al cerrar, pieza a pieza y con la báscula. Lo que no se cuente se queda sin cuadrar y el turno no cierra entero.',
     "m.df.to_count": 'Al cerrar el turno, el recuento se hace en',
     "m.nav.defrost_count": 'Recuento de cierre',
+    "m.rec.photo_first": '1. La etiqueta',
+    "m.rec.photo_first_help": 'Coge la bolsa y hazle la foto a su etiqueta antes de escribir nada: es cuando la tienes delante. Se guarda con esta pieza.',
+    "m.rec.photo_taken": 'Foto hecha',
+    "m.rec.photo_change": 'Cambiar la foto',
+    "m.rec.piece_step": '2. La pieza',
+    "m.rec.truck_step": 'El camión',
+    "m.rec.truck_help": 'Se escribe una vez y se queda puesto para las siguientes piezas de la misma descarga.',
+    "m.rec.submit_one": 'Dar de alta esta pieza',
+    "m.rec.next_piece": 'Sigue con la siguiente: lo del camión se queda escrito.',
+    "m.rec.done_one": 'Pieza {serial} · {kg} kg dada de alta en el lote {lot}.',
 }
 
 EN = {
@@ -1051,6 +1061,16 @@ EN = {
     "m.df.count_help": 'Counted at closing, piece by piece and on the scale. Whatever is not counted stays unsquared and the shift does not close whole.',
     "m.df.to_count": 'At closing time, the count is done in',
     "m.nav.defrost_count": 'Closing count',
+    "m.rec.photo_first": '1. The label',
+    "m.rec.photo_first_help": 'Pick up the bag and photograph its label before typing anything: that is when you have it in front of you. It is saved with this piece.',
+    "m.rec.photo_taken": 'Photo taken',
+    "m.rec.photo_change": 'Change the photo',
+    "m.rec.piece_step": '2. The piece',
+    "m.rec.truck_step": 'The delivery',
+    "m.rec.truck_help": 'Typed once and kept for the next pieces of the same delivery.',
+    "m.rec.submit_one": 'Book this piece in',
+    "m.rec.next_piece": 'Carry on with the next one: the delivery details stay put.',
+    "m.rec.done_one": 'Piece {serial} · {kg} kg booked in under lot {lot}.',
 }
 
 FR = {
@@ -1569,6 +1589,16 @@ FR = {
     "m.df.count_help": "Se compte à la clôture, pièce par pièce et sur la balance. Ce qui n'est pas compté reste non soldé et le service ne clôture pas entièrement.",
     "m.df.to_count": 'À la clôture, le comptage se fait dans',
     "m.nav.defrost_count": 'Comptage de clôture',
+    "m.rec.photo_first": "1. L'étiquette",
+    "m.rec.photo_first_help": "Prends le sachet et photographie son étiquette avant d'écrire quoi que ce soit : c'est là que tu l'as sous les yeux. Elle est enregistrée avec cette pièce.",
+    "m.rec.photo_taken": 'Photo prise',
+    "m.rec.photo_change": 'Changer la photo',
+    "m.rec.piece_step": '2. La pièce',
+    "m.rec.truck_step": 'Le camion',
+    "m.rec.truck_help": "Écrit une fois et conservé pour les pièces suivantes de la même livraison.",
+    "m.rec.submit_one": 'Enregistrer cette pièce',
+    "m.rec.next_piece": 'Continue avec la suivante : ce qui est au camion reste écrit.',
+    "m.rec.done_one": 'Pièce {serial} · {kg} kg enregistrée sous le lot {lot}.',
 }
 
 DE = {
@@ -2087,6 +2117,16 @@ DE = {
     "m.df.count_help": 'Wird beim Schließen gezählt, Stück für Stück und auf der Waage. Was nicht gezählt wird, bleibt offen und die Schicht schließt nicht ganz.',
     "m.df.to_count": 'Beim Schichtende wird gezählt in',
     "m.nav.defrost_count": 'Schlusszählung',
+    "m.rec.photo_first": '1. Das Etikett',
+    "m.rec.photo_first_help": 'Nimm den Beutel und fotografiere sein Etikett, bevor du etwas tippst: dann hast du es vor dir. Es wird zu diesem Stück gespeichert.',
+    "m.rec.photo_taken": 'Foto gemacht',
+    "m.rec.photo_change": 'Foto ändern',
+    "m.rec.piece_step": '2. Das Stück',
+    "m.rec.truck_step": 'Die Lieferung',
+    "m.rec.truck_help": 'Einmal getippt und für die nächsten Stücke derselben Lieferung stehen gelassen.',
+    "m.rec.submit_one": 'Dieses Stück einbuchen',
+    "m.rec.next_piece": 'Weiter mit dem nächsten: die Angaben der Lieferung bleiben stehen.',
+    "m.rec.done_one": 'Stück {serial} · {kg} kg unter Charge {lot} eingebucht.',
 }
 
 NL = {
@@ -2605,6 +2645,16 @@ NL = {
     "m.df.count_help": 'Wordt bij het afsluiten geteld, stuk voor stuk en op de weegschaal. Wat niet geteld wordt blijft open en de dienst sluit niet helemaal.',
     "m.df.to_count": 'Bij het afsluiten telt men in',
     "m.nav.defrost_count": 'Slottelling',
+    "m.rec.photo_first": '1. Het etiket',
+    "m.rec.photo_first_help": 'Pak de zak en fotografeer zijn etiket voordat je iets typt: dan heb je het voor je. Het wordt bij dit stuk bewaard.',
+    "m.rec.photo_taken": 'Foto gemaakt',
+    "m.rec.photo_change": 'Foto vervangen',
+    "m.rec.piece_step": '2. Het stuk',
+    "m.rec.truck_step": 'De levering',
+    "m.rec.truck_help": 'Eén keer typen en het blijft staan voor de volgende stukken van dezelfde levering.',
+    "m.rec.submit_one": 'Dit stuk inboeken',
+    "m.rec.next_piece": 'Ga door met het volgende: wat van de levering is blijft staan.',
+    "m.rec.done_one": 'Stuk {serial} · {kg} kg ingeboekt onder partij {lot}.',
 }
 
 AR = {
@@ -3123,6 +3173,16 @@ AR = {
     "m.df.count_help": 'يُعدّ عند الإغلاق، قطعة قطعة وعلى الميزان. ما لا يُعدّ يبقى غير مطابق ولا تُغلق الوردية كاملة.',
     "m.df.to_count": 'عند إغلاق الوردية يجري العدّ في',
     "m.nav.defrost_count": 'عدّ الإغلاق',
+    "m.rec.photo_first": '١. البطاقة',
+    "m.rec.photo_first_help": 'خذ الكيس وصوّر بطاقته قبل أن تكتب شيئاً: تلك هي اللحظة التي تكون فيها أمامك. تُحفظ مع هذه القطعة.',
+    "m.rec.photo_taken": 'تم التصوير',
+    "m.rec.photo_change": 'تغيير الصورة',
+    "m.rec.piece_step": '٢. القطعة',
+    "m.rec.truck_step": 'الشحنة',
+    "m.rec.truck_help": 'يُكتب مرة واحدة ويبقى للقطع التالية من الشحنة نفسها.',
+    "m.rec.submit_one": 'تسجيل هذه القطعة',
+    "m.rec.next_piece": 'تابع مع التالية: بيانات الشحنة تبقى مكتوبة.',
+    "m.rec.done_one": 'سُجّلت القطعة {serial} · {kg} كغ ضمن الدفعة {lot}.',
 }
 
 
@@ -3643,6 +3703,16 @@ HU = {
     "m.df.count_help": 'Záráskor számolják, darabonként és mérlegen. Ami nem kerül számolásra, az nyitva marad, és a műszak nem zár le egészen.',
     "m.df.to_count": 'Záráskor a számolás itt történik:',
     "m.nav.defrost_count": 'Zárási számolás',
+    "m.rec.photo_first": '1. A címke',
+    "m.rec.photo_first_help": 'Vedd kézbe a zacskót és fényképezd le a címkéjét, mielőtt bármit begépelnél: akkor van előtted. Ehhez a darabhoz mentődik.',
+    "m.rec.photo_taken": 'Fénykép kész',
+    "m.rec.photo_change": 'Fénykép cseréje',
+    "m.rec.piece_step": '2. A darab',
+    "m.rec.truck_step": 'A szállítmány',
+    "m.rec.truck_help": 'Egyszer kell begépelni, és marad a szállítmány következő darabjaihoz.',
+    "m.rec.submit_one": 'Ennek a darabnak a bevételezése',
+    "m.rec.next_piece": 'Folytasd a következővel: a szállítmány adatai maradnak.',
+    "m.rec.done_one": 'A(z) {serial} darab · {kg} kg bevételezve a(z) {lot} tétel alatt.',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

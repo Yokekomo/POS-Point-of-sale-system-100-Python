@@ -522,43 +522,67 @@ KITCHEN = ["/manager", "/app", "/carne", "/merma", "/inventario", "/recetas",
            "/ventas", "/ingredientes", "/manager/registros", "/configuracion"]
 
 
-def test_a_lot_with_many_pieces_gets_the_lines_it_needs(browser):
-    """Un lote trae treinta piezas del mismo corte, no ocho.
+def test_a_delivery_is_booked_one_piece_at_a_time_with_its_label(browser):
+    """En el muelle se coge una bolsa, se le hace la foto y se apunta.
 
-    Añadir líneas no puede costar lo escrito: el camión está en el muelle y
-    volver a teclear veinte pesos no lo hace nadie. Así que se comprueba que lo
-    ya escrito sigue ahí, que los números siguen la serie y que lo que se
-    escribe en las nuevas llega de verdad a la cámara.
+    La pantalla de antes abría con ocho líneas y un botón de añadir ocho más.
+    Nadie descarga así. Lo que se comprueba aquí es el recorrido entero de una
+    pieza: la foto se ve antes de guardar —para saber que ha salido legible—,
+    la pieza entra con su foto pegada, y lo del camión se queda escrito para la
+    siguiente, que es lo que evita teclear el matadero veinte veces.
     """
+    import os
+    import tempfile
+
+    from thegrill.models import Primal
+
     base, chromium = browser
     context = telefono(chromium)
     page = context.new_page()
     entra(page, base)
     page.goto(f"{base}/recepcion")
+    page.wait_for_selector("input[name='kg:0']")
 
-    assert page.locator("#piezas .pieza").count() == 8      # una ficha por pieza
-    page.fill("input[name='kg:0']", "9.4")
-    primero = page.locator("input[name='serial:0']").get_attribute("placeholder")
+    # Una pieza cada vez, y sin botón de añadir líneas.
+    assert page.locator("#piezas, [name='serial:1']").count() == 0
+    assert page.locator("#masfilas").count() == 0
 
-    page.click("#masfilas")
-    assert page.locator("#piezas .pieza").count() == 16      # ocho más
-    assert page.input_value("input[name='kg:0']") == "9.4"   # no se ha perdido
+    # La foto se ve en cuanto se hace, sin salir de la pantalla.
+    foto = os.path.join(tempfile.mkdtemp(), "etiqueta.png")
+    with open(foto, "wb") as fh:
+        fh.write(PNG_DE_UN_PIXEL)
+    assert page.locator("#fotovista").is_hidden()
+    page.set_input_files("#lafoto", foto)
+    page.wait_for_selector("#fotovista", state="visible", timeout=3000)
+    assert page.locator("#fotodicho").is_visible()
 
-    # Los números propuestos siguen la serie, sin repetirse.
-    propuestos = page.locator("#piezas input[name^='serial:']").evaluate_all(
-        "campos => campos.map(c => c.placeholder)")
-    assert propuestos[0] == primero
-    assert len(set(propuestos)) == len(propuestos)
-    assert int(propuestos[-1]) == int(primero) + 15
+    page.locator("details:has(#producer_plant)").evaluate("d => d.open = true")
+    page.fill("#lot", "L-MOVIL")
+    page.fill("#sku", "Ribeye AUS")
+    page.fill("#producer_plant", "Teys Biloela")
+    page.fill("#price_kg", "32")
+    page.fill("input[name='serial:0']", "9300")
+    page.fill("input[name='kg:0']", "9.2")
+    page.click("form[action='/recepcion'] button[type=submit]")
+    page.wait_for_selector(".banner.ok", timeout=8000)
 
-    # Y una pieza escrita en una línea nueva se da de alta como las demás.
-    page.fill("input[name='kg:12']", "7.25")
-    page.fill("input[name='sku:12']", "Ribeye AUS")
-    page.fill("input[name='price_kg']", "24")
-    page.click("button[type=submit]")
-    page.wait_for_selector(".banner.ok")
-    assert "Ribeye AUS" in page.content()
+    with db.session_scope() as session:
+        pieza = session.query(Primal).filter_by(serial="9300").one()
+        assert pieza.producer_plant == "Teys Biloela"
+        assert pieza.photo_ref, "la foto no viajó con la pieza"
+
+    # Y lo del camión sigue escrito para la siguiente bolsa.
+    assert page.input_value("#lot") == "L-MOVIL"
+    assert page.input_value("#producer_plant") == "Teys Biloela"
+    assert page.input_value("input[name='kg:0']") == ""      # la pieza, en blanco
     context.close()
+
+
+# Un PNG de un píxel: lo justo para que el navegador lo dé por foto.
+PNG_DE_UN_PIXEL = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
 
 
 def test_you_can_keep_working_with_no_signal(browser):

@@ -233,16 +233,23 @@ recuento, el inventario del mes sin hacer, cortes bajo mínimo, lotes que
 caducan y despieces empezados sin volcar. Debajo, primales, kilos en cámara y
 el valor de lo que hay.
 
-**Recepción.** Los primales llegan en grupo, bajo un lote de recepción común.
-Dos piezas no pueden compartir número: o entra el lote entero, o no entra nada.
-La pantalla abre con ocho fichas y se añaden las que hagan falta —hasta sesenta,
-un camión— sin perder lo ya escrito.
+**Recepción, una pieza cada vez.** Así se descarga de verdad: se coge una bolsa,
+se le hace la foto a su etiqueta, se apuntan su número y sus kilos, se guarda, y
+se coge la siguiente. La pantalla va en ese orden —**1. la etiqueta, 2. la
+pieza**— y no al revés, porque la foto se hace cuando la etiqueta está delante,
+no cuando ya has dejado la bolsa en la cámara.
 
-**Una ficha por pieza, no una fila de una tabla.** Esto se rellena en el muelle
-con el móvil en una mano: en una tabla de ocho columnas hay que arrastrar de
-lado y se pierde de vista qué pieza estás escribiendo, que es exactamente como
-los kilos de una acaban en la de al lado. Cada pieza es un bloque con su número,
-su corte y sus kilos a la vista, y lo que solo cambia a veces se abre debajo.
+La foto se ve en la propia pantalla antes de guardar, para saber que ha salido
+legible, y **viaja con la pieza en el mismo envío**: no hay un segundo paso que
+se olvide.
+
+**Lo del camión se escribe una vez.** El lote, el corte, la cámara, la calidad,
+la procedencia, el consumo preferente y la etiqueta entera del proveedor se
+quedan puestos para las siguientes piezas de la misma descarga: veinte piezas de
+la misma caja no son veinte veces el matadero. Va plegado, debajo del botón,
+porque se toca al empezar y ya no se vuelve a mirar.
+
+Dos piezas no pueden compartir número: o entra la pieza entera, o no entra nada.
 
 **Y con la etiqueta del proveedor delante.** El recorrido de la carne no empieza
 en el muelle: empieza en el matadero. Así que se copia lo que viene escrito en
@@ -259,13 +266,16 @@ antes de sacrificarla, es un dedo en el teclado. Y un dato de etiqueta mal
 tecleado es peor que no tenerlo, porque se guarda, no lo vuelve a mirar nadie, y
 el día que hay que contestar de dónde salió la pieza se contesta mal.
 
-**Y una foto de la etiqueta por pieza**, con la cámara del móvil, desde la misma
-pantalla. Es el respaldo de lo tecleado: el día que un número no cuadre, la
-etiqueta está. La foto va aparte del formulario y no por la cola de sin
-cobertura —ahí caben textos, no ficheros de tres megas— así que la recepción se
-guarda igual sin señal y las fotos suben cuando hay línea. No se sirven desde
-`/static`: cada una pasa por una ruta que primero mira de qué casa es quien la
-pide.
+**La foto de la etiqueta es el respaldo de lo tecleado**: el día que un número no
+cuadre, la etiqueta está. No se sirve desde `/static` —cada una pasa por una
+ruta que primero mira de qué casa es quien la pide— y repetirla borra la
+anterior, que si no el disco se llena de fotos que no mira nadie.
+
+**Sin cobertura, la foto no viaja.** En la cola del teléfono caben textos, no
+ficheros de tres megas: meter ahí una foto por pieza llena el móvil y no se
+manda nunca. Así que sin señal se guarda lo escrito —que es lo que no se puede
+perder— y la pantalla lo dice con esas palabras; la foto se hace luego, desde
+«últimas recepciones», donde cada pieza sin foto lleva su botón.
 
 **El precio no lo pone el muelle.** Quien descarga apunta lo que llega; el
 dinero es de dirección y además llega después, en la factura. Así que al

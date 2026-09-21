@@ -625,7 +625,8 @@ if ("serviceWorker" in navigator) {
     vuelve: {{ t("off.back")|tojson }},
     apuntado: {{ t("off.noted")|tojson }},
     espera: {{ t("off.waiting")|tojson }},
-    reintento: {{ t("off.retrying")|tojson }}
+    reintento: {{ t("off.retrying")|tojson }},
+    sinfoto: {{ t("m.rec.photo_offline")|tojson }}
   };
 
   function cola() {
@@ -741,7 +742,17 @@ if ("serviceWorker" in navigator) {
       // puede despiezar antes de recibirla—.
       ev.preventDefault();
       var datos = {};
-      new FormData(formulario).forEach(function (v, k) { datos[k] = v; });
+      var conFichero = false;
+      new FormData(formulario).forEach(function (v, k) {
+        // Un fichero no cabe aquí: la cola vive en el almacén del navegador,
+        // que guarda texto. Meter una foto de tres megas por pieza lo llena y
+        // no se manda nunca. Se aparta y se avisa: lo escrito sí se guarda.
+        if (typeof File !== "undefined" && v instanceof File) {
+          if (v.name) conFichero = true;
+          return;
+        }
+        datos[k] = v;
+      });
       datos.envio = numero();
       var lista = cola();
       lista.push({id: datos.envio, accion: formulario.getAttribute("action"),
@@ -751,10 +762,10 @@ if ("serviceWorker" in navigator) {
       formulario.reset();
       // Un «apuntado» corto y se quita; si sigue sin haber señal, vuelve el
       // aviso de que no la hay, que es lo que hace falta tener delante.
-      decir(textos.apuntado, false, 2);
+      decir(conFichero ? textos.sinfoto : textos.apuntado, false, conFichero ? 6 : 2);
       setTimeout(function () {
         if (!navigator.onLine) decir(textos.sinsenal, true);
-      }, 2100);
+      }, conFichero ? 6100 : 2100);
       mandar();
     });
   });

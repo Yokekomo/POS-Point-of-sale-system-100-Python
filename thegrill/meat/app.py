@@ -18,6 +18,7 @@ from datetime import date, datetime, timedelta, timezone
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import (HTMLResponse, JSONResponse, RedirectResponse, Response)
 from fastapi.staticfiles import StaticFiles
+from starlette.datastructures import UploadFile   # el de request.form()
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -533,28 +534,38 @@ def cancel_own_account(request: Request, reason: str = Form(""), csrf: str = For
 # ========================================================== RECEPCIÓN
 # Un lote de recepción puede traer muchas piezas del mismo corte. Ocho líneas
 # es lo que se ve de una vez sin marear; las demás se añaden en la propia
-# pantalla, y sin guiones se piden con `?filas=`.
-FILAS_RECEPCION = 8
+# La pantalla da de alta **una pieza cada vez**: se coge la bolsa, se le hace
+# la foto a su etiqueta, se escriben su número y sus kilos, y se guarda. Es como
+# se descarga de verdad —pieza a pieza, con las manos ocupadas— y así la foto
+# es de la pieza que se está mirando y no de una de las ocho de una tabla.
+#
+# El servidor sigue aceptando varias filas de un envío: en la cola de un
+# teléfono que estuvo sin cobertura puede haber recepciones escritas con la
+# pantalla de antes, y esas tienen que entrar igual.
+FILAS_RECEPCION = 1
 MAX_RECEPCION = 60
+
+# Lo que vale para todo el camión y no se vuelve a teclear pieza a pieza.
+DEL_CAMION = ("lot", "sku", "chamber", "grade", "origin", "use_by", "price_kg",
+              "producer_plant", "est_code", "breed", "pack_date", "slaughter_date",
+              "label_product", "halal")
 
 
 @app.get("/recepcion", response_class=HTMLResponse)
 def reception_page(request: Request, ctx=Depends(needs(perms.RECEIVE)),
-                   session: Session = Depends(get_db), filas: int = FILAS_RECEPCION,
-                   foto: str = ""):
+                   session: Session = Depends(get_db), foto: str = ""):
     user, auth_session = ctx
-    return _reception(request, user, auth_session, session, filas=filas, foto=foto)
+    return _reception(request, user, auth_session, session, foto=foto)
 
 
 def _reception(request, user, auth_session, session, *, done=None, error="",
-               filas: int = FILAS_RECEPCION, foto: str = ""):
-    cuantas = max(FILAS_RECEPCION, min(int(filas or FILAS_RECEPCION), MAX_RECEPCION))
-    # Se proponen el lote y los números; se cogen de verdad al dar de alta.
+               foto: str = "", previo=None):
+    # Se proponen el lote y el número; se cogen de verdad al dar de alta.
     return page(request, "reception.html", user, auth_session, session, done=done, error=error,
-                rows=range(cuantas), recent=meat.recent_primals(session, user.restaurant_id),
-                lot=meat.next_lot(session, user.restaurant_id), maximo=MAX_RECEPCION,
-                foto=(foto or "")[:200],
-                serials=meat.next_serials(session, user.restaurant_id, cuantas))
+                recent=meat.recent_primals(session, user.restaurant_id),
+                lot=meat.next_lot(session, user.restaurant_id),
+                foto=(foto or "")[:200], previo=(previo or {}),
+                serials=meat.next_serials(session, user.restaurant_id, 1))
 
 
 @app.post("/recepcion", response_class=HTMLResponse)
@@ -612,10 +623,33 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
                 slaughter_date=date.fromisoformat(fecha_sac) if fecha_sac else None,
                 pack_date=date.fromisoformat(envasado) if envasado else None))
         created = meat.receive_primals(session, user, lot, rows, lang=lang)
+        # La foto de la etiqueta viaja con la pieza, en el mismo envío: se hace
+        # al coger la bolsa, antes de teclear nada, que es cuando la etiqueta
+        # está delante. Va aparte del texto solo cuando no hay cobertura, y
+        # entonces no viaja: lo escrito se guarda igual y la foto se hace luego.
+        subida = form.get("foto")
+        if created and isinstance(subida, UploadFile) and subida.filename:
+            meat.store_label_photo(session, created[0], subida.content_type or "",
+                                   await subida.read(), UPLOAD_DIR, lang=lang)
     except (meat.MeatError, ValueError) as e:
-        return _reception(request, user, auth_session, session, error=str(e))
-    return _reception(request, user, auth_session, session,
-                      done=i18n.t(lang, "m.rec.done", n=len(created), lot=lot or "—"))
+        return _reception(request, user, auth_session, session, error=str(e),
+                          previo=_del_camion(form))
+    # Lo del camión se queda escrito: la siguiente pieza es de la misma caja y
+    # nadie vuelve a teclear el matadero veinte veces.
+    # Una pieza cada vez es lo normal; varias, solo cuando vuelve la cola de un
+    # teléfono que estuvo sin cobertura. «1 primales» no lo dice nadie.
+    if len(created) == 1:
+        hecho = i18n.t(lang, "m.rec.done_one", serial=created[0].serial,
+                       kg=f"{created[0].weight_kg:.10g}", lot=lot or "—")
+    else:
+        hecho = i18n.t(lang, "m.rec.done", n=len(created), lot=lot or "—")
+    return _reception(request, user, auth_session, session, previo=_del_camion(form),
+                      done=hecho)
+
+
+def _del_camion(form) -> dict:
+    """Lo que vale para toda la descarga, para devolverlo escrito."""
+    return {clave: str(form.get(clave) or "") for clave in DEL_CAMION}
 
 
 @app.get("/recepcion/precios", response_class=HTMLResponse)
@@ -743,8 +777,6 @@ async def upload_label_photo(serial: str, request: Request,
     respaldo de lo que se tecleó: el día que un número no cuadre con la
     etiqueta, la etiqueta está.
     """
-    from starlette.datastructures import UploadFile
-
     user, auth_session = ctx
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
