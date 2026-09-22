@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}{{ t("m.ag.title") }}{% endblock %}
+{% extends "base.html" %}{% block title %}{{ t("m.ag.page") }}{% endblock %}
 
 {# Las listas de piezas se agrupan por dónde está cada una, y cada línea dice
    lo que la distingue de la de al lado: sus kilos y, si madura, los días que
@@ -23,8 +23,12 @@
 {% endmacro %}
 
 {% block body %}
-<h1>{{ t("m.ag.title") }}</h1>
-<p class="sub">{{ t("m.ag.sub") }}</p>
+{# La pantalla no es solo la maduración: es todo lo que se le hace a una pieza
+   entera mientras no se despieza. Llamarla «Maduración» y meter dentro el
+   mover, el pesar o el limpiar dejaba media pantalla donde nadie la buscaba.
+   El nombre dice lo que hay, y cada parte lleva su título. #}
+<h1>{{ t("m.ag.page") }}</h1>
+<p class="sub">{{ t("m.ag.page_sub") }}</p>
 {% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
 {% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
@@ -81,6 +85,8 @@
 </div>
 {% endif %}
 
+<h2>{{ t("m.ag.title") }}</h2>
+<p class="help">{{ t("m.ag.sub") }}</p>
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
   <div class="kpi"><b>{{ summary.aging_pieces }}</b><span>{{ t("m.ag.aging") }}</span>
     <div class="muted">{{ "%.1f"|format(summary.aging_kg) }} kg</div></div>
@@ -194,6 +200,8 @@
 </div>
 {% endif %}
 
+<h2>{{ t("m.ag.actions_title") }}</h2>
+<p class="help">{{ t("m.ag.actions_help") }}</p>
 <div class="fichas">
   {% if can("age") %}
   <div class="card">

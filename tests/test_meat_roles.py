@@ -416,6 +416,27 @@ def test_the_piece_list_groups_by_where_it_is_and_says_what_tells_them_apart(cli
     assert "9012 · Ribeye AUS · Maduración" not in pantalla
 
 
+def test_the_whole_piece_screen_says_what_it_holds(client):
+    """El menú decía «Maduración» y dentro estaba también mover, pesar y limpiar.
+
+    Mover una pieza al congelador no es madurarla, así que media pantalla
+    quedaba donde nadie la iba a buscar. La pantalla se llama por lo que hay
+    —las piezas enteras— y cada parte lleva su título: la pizarra de
+    maduración por un lado y las fichas de trabajo por otro.
+    """
+    ana = alta(client, "ana@marina.com", "Ana", Role.MANAGER)
+
+    pantalla = ana.get("/maduracion").text
+
+    assert "<h1>Piezas enteras</h1>" in pantalla
+    assert "Piezas enteras" in pantalla and "Maduración" in pantalla
+    # La maduración sigue teniendo su sitio, ahora como una parte con nombre.
+    assert "<h2>Maduración y congelador</h2>" in pantalla
+    # Y las fichas de trabajo se anuncian antes de aparecer.
+    assert (pantalla.index("Qué se le hace a una pieza")
+            < pantalla.index("<b>Mover una pieza</b>"))
+
+
 def test_the_assistant_cannot_move_a_piece(client):
     ayudante = alta(client, "eva@marina.com", "Eva", Role.EMPLOYEE)
     # En su pantalla no hay ni formulario: el token se trae de otra.
