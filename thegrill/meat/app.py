@@ -2450,23 +2450,33 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;     // los avisos, al día o nada
 
+  // Un fallo de red no siempre es quedarse sin cobertura: a veces es el
+  // servidor que todavía está arrancando, o la wifi que ha parpadeado. Se
+  // prueba dos veces antes de dar nada por perdido, que enseñar la pantalla de
+  // «sin conexión» por medio segundo de nada asusta más que esperar.
+  const conRed = () => fetch(req).then(res => {
+    if (res.ok && res.type === 'basic') {
+      const copia = res.clone();
+      caches.open(CACHE).then(c => c.put(req, copia));
+    }
+    return res;
+  });
+
   event.respondWith(
-    fetch(req).then(res => {
-      if (res.ok && res.type === 'basic') {
-        const copia = res.clone();
-        caches.open(CACHE).then(c => c.put(req, copia));
-      }
-      return res;
-    }).catch(() =>
-      caches.match(req).then(hit => hit || caches.match(url.pathname)).then(hit => hit || new Response(
-        OFFLINE, {status: 200, headers: {'Content-Type': 'text/html; charset=utf-8'}}))
-    )
+    conRed()
+      .catch(() => new Promise(listo => setTimeout(listo, 900)).then(conRed))
+      .catch(() =>
+        caches.match(req).then(hit => hit || caches.match(url.pathname)).then(hit => hit || new Response(
+          OFFLINE, {status: 200, headers: {'Content-Type': 'text/html; charset=utf-8'}}))
+      )
   );
 });
 
-// La pantalla de cuando no hay nada guardado. Lleva el nombre de la casa y un
-// botón para volver a intentarlo: sin ellos parece que el programa se ha roto,
-// y lo que ha pasado es que no hay cobertura.
+// La pantalla de cuando no hay nada guardado. No es un sitio donde dejar a
+// nadie: vuelve a intentarlo ella sola cada dos segundos y se va en cuanto el
+// programa contesta, así que si lo que pasaba era que el servidor estaba
+// arrancando —o se paró y se volvió a arrancar— la pantalla vuelve sin que
+// haya que tocar nada. El botón es para el que no quiere esperar.
 const OFFLINE = `<!doctype html><html lang="__LANG__" dir="__DIR__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>__TITULO__</title>
@@ -2476,17 +2486,36 @@ padding:24px;text-align:center}
 .marca{font-weight:700;letter-spacing:-.01em;margin:0 0 28px;color:#e08c4a}
 h1{font-size:26px;margin:0 0 10px}
 p{max-width:36ch;color:#a9a29a;margin:0 auto}
+.nota{margin-top:22px;font-size:13px;color:#6f6862;max-width:40ch}
 button{margin-top:26px;font:inherit;font-weight:600;padding:13px 22px;border:0;
 border-radius:10px;background:#e08c4a;color:#1a1614;cursor:pointer;min-height:46px}
 button:hover{filter:brightness(1.08)}</style></head><body><div>
 <p class="marca">__CASA__</p>
 <h1>__TITULO__</h1><p>__CUERPO__</p>
 <button type="button" onclick="location.reload()">__REINTENTAR__</button>
+<p class="nota">__NOTA__</p>
+<script>
+// Se mira si el programa ya contesta; en cuanto lo haga, la pantalla se va
+// sola. Se pregunta por una dirección que no pasa por el ayudante y sin tocar
+// lo guardado, para que la respuesta sea la de verdad y no una copia.
+(function () {
+  var cuantas = 0;
+  function mirar() {
+    fetch('/healthz', {cache: 'no-store'})
+      .then(function (r) { if (r.ok) location.reload(); })
+      .catch(function () {});
+    if (++cuantas < 450) setTimeout(mirar, 2000);   // un cuarto de hora
+  }
+  setTimeout(mirar, 1500);
+  window.addEventListener('online', function () { location.reload(); });
+})();
+</script>
 </div></body></html>`;
 """
     codigo = (codigo.replace("__TITULO__", i18n.t(lang, "off.title"))
               .replace("__CUERPO__", i18n.t(lang, "off.body"))
               .replace("__REINTENTAR__", i18n.t(lang, "off.retry"))
+              .replace("__NOTA__", i18n.t(lang, "off.note"))
               .replace("__CASA__", i18n.t(lang, "m.app.title"))
               .replace("__LANG__", lang).replace("__DIR__", i18n.direction(lang)))
     return Response(codigo, media_type="application/javascript",

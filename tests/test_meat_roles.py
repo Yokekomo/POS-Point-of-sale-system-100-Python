@@ -437,6 +437,26 @@ def test_the_no_signal_screen_speaks_the_language_of_the_house(client):
     assert "Control de carnes" in guion           # con el nombre de la casa
     assert 'lang="es"' in guion
 
+
+def test_the_no_signal_screen_gets_itself_out_of_there(client):
+    """Esa pantalla no puede ser un callejón sin salida.
+
+    Se llega a ella abriendo el programa mientras el servidor todavía arranca,
+    o después de pararlo; el que la ve se queda mirando un cartel que no
+    cambia aunque el programa ya esté contestando. Así que se pregunta ella
+    sola cada dos segundos y se va en cuanto hay respuesta.
+    """
+    guion = client.get("/sw.js?idioma=es").text
+
+    assert "/healthz" in guion                    # pregunta por su cuenta
+    assert "cache: 'no-store'" in guion           # y por la de verdad, no la copia
+    assert "location.reload()" in guion
+    assert "addEventListener('online'" in guion
+
+    # Y antes de darla por perdida, la red se prueba dos veces: medio segundo
+    # de wifi parpadeando no es quedarse sin cobertura.
+    assert "setTimeout(listo, 900)" in guion
+
     # Un idioma que no existe no cuela: se cae a lo de siempre.
     assert "Sin conexión" in client.get("/sw.js?idioma=zz").text
 
