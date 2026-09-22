@@ -29,12 +29,33 @@
   {% endif %}
 {% endif %}
 
+{# Lo pendiente con nombres y apellidos. «2 cortes por debajo del mínimo» no
+   dice cuáles ni dónde, así que había que ir a buscarlos a mano por otra
+   pantalla. Cada línea se abre y enseña de qué habla, y cada cosa lleva a
+   donde se arregla. #}
 {% if info.pending %}
 <div class="card">
   <b>{{ t("m.home.todo") }}</b>
-  <ul style="margin:8px 0 0;padding-inline-start:18px">
-    {% for line in info.pending %}<li>{{ line }}</li>{% endfor %}
-  </ul>
+  <div class="pendiente">
+    {% for line in info.pending %}
+    {% if line.things %}
+    <details>
+      <summary>{{ line.text }}</summary>
+      <div class="cuales">
+        {% for cosa in line.things %}
+        <a class="cual" href="{{ cosa.where }}"><b>{{ cosa.label }}</b>{% if cosa.note %}
+          <span class="muted">{{ cosa.note }}</span>{% endif %}</a>
+        {% endfor %}
+        {% if line.more %}<a class="cual ir" href="{{ line.where }}"
+          >{{ t("m.home.and_more", n=line.more) }}</a>{% endif %}
+        <a class="cual ir" href="{{ line.where }}">{{ line.where_label }} &rsaquo;</a>
+      </div>
+    </details>
+    {% else %}
+    <div class="sola"><a href="{{ line.where }}">{{ line.text }}</a></div>
+    {% endif %}
+    {% endfor %}
+  </div>
 </div>
 {% else %}
 <div class="banner ok">{{ t("m.home.nothing") }}</div>

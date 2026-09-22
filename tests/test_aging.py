@@ -691,8 +691,8 @@ def test_today_asks_for_the_pieces_that_are_missing_their_weight(ctx):
     aging.move(s, ana, "8017", Storage.AGING, target_days=45, on=HOY - timedelta(days=2))
 
     hoy = meat.today(s, rest.id, on=HOY, lang="es")
-    assert any("sin pesar hoy" in linea for linea in hoy.pending)
+    assert any("sin pesar hoy" in linea.text for linea in hoy.pending)
 
     aging.count_day(s, ana, [("8017", 8.85)], on=HOY)
     hoy = meat.today(s, rest.id, on=HOY, lang="es")
-    assert not any("sin pesar hoy" in linea for linea in hoy.pending)
+    assert not any("sin pesar hoy" in linea.text for linea in hoy.pending)

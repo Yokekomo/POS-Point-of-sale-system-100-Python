@@ -416,6 +416,30 @@ def test_the_piece_list_groups_by_where_it_is_and_says_what_tells_them_apart(cli
     assert "9012 · Ribeye AUS · Maduración" not in pantalla
 
 
+def test_the_pending_list_names_the_pieces_and_links_to_them(client):
+    """«2 cortes por debajo del mínimo» no dice cuáles ni dónde están.
+
+    Así hay que ir a buscarlos a mano por otra pantalla. Cada línea se abre y
+    enseña de qué habla, con el número de cada pieza, y cada uno lleva a donde
+    se arregla.
+    """
+    ana = alta(client, "ana@marina.com", "Ana", Role.MANAGER)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        for serial in ("9021", "9022"):
+            s.add(Primal(restaurant_id=rest.id, serial=serial, sku="Ribeye AUS",
+                         weight_kg=9.0, received_date=HOY))       # sin precio
+        s.flush()
+
+    pantalla = ana.get("/hoy").text
+
+    # La línea habla de dos piezas y las dos salen con su número.
+    assert '<a class="cual" href="/recepcion/precios"><b>9021</b>' in pantalla
+    assert '<a class="cual" href="/recepcion/precios"><b>9022</b>' in pantalla
+    # Y la línea entera lleva a su pantalla.
+    assert 'Precios pendientes &rsaquo;' in pantalla
+
+
 def test_the_bottom_bar_carries_the_work_each_person_does(client):
     """En el móvil el pulgar llega a cuatro sitios: que sean los suyos.
 

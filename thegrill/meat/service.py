@@ -1026,9 +1026,38 @@ def daily_report(session: Session, restaurant_id: int, on: date | None = None,
 
 # ==================================================================== hoy
 @dataclass
+class PendingThing:
+    """Una de las cosas concretas de las que habla una línea de lo pendiente.
+
+    «2 cortes por debajo del mínimo» no dice cuáles son ni dónde están, así que
+    hay que ir a buscarlos a mano por otra pantalla. Cada cosa viene con su
+    nombre, el número que la explica y la pantalla donde se arregla.
+    """
+    label: str                       # el número de pieza, el nombre del corte
+    where: str                       # a qué pantalla lleva
+    note: str = ""                   # lo que hace falta saber: días, kilos
+
+
+@dataclass
+class PendingLine:
+    """Una línea de lo pendiente, con lo que hay detrás."""
+    text: str
+    where: str                       # la pantalla de la línea entera
+    where_label: str = ""            # cómo se llama esa pantalla
+    things: list[PendingThing] = field(default_factory=list)
+    more: int = 0                    # las que no caben en la lista
+
+
+# Lo pendiente se enseña con nombres, pero una casa grande puede tener
+# cincuenta piezas sin pesar y esa lista tapa la portada entera. Se enseñan las
+# primeras y la línea dice cuántas quedan.
+A_LA_VISTA = 12
+
+
+@dataclass
 class Today:
     status: butchery.MeatStatus
-    pending: list[str] = field(default_factory=list)
+    pending: list[PendingLine] = field(default_factory=list)
     stock_value: float = 0.0
     thawing: int = 0
     uncounted: int = 0
@@ -1077,30 +1106,67 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
 
     month = inventory.monthly_status(session, restaurant_id, on=on, site_id=site_id)
     open_count = inventory.open_now(session, restaurant_id, site_id)
+    sin_volcar = (session.query(Despiece)
+                  .filter_by(restaurant_id=restaurant_id, posted=False)
+                  .order_by(Despiece.date.desc()).limit(A_LA_VISTA + 1).all())
     unposted = (session.query(Despiece)
                 .filter_by(restaurant_id=restaurant_id, posted=False).count())
     # Piezas en la cámara que todavía no valen nada: no se pueden despiezar y
     # nadie se entera hasta que alguien va a cortarlas y no están en la lista.
     sin_precio = awaiting_price(session, restaurant_id, site_id=site_id)
 
-    pending = []
+    # Cada línea se lleva las cosas de las que habla y la pantalla donde se
+    # arreglan: un número suelto obliga a ir a buscarlas a mano.
+    pending: list[PendingLine] = []
+
+    def anotar(clave: str, cuantas: int, donde: str, nombre: str,
+               cosas: list[PendingThing]) -> None:
+        pending.append(PendingLine(
+            text=t(lang, clave, n=cuantas), where=donde, where_label=nombre,
+            things=cosas[:A_LA_VISTA], more=max(0, len(cosas) - A_LA_VISTA)))
+
     if sin_precio:
-        pending.append(t(lang, "m.home.no_price", n=len(sin_precio)))
+        anotar("m.home.no_price", len(sin_precio), "/recepcion/precios",
+               t(lang, "m.price.nav"),
+               [PendingThing(p.serial, "/recepcion/precios", p.sku or "")
+                for p in sin_precio])
     if uncounted:
-        pending.append(t(lang, "m.home.defrost_open", n=len(uncounted)))
+        anotar("m.home.defrost_open", len(uncounted), "/descongelado/recuento",
+               t(lang, "m.nav.defrost_count"),
+               [PendingThing(st.serial, "/descongelado/recuento",
+                             f"{t(lang, 'm.df.out')}: {st.out_pieces}")
+                for st in uncounted])
     if not month.done:
-        pending.append(t(lang, "m.home.count_due"))
+        pending.append(PendingLine(text=t(lang, "m.home.count_due"),
+                                   where="/inventario",
+                                   where_label=t(lang, "nav.inventory")))
     below = len(status.cuts_below) + len(status.primals_below)
     if below:
-        pending.append(t(lang, "m.home.below_par", n=below))
+        anotar("m.home.below_par", below, "/carne", t(lang, "m.nav.chamber"),
+               [PendingThing(c.name, "/carne",
+                             f"{c.kg:.10g} / {c.min_stock:.10g} {c.unit}")
+                for c in status.cuts_below]
+               + [PendingThing(p.sku, "/carne",
+                               f"{p.pieces} / {p.min_pieces}")
+                  for p in status.primals_below])
     if status.expiring:
-        pending.append(t(lang, "m.home.expiring", n=len(status.expiring)))
+        anotar("m.home.expiring", len(status.expiring), "/carne",
+               t(lang, "m.nav.chamber"),
+               [PendingThing(c.name, "/carne",
+                             t(lang, "m.home.in_days", n=c.days_to_expiry))
+                for c in status.expiring])
     if unposted:
-        pending.append(t(lang, "m.home.unposted", n=unposted))
+        anotar("m.home.unposted", unposted, "/despiece", t(lang, "m.nav.butchery"),
+               [PendingThing(d.tg, "/despiece", str(d.date)) for d in sin_volcar])
     if ready:
-        pending.append(t(lang, "m.home.aging_ready", n=len(ready)))
+        anotar("m.home.aging_ready", len(ready), "/maduracion", t(lang, "m.nav.aging"),
+               [PendingThing(r.serial, "/maduracion",
+                             t(lang, "m.ag.n_days", n=r.days)) for r in ready])
     if stale:
-        pending.append(t(lang, "m.home.aging_unweighed", n=len(stale)))
+        anotar("m.home.aging_unweighed", len(stale), "/maduracion",
+               t(lang, "m.nav.aging"),
+               [PendingThing(r.serial, "/maduracion",
+                             t(lang, "m.ag.n_days", n=r.days)) for r in stale])
 
     return Today(status=status, pending=pending, stock_value=value,
                  no_price=len(sin_precio),
