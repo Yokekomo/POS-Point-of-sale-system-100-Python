@@ -756,12 +756,11 @@ def test_the_menu_groups_fold_up(client):
     assert list(en_hoy.values())[0] is True            # el del día, abierto
     assert sum(1 for abierto in en_hoy.values() if not abierto) >= 2
 
-    # Y en una pantalla de control se abre el suyo, no el de antes.
+    # Y en una pantalla de números se abre el suyo, no el de antes.
     en_inventario = grupos_del_menu(client.get("/inventario").text)
-    control = list(en_inventario)[1]
-    assert en_inventario[control] is True, en_inventario
-    catalogo = list(en_inventario)[2]
-    assert en_inventario[catalogo] is False, en_inventario
+    assert en_inventario["Los números"] is True, en_inventario
+    assert en_inventario["Catálogo"] is False, en_inventario
+    assert en_inventario["La carne"] is False, en_inventario
 
 
 # ------------------------------------------------- lo que se manda dos veces

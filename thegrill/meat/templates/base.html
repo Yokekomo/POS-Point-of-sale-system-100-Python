@@ -351,7 +351,9 @@ img,svg,video{max-width:100%;height:auto}
 .side:hover,.side:focus-within{scrollbar-width:thin}
 .side:hover::-webkit-scrollbar,.side:focus-within::-webkit-scrollbar{width:8px}
 .side .brand{display:block;margin:6px 8px 16px}
-.side .group{margin:16px 0 6px;padding:0 10px;font-size:11px;font-weight:700;
+/* Cinco grupos en vez de cuatro: el aire entre ellos se recorta para que el
+   menú siga cabiendo entero en la pantalla de un portátil sin barra. */
+.side .group{margin:11px 0 4px;padding:0 10px;font-size:11px;font-weight:700;
   letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 /* Los grupos se pliegan: se abre el que tiene dentro la pantalla en la que
    estás y los demás se quedan recogidos, así el menú entero cabe sin barra de
@@ -452,41 +454,54 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
 </details>
 {% endmacro %}
 
+{# El menú está ordenado por el recorrido de la carne, que es de lo que va el
+   programa: primero lo que se toca hoy, después dónde está cada pieza y por
+   dónde ha pasado, después los números que se cuadran, y al final lo que se
+   configura una vez. Antes «El día» mezclaba el trabajo con las pantallas de
+   consulta y «Control» era un cajón con seis cosas que no se parecían. #}
 {% macro menu(sitio) -%}
   {% set aqui = here %}
-  {% call grupo(t("m.nav.g_work"), ['/hoy', '/recepcion', '/despiece', '/carne',
+  {% call grupo(t("m.nav.g_work"), ['/hoy', '/recepcion', '/despiece',
                                     '/descongelado', '/descongelado/recuento',
-                                    '/maduracion'], sitio, true) %}
+                                    '/merma'], sitio, true) %}
   <a class="item {{ 'on' if aqui == '/hoy' }}" href="/hoy">{{ t("m.nav.today") }}</a>
   {% if can("receive") %}<a class="item {{ 'on' if aqui == '/recepcion' }}" href="/recepcion">{{ t("m.nav.reception") }}</a>{% endif %}
   {% if can("butcher") %}<a class="item {{ 'on' if aqui == '/despiece' }}" href="/despiece">{{ t("m.nav.butchery") }}</a>{% endif %}
-  {% if can("stock") %}<a class="item {{ 'on' if aqui == '/carne' }}" href="/carne">{{ t("m.nav.chamber") }}</a>{% endif %}
   {% if can("defrost") %}<a class="item {{ 'on' if aqui == '/descongelado' }}" href="/descongelado">{{ t("m.nav.defrost") }}</a>{% endif %}
-  {% if can("stock") %}<a class="item {{ 'on' if aqui == '/maduracion' }}" href="/maduracion">{{ t("m.nav.aging") }}</a>{% endif %}
+  {# La merma se apunta el día que pasa, no a fin de mes: va con el trabajo. #}
+  {% if can("waste") %}<a class="item {{ 'on' if aqui == '/merma' }}" href="/merma">{{ t("nav.waste") }}</a>{% endif %}
   {% endcall %}
 
-  {% call grupo(t("m.nav.g_control"), ['/inventario', '/merma', '/traslados',
-                                       '/trazabilidad', '/parte',
-                                       '/recepcion/precios'], sitio) %}
+  {# Dónde está la carne y por dónde ha pasado. La trazabilidad es de lo que
+     va esto, y estaba enterrada en un grupo llamado «Control». #}
+  {% if can("stock") %}
+  {% call grupo(t("m.nav.g_meat"), ['/maduracion', '/carne', '/traslados',
+                                    '/trazabilidad'], sitio) %}
+  <a class="item {{ 'on' if aqui == '/maduracion' }}" href="/maduracion">{{ t("m.nav.aging") }}</a>
+  <a class="item {{ 'on' if aqui == '/carne' }}" href="/carne">{{ t("m.nav.chamber") }}</a>
+  <a class="item {{ 'on' if aqui == '/traslados' }}" href="/traslados">{{ t("m.nav.transfers") }}</a>
+  <a class="item {{ 'on' if aqui == '/trazabilidad' }}" href="/trazabilidad">{{ t("nav.tracing") }}</a>
+  {% endcall %}
+  {% endif %}
+
+  {# Lo que se cuadra: lo que hay contado, lo que costó, lo que se vendió y el
+     parte que se cuelga. #}
+  {% call grupo(t("m.nav.g_numbers"), ['/inventario', '/recepcion/precios',
+                                       '/ventas', '/parte'], sitio) %}
   {% if can("count") %}<a class="item {{ 'on' if aqui == '/inventario' }}" href="/inventario">{{ t("nav.inventory") }}</a>{% endif %}
-  {# Va en control y no en el trabajo del día: es cosa de dirección, y en el
-     grupo de arriba —que está siempre abierto— el menú dejaba de caber de una
-     pieza en la pantalla de un portátil. #}
   {% if can("money") %}<a class="item {{ 'on' if aqui == '/recepcion/precios' }}" href="/recepcion/precios">{{ t("m.price.nav") }}</a>{% endif %}
-  {% if can("waste") %}<a class="item {{ 'on' if aqui == '/merma' }}" href="/merma">{{ t("nav.waste") }}</a>{% endif %}
-  {% if can("stock") %}<a class="item {{ 'on' if aqui == '/traslados' }}" href="/traslados">{{ t("m.nav.transfers") }}</a>
-  <a class="item {{ 'on' if aqui == '/trazabilidad' }}" href="/trazabilidad">{{ t("nav.tracing") }}</a>{% endif %}
+  {% if can("menu") %}<a class="item {{ 'on' if aqui == '/ventas' }}" href="/ventas">{{ t("nav.sales") }}</a>{% endif %}
   <a class="item {{ 'on' if aqui == '/parte' }}" href="/parte">{{ t("m.rp.title") }}</a>
   {% endcall %}
 
+  {# Lo que se escribe una vez y se queda: no es trabajo del día. #}
   {% if can("stock") or can("menu") %}
-  {% call grupo(t("m.nav.g_catalogue"), ['/cortes', '/carta', '/ingredientes', '/ventas'],
+  {% call grupo(t("m.nav.g_catalogue"), ['/cortes', '/carta', '/ingredientes'],
                 sitio) %}
   {% if can("stock") %}<a class="item {{ 'on' if aqui == '/cortes' }}" href="/cortes">{{ t("m.nav.cuts") }}</a>{% endif %}
   {% if can("menu") %}
   <a class="item {{ 'on' if aqui == '/carta' }}" href="/carta">{{ t("m.nav.menu") }}</a>
   <a class="item {{ 'on' if aqui == '/ingredientes' }}" href="/ingredientes">{{ t("m.nav.extras") }}</a>
-  <a class="item {{ 'on' if aqui == '/ventas' }}" href="/ventas">{{ t("nav.sales") }}</a>
   {% endif %}
   {% endcall %}
   {% endif %}
@@ -543,18 +558,32 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
 {% if user %}
   </div>
 </div>
+{# La barra de abajo lleva el trabajo del día, no las pantallas de consulta:
+   en el móvil el pulgar es para recibir, despiezar y contar, y lo que hay en
+   cámara ya se ve de un vistazo en «Hoy». Se llenan cuatro huecos con lo
+   primero que esta persona pueda hacer, así que al ayudante —que ni recibe ni
+   despieza— le salen las suyas y no cuatro puertas cerradas. #}
+{% set candidatas = [
+     ('/hoy', '◉', t("m.nav.today"), ''),
+     ('/recepcion', '⇩', t("m.nav.reception"), 'receive'),
+     ('/despiece', '⊟', t("m.nav.butchery"), 'butcher'),
+     ('/descongelado', '≋', t("m.nav.defrost"), 'defrost'),
+     ('/merma', '⊘', t("nav.waste"), 'waste'),
+     ('/carne', '▤', t("m.nav.chamber"), 'stock')] %}
+{% set cuenta = namespace(n=0) %}
 <nav class="tabs" aria-label="{{ t('m.nav.g_work') }}">
-  <a class="{{ 'on' if here == '/hoy' }}" href="/hoy"><b>◉</b><span>{{ t("m.nav.today") }}</span></a>
-  {% if can("stock") %}<a class="{{ 'on' if here == '/carne' }}" href="/carne"><b>▤</b><span>{{ t("m.nav.chamber") }}</span></a>{% endif %}
-  {% if can("defrost") %}<a class="{{ 'on' if here == '/descongelado' }}" href="/descongelado"><b>≋</b><span>{{ t("m.nav.defrost") }}</span></a>{% endif %}
-  {% if can("stock") %}<a class="{{ 'on' if here == '/maduracion' }}" href="/maduracion"><b>◍</b><span>{{ t("m.nav.aging") }}</span></a>{% endif %}
+  {% for ruta, icono, nombre, permiso in candidatas %}
+    {% if cuenta.n < 4 and (not permiso or can(permiso)) %}
+      {% set cuenta.n = cuenta.n + 1 %}
+      <a class="{{ 'on' if here == ruta }}" href="{{ ruta }}"><b>{{ icono }}</b><span>{{ nombre }}</span></a>
+    {% endif %}
+  {% endfor %}
   <a href="#menu"><b>☰</b><span>{{ t("m.nav.more") }}</span></a>
 </nav>
 <div class="drawer" id="menu" role="dialog" aria-modal="true" aria-label="{{ t('m.nav.more') }}">
   <a class="veil" href="#" aria-label="{{ t('common.back') }}"></a>
   <div class="sheet">
     <a class="close" href="#" aria-label="{{ t('common.back') }}">&times;</a>
-    <div class="group">{{ t("m.nav.g_work") }}</div>
     {{ menu("drawer") }}
     <div class="foot" style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
       <form method="post" action="/logout"><button class="ghost wide">{{ t("nav.logout") }}</button></form>

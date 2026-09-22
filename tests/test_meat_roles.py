@@ -416,6 +416,65 @@ def test_the_piece_list_groups_by_where_it_is_and_says_what_tells_them_apart(cli
     assert "9012 · Ribeye AUS · Maduración" not in pantalla
 
 
+def test_the_bottom_bar_carries_the_work_each_person_does(client):
+    """En el móvil el pulgar llega a cuatro sitios: que sean los suyos.
+
+    La barra llevaba siempre las mismas pantallas —cámara, descongelado,
+    piezas— y dejaba fuera recibir y despiezar, que es lo que hace el
+    carnicero todo el día. Y al ayudante, que ni recibe ni despieza, le salían
+    puertas que no puede abrir. Ahora se llenan los cuatro huecos con lo
+    primero de la lista que esta persona sí pueda hacer.
+    """
+    import re
+
+    def barra(texto):
+        trozo = re.search(r'<nav class="tabs".*?</nav>', texto, re.S).group(0)
+        return re.findall(r'href="([^"]+)"', trozo)
+
+    luis = alta(client, "luis@marina.com", "Luis", Role.BUTCHER)
+    suya = barra(luis.get("/hoy").text)
+    assert suya == ["/hoy", "/recepcion", "/despiece", "/descongelado", "#menu"], suya
+
+    eva = alta(client, "eva@marina.com", "Eva", Role.EMPLOYEE)
+    suya = barra(eva.get("/hoy").text)
+    assert "/recepcion" not in suya and "/despiece" not in suya, suya
+    assert suya == ["/hoy", "/descongelado", "/merma", "/carne", "#menu"], suya
+
+
+def test_the_menu_is_ordered_by_where_the_meat_goes(client):
+    """Los grupos del menú siguen el recorrido, y cada uno dice lo que trae.
+
+    «El día» mezclaba el trabajo con las pantallas de consulta, y «Control»
+    era un cajón con el inventario, la merma, los traslados, la trazabilidad,
+    el parte y los precios: seis cosas que no se parecen en nada.
+    """
+    import re
+
+    ana = alta(client, "ana@marina.com", "Ana", Role.MANAGER)
+    pantalla = ana.get("/hoy").text
+    lado = re.search(r'<aside class="side".*?</aside>', pantalla, re.S).group(0)
+    grupos = re.findall(r'<summary class="group">([^<]+)</summary>', lado)
+    assert grupos == ["El día", "La carne", "Los números", "Catálogo", "La casa"], grupos
+
+    def bajo(titulo):
+        trozo = lado.split(f'<summary class="group">{titulo}</summary>')[1]
+        return re.findall(r'a class="item[^"]*" href="([^"]+)"',
+                          trozo.split("</details>")[0])
+
+    assert bajo("El día") == ["/hoy", "/recepcion", "/despiece",
+                              "/descongelado", "/merma"]
+    # La trazabilidad es de lo que va el programa: va con la carne, no
+    # enterrada entre el inventario y el parte del día.
+    assert bajo("La carne") == ["/maduracion", "/carne", "/traslados",
+                                "/trazabilidad"]
+    assert bajo("Los números") == ["/inventario", "/recepcion/precios",
+                                   "/ventas", "/parte"]
+    assert bajo("Catálogo") == ["/cortes", "/carta", "/ingredientes"]
+
+    # «Alertas» y «Avisos» eran la misma palabra dos veces en el mismo menú.
+    assert "Incidencias" in lado and "Alertas" not in lado
+
+
 def test_the_whole_piece_screen_says_what_it_holds(client):
     """El menú decía «Maduración» y dentro estaba también mover, pesar y limpiar.
 
