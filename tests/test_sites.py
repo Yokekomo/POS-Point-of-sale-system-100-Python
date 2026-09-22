@@ -7,7 +7,7 @@ un cuento. Y cuando lo que viaja es parte de un lote, el lote se parte y lo
 que sale nace con su propio número, para que se siga pudiendo seguir hasta el
 plato.
 """
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -1044,6 +1044,24 @@ class TestReport:
         assert parte.waste_cost == pytest.approx(16.0)
         assert [st.serial for st in parte.thawing] == [row.serial]
         assert parte.day_loss >= parte.waste_cost
+
+    def test_the_report_of_a_past_day_still_carries_its_waste(self, casa):
+        """El parte de ayer se imprime hoy, y la merma de ayer tiene que salir.
+
+        La ventana de las mermas se contaba siempre desde hoy, así que en
+        cuanto el parte era de un día anterior la merma de ese día se quedaba
+        fuera y el parte salía en cero.
+        """
+        from thegrill.web import waste
+
+        s, rest, ana, cut, row = casa
+        ayer = HOY - timedelta(days=1)
+        waste.record(s, ana, kg=0.4, serial=row.serial, reason="se cayó", on=ayer)
+
+        parte = meat.daily_report(s, rest.id, on=ayer, lang="es")
+
+        assert parte.waste_kg == pytest.approx(0.4)
+        assert meat.daily_report(s, rest.id, on=HOY, lang="es").waste_kg == 0
 
     def test_the_report_page_prints_the_day(self, tmp_path, monkeypatch):
         from fastapi.testclient import TestClient

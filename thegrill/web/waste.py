@@ -161,10 +161,17 @@ def _announce(session: Session, user: User, result: WasteResult, lang: str) -> N
                    body=alert.message, severity=severity, alert_id=alert.id, now=now)
 
 
-def recent(session: Session, restaurant_id: int, days: int = 30) -> list[IngredientMovement]:
-    """Las últimas mermas de cámara, con su lote, sus kilos y su coste."""
+def recent(session: Session, restaurant_id: int, days: int = 30,
+           on: date | None = None) -> list[IngredientMovement]:
+    """Las últimas mermas de cámara, con su lote, sus kilos y su coste.
+
+    La ventana cuenta hacia atrás desde `on`, que por defecto es hoy. El parte
+    de un día pasado —el de ayer, que se imprime por la mañana— pregunta por
+    su día, no por el de hoy: si la ventana se contara siempre desde hoy, ese
+    parte saldría sin la merma que sí se apuntó.
+    """
     from datetime import timedelta
-    since = date.today() - timedelta(days=days)
+    since = (on or date.today()) - timedelta(days=days)
     return (session.query(IngredientMovement)
             .filter(IngredientMovement.restaurant_id == restaurant_id,
                     IngredientMovement.kind == MovementKind.WASTE,
@@ -208,10 +215,15 @@ class WasteTotals:
     lines: int = 0
 
 
-def everything(session: Session, restaurant_id: int, days: int = 30) -> list[WasteLine]:
-    """Todo lo tirado en el periodo: lo de cámara y lo de las limpiezas."""
+def everything(session: Session, restaurant_id: int, days: int = 30,
+               on: date | None = None) -> list[WasteLine]:
+    """Todo lo tirado en el periodo: lo de cámara y lo de las limpiezas.
+
+    Como en `recent`, la ventana termina en `on` —hoy si no se dice otra cosa—
+    para que el parte de un día pasado encuentre lo que se tiró ese día.
+    """
     from datetime import timedelta
-    since = date.today() - timedelta(days=days)
+    since = (on or date.today()) - timedelta(days=days)
     names = {i.id: i.name for i in session.query(Ingredient)
              .filter_by(restaurant_id=restaurant_id)}
     people = {u.id: u.name for u in session.query(User)
@@ -219,7 +231,7 @@ def everything(session: Session, restaurant_id: int, days: int = 30) -> list[Was
     # Solo se traen los lotes y las piezas de las mermas que se van a enseñar.
     # Cargar la cámara entera —miles de lotes de medio año— para poner nombre a
     # las cuatro mermas de hoy era la mitad de lo que tardaba el parte del día.
-    movimientos = recent(session, restaurant_id, days=days)
+    movimientos = recent(session, restaurant_id, days=days, on=on)
     limpiezas = (session.query(PrimalWeighing)
                  .filter(PrimalWeighing.restaurant_id == restaurant_id,
                          PrimalWeighing.kind == LossKind.TRIM,

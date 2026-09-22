@@ -1015,7 +1015,7 @@ def daily_report(session: Session, restaurant_id: int, on: date | None = None,
     if site_id:
         query = query.filter(ShiftClosure.site_id == site_id)
     out.shifts = query.order_by(ShiftClosure.shift).all()
-    out.waste = [w for w in waste_mod.everything(session, restaurant_id, days=1)
+    out.waste = [w for w in waste_mod.everything(session, restaurant_id, days=1, on=on)
                  if w.date == on]
     for row in (session.query(SalesByProduct)
                 .filter_by(restaurant_id=restaurant_id, op_date=on)):

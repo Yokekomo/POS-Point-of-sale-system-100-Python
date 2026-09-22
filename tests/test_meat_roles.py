@@ -387,6 +387,35 @@ def test_the_butcher_moves_and_weighs_but_does_not_sell_by_weight(client):
                                                 "grams": "400", "price": "52"}).status_code == 403
 
 
+def test_the_piece_list_groups_by_where_it_is_and_says_what_tells_them_apart(client):
+    """En una lista donde todo madura, poner «Maduración» en cada línea no sirve.
+
+    Lo que se busca al desplegar es una pieza concreta, así que cada línea
+    lleva sus kilos y sus días —que son distintos en cada una— y el sitio se
+    dice una vez, en el encabezado del grupo.
+    """
+    luis = alta(client, "luis@marina.com", "Luis", Role.BUTCHER)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        for serial in ("9011", "9012"):
+            s.add(Primal(restaurant_id=rest.id, serial=serial, sku="Ribeye AUS",
+                         weight_kg=9.0, landed_usd_per_kg=30.0, piece_cost_usd=270.0,
+                         received_date=HOY))
+        s.flush()
+    token = csrf_from(luis.get("/maduracion").text)
+    for serial in ("9011", "9012"):
+        luis.post("/maduracion/mover", data={"csrf": token, "serial": serial,
+                                             "storage": "AGING", "target_days": "45"})
+
+    pantalla = luis.get("/maduracion").text
+
+    assert '<optgroup label="Maduración">' in pantalla
+    # Las dos piezas salen con sus kilos, no con el estado repetido.
+    assert pantalla.count('<option value="9011">9011 · Ribeye AUS · 9.000 kg') >= 1
+    assert "9011 · Ribeye AUS · Maduración" not in pantalla
+    assert "9012 · Ribeye AUS · Maduración" not in pantalla
+
+
 def test_the_assistant_cannot_move_a_piece(client):
     ayudante = alta(client, "eva@marina.com", "Eva", Role.EMPLOYEE)
     # En su pantalla no hay ni formulario: el token se trae de otra.

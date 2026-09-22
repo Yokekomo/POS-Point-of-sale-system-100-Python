@@ -292,6 +292,13 @@ fieldset.pieza summary:hover{color:var(--ink)}
 @media (prefers-reduced-motion:reduce){fieldset.pieza summary::before{transition:none}}
 @media (pointer:coarse){fieldset.pieza summary{min-height:44px}}
 fieldset.pieza details .help{margin:0 0 8px}
+/* El botón de la foto vive dentro del bloque de la pieza —la etiqueta es de la
+   bolsa que tienes en la mano, no un paso aparte—, y ahí `fieldset.pieza
+   label` lo dejaría plano y gris como si fuera el nombre de un hueco. Se
+   repite con el fieldset delante para que siga pareciendo un botón. */
+fieldset.pieza label.btn{display:inline-block;width:auto;margin:0;
+  font-size:inherit;font-weight:600;color:inherit}
+fieldset.pieza h3{color:var(--ink)}
 /* Una casilla con su texto al lado, no debajo. En una fila que envuelve, un
    texto largo se va a la línea siguiente y el cuadro se queda solo arriba,
    pareciendo un título con una caja suelta encima. Aquí el cuadro no se mueve

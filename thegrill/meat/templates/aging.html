@@ -1,4 +1,27 @@
 {% extends "base.html" %}{% block title %}{{ t("m.ag.title") }}{% endblock %}
+
+{# Las listas de piezas se agrupan por dónde está cada una, y cada línea dice
+   lo que la distingue de la de al lado: sus kilos y, si madura, los días que
+   lleva dentro. Repetir «Maduración» en todas las líneas de una lista donde
+   todo madura no ayuda a encontrar nada; el encabezado del grupo lo dice una
+   vez y las líneas se quedan para lo que cambia. El número va delante porque
+   es por donde se teclea: en un desplegable, escribir «8001» salta a su
+   pieza. La sede no entra —está en la pizarra de arriba— porque alargaría la
+   línea hasta cortarla. #}
+{% macro elegir_pieza(rows, chilled) %}
+  {% set madurando = rows | selectattr("storage.value", "equalto", "AGING") | list %}
+  {% set congeladas = rows | rejectattr("storage.value", "equalto", "AGING") | list %}
+  {% if madurando %}<optgroup label="{{ t('m.st.AGING') }}">
+    {% for r in madurando %}<option value="{{ r.serial }}">{{ r.serial }} · {{ r.sku }} · {{ "%.3f"|format(r.kg) }} kg · {{ t("m.ag.n_days", n=r.days) }}</option>{% endfor %}
+  </optgroup>{% endif %}
+  {% if congeladas %}<optgroup label="{{ t('m.st.FROZEN') }}">
+    {% for r in congeladas %}<option value="{{ r.serial }}">{{ r.serial }} · {{ r.sku }} · {{ "%.3f"|format(r.kg) }} kg</option>{% endfor %}
+  </optgroup>{% endif %}
+  {% if chilled %}<optgroup label="{{ t('m.st.CHILLED') }}">
+    {% for p in chilled %}<option value="{{ p.serial }}">{{ p.serial }} · {{ p.sku }} · {{ "%.3f"|format(p.weight_kg) }} kg</option>{% endfor %}
+  </optgroup>{% endif %}
+{% endmacro %}
+
 {% block body %}
 <h1>{{ t("m.ag.title") }}</h1>
 <p class="sub">{{ t("m.ag.sub") }}</p>
@@ -179,8 +202,7 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <label for="mv_serial">{{ t("m.rec.serial") }}</label>
       <select id="mv_serial" name="serial" required>
-        {% for r in rows %}<option value="{{ r.serial }}">{{ r.serial }} · {{ r.sku }} · {{ t("m.st." ~ r.storage.value) }}</option>{% endfor %}
-        {% for p in chilled %}<option value="{{ p.serial }}">{{ p.serial }} · {{ p.sku }} · {{ t("m.st.CHILLED") }}</option>{% endfor %}
+        {{ elegir_pieza(rows, chilled) }}
       </select>
       <label for="mv_storage">{{ t("m.ag.where") }}</label>
       <select id="mv_storage" name="storage" required>
@@ -203,7 +225,7 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <label for="wg_serial">{{ t("m.rec.serial") }}</label>
       <select id="wg_serial" name="serial" required>
-        {% for r in rows %}<option value="{{ r.serial }}">{{ r.serial }} · {{ r.sku }} · {{ "%.3f"|format(r.kg) }} kg</option>{% endfor %}
+        {{ elegir_pieza(rows, []) }}
       </select>
       <label for="wg_kg">{{ t("m.ag.weigh_kg") }}</label>
       <input id="wg_kg" name="kg" inputmode="decimal" required>
@@ -222,8 +244,7 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <label for="tr_serial">{{ t("m.rec.serial") }}</label>
       <select id="tr_serial" name="serial" required>
-        {% for r in rows %}<option value="{{ r.serial }}">{{ r.serial }} · {{ r.sku }} · {{ "%.3f"|format(r.kg) }} kg</option>{% endfor %}
-        {% for p in chilled %}<option value="{{ p.serial }}">{{ p.serial }} · {{ p.sku }} · {{ t("m.st.CHILLED") }}</option>{% endfor %}
+        {{ elegir_pieza(rows, chilled) }}
       </select>
       <label for="tr_removed">{{ t("m.ag.removed_kg") }}</label>
       <input id="tr_removed" name="removed_kg" inputmode="decimal">
@@ -262,7 +283,7 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <label for="sl_serial">{{ t("m.rec.serial") }}</label>
       <select id="sl_serial" name="serial" required>
-        {% for r in rows %}<option value="{{ r.serial }}">{{ r.serial }} · {{ r.sku }} · {{ "%.3f"|format(r.kg) }} kg</option>{% endfor %}
+        {{ elegir_pieza(rows, []) }}
       </select>
       <label for="sl_grams">{{ t("m.ag.grams") }}</label>
       <input id="sl_grams" name="grams" inputmode="decimal" required>

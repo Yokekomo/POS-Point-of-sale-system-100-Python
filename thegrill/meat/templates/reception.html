@@ -102,22 +102,22 @@
     <div class="help" id="alarconayuda">{{ t("m.rec.freeze_now_help") }}</div>
   </details>
 
-  {# 2. La foto de la etiqueta. Va después del lote —el lote se abre una vez y
-     la etiqueta es de cada bolsa— pero antes de teclear la pieza: se coge la
-     bolsa, se le hace la foto, y entonces se escriben sus números. #}
-  <h2>{{ t("m.rec.photo_first") }}</h2>
-  <p class="help">{{ t("m.rec.photo_first_help") }}</p>
-  <input type="file" name="foto" accept="image/*" capture="environment" id="lafoto" hidden>
-  <div class="rowflex" style="gap:10px;align-items:center;flex-wrap:wrap">
-    <label class="btn ghost" for="lafoto" id="botonfoto">{{ t("m.rec.photo_add") }}</label>
-    <span class="muted" id="fotodicho" hidden></span>
-  </div>
-  <div id="fotovista" hidden><a class="fotoetq" href="#" id="fotoenlace"><img id="fotoimg"
-      alt="{{ t('m.rec.photo') }}"></a></div>
-
-  {# 3. La pieza que tienes en la mano. #}
+  {# 2. La pieza que tienes en la mano, con su etiqueta dentro: la etiqueta no
+     es un paso aparte, es de esta bolsa. Se coge la bolsa, se le hace la foto
+     a la etiqueta y se escriben sus números, todo en el mismo sitio. #}
   <h2>{{ t("m.rec.piece_step") }}</h2>
   <fieldset class="pieza">
+    <h3 style="font-size:15px;margin:0 0 4px">{{ t("m.rec.photo_first") }}</h3>
+    <p class="help">{{ t("m.rec.photo_first_help") }}</p>
+    <input type="file" name="foto" accept="image/*" capture="environment" id="lafoto" hidden>
+    <div class="rowflex" style="gap:10px;align-items:center;flex-wrap:wrap">
+      <label class="btn ghost" for="lafoto" id="botonfoto">{{ t("m.rec.photo_add") }}</label>
+      <span class="muted" id="fotodicho" hidden></span>
+    </div>
+    <div id="fotovista" hidden><a class="fotoetq" href="#" id="fotoenlace"><img id="fotoimg"
+        alt="{{ t('m.rec.photo') }}"></a></div>
+
+    <h3 style="font-size:15px;margin:18px 0 8px">{{ t("m.rec.piece_numbers") }}</h3>
     <div class="campos">
       <label>{{ t("m.rec.serial") }}
         <input name="serial:0" autocomplete="off"
