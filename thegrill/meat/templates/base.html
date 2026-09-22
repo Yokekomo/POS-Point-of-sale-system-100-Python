@@ -695,7 +695,10 @@ window.avisos = (function () {
 // se sigue guardando en el teléfono.
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", function () {
-    navigator.serviceWorker.register("/sw.js").catch(function () {});
+    // El idioma viaja en la dirección: así la pantalla de «sin conexión» que
+    // guarda este ayudante está escrita en el de la casa y no en el que
+    // resulte que pida el navegador.
+    navigator.serviceWorker.register({{ ("/sw.js?idioma=" ~ lang)|tojson }}).catch(function () {});
   });
 }
 </script>

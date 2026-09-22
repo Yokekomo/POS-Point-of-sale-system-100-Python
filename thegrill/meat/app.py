@@ -2400,7 +2400,7 @@ def download_sheet(code: str, request: Request, ctx=Depends(require_user),
 
 
 @app.get("/sw.js")
-def service_worker(request: Request):
+def service_worker(request: Request, idioma: str = ""):
     """El ayudante que hace que la pantalla cargue dentro de la cámara.
 
     Guarda una copia de cada pantalla que se visita. Si luego no hay señal
@@ -2411,7 +2411,11 @@ def service_worker(request: Request):
     Lo que se manda no se toca nunca: un POST sin red falla como siempre y lo
     recoge el guardado del propio formulario.
     """
-    lang = lang_for(request)
+    # El idioma lo dice la propia pantalla que lo registra, no la cabecera del
+    # navegador: en un Windows en inglés con la casa en español, adivinarlo
+    # dejaba la pantalla de «sin conexión» escrita en inglés, que es justo
+    # cuando menos ganas hay de traducir nada.
+    lang = idioma if i18n.is_supported(idioma) else lang_for(request)
     codigo = """
 const CACHE = 'carnes-v1';
 
@@ -2460,16 +2464,31 @@ self.addEventListener('fetch', event => {
   );
 });
 
-const OFFLINE = `<!doctype html><html><head><meta charset="utf-8">
+// La pantalla de cuando no hay nada guardado. Lleva el nombre de la casa y un
+// botón para volver a intentarlo: sin ellos parece que el programa se ha roto,
+// y lo que ha pasado es que no hay cobertura.
+const OFFLINE = `<!doctype html><html lang="__LANG__" dir="__DIR__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>__TITULO__</title>
-<style>body{font:16px/1.5 system-ui;margin:0;display:grid;place-items:center;min-height:100vh;
-background:#12100e;color:#f4f1ec;padding:24px;text-align:center}
-p{max-width:34ch;color:#a9a29a}</style></head><body><div>
-<h1>__TITULO__</h1><p>__CUERPO__</p></div></body></html>`;
+<style>body{font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;
+display:grid;place-items:center;min-height:100vh;background:#12100e;color:#f4f1ec;
+padding:24px;text-align:center}
+.marca{font-weight:700;letter-spacing:-.01em;margin:0 0 28px;color:#e08c4a}
+h1{font-size:26px;margin:0 0 10px}
+p{max-width:36ch;color:#a9a29a;margin:0 auto}
+button{margin-top:26px;font:inherit;font-weight:600;padding:13px 22px;border:0;
+border-radius:10px;background:#e08c4a;color:#1a1614;cursor:pointer;min-height:46px}
+button:hover{filter:brightness(1.08)}</style></head><body><div>
+<p class="marca">__CASA__</p>
+<h1>__TITULO__</h1><p>__CUERPO__</p>
+<button type="button" onclick="location.reload()">__REINTENTAR__</button>
+</div></body></html>`;
 """
     codigo = (codigo.replace("__TITULO__", i18n.t(lang, "off.title"))
-              .replace("__CUERPO__", i18n.t(lang, "off.body")))
+              .replace("__CUERPO__", i18n.t(lang, "off.body"))
+              .replace("__REINTENTAR__", i18n.t(lang, "off.retry"))
+              .replace("__CASA__", i18n.t(lang, "m.app.title"))
+              .replace("__LANG__", lang).replace("__DIR__", i18n.direction(lang)))
     return Response(codigo, media_type="application/javascript",
                     headers={"Cache-Control": "no-cache"})
 

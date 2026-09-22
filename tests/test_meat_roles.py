@@ -416,6 +416,31 @@ def test_the_piece_list_groups_by_where_it_is_and_says_what_tells_them_apart(cli
     assert "9012 · Ribeye AUS · Maduración" not in pantalla
 
 
+def test_the_no_signal_screen_speaks_the_language_of_the_house(client):
+    """Una casa en español con un Windows en inglés veía «No connection».
+
+    El idioma de esa pantalla se adivinaba de la cabecera del navegador, que
+    es lo único que hay cuando el ayudante se registra. Ahora lo dice la
+    propia pantalla que lo registra, y va en la dirección.
+    """
+    alta(client, "ana@marina.com", "Ana", Role.MANAGER)
+
+    # La página manda su idioma al registrar el ayudante.
+    assert '/sw.js?idioma=es' in client.get("/hoy").text
+
+    # Y con un navegador en inglés, el ayudante de una casa en español sigue
+    # escribiendo su pantalla en español.
+    guion = client.get("/sw.js?idioma=es",
+                       headers={"Accept-Language": "en-GB,en;q=0.9"}).text
+    assert "Sin conexión" in guion and "No connection" not in guion
+    assert "Volver a intentarlo" in guion         # y se puede reintentar
+    assert "Control de carnes" in guion           # con el nombre de la casa
+    assert 'lang="es"' in guion
+
+    # Un idioma que no existe no cuela: se cae a lo de siempre.
+    assert "Sin conexión" in client.get("/sw.js?idioma=zz").text
+
+
 def test_the_screen_says_which_version_it_is(client):
     """«Eso ya está arreglado» y «eso no se ha bajado» se parecen demasiado.
 
