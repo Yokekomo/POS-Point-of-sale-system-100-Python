@@ -801,6 +801,11 @@ class MenuRow:
     food_cost_pct: float | None
     pos_code: str | None
     pos_name: str
+    # Si el plato está emparejado de verdad con un producto del POS. Sin esto
+    # no hay forma de distinguir un plato atado a su artículo de uno que
+    # todavía no lo está: el nombre se enseñaba igual en los dos casos, porque
+    # cuando faltaba se caía al nombre del propio plato.
+    paired: bool = False
 
 
 def menu(session: Session, restaurant_id: int) -> list[MenuRow]:
@@ -821,7 +826,8 @@ def menu(session: Session, restaurant_id: int) -> list[MenuRow]:
             extras=max(len(dish.lines) - (1 if line else 0), 0),
             cost=cost.cost_per_portion, food_cost_pct=cost.food_cost_pct,
             pos_code=product.pos_code if product else None,
-            pos_name=product.pos_name if product else dish.name))
+            pos_name=product.pos_name if product else dish.name,
+            paired=product is not None))
     rows.sort(key=lambda r: (r.food_cost_pct is None, -(r.food_cost_pct or 0)))
     return rows
 
@@ -911,6 +917,7 @@ class Plate:
     pos_code: str | None
     pos_name: str
     missing_price: list[str]
+    paired: bool = False
 
     @property
     def meat(self) -> PlateLine | None:
@@ -944,7 +951,7 @@ def plate(session: Session, restaurant_id: int, dish: Recipe, lang: str = "es") 
                  food_cost_pct=detail.food_cost_pct, margin=detail.margin_per_portion,
                  pos_code=product.pos_code if product else None,
                  pos_name=product.pos_name if product else dish.name,
-                 missing_price=list(detail.missing))
+                 missing_price=list(detail.missing), paired=product is not None)
 
 
 # ============================================================ parte del día

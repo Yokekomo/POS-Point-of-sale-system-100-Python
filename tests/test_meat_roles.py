@@ -416,6 +416,43 @@ def test_the_piece_list_groups_by_where_it_is_and_says_what_tells_them_apart(cli
     assert "9012 · Ribeye AUS · Maduración" not in pantalla
 
 
+def test_the_menu_says_which_dishes_are_tied_to_the_till(client):
+    """Un plato sin atar a su artículo del POS no descuenta nada al venderse.
+
+    La carta enseñaba un nombre debajo de cada plato lo estuviera o no —cuando
+    faltaba, se caía al nombre del propio plato—, así que los dos casos se
+    veían igual y los que no descontaban pasaban desapercibidos.
+    """
+    from thegrill.models import PosProduct, Recipe, RecipeKind
+
+    ana = alta(client, "ana@marina.com", "Ana", Role.MANAGER)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        for code, nombre in (("atado", "Entrecot a la brasa"),
+                             ("suelto", "Chuletón a la brasa")):
+            s.add(Recipe(restaurant_id=rest.id, code=code, name=nombre,
+                         kind=RecipeKind.DISH, active=True, sale_price=28.0))
+        s.flush()
+        atado = s.query(Recipe).filter_by(code="atado").one()
+        s.add(PosProduct(restaurant_id=rest.id, pos_code="1000",
+                         pos_name="ENTRECOT", recipe_id=atado.id))
+        s.flush()
+
+    pantalla = ana.get("/carta").text
+
+    # El que está atado enseña su número y el nombre con el que llega.
+    assert "1000" in pantalla and "ENTRECOT" in pantalla
+    # El que no, lo dice y lleva a arreglarlo.
+    assert 'href="/carta/suelto">Sin emparejar</a>' in pantalla
+    # Y ya no se inventa un nombre de POS para el que no lo tiene.
+    assert pantalla.count("Chuletón a la brasa") == 1
+
+    # Lo mismo al abrir el plato.
+    assert "Sin emparejar" in ana.get("/carta/suelto").text
+    suyo = ana.get("/carta/atado").text
+    assert "Sin emparejar" not in suyo and "ENTRECOT" in suyo
+
+
 def test_the_no_signal_screen_speaks_the_language_of_the_house(client):
     """Una casa en español con un Windows en inglés veía «No connection».
 

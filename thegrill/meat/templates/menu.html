@@ -1,4 +1,5 @@
 {% extends "base.html" %}{% block title %}{{ t("m.menu.title") }}{% endblock %}
+{% macro sin_atar(code) %}<a class="tag warn" href="/carta/{{ code }}">{{ t("m.menu.unpaired") }}</a>{% endmacro %}
 {% block body %}
 <h1>{{ t("m.menu.title") }}</h1>
 <p class="sub">{{ t("m.menu.sub") }}</p>
@@ -7,17 +8,23 @@
 <div class="card scroll">
 <table>
 <tr><th>{{ t("m.menu.dish") }}</th><th>{{ t("m.tg.cut_name") }}</th>
-    <th class="num">{{ t("m.menu.grams") }}</th><th>{{ t("sale.code") }}</th>
+    <th class="num">{{ t("m.menu.grams") }}</th><th>{{ t("m.menu.pos") }}</th>
     <th class="num">{{ t("rec.price") }}</th><th class="num">{{ t("m.menu.cost") }}</th>
     <th class="num">{{ t("rec.food_cost") }}</th></tr>
 {% for r in rows %}
 <tr>
-  <td><a href="/carta/{{ r.dish.code }}">{{ r.dish.name }}</a>
-      <div class="muted">{{ r.pos_name }}</div></td>
+  <td><a href="/carta/{{ r.dish.code }}">{{ r.dish.name }}</a></td>
   <td>{{ r.cut }}</td>
   <td class="num">{{ "%.0f"|format(r.grams) }}{% if r.extras %} <span class="muted">+{{ r.extras }}</span>{% endif %}
       {% if r.dish.by_weight %}<div class="muted">{{ t("m.menu.by_weight") }}</div>{% endif %}</td>
-  <td class="muted">{{ r.pos_code or "" }}</td>
+  {# Lo del POS, junto: su número y el nombre exacto con el que llega. Antes
+     el nombre salía debajo del plato aunque no hubiera emparejamiento —se
+     caía al nombre del propio plato— y no había forma de saber cuáles
+     estaban atadas de verdad y cuáles se iban a quedar sin descontar. #}
+  <td>{% if r.paired %}
+        {% if r.pos_code %}<b>{{ r.pos_code }}</b>{% endif %}
+        <div class="muted">{{ r.pos_name }}</div>
+      {% else %}{{ sin_atar(r.dish.code) }}{% endif %}</td>
   <td class="num">{% if r.dish.by_weight and r.dish.price_per_kg %}
         {{ "%.2f"|format(r.dish.price_per_kg) }}<div class="muted">{{ t("m.menu.price_kg") }} ({{ moneda }})</div>
       {% elif r.dish.sale_price %}{{ "%.2f"|format(r.dish.sale_price) }}{% endif %}</td>

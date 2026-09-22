@@ -1,8 +1,14 @@
 {% extends "base.html" %}{% block title %}{{ plate.dish.name }}{% endblock %}
 {% block body %}
 <h1>{{ plate.dish.name }}</h1>
-<p class="sub">{{ t("m.plate.sub") }}{% if plate.pos_code %} · {{ t("sale.code") }} {{ plate.pos_code }}{% endif %}
-  · {{ plate.pos_name }}</p>
+<p class="sub">{{ t("m.plate.sub") }}</p>
+{# Si este plato está atado a su artículo del POS, y a cuál. Sin emparejar,
+   lo que se venda no descuenta de la cámara y nadie se entera. #}
+<p class="help">{{ t("m.menu.pos") }}:
+  {% if plate.paired %}{% if plate.pos_code %}<b>{{ plate.pos_code }}</b> ·
+    {% endif %}{{ plate.pos_name }}
+  {% else %}<span class="tag warn">{{ t("m.menu.unpaired") }}</span>
+    {{ t("m.menu.unpaired_help") }}{% endif %}</p>
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 {% if plate.missing_price %}
 <div class="banner bad">{{ t("m.plate.no_price") }} {{ plate.missing_price | join(" · ") }}</div>
