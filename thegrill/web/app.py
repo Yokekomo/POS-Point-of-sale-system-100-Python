@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile   # el que devuelve request.form(), no el de FastAPI
 
-from thegrill import db
+from thegrill import db, version
 from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, CountStatus,
                              FieldType, Ingredient, IngredientItem,
                              Notification, PosMatch, PosProduct, Record, RecordTemplate, Recipe,
@@ -1020,7 +1020,8 @@ def settings_page(request: Request, ctx=Depends(require_user),
     restaurant = session.get(Restaurant, user.restaurant_id)
     return page(request, "settings.html", user, auth_session, session,
                 restaurant=restaurant, saved=bool(saved), changed=bool(changed),
-                error=error, pos_modes=list(PosMatch), currencies=money.MONEDAS)
+                error=error, pos_modes=list(PosMatch), currencies=money.MONEDAS,
+                version=version.actual())
 
 
 @app.post("/configuracion")

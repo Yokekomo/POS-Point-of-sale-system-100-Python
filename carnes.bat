@@ -27,13 +27,28 @@ goto :arrancar
 :alDia
 echo   Buscando novedades...
 cd /d "%CARPETA%" || goto :error
-git fetch origin "%RAMA%" >nul 2>nul
+REM Si esto falla y no se dice, se arranca con lo de la semana pasada y no hay
+REM forma de saberlo: un arreglo que no se ha bajado se parece demasiado a un
+REM arreglo que no funciona. Asi que el fallo se ensena entero.
+git fetch origin "%RAMA%" || goto :sinactualizar
 git checkout "%RAMA%" >nul 2>nul
-git pull --ff-only origin "%RAMA%" >nul 2>nul
-if errorlevel 1 echo   (no se ha podido actualizar; se arranca con lo que hay)
+git pull --ff-only origin "%RAMA%" || goto :sinactualizar
+echo   Al dia.
+goto :arrancar
+
+:sinactualizar
+echo.
+echo   *** NO SE HA PODIDO ACTUALIZAR ***
+echo   Se arranca con lo que ya habia, que puede ser de hace dias. El motivo
+echo   esta escrito aqui arriba: copialo y mandamelo.
+echo.
+pause
 
 :arrancar
 cd /d "%CARPETA%" || goto :error
+echo.
+REM Lo que se va a arrancar, escrito antes de arrancarlo.
+for /f "delims=" %%v in ('git log -1 --format^="%%cd  %%h" --date^=format:"%%d/%%m/%%Y %%H:%%M" 2^>nul') do echo   Version: %%v
 echo.
 call probar.bat
 goto :fin

@@ -2,6 +2,11 @@
 {% block body %}
 <h1>{{ t("settings.title") }}</h1>
 <p class="sub">{{ t("settings.sub") }}</p>
+{# Qué versión es esta. Cuando alguien dice que un arreglo no está, lo primero
+   que hay que saber es si lo que tiene delante lo lleva dentro: sin esto, un
+   arreglo que no se ha bajado y un arreglo que no funciona se parecen
+   demasiado. #}
+<p class="help">{{ t("settings.version") }}: <code>{{ version }}</code></p>
 {% if saved %}<div class="banner ok">{{ t("settings.saved") }}</div>{% endif %}
 {% if changed %}<div class="banner ok">{{ t("pass.changed") }}</div>{% endif %}
 {% if off %}<div class="banner ok">{{ t("tfa.off") }}</div>{% endif %}

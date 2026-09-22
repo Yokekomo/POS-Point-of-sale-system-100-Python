@@ -2,7 +2,7 @@
 import argparse
 from datetime import date
 
-from thegrill import db
+from thegrill import db, version
 from thegrill.orchestrator.chain import DbCheckpoints, build_default_chain
 
 
@@ -147,6 +147,9 @@ def main(argv=None):
                        else bench.demo_accounts(session))
         print()
         print("  CONTROL DE CARNES · demo con un mes de trabajo dentro")
+        # La versión, lo primero: cuando alguien dice que un arreglo no está,
+        # lo primero que hay que saber es si lo que arrancó lo lleva dentro.
+        print(f"  Versión: {version.actual()}")
         print("  " + "-" * 66)
         for cuenta in cuentas:
             print(f"  {cuenta.who[:34]:34s} {cuenta.email:26s} {cuenta.password}")

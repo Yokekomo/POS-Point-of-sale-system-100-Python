@@ -13,8 +13,12 @@ echo   LA PRIMERA VEZ TARDA UN PAR DE MINUTOS. No cierres esta ventana
 echo   y no abras todavia el navegador: cuando este lista se abre sola.
 echo.
 
-REM Si se bajo con git, se trae lo ultimo antes de arrancar.
-if exist ".git\" git pull --ff-only >nul 2>nul
+REM Si se bajo con git, se trae lo ultimo antes de arrancar. Si no se puede,
+REM se dice: arrancar con lo de hace dias sin avisar confunde mas que ayuda.
+if exist ".git\" (
+    git pull --ff-only || echo   (no se ha podido actualizar; se arranca con lo que hay^)
+    for /f "delims=" %%v in ('git log -1 --format^="%%cd  %%h" --date^=format:"%%d/%%m/%%Y %%H:%%M" 2^>nul') do echo   Version: %%v
+)
 if not exist ".venv\" (
     %PY% -m venv .venv || goto :sinpython
 )

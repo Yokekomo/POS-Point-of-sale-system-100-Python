@@ -416,6 +416,22 @@ def test_the_piece_list_groups_by_where_it_is_and_says_what_tells_them_apart(cli
     assert "9012 · Ribeye AUS · Maduración" not in pantalla
 
 
+def test_the_screen_says_which_version_it_is(client):
+    """«Eso ya está arreglado» y «eso no se ha bajado» se parecen demasiado.
+
+    Sin un número a la vista no hay forma de saber cuál de los dos es, y se
+    pierde la tarde buscando un fallo que ya estaba corregido en una copia que
+    no se había actualizado.
+    """
+    from thegrill import version
+
+    ana = alta(client, "ana@marina.com", "Ana", Role.MANAGER)
+
+    pantalla = ana.get("/configuracion").text
+    assert "Versión" in pantalla
+    assert version.actual() in pantalla
+
+
 def test_every_money_figure_says_which_money_it_is(client):
     """«Valor en cámara: 1573» no dice si son euros, dólares o pesos.
 

@@ -22,7 +22,7 @@ from starlette.datastructures import UploadFile   # el de request.form()
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from thegrill import db
+from thegrill import db, version
 from thegrill.meat import billing, bugs, gateway, mailer, novedades, perms, privacy, security
 from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
@@ -2175,6 +2175,7 @@ def settings_page(request: Request, ctx=Depends(require_user),
                 restaurant=restaurant, saved=bool(saved), changed=bool(changed),
                 off=bool(off), error=error, pos_modes=list(PosMatch),
                 currencies=money.MONEDAS,
+                version=version.actual(),
                 codes=[c for c in (codes or "").split("-") if c],
                 tfa_uri=twofactor.uri(user.totp_secret or "", user.email,
                                       issuer=i18n.t(lang_for(request, session, user),
