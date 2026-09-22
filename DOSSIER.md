@@ -183,19 +183,22 @@ La infraestructura entera —servidor, base de datos gestionada, correo, copias�
 son unos **90 €/mes** y **no crece con cada cliente**: a 10 locales sale a 9 €
 por cliente, a 50 a 1,80 €, a 100 a 0,90 €.
 
-**Costes fijos del negocio** (estimación para España, a confirmar con asesoría):
-cuota de autónomo ~300 € + asesoría ~70 € + infraestructura ~90 € ≈ **460 €/mes**.
+**Costes fijos del negocio** (Hungría, ver apartado 6 bis): cotización mínima
+~255 € + könyvelő ~75 € + infraestructura ~90 € ≈ **420 €/mes**.
 
-**Punto de equilibrio: 4 locales.** A partir del quinto, cada local que entra
+**Punto de equilibrio: 3 locales.** A partir del cuarto, cada local que entra
 deja ~143 € limpios antes de impuestos.
 
 | Locales | Ingreso/mes | Queda después de costes | Al año |
 |---|---|---|---|
-| 5 | 745 € | ~255 € | ~3.000 € |
-| 10 | 1.490 € | ~970 € | ~11.600 € |
-| 25 | 3.725 € | ~3.100 € | ~37.000 € |
-| 50 | 7.450 € | ~6.400 € | ~77.000 € |
-| 100 | 14.900 € | ~13.100 € | ~157.000 € |
+| 5 | 745 € | ~295 € | ~3.500 € |
+| 10 | 1.490 € | ~1.010 € | ~12.100 € |
+| 25 | 3.725 € | ~3.150 € | ~37.800 € |
+| 50 | 7.450 € | ~6.450 € | ~77.400 € |
+| 100 | 14.900 € | ~13.150 € | ~157.800 € |
+
+(Antes de impuestos. La carga fiscal húngara va en el apartado 6 bis:
+~25 % de lo facturado con átalányadó, 9 % de sociedades con Kft.)
 
 **Lo que dicen estos números:** el margen por cliente es excelente y el coste
 no es el problema — a 143 € limpios por local, esto se gana o se pierde en
@@ -265,71 +268,108 @@ datos personales, y sacarlos de la UE obliga a papeleo que no quieres.
 ## 6 bis. Dónde montar la empresa
 
 > **Nada de esto es asesoramiento legal ni fiscal.** Son las opciones que hay
-> sobre la mesa; la decisión se toma con un asesor que vea los números reales.
-> **Supone que soy residente fiscal en España — si no lo fuera, casi todo lo de
-> abajo cambia. [PENDIENTE DE CONFIRMAR: dónde resido fiscalmente.]**
+> sobre la mesa; los números exactos los pone un **könyvelő** (asesor húngaro)
+> con las cifras reales delante. Datos consultados en septiembre de 2026.
 
-### Lo primero, porque tumba media pregunta
+**Resido en Hungría.** Eso hace la respuesta fácil: **se monta en Hungría.**
 
-**Dónde se monta la empresa no decide dónde se pagan los impuestos: lo decide
-dónde vives tú.** Montar una sociedad en Estonia, Delaware o Chipre es legal y
-se hace en un rato por internet. Lo que no funciona es creer que eso saca los
-beneficios de España: si vives aquí, trabajas desde aquí y la diriges desde
-aquí, Hacienda puede considerar que su **sede de dirección efectiva** está en
-España y tratarla como española, o que hay un **establecimiento permanente**.
-Además, como socio residente tendrías que declarar aquí los dividendos.
+### Por qué no hay nada que buscar fuera
 
-Traducido: **una estructura fuera no ahorra nada y añade dos contabilidades, un
-asesor de cada país y un riesgo de inspección.** Solo tiene sentido si de
-verdad hay actividad económica sustancial allí —oficina, personas, decisiones—,
-que no es el caso.
+Dos razones, y las dos son fuertes:
 
-### Las dos opciones reales en España
+1. **Dónde se monta la empresa no decide dónde se pagan los impuestos: lo
+   decide dónde vives.** Una sociedad en Estonia o Delaware dirigida desde
+   Budapest tributa igualmente aquí por sede de dirección efectiva. No ahorra
+   nada y añade dos contabilidades.
+2. **Hungría ya tiene el impuesto de sociedades más bajo de la Unión Europea:
+   el 9 %.** No hay a dónde ir. La jurisdicción "optimizada" que otros buscan
+   por Europa es en la que ya vivo.
 
-| | **Autónomo** | **Sociedad Limitada (SL)** |
+Y desde aquí se factura a toda la Unión Europea sin montar nada: a una empresa
+de otro país miembro se le factura **con inversión del sujeto pasivo**, sin
+IVA. Vender a un asador de Madrid desde Hungría es una factura normal.
+
+### Las dos formas, y cuándo cada una
+
+| | **Egyéni vállalkozó + átalányadózás** | **Kft.** |
 |---|---|---|
-| Coste de arranque | Casi cero | ~600–1.000 € (notaría, registro, gestoría) |
-| Cuota mensual | **80 €** el primer año con tarifa plana (2026), luego según ingresos | Administrador con control cotiza como **autónomo societario**: base mínima 1.424,40 € → **~450 €/mes**, salvo que le toque tarifa plana |
-| Impuestos | IRPF, por tramos: barato abajo, caro arriba | Impuesto de Sociedades: tipo fijo (más bajo los dos primeros años con beneficio) |
-| Responsabilidad | **Respondes con tu patrimonio** | Limitada al capital… con letra pequeña |
-| Imagen ante un hotel o un grupo | Suficiente al principio | Mejor para contratos grandes |
+| Para | Empezar | Cuando crece |
+| Techo de facturación | **38.736.000 HUF/año** (10× el salario mínimo anual, ~97.000 €) | Sin techo |
+| Impuesto | **45 % de gasto a tanto alzado**: solo tributa el 55 % de lo facturado. Sobre eso, 15 % de IRPF + 18,5 % TB + 13 % szocho | **9 % de sociedades** sobre el beneficio |
+| Carga efectiva | **~25 % de lo facturado** (parte exenta aparte) | 9 % + dividendo al sacarlo |
+| Cotización mínima | Actividad principal: **~101.700 HUF/mes** (18,5 % + 13 % sobre el salario mínimo de 322.800 HUF) ≈ **255 €** | Sueldo mínimo de administrador + dividendos |
+| Capital | Ninguno | **3.000.000 HUF** (~7.500 €). No hay que desembolsarlo entero al constituir, pero **no se reparten dividendos hasta que esté completo** |
+| Sacar el dinero | Es tuyo directamente | Dividendo: 15 % IRPF + 13 % szocho **con tope anual de 1.007.136 HUF** (~2.600 €). Por debajo del tope, ~28 %; por encima, solo el 15 % |
 
-Sobre la **SL de 1 €** (Ley Crea y Crece): existe, pero obliga a destinar el
-**20 % del beneficio a reserva legal hasta llegar a 3.000 €**, y hasta entonces
-los socios responden solidariamente por la diferencia. No es una SL gratis: es
-una SL con la responsabilidad aplazada.
+**KATA no vale.** Desde 2022 un KATA-s solo puede facturar a **personas
+físicas**: una sola factura a una empresa lo tumba automáticamente. Esto es
+B2B puro, así que KATA está descartado de entrada. Conviene tenerlo claro
+porque mucha gente sigue dándolo por hecho.
 
-### Lo que yo haría
+### El IVA, que aquí importa
 
-1. **Empezar como autónomo** con tarifa plana. 80 €/mes, alta en un día, y con
-   4 locales ya está pagada la estructura entera.
-2. **Pasar a SL** cuando se junten dos cosas: que los ingresos justifiquen el
-   salto de IRPF a Sociedades (el asesor pone la cifra), y que haya clientes lo
-   bastante grandes como para que la responsabilidad ilimitada dé miedo.
-   Orientativamente, por los 25–30 locales.
-3. **No montar nada fuera** mientras viva aquí.
+- **Exención subjetiva (alanyi adómentesség) hasta 20.000.000 HUF/año** en
+  2026 (~50.000 €). Por debajo no se factura IVA: menos papeleo y menos
+  precio para un cliente que no deduzca.
+- Por encima, **27 % de IVA** —el más alto de la UE— a clientes húngaros. A
+  una empresa húngara le da igual porque lo deduce; a un particular no, pero
+  aquí no hay particulares.
+- A clientes de otros países de la UE, **inversión del sujeto pasivo**: sin
+  IVA en la factura. El IVA húngaro no encarece la venta en España.
 
-### Lo que hay que tener sí o sí, se monte como se monte
+### Los tres escalones, con las cifras reales
 
-- **Contrato de encargado del tratamiento con cada cliente.** Al guardar los
-  datos de su personal y de sus proveedores, soy su encargado. Sin ese contrato
-  firmado, el incumplimiento es del cliente y la culpa mía.
-- **Base de datos en la Unión Europea.** Esto es independiente de dónde esté la
+| Facturación anual | Dónde queda | Qué toca |
+|---|---|---|
+| Hasta **20M HUF** (~50.000 €) ≈ **28 locales** a 149 € | Bajo exención de IVA y bajo el techo del átalányadó | Egyéni vállalkozó, sin IVA. Lo más simple que existe |
+| Hasta **38,7M HUF** (~97.000 €) ≈ **54 locales** | Sigue el átalányadó, ya con IVA | Egyéni vállalkozó con IVA. Hay que darse de alta en IVA al pasar el umbral |
+| Por encima | Fuera del átalányadó | **Kft. al 9 %**, y a partir de ahí el dividendo con su tope |
+
+**Traducido: el átalányadó da de sí hasta unos 50 locales.** Ese es el momento
+natural de pasar a Kft., no antes — y para entonces los 3.000.000 HUF de
+capital ya no son un problema.
+
+### Lo que hay que tener sí o sí
+
+- **Un könyvelő desde el primer día.** No es opcional en Hungría: las
+  declaraciones son mensuales/trimestrales y los plazos no perdonan. Unos
+  20.000–40.000 HUF/mes para una actividad pequeña.
+- **Contrato de encargado del tratamiento (RGPD) con cada cliente.** Al
+  guardar datos de su personal y sus proveedores soy su encargado. Hungría
+  está en la UE, así que es el mismo reglamento que en España.
+- **Base de datos en la Unión Europea.** Independiente de dónde esté la
   empresa: lo que manda es dónde están los datos.
-- **Registro de actividades de tratamiento** y la política de privacidad, que ya
-  está escrita en el producto.
-- **Seguro de responsabilidad civil profesional.** Si un fallo del programa
-  hace que un restaurante tire carne o cuadre mal el inventario, la reclamación
-  llega. Son unos cientos de euros al año.
-- **Condiciones de servicio y contrato de suscripción** con lo que pasa si se
-  cae el servicio, quién es dueño de los datos y cómo se los lleva el cliente
-  si se va.
-- **Facturación con IVA** (21 % en España a empresas españolas; si algún día
-  hay clientes en otros países de la UE, entra la inversión del sujeto pasivo y
-  cambia la factura).
+- **Seguro de responsabilidad civil profesional.**
+- **Condiciones de servicio y contrato de suscripción**: qué pasa si se cae el
+  servicio, de quién son los datos y cómo se los lleva el cliente si se va.
+- **Facturación electrónica**: Hungría obliga a reportar las facturas a la
+  Agencia Tributaria en tiempo real (sistema Online Számla). El programa de
+  facturación que elija tiene que hacerlo; los húngaros lo hacen todos.
 
-**[PENDIENTE DE DECIDIR: presupuesto para asesoría y seguro, y si quiero
-empezar solo o con un socio que venda.]**
+### Lo que esto cambia en los números
+
+Los costes fijos que puse antes eran los de España. Aquí:
+
+| | Al mes |
+|---|---|
+| Cotización mínima (actividad principal) | ~255 € |
+| Könyvelő | ~75 € |
+| Infraestructura | ~90 € |
+| **Total** | **~420 €** |
+
+**Punto de equilibrio: 3 locales.** Y el impuesto sobre lo que queda es más
+bajo que en España en los dos escalones.
+
+### Una consecuencia de mercado que no es menor
+
+Vivir en Hungría y vender en español no es una contradicción: **es una
+ventaja**. Se factura desde un país con el impuesto de sociedades más bajo de
+la UE, sin IVA en la factura a cualquier empresa de otro país miembro, y el
+programa ya habla **húngaro y español** (y otros cinco idiomas). El mercado de
+partida no tiene por qué ser uno solo.
+
+**[PENDIENTE DE DECIDIR: ¿el primer mercado es Hungría, España, o los dos? Mi
+red de contactos y mi credibilidad como director culinario, ¿dónde están?]**
 
 ## 7. Quién lo hace
 
