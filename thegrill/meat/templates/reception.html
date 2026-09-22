@@ -36,7 +36,7 @@
       <div><label for="origin">{{ t("m.rec.origin") }}</label>
         <input id="origin" name="origin" placeholder="AUS" value="{{ previo.get('origin','') }}"></div>
       {% if can("money") %}
-      <div><label for="price_kg">{{ t("m.rec.price_kg") }}</label>
+      <div><label for="price_kg">{{ t("m.rec.price_kg") }} ({{ moneda }}/kg)</label>
         <input id="price_kg" name="price_kg" inputmode="decimal"
                value="{{ previo.get('price_kg','') }}"></div>
       {% endif %}
@@ -130,7 +130,7 @@
         <input name="sku:0" placeholder="{{ t('m.rec.row_sku_ph') }}"
                title="{{ t('m.rec.row_sku_help') }}"></label>
       {% if can("money") %}
-      <label>{{ t("m.rec.price_kg") }}
+      <label>{{ t("m.rec.price_kg") }} ({{ moneda }}/kg)
         <input name="price:0" inputmode="decimal"
                title="{{ t('m.rec.price_help') }}"></label>
       {% endif %}
@@ -224,7 +224,7 @@
     {% if p.supplier_lot %}{% set _ = datos.append(p.supplier_lot) %}{% endif %}
     {# El dinero va con su nombre delante: un número suelto en una línea gris
        no dice si son kilos, euros o el coste de la pieza. #}
-    {% if can("money") and p.piece_cost_usd %}{% set _ = datos.append(t("m.rec.cost") ~ " " ~ "%.2f"|format(p.piece_cost_usd)) %}{% endif %}
+    {% if can("money") and p.piece_cost_usd %}{% set _ = datos.append(t("m.rec.cost") ~ " " ~ "%.2f"|format(p.piece_cost_usd) ~ " " ~ moneda) %}{% endif %}
     {{ datos | join(" · ") }}
   </div>
   {# Una foto por pieza. El fichero no cabe en la cola de sin cobertura, así

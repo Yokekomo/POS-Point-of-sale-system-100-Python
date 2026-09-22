@@ -24,8 +24,8 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, Co
                              RecipeKind, RecipeLine, Restaurant, Role, Rotation,
                              TemplateField, Unit, User)
 
-from thegrill.web import (auth, butchery, costing, i18n, inventory, service, sheets, tracing,
-                          waste)
+from thegrill.web import (auth, butchery, costing, i18n, inventory, money, service,
+                          sheets, tracing, waste)
 from thegrill.web.seed import seed_templates
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
@@ -98,9 +98,19 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
             "can": kitchen_can(user),
             "unread": service.unread_count(session, user.id) if (user and session) else 0,
             "t": i18n.translator(lang), "lang": lang, "dir": i18n.direction(lang),
-            "languages": i18n.LANGUAGES}
+            "languages": i18n.LANGUAGES,
+            # El símbolo de la moneda de la casa: un número de dinero sin él no
+            # dice si son euros o dólares.
+            "moneda": money.simbolo(_moneda_de(session, user))}
     base.update(ctx)
     return templates.TemplateResponse(request, name, base)
+
+
+def _moneda_de(session, user) -> str | None:
+    if not (session and user):
+        return None
+    restaurant = session.get(Restaurant, user.restaurant_id)
+    return restaurant.currency if restaurant else None
 
 
 def set_session_cookie(response: Response, token: str) -> Response:
@@ -1010,14 +1020,14 @@ def settings_page(request: Request, ctx=Depends(require_user),
     restaurant = session.get(Restaurant, user.restaurant_id)
     return page(request, "settings.html", user, auth_session, session,
                 restaurant=restaurant, saved=bool(saved), changed=bool(changed),
-                error=error, pos_modes=list(PosMatch))
+                error=error, pos_modes=list(PosMatch), currencies=money.MONEDAS)
 
 
 @app.post("/configuracion")
 def save_settings(request: Request, language: str = Form(...),
                   restaurant_language: str = Form(""), pos_match: str = Form(""),
-                  csrf: str = Form(""), ctx=Depends(require_user),
-                  session: Session = Depends(get_db)):
+                  currency: str = Form(""), csrf: str = Form(""),
+                  ctx=Depends(require_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
     try:
         auth.check_csrf(auth_session, csrf, lang_for(request, session, user))
@@ -1032,6 +1042,8 @@ def save_settings(request: Request, language: str = Form(...),
                 restaurant.language = restaurant_language
             if pos_match in PosMatch.__members__:
                 restaurant.pos_match = PosMatch[pos_match]
+            if money.es_valida(currency):
+                restaurant.currency = currency.upper()
     response = RedirectResponse("/configuracion?saved=1", status_code=303)
     return set_lang_cookie(response, user.language or i18n.DEFAULT_LANG)
 

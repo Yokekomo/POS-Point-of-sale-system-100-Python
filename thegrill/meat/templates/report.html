@@ -32,9 +32,9 @@
   <div class="kpi"><b>{{ report.sales_units }}</b><span>{{ t("sale.units") }}</span>
     {% if report.sales_kg %}<div class="muted">{{ "%.3f"|format(report.sales_kg) }} kg</div>{% endif %}</div>
   {% if can("money") %}
-  <div class="kpi"><b>{{ "%.2f"|format(report.stock_value) }}</b><span>{{ t("m.home.stock_value") }}</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(report.stock_value) }}</b><span>{{ t("m.home.stock_value") }} ({{ moneda }})</span></div>
   <div class="kpi"><b class="{{ 'bad' if report.day_loss > 0 else '' }}">{{ "%.2f"|format(report.day_loss) }}</b>
-    <span>{{ t("m.rp.day_loss") }}</span></div>
+    <span>{{ t("m.rp.day_loss") }} ({{ moneda }})</span></div>
   {% endif %}
 </div>
 
@@ -89,7 +89,7 @@
   <b>{{ t("nav.waste") }}</b>
   <table>
     <tr><th>{{ t("rec.component") }}</th><th>{{ t("waste.serial") }}</th>
-        <th class="num">kg</th>{% if can("money") %}<th class="num">{{ t("trace.cost") }}</th>{% endif %}</tr>
+        <th class="num">kg</th>{% if can("money") %}<th class="num">{{ t("trace.cost") }} ({{ moneda }})</th>{% endif %}</tr>
     {% for w in report.waste %}
     <tr><td>{{ w.label }}</td><td class="muted">{{ w.serial or "—" }}</td>
         <td class="num">{{ "%.3f"|format(w.kg) }}</td>
@@ -108,7 +108,7 @@
   <table>
     <tr><th>{{ t("sheet.shift") }}</th><th class="num">{{ t("m.ag.counted_pieces") }}</th>
         <th class="num">{{ t("defrost.drip") }}</th>
-        {% if can("money") %}<th class="num">{{ t("m.df.loss") }}</th>{% endif %}</tr>
+        {% if can("money") %}<th class="num">{{ t("m.df.loss") }} ({{ moneda }})</th>{% endif %}</tr>
     {% for c in report.shifts %}
     <tr><td>{{ c.shift or "—" }}</td><td class="num">{{ c.pieces }}</td>
         <td class="num">{{ "%.3f"|format(c.drip_kg) }}</td>

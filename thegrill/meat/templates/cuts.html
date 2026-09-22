@@ -41,7 +41,7 @@
         {% if c.sold_by_weight %} · {{ t("m.cut.by_weight") }}{% endif %} ·
         {{ "%.3f"|format(stock.get(c.id, 0)) }} kg
         {% if can("money") %} ·
-        {% if costs.get(c.id) %}{{ "%.2f"|format(costs[c.id]) }} / kg
+        {% if costs.get(c.id) %}{{ "%.2f"|format(costs[c.id]) }} {{ moneda }} / kg
         {% else %}<span class="tag bad">{{ t("ing.no_price") }}</span>{% endif %}{% endif %}
         {% if c.min_stock is not none %} · {{ t("meat.min") }} {{ "%.3f"|format(c.min_stock) }}{% endif %}
       </div>

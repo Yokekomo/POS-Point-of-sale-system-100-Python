@@ -42,7 +42,7 @@
       <span>{{ t("m.ag.lost") }}</span>
       <div class="muted">{{ "%.1f"|format(weighed.total_loss_pct) }} % {{ t("m.ag.total") }}</div></div>
     {% if can("money") and weighed.cost_per_kg %}
-    <div class="kpi"><b>{{ "%.2f"|format(weighed.cost_per_kg) }}</b><span>{{ t("m.ag.per_kg") }}</span>
+    <div class="kpi"><b>{{ "%.2f"|format(weighed.cost_per_kg) }}</b><span>{{ t("m.ag.per_kg") }} ({{ moneda }})</span>
       {% if weighed.cost_rise_pct %}<div class="muted">{{ "%+.1f"|format(weighed.cost_rise_pct) }} %</div>{% endif %}</div>
     {% endif %}
     <div class="kpi"><b>{{ weighed.days or 0 }}</b><span>{{ t("m.ag.days") }}</span></div>
@@ -60,7 +60,7 @@
       <div class="muted">{{ "%.1f"|format(trimmed.removed_pct) }} %</div></div>
     <div class="kpi"><b>{{ "%.3f"|format(trimmed.kg) }}</b><span>{{ t("m.ag.now_kg") }}</span></div>
     {% if can("money") and trimmed.cost_per_kg %}
-    <div class="kpi"><b>{{ "%.2f"|format(trimmed.cost_per_kg) }}</b><span>{{ t("m.ag.per_kg") }}</span>
+    <div class="kpi"><b>{{ "%.2f"|format(trimmed.cost_per_kg) }}</b><span>{{ t("m.ag.per_kg") }} ({{ moneda }})</span>
       {% if trimmed.cost_rise_pct %}<div class="muted">{{ "%+.1f"|format(trimmed.cost_rise_pct) }} %</div>{% endif %}</div>
     {% endif %}
     <div class="kpi"><b>{{ "%.3f"|format(trimmed.kept_kg) }}</b><span>{{ t("m.tg.trim") }}</span>
@@ -75,9 +75,9 @@
 <div class="card">
   <b>{{ sold.serial }} · {{ "%.0f"|format(sold.grams) }} g</b>
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
-    <div class="kpi"><b>{{ "%.2f"|format(sold.price) }}</b><span>{{ t("m.ag.price") }}</span></div>
-    <div class="kpi"><b>{{ "%.2f"|format(sold.cost) }}</b><span>{{ t("trace.cost") }}</span></div>
-    <div class="kpi"><b>{{ "%.2f"|format(sold.margin) }}</b><span>{{ t("trace.margin") }}</span></div>
+    <div class="kpi"><b>{{ "%.2f"|format(sold.price) }}</b><span>{{ t("m.ag.price") }} ({{ moneda }})</span></div>
+    <div class="kpi"><b>{{ "%.2f"|format(sold.cost) }}</b><span>{{ t("trace.cost") }} ({{ moneda }})</span></div>
+    <div class="kpi"><b>{{ "%.2f"|format(sold.margin) }}</b><span>{{ t("trace.margin") }} ({{ moneda }})</span></div>
     {% if sold.food_cost_pct is not none %}
     <div class="kpi"><b>{{ sold.food_cost_pct|ceil_pct }} %</b><span>{{ t("rec.food_cost") }}</span></div>
     {% endif %}
@@ -98,7 +98,7 @@
       {{ "%.1f"|format(summary.thrown_kg) }} {{ t("m.ag.waste_kg")|lower }}</div></div>
   {% if can("money") %}
   <div class="kpi"><b>{{ "%.2f"|format(summary.aging_value + summary.frozen_value) }}</b>
-    <span>{{ t("m.home.stock_value") }}</span></div>
+    <span>{{ t("m.home.stock_value") }} ({{ moneda }})</span></div>
   {% endif %}
   {% if summary.ready %}
   <div class="kpi"><b>{{ summary.ready|length }}</b><span>{{ t("m.ag.ready") }}</span>
@@ -114,8 +114,8 @@
     <th class="num">{{ t("m.ag.now_kg") }}</th><th class="num">{{ t("m.ag.lost") }}</th>
     <th class="num">{{ t("m.ag.trim") }}</th><th class="num">{{ t("m.ag.sold_kg") }}</th>
     <th class="num">{{ t("m.ag.yield") }}</th>
-    {% if can("money") %}<th class="num">{{ t("m.ag.per_kg") }}</th>
-    <th class="num">{{ t("inv.value") }}</th>{% endif %}
+    {% if can("money") %}<th class="num">{{ t("m.ag.per_kg") }} ({{ moneda }})</th>
+    <th class="num">{{ t("inv.value") }} ({{ moneda }})</th>{% endif %}
     <th>{{ t("ing.expiry") }}</th></tr>
 {% for r in rows %}
 <tr>
@@ -161,7 +161,7 @@
     <div class="kpi"><b class="bad">-{{ "%.3f"|format(counted.loss_kg) }}</b>
       <span>{{ t("m.ag.water") }}</span></div>
     {% if can("money") and counted.cost %}
-    <div class="kpi"><b>{{ "%.2f"|format(counted.cost) }}</b><span>{{ t("m.df.loss") }}</span></div>
+    <div class="kpi"><b>{{ "%.2f"|format(counted.cost) }}</b><span>{{ t("m.df.loss") }} ({{ moneda }})</span></div>
     {% endif %}
     {% if counted.missing %}
     <div class="kpi"><b class="bad">{{ counted.missing|length }}</b>
@@ -295,7 +295,7 @@
       </select>
       <label for="sl_grams">{{ t("m.ag.grams") }}</label>
       <input id="sl_grams" name="grams" inputmode="decimal" required>
-      <label for="sl_price">{{ t("m.ag.price") }}</label>
+      <label for="sl_price">{{ t("m.ag.price") }} ({{ moneda }})</label>
       <input id="sl_price" name="price" inputmode="decimal">
       <label for="sl_dish">{{ t("m.menu.dish") }}</label>
       <input id="sl_dish" name="dish">
@@ -332,8 +332,8 @@
 <div class="card scroll">
 <table>
 <tr><th>{{ t("waste.date") }}</th><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.menu.dish") }}</th>
-    <th class="num">{{ t("m.ag.grams") }}</th><th class="num">{{ t("m.ag.price") }}</th>
-    <th class="num">{{ t("trace.cost") }}</th><th class="num">{{ t("rec.food_cost") }}</th></tr>
+    <th class="num">{{ t("m.ag.grams") }}</th><th class="num">{{ t("m.ag.price") }} ({{ moneda }})</th>
+    <th class="num">{{ t("trace.cost") }} ({{ moneda }})</th><th class="num">{{ t("rec.food_cost") }}</th></tr>
 {% for s in sales %}
 <tr>
   <td>{{ s.date }}</td>

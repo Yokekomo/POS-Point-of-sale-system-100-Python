@@ -211,7 +211,9 @@ class Restaurant(Base):
     slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     join_code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     timezone: Mapped[str] = mapped_column(String(64), default="UTC")
-    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    # La moneda en la que cobra y paga esta casa. Se elige en la
+    # configuración; lo que se enseña al lado de cada cifra sale de aquí.
+    currency: Mapped[str] = mapped_column(String(3), default="EUR")
     language: Mapped[str] = mapped_column(String(5), default="es")   # idioma por defecto del local
     pos_match: Mapped[PosMatch] = mapped_column(Enum(PosMatch), default=PosMatch.BOTH)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

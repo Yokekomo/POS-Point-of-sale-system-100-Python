@@ -77,19 +77,42 @@ def resolve(user_lang: str | None = None, cookie: str | None = None,
     return VISITOR_LANG
 
 
+# Cuando la frase habla de una sola cosa, su texto vive en la misma clave con
+# esto detrás. «1 cortes por debajo del mínimo» lo escribe un programa, no una
+# persona, y en un programa que se vende se nota.
+UNA = "#1"
+
+
 def t(lang: str, key: str, **kw) -> str:
     """Texto traducido. Si falta la clave cae al español y, en último término,
-    devuelve la propia clave: nunca revienta una pantalla por un texto."""
+    devuelve la propia clave: nunca revienta una pantalla por un texto.
+
+    Si la frase lleva un número y ese número es uno, se busca primero su
+    versión en singular; si esa casa no la tiene escrita, se usa la de
+    siempre y no pasa nada.
+    """
     table = TRANSLATIONS.get(lang) or TRANSLATIONS[DEFAULT_LANG]
-    value = table.get(key)
+    claves = [key]
+    if _es_una(kw.get("n")):
+        claves.insert(0, key + UNA)
+    value = next((table[c] for c in claves if c in table), None)
     if value is None:
-        value = TRANSLATIONS[DEFAULT_LANG].get(key, key)
+        value = next((TRANSLATIONS[DEFAULT_LANG][c] for c in claves
+                      if c in TRANSLATIONS[DEFAULT_LANG]), key)
     if kw:
         try:
             return value.format(**kw)
         except (KeyError, IndexError):
             return value
     return value
+
+
+def _es_una(n) -> bool:
+    """Si el número de la frase es exactamente uno."""
+    try:
+        return int(n) == 1
+    except (TypeError, ValueError):
+        return False
 
 
 def translator(lang: str):
@@ -471,6 +494,8 @@ ES = {
     "sale.bad_rows": 'Lo confirmado no se entiende. Vuelve a cargar el fichero.',
     "sale.weighed": '{kg} kg vendidos a peso.',
     "sale.no_weight": 'Sin peso: {products}. Se ha descontado la ración de referencia.',
+    "settings.currency": 'Moneda de la casa',
+    "settings.currency_help": 'En la que se cobra y se paga. Su símbolo sale al lado de cada cifra de dinero. Aquí no se convierte nada de una moneda a otra: un cambio viejo miente más que no poner nada.',
     "settings.pos_match": 'Identificación del POS',
     "settings.pos_match_help": 'Elige por qué campo llega el artículo desde tu POS. Con «ambos», el código manda cuando existe.',
     "pos.match.CODE": 'Solo por código',
@@ -767,6 +792,7 @@ ES = {
     "m.rec.price_needed": 'La pieza {serial} necesita un precio por kilo mayor que cero.',
     "m.tg.no_price": 'Estas piezas todavía no tienen precio y no se pueden despiezar: {serial}. Dirección se lo pone en «precios pendientes».',
     "m.home.no_price": '{n} piezas esperando precio para poder despiezarse',
+    "m.home.no_price#1": "1 pieza esperando precio para poder despiezarse",
     "notif.price_title": '{n} piezas esperando precio',
     "notif.price_body": 'Han entrado {n} piezas del lote {lot} sin precio. Las recibió {who}. Hasta que no se lo pongas no se pueden despiezar.',
     # ---- la foto de la etiqueta
@@ -1147,6 +1173,8 @@ EN = {
     "sale.bad_rows": 'What was confirmed does not make sense. Load the file again.',
     "sale.weighed": '{kg} kg sold by weight.',
     "sale.no_weight": 'No weight: {products}. The reference portion was deducted.',
+    "settings.currency": 'House currency',
+    "settings.currency_help": 'The one you charge and pay in. Its symbol shows next to every money figure. Nothing is converted here: a stale exchange rate lies more than showing nothing.',
     "settings.pos_match": 'POS identification',
     "settings.pos_match_help": 'Choose which field your POS sends the item by. With “both”, the code wins when present.',
     "pos.match.CODE": 'By code only',
@@ -1440,6 +1468,7 @@ EN = {
     "m.rec.price_needed": 'Piece {serial} needs a price per kilo above zero.',
     "m.tg.no_price": 'These pieces have no price yet and cannot be butchered: {serial}. Management sets it under “prices pending”.',
     "m.home.no_price": '{n} pieces waiting for a price before they can be butchered',
+    "m.home.no_price#1": "1 piece waiting for a price before it can be butchered",
     "notif.price_title": '{n} pieces waiting for a price',
     "notif.price_body": '{n} pieces of lot {lot} came in with no price. {who} received them. Until you set it they cannot be butchered.',
     "m.rec.photo": 'Photo of the label',
@@ -1819,6 +1848,8 @@ FR = {
     "sale.bad_rows": 'Ce qui a été confirmé ne tient pas debout. Rechargez le fichier.',
     "sale.weighed": '{kg} kg vendus au poids.',
     "sale.no_weight": 'Sans poids : {products}. La portion de référence a été retirée.',
+    "settings.currency": 'Monnaie de la maison',
+    "settings.currency_help": "Celle dans laquelle on encaisse et on paie. Son symbole apparaît à côté de chaque montant. Rien n'est converti ici : un taux périmé ment plus que de ne rien afficher.",
     "settings.pos_match": 'Identification du POS',
     "settings.pos_match_help": "Choisissez par quel champ votre POS envoie l'article. Avec « les deux », le code l'emporte s'il existe.",
     "pos.match.CODE": 'Par code seulement',
@@ -2112,6 +2143,7 @@ FR = {
     "m.rec.price_needed": 'La pièce {serial} a besoin d\'un prix au kilo supérieur à zéro.',
     "m.tg.no_price": "Ces pièces n'ont pas encore de prix et ne peuvent pas être découpées : {serial}. La direction le met dans « prix en attente ».",
     "m.home.no_price": '{n} pièces attendent un prix pour pouvoir être découpées',
+    "m.home.no_price#1": "1 pièce attend un prix pour pouvoir être découpée",
     "notif.price_title": '{n} pièces attendent un prix',
     "notif.price_body": '{n} pièces du lot {lot} sont entrées sans prix. {who} les a reçues. Tant que tu ne le mets pas, elles ne peuvent pas être découpées.',
     "m.rec.photo": "Photo de l'étiquette",
@@ -2491,6 +2523,8 @@ DE = {
     "sale.bad_rows": 'Das Bestätigte ergibt keinen Sinn. Lade die Datei neu.',
     "sale.weighed": '{kg} kg nach Gewicht verkauft.',
     "sale.no_weight": 'Ohne Gewicht: {products}. Abgezogen wurde die Referenzportion.',
+    "settings.currency": 'Währung des Hauses',
+    "settings.currency_help": 'Die, in der kassiert und bezahlt wird. Ihr Zeichen steht neben jedem Geldbetrag. Hier wird nichts umgerechnet: ein alter Kurs lügt mehr, als gar nichts anzuzeigen.',
     "settings.pos_match": 'Kassenidentifikation',
     "settings.pos_match_help": 'Wähle, über welches Feld deine Kasse den Artikel sendet. Bei „beides“ gewinnt der Code, wenn vorhanden.',
     "pos.match.CODE": 'Nur per Code',
@@ -2784,6 +2818,7 @@ DE = {
     "m.rec.price_needed": 'Stück {serial} braucht einen Kilopreis über null.',
     "m.tg.no_price": 'Diese Stücke haben noch keinen Preis und lassen sich nicht zerlegen: {serial}. Die Leitung setzt ihn unter „offene Preise“.',
     "m.home.no_price": '{n} Stücke warten auf einen Preis, um zerlegt werden zu können',
+    "m.home.no_price#1": "1 Stück wartet auf einen Preis, um zerlegt werden zu können",
     "notif.price_title": '{n} Stücke warten auf einen Preis',
     "notif.price_body": '{n} Stücke der Charge {lot} kamen ohne Preis herein. {who} hat sie angenommen. Solange du ihn nicht setzt, lassen sie sich nicht zerlegen.',
     "m.rec.photo": 'Foto des Etiketts',
@@ -3163,6 +3198,8 @@ NL = {
     "sale.bad_rows": 'Wat bevestigd is klopt niet. Laad het bestand opnieuw.',
     "sale.weighed": '{kg} kg op gewicht verkocht.',
     "sale.no_weight": 'Zonder gewicht: {products}. De referentieportie is afgeboekt.',
+    "settings.currency": 'Valuta van het huis',
+    "settings.currency_help": 'Die waarin wordt afgerekend en betaald. Het teken staat naast elk bedrag. Hier wordt niets omgerekend: een oude koers liegt meer dan helemaal niets tonen.',
     "settings.pos_match": 'Kassa-identificatie',
     "settings.pos_match_help": 'Kies via welk veld je kassa het artikel stuurt. Bij „beide” wint de code als die er is.',
     "pos.match.CODE": 'Alleen via code',
@@ -3456,6 +3493,7 @@ NL = {
     "m.rec.price_needed": 'Stuk {serial} heeft een kiloprijs boven nul nodig.',
     "m.tg.no_price": 'Deze stukken hebben nog geen prijs en kunnen niet uitgebeend worden: {serial}. De directie zet hem bij “openstaande prijzen”.',
     "m.home.no_price": '{n} stukken wachten op een prijs voordat ze uitgebeend kunnen worden',
+    "m.home.no_price#1": "1 stuk wacht op een prijs voordat het uitgebeend kan worden",
     "notif.price_title": '{n} stukken wachten op een prijs',
     "notif.price_body": '{n} stukken uit partij {lot} kwamen binnen zonder prijs. {who} heeft ze aangenomen. Zolang jij hem niet zet, kunnen ze niet uitgebeend worden.',
     "m.rec.photo": 'Foto van het etiket',
@@ -3835,6 +3873,8 @@ AR = {
     "sale.bad_rows": 'ما جرى تأكيده غير مفهوم. أعد تحميل الملف.',
     "sale.weighed": 'بيع {kg} كغ بالوزن.',
     "sale.no_weight": 'بلا وزن: {products}. خُصمت الحصة المرجعية.',
+    "settings.currency": 'عملة البيت',
+    "settings.currency_help": 'التي يُقبض ويُدفع بها. رمزها يظهر بجانب كل مبلغ. لا يُحوَّل هنا شيء: سعر صرف قديم يكذب أكثر من ألا تكتب شيئًا.',
     "settings.pos_match": 'تعريف نظام البيع',
     "settings.pos_match_help": 'اختر الحقل الذي يرسل به نظام بيعك الصنف. مع «كليهما» يقدَّم الرمز عند وجوده.',
     "pos.match.CODE": 'بالرمز فقط',
@@ -4128,6 +4168,7 @@ AR = {
     "m.rec.price_needed": 'القطعة {serial} تحتاج سعراً للكيلو أكبر من صفر.',
     "m.tg.no_price": 'هذه القطع بلا سعر بعد ولا يمكن تقطيعها: {serial}. الإدارة تضع السعر في «أسعار معلّقة».',
     "m.home.no_price": '{n} قطعة تنتظر سعراً لتتمكّن من التقطيع',
+    "m.home.no_price#1": "قطعة واحدة تنتظر سعراً لتتمكّن من التقطيع",
     "notif.price_title": '{n} قطعة تنتظر سعراً',
     "notif.price_body": 'دخلت {n} قطعة من الدفعة {lot} بلا سعر. استلمها {who}. وما لم تضع السعر لا يمكن تقطيعها.',
     "m.rec.photo": 'صورة البطاقة',
@@ -4495,6 +4536,8 @@ HU = {
     "sale.bad_rows": 'A megerősített adat nem értelmezhető. Töltsd be újra a fájlt.',
     "sale.weighed": '{kg} kg eladva súlyra.',
     "sale.no_weight": 'Súly nélkül: {products}. A referenciaadag íródott le.',
+    "settings.currency": 'A ház pénzneme',
+    "settings.currency_help": 'Amiben bevételezel és fizetsz. A jele minden összeg mellett ott van. Itt semmit nem váltunk át: egy régi árfolyam jobban hazudik, mint ha semmit nem írnánk ki.',
     "settings.pos_match": 'Pénztárgépi azonosítás',
     "settings.pos_match_help": 'Válaszd ki, melyik mezővel küldi a pénztárgéped a tételt. A „mindkettő” esetén a kód győz, ha van.',
     "pos.match.CODE": 'Csak kód szerint',
@@ -4788,6 +4831,7 @@ HU = {
     "m.rec.price_needed": 'A(z) {serial} darabhoz nullánál nagyobb kilóár kell.',
     "m.tg.no_price": 'Ezeknek a daraboknak még nincs áruk, így nem darabolhatók: {serial}. A vezetés a „függő árak” alatt adja meg.',
     "m.home.no_price": '{n} darab vár árra, hogy darabolni lehessen',
+    "m.home.no_price#1": "1 darab vár árra, hogy darabolni lehessen",
     "notif.price_title": '{n} darab vár árra',
     "notif.price_body": 'A(z) {lot} tételből {n} darab érkezett ár nélkül. {who} vette át. Amíg nem adod meg, nem darabolhatók.',
     "m.rec.photo": 'A címke fényképe',

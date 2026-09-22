@@ -33,6 +33,17 @@
   </select>
   <div class="help">{{ t("settings.restaurant_language_help") }}</div>
 
+  {# En qué moneda trabaja la casa. No se convierte nada: se cobra y se paga
+     en una, y es la que se enseña al lado de cada cifra. #}
+  <label for="currency">{{ t("settings.currency") }}</label>
+  <select id="currency" name="currency">
+    {% for code, simbolo in currencies.items() %}
+      <option value="{{ code }}" {% if code == restaurant.currency %}selected{% endif %}
+        >{{ code }} · {{ simbolo }}</option>
+    {% endfor %}
+  </select>
+  <div class="help">{{ t("settings.currency_help") }}</div>
+
   <label for="pos_match">{{ t("settings.pos_match") }}</label>
   <select id="pos_match" name="pos_match">
     {% for m in pos_modes %}

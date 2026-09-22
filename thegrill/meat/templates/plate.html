@@ -10,16 +10,16 @@
 {% if not plate.extras %}<div class="banner warn">{{ t("m.plate.no_extras") }}</div>{% endif %}
 
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
-  <div class="kpi"><b>{{ "%.4f"|format(plate.cost) }}</b><span>{{ t("m.plate.total") }}</span></div>
+  <div class="kpi"><b>{{ "%.4f"|format(plate.cost) }}</b><span>{{ t("m.plate.total") }} ({{ moneda }})</span></div>
   {% if plate.dish.sale_price %}
-  <div class="kpi"><b>{{ "%.2f"|format(plate.dish.sale_price) }}</b><span>{{ t("rec.price") }}</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(plate.dish.sale_price) }}</b><span>{{ t("rec.price") }} ({{ moneda }})</span></div>
   {% endif %}
   {% if plate.food_cost_pct is not none %}
   <div class="kpi"><b>{{ plate.food_cost_pct | ceil_pct }}%</b><span>{{ t("rec.food_cost") }}</span>
     <div class="bar"><i style="width:{{ [plate.food_cost_pct, 100] | min }}%"></i></div></div>
   {% endif %}
   {% if plate.margin is not none %}
-  <div class="kpi"><b>{{ "%.2f"|format(plate.margin) }}</b><span>{{ t("rec.margin") }}</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(plate.margin) }}</b><span>{{ t("rec.margin") }} ({{ moneda }})</span></div>
   {% endif %}
 </div>
 

@@ -103,7 +103,7 @@ def unique_slug(session: Session, name: str) -> str:
 
 # --------------------------------------------------------------- registro
 def create_restaurant(session: Session, name: str, manager_email: str, manager_name: str,
-                      password: str, timezone: str = "UTC", currency: str = "USD",
+                      password: str, timezone: str = "UTC", currency: str = "EUR",
                       language: str = DEFAULT_LANG) -> tuple[Restaurant, User]:
     """Alta de un restaurante nuevo con su primer manager (el dueño de la cuenta)."""
     email = normalize_email(manager_email, language)

@@ -29,7 +29,7 @@
 <h2>{{ h.serial }} · {{ h.sku }}</h2>
 <p class="sub">{{ t("trace.lot") }}: {{ h.lot or "—" }} ·
    {{ t("trace.received") }}: {{ h.received or "—" }} ·
-   {{ h.weight_kg }} kg{% if can("money") %} · {{ t("trace.cost") }}: {{ "%.2f"|format(h.cost) }}{% endif %}
+   {{ h.weight_kg }} kg{% if can("money") %} · {{ t("trace.cost") }}: {{ "%.2f"|format(h.cost) }} {{ moneda }}{% endif %}
    {% if h.sold_out %}<span class="tag ok">{{ t("trace.sold_out") }}</span>{% endif %}
    {% if h.awaiting_price %}<span class="tag warn">{{ t("m.price.waiting") }}</span>{% endif %}
    {% if h.suspect_phantom %}<span class="tag bad">{{ t("trace.suspect") }}</span>{% endif %}</p>
@@ -74,8 +74,8 @@
 
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
   {% if can("money") %}
-  <div class="kpi"><b>{{ "%.2f"|format(h.revenue) }}</b><span>{{ t("trace.revenue") }}</span></div>
-  <div class="kpi"><b>{{ "%.2f"|format(h.margin) }}</b><span>{{ t("trace.margin") }}</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(h.revenue) }}</b><span>{{ t("trace.revenue") }} ({{ moneda }})</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(h.margin) }}</b><span>{{ t("trace.margin") }} ({{ moneda }})</span></div>
   {% if h.food_cost_pct is not none %}
   <div class="kpi"><b>{{ h.food_cost_pct | ceil_pct }}%</b><span>{{ t("rec.food_cost") }}</span>
     <div class="bar"><i style="width:{{ [h.food_cost_pct, 100] | min }}%"></i></div></div>
@@ -149,7 +149,7 @@
       <b>{{ "%.2f"|format(cut.revenue) }}</b></div>
     <div class="dato"><span>{{ t("rec.line_cost") }}</span>
       <b>{{ "%.2f"|format(cut.sold_cost) }}</b>
-      <span class="mas">{{ "%.4f"|format(cut.unit_cost) }} / {{ cut.unit }}</span></div>
+      <span class="mas">{{ "%.4f"|format(cut.unit_cost) }} {{ moneda }} / {{ cut.unit }}</span></div>
     <div class="dato dinero"><span>{{ t("trace.margin") }}</span>
       <b>{{ "%.2f"|format(cut.margin) }}</b>
       {% if cut.food_cost_pct is not none %}

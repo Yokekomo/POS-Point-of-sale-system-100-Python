@@ -157,3 +157,34 @@ def test_a_user_without_a_language_follows_the_restaurant(session):
     piet = auth.join_restaurant(session, rest.join_code, "piet@huis.nl", "Piet", "clave-larga-2")
     assert piet.language is None
     assert i18n.resolve(user_lang=piet.language, restaurant_lang=rest.language) == "nl"
+
+
+def test_a_line_about_one_thing_is_written_in_the_singular():
+    """«1 cortes por debajo del mínimo» lo escribe un programa, no una persona.
+
+    Cuando la frase lleva un número y ese número es uno, se busca primero su
+    texto en singular. Si una casa no lo tiene escrito, se usa el de siempre y
+    la pantalla no se rompe.
+    """
+    from thegrill.meat import app as _   # noqa: F401  (mezcla los dos catálogos)
+    from thegrill.web.i18n import LANGUAGES, t
+
+    assert t("es", "m.home.below_par", n=1) == "1 corte por debajo del mínimo."
+    assert t("es", "m.home.below_par", n=3) == "3 cortes por debajo del mínimo."
+    assert t("en", "m.home.expiring", n=1) == "1 lot expires within three days."
+
+    # Todas las casas tienen escritos los mismos singulares.
+    for clave in ("m.home.no_price", "m.home.defrost_open", "m.home.below_par",
+                  "m.home.expiring", "m.home.unposted", "m.home.aging_ready",
+                  "m.home.aging_unweighed"):
+        for lang in LANGUAGES:
+            una, varias = t(lang, clave, n=1), t(lang, clave, n=4)
+            assert una != clave + "#1", f"{lang} no tiene singular de {clave}"
+            assert una != varias, f"{lang}: {clave} dice lo mismo para una que para cuatro"
+
+    # Los días de una pieza también: «1 días» se lee igual de mal.
+    assert t("es", "m.ag.n_days", n=1) == "1 día"
+    assert t("es", "m.ag.n_days", n=41) == "41 días"
+
+    # Una clave sin singular escrito sigue funcionando y no revienta.
+    assert t("es", "m.ag.days", n=1) == "Días"

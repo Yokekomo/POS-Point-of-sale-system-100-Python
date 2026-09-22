@@ -34,7 +34,7 @@
       <label>{{ t("m.rec.kg") }}
         <div style="margin-top:4px;color:var(--ink);font-weight:650"
            >{{ "%.2f"|format(p.weight_kg) }}</div></label>
-      <label>{{ t("m.rec.price_kg") }}
+      <label>{{ t("m.rec.price_kg") }} ({{ moneda }}/kg)
         <input type="hidden" name="serial" value="{{ p.serial }}">
         <input name="price:{{ p.serial }}" inputmode="decimal"
                aria-label="{{ t('m.rec.price_kg') }} {{ p.serial }}"></label>

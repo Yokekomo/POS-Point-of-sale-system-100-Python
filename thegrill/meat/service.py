@@ -1054,6 +1054,15 @@ class PendingLine:
 A_LA_VISTA = 12
 
 
+def _cuanto_falta(lang: str, dias: int | None) -> str:
+    """Lo que le queda a un lote. Si ya pasó, se dice así y no «en -7 días»."""
+    if dias is None:
+        return ""
+    if dias < 0:
+        return t(lang, "m.home.days_late", n=-dias)
+    return t(lang, "m.home.in_days", n=dias)
+
+
 @dataclass
 class Today:
     status: butchery.MeatStatus
@@ -1152,8 +1161,7 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
     if status.expiring:
         anotar("m.home.expiring", len(status.expiring), "/carne",
                t(lang, "m.nav.chamber"),
-               [PendingThing(c.name, "/carne",
-                             t(lang, "m.home.in_days", n=c.days_to_expiry))
+               [PendingThing(c.name, "/carne", _cuanto_falta(lang, c.days_to_expiry))
                 for c in status.expiring])
     if unposted:
         anotar("m.home.unposted", unposted, "/despiece", t(lang, "m.nav.butchery"),

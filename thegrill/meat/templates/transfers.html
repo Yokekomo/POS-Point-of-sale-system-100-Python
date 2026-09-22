@@ -12,7 +12,7 @@
     <tr><th>{{ t("m.tr.site") }}</th><th>{{ t("m.si.kind") }}</th>
         <th class="num">{{ t("m.tr.primals") }}</th><th class="num">{{ t("m.rec.kg") }}</th>
         <th class="num">{{ t("m.tr.cut_kg") }}</th>
-        {% if can("money") %}<th class="num">{{ t("m.home.stock_value") }}</th>{% endif %}</tr>
+        {% if can("money") %}<th class="num">{{ t("m.home.stock_value") }} ({{ moneda }})</th>{% endif %}</tr>
     {% for row in stock %}
     <tr>
       <td><b>{{ row.site.name }}</b></td>
@@ -78,7 +78,7 @@
     <tr><th>{{ t("common.date") }}</th><th>{{ t("m.tr.what") }}</th>
         <th class="num">{{ t("m.rec.kg") }}</th><th>{{ t("m.tr.from") }}</th>
         <th>{{ t("m.tr.to") }}</th><th>{{ t("m.tr.new_serial") }}</th>
-        {% if can("money") %}<th class="num">{{ t("trace.cost") }}</th>{% endif %}</tr>
+        {% if can("money") %}<th class="num">{{ t("trace.cost") }} ({{ moneda }})</th>{% endif %}</tr>
     {% for m in moves %}
     <tr>
       <td>{{ m.date }}</td>

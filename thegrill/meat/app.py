@@ -33,7 +33,8 @@ from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, Cou
                              Rotation, Site, SiteKind, Storage, Unit, User)
 from thegrill.models import BugStatus
 from thegrill.web import (aging, auth, butchery, costing, defrost, i18n, inventory,
-                          pos_import, service, sites, tracing, twofactor, waste)
+                          money, pos_import, service, sites, tracing, twofactor,
+                          waste)
 
 log = logging.getLogger(__name__)
 
@@ -144,9 +145,21 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
             "nonce": getattr(request.state, "nonce", ""),
             "unread": service.unread_count(session, user.id) if (user and session) else 0,
             "t": i18n.translator(lang), "lang": lang, "dir": i18n.direction(lang),
-            "languages": i18n.LANGUAGES}
+            "languages": i18n.LANGUAGES,
+            # El símbolo de la moneda de la casa. Va en el nombre de cada
+            # columna y de cada recuadro de dinero, igual que los kilos: un
+            # número suelto no dice si son euros o dólares.
+            "moneda": money.simbolo(_moneda_de(session, user))}
     base.update(ctx)
     return templates.TemplateResponse(request, name, base)
+
+
+def _moneda_de(session: Session | None, user: User | None) -> str | None:
+    """En qué moneda trabaja esta casa. Sin casa, la de por defecto."""
+    if not (session and user):
+        return None
+    restaurant = session.get(Restaurant, user.restaurant_id)
+    return restaurant.currency if restaurant else None
 
 
 def is_https(request: Request) -> bool:
@@ -2161,6 +2174,7 @@ def settings_page(request: Request, ctx=Depends(require_user),
     return page(request, "settings.html", user, auth_session, session,
                 restaurant=restaurant, saved=bool(saved), changed=bool(changed),
                 off=bool(off), error=error, pos_modes=list(PosMatch),
+                currencies=money.MONEDAS,
                 codes=[c for c in (codes or "").split("-") if c],
                 tfa_uri=twofactor.uri(user.totp_secret or "", user.email,
                                       issuer=i18n.t(lang_for(request, session, user),
@@ -2171,8 +2185,8 @@ def settings_page(request: Request, ctx=Depends(require_user),
 @app.post("/configuracion")
 def save_settings(request: Request, language: str = Form(...),
                   restaurant_language: str = Form(""), pos_match: str = Form(""),
-                  csrf: str = Form(""), ctx=Depends(require_user),
-                  session: Session = Depends(get_db)):
+                  currency: str = Form(""), csrf: str = Form(""),
+                  ctx=Depends(require_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     if i18n.is_supported(language):
@@ -2184,6 +2198,8 @@ def save_settings(request: Request, language: str = Form(...),
                 restaurant.language = restaurant_language
             if pos_match in PosMatch.__members__:
                 restaurant.pos_match = PosMatch[pos_match]
+            if money.es_valida(currency):
+                restaurant.currency = currency.upper()
     response = RedirectResponse("/configuracion?saved=1", status_code=303)
     return set_lang_cookie(response, user.language or i18n.DEFAULT_LANG)
 

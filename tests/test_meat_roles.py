@@ -416,6 +416,56 @@ def test_the_piece_list_groups_by_where_it_is_and_says_what_tells_them_apart(cli
     assert "9012 · Ribeye AUS · Maduración" not in pantalla
 
 
+def test_every_money_figure_says_which_money_it_is(client):
+    """«Valor en cámara: 1573» no dice si son euros, dólares o pesos.
+
+    La casa elige su moneda una vez y su símbolo sale al lado de cada cifra de
+    dinero, en el nombre del recuadro o de la columna, igual que ya se dicen
+    los kilos. Aquí no se convierte nada: se cobra en una moneda y es la que
+    se enseña.
+    """
+    ana = alta(client, "ana@marina.com", "Ana", Role.MANAGER)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        s.add(Primal(restaurant_id=rest.id, serial="9031", sku="Ribeye AUS",
+                     weight_kg=9.0, landed_usd_per_kg=30.0, piece_cost_usd=270.0,
+                     received_date=HOY))
+        s.flush()
+    token = csrf_from(ana.get("/maduracion").text)
+    ana.post("/maduracion/mover", data={"csrf": token, "serial": "9031",
+                                        "storage": "AGING", "target_days": "45"})
+
+    # De fábrica, euros.
+    assert "Valor en cámara (€)" in ana.get("/hoy").text
+
+    token = csrf_from(ana.get("/configuracion").text)
+    assert ana.post("/configuracion", data={
+        "csrf": token, "language": "es", "restaurant_language": "es",
+        "currency": "GBP"}).status_code == 303
+
+    assert "Valor en cámara (£)" in ana.get("/hoy").text
+    assert "Coste por kilo (£)" in ana.get("/maduracion").text
+    assert "Precio por kilo (£/kg)" in ana.get("/recepcion").text
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        assert rest.currency == "GBP"
+
+    # Una moneda que no existe no se traga: se queda la de antes.
+    token = csrf_from(ana.get("/configuracion").text)
+    ana.post("/configuracion", data={"csrf": token, "language": "es",
+                                     "restaurant_language": "es", "currency": "XXX"})
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        assert rest.currency == "GBP"
+
+
+def test_the_butcher_never_sees_the_money_symbol_either(client):
+    """Quien no ve el dinero tampoco ve sus columnas, con símbolo o sin él."""
+    luis = alta(client, "luis@marina.com", "Luis", Role.BUTCHER)
+    pantalla = luis.get("/hoy").text
+    assert "Valor en cámara" not in pantalla
+
+
 def test_the_pending_list_names_the_pieces_and_links_to_them(client):
     """«2 cortes por debajo del mínimo» no dice cuáles ni dónde están.
 

@@ -16,7 +16,7 @@
     {% if used.get(e.id) %}<div class="muted">{{ t("m.ext.used_in", n=used[e.id]) }}</div>{% endif %}</td>
   <td class="num">
     {% if cost_of(e) is none %}<span class="tag bad">{{ t("ing.no_price") }}</span>
-    {% else %}{{ "%.2f"|format(cost_of(e)) }} <span class="muted">/ {{ e.unit.value }}</span>{% endif %}</td>
+    {% else %}{{ "%.2f"|format(cost_of(e)) }} <span class="muted">{{ moneda }} / {{ e.unit.value }}</span>{% endif %}</td>
   <td class="num">{% if e.portion_g %}{{ "%.4g"|format(e.portion_g) }} {{ small(e.unit) }}{% endif %}</td>
   <td class="num">{% if portion_cost(e) is not none %}<b>{{ "%.3f"|format(portion_cost(e)) }}</b>{% endif %}</td>
   <td>

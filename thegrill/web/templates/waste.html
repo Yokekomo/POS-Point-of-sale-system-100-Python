@@ -57,7 +57,7 @@
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
   <div class="kpi"><b>{{ "%.3f"|format(totals.kg) }}</b><span>kg</span></div>
   {% if can("money") %}
-  <div class="kpi"><b>{{ "%.2f"|format(totals.cost) }}</b><span>{{ t("waste.cost") }}</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(totals.cost) }}</b><span>{{ t("waste.cost") }} ({{ moneda }})</span></div>
   {% endif %}
   <div class="kpi"><b>{{ "%.3f"|format(totals.chamber_kg) }}</b><span>{{ t("waste.from_chamber") }}</span></div>
   <div class="kpi"><b>{{ "%.3f"|format(totals.trim_kg) }}</b><span>{{ t("waste.from_trim") }}</span></div>
@@ -67,7 +67,7 @@
 <tr><th>{{ t("waste.date") }}</th><th>{{ t("waste.source") }}</th><th>{{ t("rec.component") }}</th>
     <th>{{ t("waste.serial") }}</th><th>{{ t("waste.lot") }}</th>
     <th class="num">kg</th><th class="num">{{ t("waste.pieces") }}</th>
-    {% if can("money") %}<th class="num">{{ t("waste.cost") }}</th>{% endif %}
+    {% if can("money") %}<th class="num">{{ t("waste.cost") }} ({{ moneda }})</th>{% endif %}
     <th>{{ t("records.who") }}</th></tr>
 {% for w in lines %}
 <tr>

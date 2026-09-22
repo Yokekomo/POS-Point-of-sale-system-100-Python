@@ -88,7 +88,7 @@
   <table>
   <tr><th>{{ t("rec.component") }}</th><th>Serial</th><th class="num">{{ t("inv.expected") }}</th>
       <th class="num">{{ t("inv.counted") }}</th><th class="num">{{ t("inv.gap") }}</th>
-      {% if can("money") %}<th class="num">{{ t("inv.value") }}</th>{% endif %}
+      {% if can("money") %}<th class="num">{{ t("inv.value") }} ({{ moneda }})</th>{% endif %}
       <th>{{ t("common.status") }}</th></tr>
   {% for line in last.lines %}
   {% set gap = (line.counted_kg - line.expected_kg) if line.counted_kg is not none else 0 %}
