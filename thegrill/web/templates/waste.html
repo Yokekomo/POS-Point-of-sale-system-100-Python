@@ -57,7 +57,7 @@
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
   <div class="kpi"><b>{{ "%.3f"|format(totals.kg) }}</b><span>kg</span></div>
   {% if can("money") %}
-  <div class="kpi"><b>{{ "%.2f"|format(totals.cost) }}</b><span>{{ t("waste.cost") }} ({{ moneda }})</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(totals.cost) }} <span class="uni">{{ moneda }}</span></b><span>{{ t("waste.cost") }}</span></div>
   {% endif %}
   <div class="kpi"><b>{{ "%.3f"|format(totals.chamber_kg) }}</b><span>{{ t("waste.from_chamber") }}</span></div>
   <div class="kpi"><b>{{ "%.3f"|format(totals.trim_kg) }}</b><span>{{ t("waste.from_trim") }}</span></div>

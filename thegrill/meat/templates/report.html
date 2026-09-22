@@ -32,9 +32,9 @@
   <div class="kpi"><b>{{ report.sales_units }}</b><span>{{ t("sale.units") }}</span>
     {% if report.sales_kg %}<div class="muted">{{ "%.3f"|format(report.sales_kg) }} kg</div>{% endif %}</div>
   {% if can("money") %}
-  <div class="kpi"><b>{{ "%.2f"|format(report.stock_value) }}</b><span>{{ t("m.home.stock_value") }} ({{ moneda }})</span></div>
-  <div class="kpi"><b class="{{ 'bad' if report.day_loss > 0 else '' }}">{{ "%.2f"|format(report.day_loss) }}</b>
-    <span>{{ t("m.rp.day_loss") }} ({{ moneda }})</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(report.stock_value) }} <span class="uni">{{ moneda }}</span></b><span>{{ t("m.home.stock_value") }}</span></div>
+  <div class="kpi"><b class="{{ 'bad' if report.day_loss > 0 else '' }}">{{ "%.2f"|format(report.day_loss) }} <span class="uni">{{ moneda }}</span></b>
+    <span>{{ t("m.rp.day_loss") }}</span></div>
   {% endif %}
 </div>
 

@@ -107,6 +107,11 @@ a.fotoetq{display:block;margin:0 0 14px;border:1px solid var(--line);border-radi
   overflow:hidden;background:#fff;max-width:420px}
 a.fotoetq img{display:block;width:100%;height:auto;max-height:340px;object-fit:contain}
 .kpi b{display:block;font-size:26px;letter-spacing:-.02em;line-height:1.1}
+/* El símbolo de la moneda va pegado al número —«1485 €»— y no en el nombre
+   del recuadro, donde se pierde: en el móvil ese nombre se parte en dos
+   líneas y el símbolo acaba solo al final. Más pequeño que la cifra, que lo
+   que se lee de un vistazo es el número. */
+.kpi b .uni{font-size:17px;font-weight:600;color:var(--muted)}
 .kpi span{color:var(--muted);font-size:13px}
 label{display:block;margin:14px 0 4px;font-size:14px;font-weight:550}
 label .req{color:var(--bad)}

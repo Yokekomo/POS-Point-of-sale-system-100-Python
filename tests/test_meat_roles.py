@@ -435,15 +435,18 @@ def test_every_money_figure_says_which_money_it_is(client):
     ana.post("/maduracion/mover", data={"csrf": token, "serial": "9031",
                                         "storage": "AGING", "target_days": "45"})
 
-    # De fábrica, euros.
-    assert "Valor en cámara (€)" in ana.get("/hoy").text
+    # De fábrica, euros, y el símbolo pegado al número y no en el nombre del
+    # recuadro, donde en un móvil se queda solo al final de la segunda línea.
+    portada = ana.get("/hoy").text
+    assert '<span class="uni">€</span></b><span>Valor en cámara</span>' in portada
 
     token = csrf_from(ana.get("/configuracion").text)
     assert ana.post("/configuracion", data={
         "csrf": token, "language": "es", "restaurant_language": "es",
         "currency": "GBP"}).status_code == 303
 
-    assert "Valor en cámara (£)" in ana.get("/hoy").text
+    assert '<span class="uni">£</span></b><span>Valor en cámara</span>' in ana.get("/hoy").text
+    # En una columna el símbolo va una vez, en su nombre, y no en cada fila.
     assert "Coste por kilo (£)" in ana.get("/maduracion").text
     assert "Precio por kilo (£/kg)" in ana.get("/recepcion").text
     with db.session_scope() as s:

@@ -71,7 +71,7 @@
   <div class="kpi"><b>{{ info.aging.frozen_pieces }}</b><span>{{ t("m.ag.frozen") }}</span></div>
   {% endif %}
   {% if can("money") %}
-  <div class="kpi"><b>{{ "%.0f"|format(info.stock_value) }}</b><span>{{ t("m.home.stock_value") }} ({{ moneda }})</span></div>
+  <div class="kpi"><b>{{ "%.0f"|format(info.stock_value) }} <span class="uni">{{ moneda }}</span></b><span>{{ t("m.home.stock_value") }}</span></div>
   {% endif %}
 </div>
 

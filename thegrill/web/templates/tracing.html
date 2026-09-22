@@ -74,8 +74,8 @@
 
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
   {% if can("money") %}
-  <div class="kpi"><b>{{ "%.2f"|format(h.revenue) }}</b><span>{{ t("trace.revenue") }} ({{ moneda }})</span></div>
-  <div class="kpi"><b>{{ "%.2f"|format(h.margin) }}</b><span>{{ t("trace.margin") }} ({{ moneda }})</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(h.revenue) }} <span class="uni">{{ moneda }}</span></b><span>{{ t("trace.revenue") }}</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(h.margin) }} <span class="uni">{{ moneda }}</span></b><span>{{ t("trace.margin") }}</span></div>
   {% if h.food_cost_pct is not none %}
   <div class="kpi"><b>{{ h.food_cost_pct | ceil_pct }}%</b><span>{{ t("rec.food_cost") }}</span>
     <div class="bar"><i style="width:{{ [h.food_cost_pct, 100] | min }}%"></i></div></div>
