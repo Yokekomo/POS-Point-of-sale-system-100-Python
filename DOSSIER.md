@@ -130,9 +130,83 @@ es que **el food cost que cree el restaurante y el que tiene no son el mismo**.
 - **Si el recibo falla**: primero avisa y se sigue trabajando; si se bloquea, se
   para la casa entera. El reloj de la prueba y el estado del recibo **solo los
   ven el manager y la plataforma**, nunca la cocina.
-- **El precio no está puesto.** La web pública dice «consultar».
-  **[PENDIENTE DE DECIDIR: precio por local y mes, y si el plan MULTI es por
-  local o tarifa de grupo.]**
+- **El precio no está puesto en el código.** La web pública dice «consultar».
+  Abajo va lo que cobra la competencia y la propuesta de partida.
+
+### Lo que cobra la competencia (consultado en septiembre de 2026)
+
+Todo **por local y mes**. Las cifras en dólares son las publicadas por el
+fabricante; en euros la diferencia es pequeña, pero conviene confirmarla antes
+de usarla en una tarifa.
+
+| Producto | Precio por local/mes | Notas |
+|---|---|---|
+| **Gstock** (España) | **desde 249 €** | La referencia del mercado español. Stock, escandallos, pedidos, mermas. Usuarios ilimitados. |
+| **Apicbase** (Bélgica) | **desde ~249 €** | Back of house completo con HACCP y analítica desde el TPV. Su plan de crecimiento **arranca en 5 locales**: no va al independiente. |
+| **MarketMan** (EE. UU.) | **199 $** (Starter) / **249 $** (Growth) | ~15 % de descuento anual. **500 $ de instalación** en plan mensual. Contrato de 12 meses. |
+| **MarginEdge** (EE. UU.) | **330–350 $** | Centrado en escanear facturas del proveedor. +50 $/local si el TPV es Toast. |
+| **Restaurant365** (EE. UU.) | **400–600 $ y subiendo** | Incluye contabilidad y nóminas. **Implantación aparte: 2.000–10.000 $.** |
+| **xtraCHEF** (Toast) | gratis | Solo si ya tienes Toast de TPV. Es cebo del TPV. |
+| **AI Chef Pro** (España) | 25 €/mes | Otra liga: es una herramienta de escandallo, no un sistema de gestión. |
+
+**Lo que se lee de esa tabla:** el suelo del software serio de trastienda en
+Europa está en **~250 € por local y mes**, y nadie de esa lista hace
+trazabilidad de pieza de carne: hacen stock, escandallos y facturas.
+
+### Propuesta de precio de partida
+
+| | Precio | A quién |
+|---|---|---|
+| **Fundador** | **89 €/local/mes**, bloqueado 12 meses | Los 10 primeros, a cambio de ser referencia y dar opinión |
+| **Normal** | **149 €/local/mes** | A partir de ahí |
+| **Grupo** | 149 € el primer local, **119 € a partir del segundo** | Obrador + locales |
+| **Con conector de TPV** (cuando exista) | **199 €** | Subida justificada por lo que quita de trabajo |
+
+Razonamiento: **por debajo de Gstock a propósito** —es más barato y hace una
+cosa sola, pero la hace entera—, y el salto a 199 € se gana cuando la
+integración con el TPV exista, no antes.
+**[PENDIENTE DE VALIDAR: llevar estos números a tres dueños de asador y ver
+dónde se les tuerce la cara.]**
+
+### Lo que queda por cliente, con números
+
+Suponiendo **149 €/local/mes** (sin IVA; el IVA se repercute y no es ingreso):
+
+| Concepto | Por cliente y mes |
+|---|---|
+| Ingreso | **149,00 €** |
+| Pasarela (Stripe Europa: 1,5 % + 0,25 € + 0,7 % de Billing) | −3,53 € |
+| Infraestructura repartida (a 50 locales) | −1,80 € |
+| **Margen bruto** | **≈ 143 €** (96 %) |
+
+La infraestructura entera —servidor, base de datos gestionada, correo, copias—
+son unos **90 €/mes** y **no crece con cada cliente**: a 10 locales sale a 9 €
+por cliente, a 50 a 1,80 €, a 100 a 0,90 €.
+
+**Costes fijos del negocio** (estimación para España, a confirmar con asesoría):
+cuota de autónomo ~300 € + asesoría ~70 € + infraestructura ~90 € ≈ **460 €/mes**.
+
+**Punto de equilibrio: 4 locales.** A partir del quinto, cada local que entra
+deja ~143 € limpios antes de impuestos.
+
+| Locales | Ingreso/mes | Queda después de costes | Al año |
+|---|---|---|---|
+| 5 | 745 € | ~255 € | ~3.000 € |
+| 10 | 1.490 € | ~970 € | ~11.600 € |
+| 25 | 3.725 € | ~3.100 € | ~37.000 € |
+| 50 | 7.450 € | ~6.400 € | ~77.000 € |
+| 100 | 14.900 € | ~13.100 € | ~157.000 € |
+
+**Lo que dicen estos números:** el margen por cliente es excelente y el coste
+no es el problema — a 143 € limpios por local, esto se gana o se pierde en
+**cuántos locales entran y cuántos se quedan**, no en cuánto cuesta servirlos.
+Con 4 se paga la estructura, con **25–30 hay un sueldo**, con 50 hay una
+empresa pequeña. Un grupo con obrador y tres locales cuenta como cuatro.
+
+**Lo que no está en la tabla y pesa:** el tiempo de soporte y de venta. Cada
+alta es una conversación, una instalación y unas semanas de acompañamiento, y
+eso no escala solo. **[PENDIENTE DE DECIDIR: cuánto tiempo a la semana puedo
+dedicarle, y si me pago sueldo desde el principio.]**
 
 ## 6. Qué hace falta en hosting e infraestructura
 
@@ -187,6 +261,75 @@ protección de datos.
 Si hay clientes europeos, **la base de datos va en la Unión Europea**. No es
 preferencia técnica: nombre, correo, teléfono, dirección y número fiscal son
 datos personales, y sacarlos de la UE obliga a papeleo que no quieres.
+
+## 6 bis. Dónde montar la empresa
+
+> **Nada de esto es asesoramiento legal ni fiscal.** Son las opciones que hay
+> sobre la mesa; la decisión se toma con un asesor que vea los números reales.
+> **Supone que soy residente fiscal en España — si no lo fuera, casi todo lo de
+> abajo cambia. [PENDIENTE DE CONFIRMAR: dónde resido fiscalmente.]**
+
+### Lo primero, porque tumba media pregunta
+
+**Dónde se monta la empresa no decide dónde se pagan los impuestos: lo decide
+dónde vives tú.** Montar una sociedad en Estonia, Delaware o Chipre es legal y
+se hace en un rato por internet. Lo que no funciona es creer que eso saca los
+beneficios de España: si vives aquí, trabajas desde aquí y la diriges desde
+aquí, Hacienda puede considerar que su **sede de dirección efectiva** está en
+España y tratarla como española, o que hay un **establecimiento permanente**.
+Además, como socio residente tendrías que declarar aquí los dividendos.
+
+Traducido: **una estructura fuera no ahorra nada y añade dos contabilidades, un
+asesor de cada país y un riesgo de inspección.** Solo tiene sentido si de
+verdad hay actividad económica sustancial allí —oficina, personas, decisiones—,
+que no es el caso.
+
+### Las dos opciones reales en España
+
+| | **Autónomo** | **Sociedad Limitada (SL)** |
+|---|---|---|
+| Coste de arranque | Casi cero | ~600–1.000 € (notaría, registro, gestoría) |
+| Cuota mensual | **80 €** el primer año con tarifa plana (2026), luego según ingresos | Administrador con control cotiza como **autónomo societario**: base mínima 1.424,40 € → **~450 €/mes**, salvo que le toque tarifa plana |
+| Impuestos | IRPF, por tramos: barato abajo, caro arriba | Impuesto de Sociedades: tipo fijo (más bajo los dos primeros años con beneficio) |
+| Responsabilidad | **Respondes con tu patrimonio** | Limitada al capital… con letra pequeña |
+| Imagen ante un hotel o un grupo | Suficiente al principio | Mejor para contratos grandes |
+
+Sobre la **SL de 1 €** (Ley Crea y Crece): existe, pero obliga a destinar el
+**20 % del beneficio a reserva legal hasta llegar a 3.000 €**, y hasta entonces
+los socios responden solidariamente por la diferencia. No es una SL gratis: es
+una SL con la responsabilidad aplazada.
+
+### Lo que yo haría
+
+1. **Empezar como autónomo** con tarifa plana. 80 €/mes, alta en un día, y con
+   4 locales ya está pagada la estructura entera.
+2. **Pasar a SL** cuando se junten dos cosas: que los ingresos justifiquen el
+   salto de IRPF a Sociedades (el asesor pone la cifra), y que haya clientes lo
+   bastante grandes como para que la responsabilidad ilimitada dé miedo.
+   Orientativamente, por los 25–30 locales.
+3. **No montar nada fuera** mientras viva aquí.
+
+### Lo que hay que tener sí o sí, se monte como se monte
+
+- **Contrato de encargado del tratamiento con cada cliente.** Al guardar los
+  datos de su personal y de sus proveedores, soy su encargado. Sin ese contrato
+  firmado, el incumplimiento es del cliente y la culpa mía.
+- **Base de datos en la Unión Europea.** Esto es independiente de dónde esté la
+  empresa: lo que manda es dónde están los datos.
+- **Registro de actividades de tratamiento** y la política de privacidad, que ya
+  está escrita en el producto.
+- **Seguro de responsabilidad civil profesional.** Si un fallo del programa
+  hace que un restaurante tire carne o cuadre mal el inventario, la reclamación
+  llega. Son unos cientos de euros al año.
+- **Condiciones de servicio y contrato de suscripción** con lo que pasa si se
+  cae el servicio, quién es dueño de los datos y cómo se los lleva el cliente
+  si se va.
+- **Facturación con IVA** (21 % en España a empresas españolas; si algún día
+  hay clientes en otros países de la UE, entra la inversión del sujeto pasivo y
+  cambia la factura).
+
+**[PENDIENTE DE DECIDIR: presupuesto para asesoría y seguro, y si quiero
+empezar solo o con un socio que venda.]**
 
 ## 7. Quién lo hace
 
