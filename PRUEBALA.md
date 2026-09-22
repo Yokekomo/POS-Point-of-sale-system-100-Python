@@ -143,19 +143,45 @@ lo que ve cada una, que es la mitad de la gracia:
 | Asador de un solo local | `ana1@demo.com` | Cómo se ve sin sedes, que es lo normal |
 | Dueño de la plataforma | `dueno@plataforma.com` | Las casas, el recibo y los fallos contados |
 
+## El menú, por si lo buscas donde estaba
+
+El menú va ordenado por el recorrido de la carne, y cada grupo es una idea:
+
+| Grupo | Qué trae |
+|---|---|
+| **El día** | Hoy · Recepción · Despiece · Descongelado · Merma |
+| **La carne** | Piezas enteras · Cámara · Traslados · Trazabilidad |
+| **Los números** | Inventario · Precios pendientes · Ventas · Parte del día |
+| **Catálogo** | Cortes · Carta · Ingredientes |
+| **La casa** | Incidencias · Equipo · Sedes · Avisos · Descargas · Configuración |
+
+Lo que se llamaba **«Maduración»** ahora es **«Piezas enteras»**: dentro está la
+maduración, pero también el congelador y todo lo que se le hace a una pieza que
+todavía no se ha despiezado —moverla, pesarla, limpiarla, venderla al peso—.
+
+En el móvil, la barra de abajo lleva lo que **esa persona** hace: al carnicero
+le salen Recepción y Despiece; al ayudante, Descongelado y Merma.
+
 ## Por dónde empezar a mirar
 
 1. **Hoy** — lo que está pendiente. Empieza por aquí.
-2. **Cámara** — lo que queda, y aparte los kilos congelados, que no se venden.
-3. **Maduración** — el conteo de la noche: cada pieza pierde agua y el kilo que
-   queda vale más. Pesa una y mira cómo sube su precio por kilo.
-4. **Traslados** (entra como Ana del grupo) — manda una pieza a la Playa y
+2. **Recepción** — se configura el lote una vez y luego se suben piezas de una
+   en una. En cada pieza va primero la foto de su etiqueta y debajo sus
+   números. Métele una y mira cómo sale después en «Precios pendientes»: sin
+   precio no se puede despiezar.
+3. **Cámara** — lo que queda, y aparte los kilos congelados, que no se venden.
+4. **Piezas enteras** — el conteo de la noche: cada pieza pierde agua y el kilo
+   que queda vale más. Pesa una y mira cómo sube su precio por kilo.
+5. **Trazabilidad** — mete el número de una pieza ya despiezada: sale su
+   etiqueta, cada corte que salió de ella, lo que queda, lo que se tiró y
+   —solo si entras como manager— lo que dejó.
+6. **Traslados** (entra como Ana del grupo) — manda una pieza a la Playa y
    luego entra como Eva: la tiene ella, y el obrador ya no.
-5. **Ventas** — mete unas ventas a mano y mira cómo bajan los kilos por su
+7. **Ventas** — mete unas ventas a mano y mira cómo bajan los kilos por su
    número, nunca de lo congelado ni de la carne de otra sede.
-6. **Parte del día** — la hoja para el pase, lista para imprimir o guardar en
+8. **Parte del día** — la hoja para el pase, lista para imprimir o guardar en
    PDF desde el navegador.
-7. **Contar un fallo** — está en todas las pantallas. Cuenta uno y míralo
+9. **Contar un fallo** — está en todas las pantallas. Cuenta uno y míralo
    después entrando como dueño de la plataforma.
 
 ## Probar lo último: dos personas a la vez
