@@ -1,0 +1,77 @@
+{% extends "base.html" %}{% block title %}{{ t("dl.labels") }}{% endblock %}
+{% block body %}
+{# Una hoja de etiquetas en blanco para pegar en la pieza y escribir su número
+   a rotulador. No sustituye a escribirlo en el envoltorio —eso se sigue
+   pidiendo, y es lo que hay cuando no hay hoja a mano—: es para la casa que
+   prefiere una etiqueta que se lea desde el pasillo de la cámara.
+
+   Se imprime en etiquetas adhesivas A4 de 70 × 37 mm, que son las que vende
+   cualquiera, y encajan en la hoja sin márgenes: 3 × 8 = 24, y 8 × 37 son
+   296 de los 297 mm del A4. En folio normal también sale, con las guías de
+   recorte puestas. #}
+<style nonce="{{ nonce }}">
+/* En papel esto es una hoja de etiquetas y nada más: ni menú, ni barra, ni
+   botones. Y sin márgenes de impresora, que son los que descuadran la
+   rejilla y hacen que el texto caiga fuera de la etiqueta. */
+@page { size: A4; margin: 0 }
+@media print {
+  aside.side, .topbar, nav.tabs, .drawer, .noprint { display: none !important }
+  .shell, .body, main { display: block !important; margin: 0 !important;
+    padding: 0 !important; max-width: none !important }
+  body { background: #fff !important }
+  .hoja { margin: 0 !important; box-shadow: none !important }
+}
+.hoja { width: 210mm; background: #fff; color: #111; margin: 16px auto 0;
+  padding-top: .5mm; display: grid; grid-template-columns: repeat(3, 70mm);
+  grid-auto-rows: 37mm; box-shadow: 0 2px 18px rgba(0,0,0,.35) }
+/* `border-box`: el borde va por dentro y la etiqueta sigue midiendo 70 × 37.
+   Con el borde por fuera, veinticuatro bordes descuadran la hoja entera. */
+.etq { box-sizing: border-box; padding: 3.2mm 3.6mm; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: space-between;
+  font: 7pt/1.15 system-ui, -apple-system, "Segoe UI", sans-serif; color: #111 }
+.hoja.recortar .etq { border: 1px dashed #b9b9b9 }
+.etq .que { font-size: 5.6pt; letter-spacing: .06em; text-transform: uppercase;
+  color: #777; margin: 0 0 .6mm }
+/* La raya donde se escribe. Alta a propósito: un rotulador permanente sobre
+   plástico hace un trazo gordo, y una raya de tres milímetros no lo aguanta. */
+.etq .raya { border-bottom: .5pt solid #111 }
+.etq .numero .raya { height: 8.5mm }
+.etq .nombre .raya { height: 5.5mm }
+.etq .pie { display: flex; gap: 3mm }
+.etq .pie > div { flex: 1 }
+.etq .pie .raya { height: 4.5mm }
+</style>
+
+<h1 class="noprint">{{ t("dl.labels") }}</h1>
+<p class="sub noprint">{{ t("dl.labels_sub") }}</p>
+<div class="card noprint">
+  <p class="help" style="margin:0 0 10px">{{ t("dl.labels_help") }}</p>
+  <div class="rowflex" style="gap:10px;flex-wrap:wrap">
+    <button type="button" id="imprimir">{{ t("dl.print") }}</button>
+    {% if recortar %}
+    <a class="btn ghost" href="/descargas/etiquetas">{{ t("dl.labels_sticky") }}</a>
+    {% else %}
+    <a class="btn ghost" href="/descargas/etiquetas?recortar=1">{{ t("dl.labels_plain") }}</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="hoja{% if recortar %} recortar{% endif %}">
+  {% for _ in range(24) %}
+  <div class="etq">
+    <div class="numero"><p class="que">{{ t("m.rec.serial") }}</p><div class="raya"></div></div>
+    <div class="nombre"><p class="que">{{ t("m.rec.sku") }}</p><div class="raya"></div></div>
+    <div class="pie">
+      <div><p class="que">{{ t("m.rec.kg") }}</p><div class="raya"></div></div>
+      <div><p class="que">{{ t("common.date") }}</p><div class="raya"></div></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<script nonce="{{ nonce }}">
+document.getElementById("imprimir").addEventListener("click", function () {
+  window.print();
+});
+</script>
+{% endblock %}

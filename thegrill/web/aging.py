@@ -929,7 +929,21 @@ class YieldBand:
     kg: float = 0.0              # kilos que han pasado por ahí
 
 
-def _aging_totals(session: Session, restaurant_id: int):
+# Los tramos de rendimiento miran hacia atrás, pero no hasta el principio de
+# los tiempos: lo que dejó una pieza hace tres años no dice nada de la decisión
+# de hoy —han cambiado el proveedor, la cámara y hasta el carnicero— y en
+# cambio obliga a sumar toda la historia de la casa cada vez que alguien abre
+# la pantalla. Un año y medio es memoria de sobra y no crece nunca.
+MESES_DE_TRAMOS = 18
+
+
+def _desde_cuando(on: date | None = None) -> date:
+    """El principio de la ventana de los tramos."""
+    hoy = on or date.today()
+    return hoy - timedelta(days=int(MESES_DE_TRAMOS * 30.44))
+
+
+def _aging_totals(session: Session, restaurant_id: int, desde: date):
     """Por pieza: los días que llegó a madurar y lo que perdió, en dos sumas."""
     cuchillo = case((PrimalWeighing.kind == LossKind.TRIM, PrimalWeighing.loss_kg),
                     else_=0.0)
@@ -938,23 +952,26 @@ def _aging_totals(session: Session, restaurant_id: int):
                           func.sum(cuchillo),
                           func.sum(PrimalWeighing.loss_kg))
             .filter(PrimalWeighing.restaurant_id == restaurant_id,
-                    PrimalWeighing.storage == Storage.AGING)
+                    PrimalWeighing.storage == Storage.AGING,
+                    PrimalWeighing.date >= desde)
             .group_by(PrimalWeighing.serial)).all()
 
 
-def _aging_starts(session: Session, restaurant_id: int):
+def _aging_starts(session: Session, restaurant_id: int, desde: date):
     """Por pieza: lo que pesaba cuando entró a madurar, que es contra lo que se mide."""
     primeras = (session.query(PrimalWeighing.serial.label("serial"),
                               func.min(PrimalWeighing.id).label("primera"))
                 .filter(PrimalWeighing.restaurant_id == restaurant_id,
-                        PrimalWeighing.storage == Storage.AGING)
+                        PrimalWeighing.storage == Storage.AGING,
+                        PrimalWeighing.date >= desde)
                 .group_by(PrimalWeighing.serial).subquery())
     return (session.query(primeras.c.serial, PrimalWeighing.previous_kg)
             .join(PrimalWeighing, PrimalWeighing.id == primeras.c.primera)).all()
 
 
 def yield_by_days(session: Session, restaurant_id: int, minimum: int = 3,
-                  band: int = 15, history: History | None = None) -> list[YieldBand]:
+                  band: int = 15, history: History | None = None,
+                  on: date | None = None) -> list[YieldBand]:
     """Qué rendimiento deja cada tramo de días, para decidir cuántos madurar.
 
     La pregunta que se hace un asador no es cuánto pierde una pieza, sino si
@@ -969,8 +986,11 @@ def yield_by_days(session: Session, restaurant_id: int, minimum: int = 3,
     # Recorrer en Python las cinco mil pesadas de la casa para acabar con
     # cuarenta medias era lo que hacía que esta pantalla fuera a peor cada mes.
     piezas: dict[str, dict] = {}
+    desde = _desde_cuando(on)
     if history is not None and history.aging_rows and not history.partial:
         for row in history.aging_rows:       # ya estaba leído: no se pide otra vez
+            if row.date < desde:
+                continue                     # la misma ventana por los dos caminos
             dato = piezas.setdefault(row.serial, {"days": 0, "water": 0.0, "trim": 0.0,
                                                   "start": row.previous_kg})
             dato["days"] = max(dato["days"], row.days or 0)
@@ -979,11 +999,11 @@ def yield_by_days(session: Session, restaurant_id: int, minimum: int = 3,
             else:
                 dato["water"] = round(dato["water"] + (row.loss_kg or 0.0), 6)
     else:
-        for serial, dias, cuchillo, todo in _aging_totals(session, restaurant_id):
+        for serial, dias, cuchillo, todo in _aging_totals(session, restaurant_id, desde):
             piezas[serial] = {"days": dias or 0, "trim": round(cuchillo or 0.0, 6),
                               "water": round((todo or 0.0) - (cuchillo or 0.0), 6),
                               "start": 0.0}
-        for serial, entrada in _aging_starts(session, restaurant_id):
+        for serial, entrada in _aging_starts(session, restaurant_id, desde):
             if serial in piezas:
                 piezas[serial]["start"] = entrada or 0.0
 

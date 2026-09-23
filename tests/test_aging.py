@@ -696,3 +696,34 @@ def test_today_asks_for_the_pieces_that_are_missing_their_weight(ctx):
     aging.count_day(s, ana, [("8017", 8.85)], on=HOY)
     hoy = meat.today(s, rest.id, on=HOY, lang="es")
     assert not any("sin pesar hoy" in linea.text for linea in hoy.pending)
+
+
+def test_the_yield_bands_only_look_at_what_is_still_worth_looking_at(ctx):
+    """Lo que dejó una pieza hace tres años no decide la maduración de hoy.
+
+    Y sumar toda la historia de la casa cada vez que alguien abre la pantalla
+    la hace más lenta cada mes: al año ya se nota, y es cuando el cliente dice
+    que el programa «se ha puesto lento». La ventana son dieciocho meses.
+    """
+    from thegrill.models import LossKind, PrimalWeighing, Storage
+    from thegrill.web import aging
+
+    s, rest, ana, luis = ctx
+    vieja = HOY - timedelta(days=900)              # de hace dos años y medio
+    for n in range(4):
+        suya = pieza(s, rest, serial=f"70{n}", kg=9.0)
+        s.add(PrimalWeighing(
+            restaurant_id=rest.id, primal_id=suya.id, serial=f"70{n}", date=vieja,
+            storage=Storage.AGING, kind=LossKind.EVAPORATION,
+            previous_kg=9.0, kg=8.0, loss_kg=1.0, days=30, source="manual"))
+    s.flush()
+
+    assert aging.yield_by_days(s, rest.id, on=HOY) == []
+
+    # La misma pesada, pero de este año: esa sí cuenta.
+    for n in range(4):
+        s.query(PrimalWeighing).filter_by(serial=f"70{n}").one().date = (
+            HOY - timedelta(days=40))
+    s.flush()
+    tramos = aging.yield_by_days(s, rest.id, on=HOY)
+    assert tramos and tramos[0].pieces == 4, tramos

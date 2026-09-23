@@ -416,6 +416,27 @@ def test_the_piece_list_groups_by_where_it_is_and_says_what_tells_them_apart(cli
     assert "9012 · Ribeye AUS · Maduración" not in pantalla
 
 
+def test_the_label_sheet_is_there_for_anyone_who_works_the_meat(client):
+    """La hoja de etiquetas la imprime quien descarga la carne, no el manager."""
+    luis = alta(client, "luis@marina.com", "Luis", Role.BUTCHER)
+
+    descargas = luis.get("/descargas").text
+    assert "Etiquetas para la carne" in descargas
+    assert "/descargas/etiquetas" in descargas
+
+    hoja = luis.get("/descargas/etiquetas")
+    assert hoja.status_code == 200
+    # Veinticuatro etiquetas y los tres huecos que se rellenan a rotulador.
+    assert hoja.text.count('class="etq"') == 24
+    for hueco in ("Número de pieza", "Pieza", "Peso (kg)", "Fecha"):
+        assert hueco in hoja.text, hueco
+    # Y sin márgenes de impresora, que son los que descuadran la rejilla.
+    assert "@page { size: A4; margin: 0 }" in hoja.text
+
+    # Con guías para el que la imprime en folio normal y la recorta.
+    assert "recortar" in luis.get("/descargas/etiquetas?recortar=1").text
+
+
 def test_the_menu_says_which_dishes_are_tied_to_the_till(client):
     """Un plato sin atar a su artículo del POS no descuenta nada al venderse.
 

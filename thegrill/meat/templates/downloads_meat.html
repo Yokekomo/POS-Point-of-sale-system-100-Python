@@ -11,6 +11,15 @@
   </div>
 </div>
 <div class="banner warn">{{ t("dl.typing_note") }}</div>
+{# La hoja de etiquetas no es un Excel: es una hoja que se imprime tal cual,
+   con la rejilla exacta de las etiquetas adhesivas que vende cualquiera. #}
+<div class="card">
+  <div class="rowflex">
+    <div style="flex:1"><b>{{ t("dl.labels") }}</b>
+      <div class="muted">{{ t("dl.labels_help") }}</div></div>
+    <a class="btn ghost" href="/descargas/etiquetas">{{ t("dl.labels_open") }}</a>
+  </div>
+</div>
 <div class="grid">
 {% for s in sheets %}
   <div class="card">

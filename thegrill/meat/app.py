@@ -2384,6 +2384,20 @@ def downloads_page(request: Request, ctx=Depends(require_user),
                 sheets=sheets_meat.SHEETS, site=sites.of_user(session, user))
 
 
+@app.get("/descargas/etiquetas", response_class=HTMLResponse)
+def label_sheet(request: Request, ctx=Depends(require_user),
+                session: Session = Depends(get_db), recortar: int = 0):
+    """Una hoja A4 de etiquetas en blanco para pegar en la pieza.
+
+    No sustituye a escribir el número en el envoltorio con rotulador —eso se
+    sigue pidiendo en la recepción y es lo que hay cuando no hay hoja a mano—:
+    es para la casa que prefiere una etiqueta que se lea desde el pasillo.
+    """
+    user, auth_session = ctx
+    return page(request, "labels.html", user, auth_session, session,
+                recortar=bool(recortar))
+
+
 @app.get("/descargas/{code}.xlsx")
 def download_sheet(code: str, request: Request, ctx=Depends(require_user),
                    session: Session = Depends(get_db)):

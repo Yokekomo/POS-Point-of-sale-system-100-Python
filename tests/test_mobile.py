@@ -500,6 +500,50 @@ def test_a_count_survives_having_no_signal_in_the_chiller(browser):
         context.close()
 
 
+def test_the_label_sheet_lands_exactly_on_the_sticker_grid(browser):
+    """Una hoja de etiquetas que no cuadra al milímetro no sirve para nada.
+
+    Si la rejilla se mueve medio milímetro, el texto cae en el borde de la
+    etiqueta de al lado y la hoja entera va a la basura. Y en papel no puede
+    salir ni el menú ni la barra de abajo: es una hoja de etiquetas, no una
+    pantalla impresa.
+    """
+    base, chromium = browser
+    context = chromium.new_context(viewport={"width": 1180, "height": 900})
+    try:
+        page = context.new_page()
+        entra(page, base)
+        page.goto(f"{base}/descargas/etiquetas")
+        page.wait_for_selector(".hoja")
+        page.emulate_media(media="print")
+
+        medido = page.evaluate("""() => {
+          const MM = 96 / 25.4;
+          const hoja = document.querySelector('.hoja').getBoundingClientRect();
+          const etq = document.querySelectorAll('.etq');
+          const uno = etq[0].getBoundingClientRect();
+          const dos = etq[1].getBoundingClientRect();
+          const abajo = etq[3].getBoundingClientRect();
+          const ultima = etq[etq.length - 1].getBoundingClientRect();
+          const mm = n => Math.round(n / MM * 100) / 100;
+          return {n: etq.length, ancho: mm(hoja.width),
+                  etq: [mm(uno.width), mm(uno.height)],
+                  pasoX: mm(dos.left - uno.left), pasoY: mm(abajo.top - uno.top),
+                  alto: mm(ultima.bottom - uno.top),
+                  menu: !!document.querySelector('aside.side')?.offsetParent,
+                  barra: !!document.querySelector('nav.tabs')?.offsetParent};
+        }""")
+
+        assert medido["n"] == 24, medido                 # 3 × 8 en un A4
+        assert medido["ancho"] == 210, medido            # el ancho del folio, clavado
+        assert medido["etq"] == [70, 37], medido         # la etiqueta estándar
+        assert medido["pasoX"] == 70 and medido["pasoY"] == 37, medido
+        assert medido["alto"] <= 297, medido             # y cabe de alto
+        assert not medido["menu"] and not medido["barra"], medido
+    finally:
+        context.close()
+
+
 def test_the_helper_that_makes_screens_open_inside_the_chiller(browser):
     """Sin él, volver a abrir la pantalla sin señal da la del dinosaurio."""
     base, chromium = browser
