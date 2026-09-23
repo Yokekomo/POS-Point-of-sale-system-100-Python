@@ -16,7 +16,7 @@ from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
-from thegrill.meat import mailer, privacy
+from thegrill.meat import mailer, perms, privacy
 from thegrill.models import (AccessRequest, AuditLog, Billing, Plan, RequestStatus,
                              Restaurant, Role, User)
 from thegrill.web import auth
@@ -244,9 +244,15 @@ def trial_left(restaurant: Restaurant, on: date | None = None) -> int | None:
 def create_user(session: Session, manager: User, *, name: str, email: str,
                 password: str, role: Role = Role.BUTCHER,
                 language: str | None = None) -> User:
-    """El manager crea las cuentas de su gente. Ni managers ni dueños."""
-    if role in (Role.OWNER, Role.MANAGER):
-        raise BillingError("Un manager no da de alta a otro manager")
+    """El manager crea las cuentas de su gente.
+
+    El manager general —el de la casa entera— da de alta también a los
+    managers de cada local: un grupo con obrador y tres locales no lo lleva
+    una sola persona, y pedirle la cuenta a la plataforma cada vez no es
+    manera. Al dueño de la plataforma no lo crea nadie desde aquí.
+    """
+    if role not in perms.grantable_roles(manager):
+        raise BillingError("Ese nivel no lo puedes repartir tú")
     email = auth.normalize_email(email)
     if (session.query(User)
             .filter_by(restaurant_id=manager.restaurant_id, email=email).first()):

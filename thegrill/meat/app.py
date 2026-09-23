@@ -2093,9 +2093,9 @@ def team_page(request: Request, ctx=Depends(needs(perms.TEAM)),
     restaurant = session.get(Restaurant, user.restaurant_id)
     rows = (session.query(User).filter_by(restaurant_id=user.restaurant_id)
             .order_by(User.name).all())
-    # Un manager no reparte su propio nivel ni el de la plataforma.
-    roles = [r for r in Role if r not in (Role.OWNER, Role.MANAGER)] \
-        if user.role != Role.OWNER else list(Role)
+    # Los niveles que esta persona puede repartir, de la misma regla que
+    # comprueba la ruta: el general reparte managers de local, el de local no.
+    roles = perms.grantable_roles(user)
     return page(request, "team.html", user, auth_session, session, error=error,
                 done=done, restaurant=restaurant, rows=rows, roles=roles)
 
@@ -2126,8 +2126,14 @@ def change_role(user_id: int, request: Request, role: str = Form(...), csrf: str
     target = _own(session, user, User, user_id, request)
     if target.id == user.id:
         raise HTTPException(status_code=400, detail=i18n.t(lang, "error.no_self_role"))
-    if role in Role.__members__:
-        target.role = Role[role]
+    # La plantilla no enseña los niveles que no tocan, pero una pantalla sin
+    # desplegable no es una puerta cerrada: el formulario se manda a mano. Sin
+    # esto, un manager se fabricaba un dueño de la plataforma en una línea.
+    nuevo = Role[role] if role in Role.__members__ else None
+    if nuevo is None or nuevo not in perms.grantable_roles(user) \
+            or not perms.can_manage(user, target):
+        raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
+    target.role = nuevo
     return RedirectResponse("/manager/equipo", status_code=303)
 
 
@@ -2140,6 +2146,8 @@ def toggle_user(user_id: int, request: Request, csrf: str = Form(""),
     target = _own(session, user, User, user_id, request)
     if target.id == user.id:
         raise HTTPException(status_code=400, detail=i18n.t(lang, "error.no_self_disable"))
+    if not perms.can_manage(user, target):
+        raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
     target.active = not target.active
     return RedirectResponse("/manager/equipo", status_code=303)
 
@@ -2302,8 +2310,7 @@ def clear_team_second_step(user_id: int, request: Request, csrf: str = Form(""),
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
     target = _own(session, user, User, user_id, request)
-    if user.role != Role.OWNER and target.role in (Role.OWNER, Role.MANAGER) \
-            and target.id != user.id:
+    if target.id != user.id and not perms.can_manage(user, target):
         raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
     target.totp_enabled = False
     target.totp_secret = None
@@ -2323,10 +2330,9 @@ def reset_team_password(user_id: int, request: Request, password: str = Form(...
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
     target = _own(session, user, User, user_id, request)
-    # Un manager no toca la cuenta de otro manager ni la de la plataforma: esas
-    # las pone quien está por encima.
-    if user.role != Role.OWNER and target.role in (Role.OWNER, Role.MANAGER) \
-            and target.id != user.id:
+    # Al dueño de la plataforma no lo toca la casa, y a un manager solo le
+    # entra el general —y solo si el otro lleva un local—.
+    if target.id != user.id and not perms.can_manage(user, target):
         raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
     try:
         auth.set_password(session, target, password, lang=lang)

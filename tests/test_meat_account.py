@@ -401,20 +401,91 @@ def test_the_manager_creates_the_accounts_of_the_house(client):
     assert sesion("luis@marina.com", "clave-larga-3").get("/despiece").status_code == 200
 
 
-def test_a_manager_does_not_create_another_manager(client):
-    """Repartir el nivel de manager es cosa de la plataforma, no de la casa."""
+def test_the_manager_of_the_whole_house_hires_the_manager_of_a_shop(client):
+    """Un grupo con obrador y tres locales no lo lleva una sola persona.
+
+    El manager general —el que no está atado a una sede— da de alta a los
+    managers de cada local. Pedirle esa cuenta a la plataforma cada vez no es
+    manera de llevar un grupo.
+    """
     como_dueno(client)
     alta_de_casa(client)
     manager = sesion("manager@marina.com")
     equipo = manager.get("/manager/equipo")
-    assert 'value="MANAGER"' not in equipo.text        # ni se ofrece en la lista
+    assert 'value="MANAGER"' in equipo.text            # y se le ofrece en la lista
 
     r = manager.post("/manager/equipo/nueva", data={
         "csrf": csrf_from(equipo.text), "name": "Otro", "email": "otro@marina.com",
         "password": "clave-larga-3", "role": "MANAGER"})
-    assert r.status_code == 303 and "error=" in r.headers["location"]
+    assert r.status_code == 303 and "error=" not in r.headers["location"]
     with db.session_scope() as s:
-        assert s.query(User).filter_by(email="otro@marina.com").count() == 0
+        assert s.query(User).filter_by(email="otro@marina.com").one().role == Role.MANAGER
+
+
+def test_nobody_in_a_house_makes_a_platform_owner(client):
+    """El agujero: el nivel se cambiaba sin mirar quién lo pedía.
+
+    La pantalla no ofrece «dueño de la plataforma», pero una pantalla sin
+    desplegable no es una puerta cerrada: el formulario se manda a mano. Así
+    un manager se fabricaba un dueño de la plataforma en una línea.
+    """
+    como_dueno(client)
+    alta_de_casa(client)
+    manager = sesion("manager@marina.com")
+    equipo = manager.get("/manager/equipo")
+    assert 'value="OWNER"' not in equipo.text
+    manager.post("/manager/equipo/nueva", data={
+        "csrf": csrf_from(equipo.text), "name": "Luis", "email": "luis@marina.com",
+        "password": "clave-larga-3", "role": "BUTCHER"})
+    with db.session_scope() as s:
+        luis = s.query(User).filter_by(email="luis@marina.com").one().id
+
+    # Ni dándole a mano el nivel que no le toca.
+    r = manager.post(f"/manager/equipo/{luis}/rol", data={
+        "csrf": csrf_from(manager.get("/manager/equipo").text), "role": "OWNER"})
+    assert r.status_code == 403
+    with db.session_scope() as s:
+        assert s.query(User).filter_by(id=luis).one().role == Role.BUTCHER
+
+
+def test_the_manager_of_one_shop_does_not_touch_the_one_next_door(client):
+    """El de un local lleva el suyo. Al de al lado, ni la clave ni el nivel."""
+    from thegrill.web import sites
+
+    como_dueno(client)
+    alta_de_casa(client)
+    general = sesion("manager@marina.com")
+    equipo = general.get("/manager/equipo")
+    for nombre, correo in (("Playa", "playa@marina.com"), ("Sierra", "sierra@marina.com")):
+        general.post("/manager/equipo/nueva", data={
+            "csrf": csrf_from(equipo.text), "name": nombre, "email": correo,
+            "password": "clave-larga-3", "role": "MANAGER"})
+    with db.session_scope() as s:
+        casa = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        jefe = s.query(User).filter_by(email="manager@marina.com").one()
+        playa = sites.create(s, jefe, "Playa")
+        for correo in ("playa@marina.com", "sierra@marina.com"):
+            sites.assign(s, jefe, s.query(User).filter_by(email=correo).one(), playa.id)
+        ids = {u.email: u.id for u in s.query(User).filter_by(restaurant_id=casa.id)}
+
+    dela_playa = sesion("playa@marina.com", "clave-larga-3")
+    token = csrf_from(dela_playa.get("/manager/equipo").text)
+    # Ni al manager de al lado…
+    assert dela_playa.post(f"/manager/equipo/{ids['sierra@marina.com']}/contrasena",
+                           data={"csrf": token, "password": "otra-clave-larga"}
+                           ).status_code == 403
+    # …ni al de la casa entera.
+    assert dela_playa.post(f"/manager/equipo/{ids['manager@marina.com']}/contrasena",
+                           data={"csrf": token, "password": "otra-clave-larga"}
+                           ).status_code == 403
+    # Y no reparte el nivel de manager.
+    assert 'value="MANAGER"' not in dela_playa.get("/manager/equipo").text
+
+    # El general sí le pone una nueva al de un local.
+    token = csrf_from(general.get("/manager/equipo").text)
+    assert general.post(f"/manager/equipo/{ids['playa@marina.com']}/contrasena",
+                        data={"csrf": token, "password": "otra-clave-larga"}
+                        ).status_code == 303
 
 
 def test_two_people_cannot_share_an_email_in_the_same_house(client):

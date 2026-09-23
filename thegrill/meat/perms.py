@@ -68,3 +68,51 @@ def checker(user):
     """La versión que reciben las plantillas: `can("money")`."""
     allowed = caps_for(user.role) if user else frozenset()
     return lambda capability: capability in allowed
+
+
+# ==================================================== quién manda sobre quién
+# Un grupo con obrador y tres locales no lo lleva una sola persona. El manager
+# general —el que no tiene sede— es el de la casa entera y da de alta a los
+# managers de cada local; el manager de un local lleva el suyo y su gente, y
+# no toca al de al lado ni al de arriba.
+#
+#   plataforma  >  manager general  >  manager de local  >  carnicero, ayudante
+#
+# Esto se comprueba en la ruta y no en la plantilla: una pantalla sin el
+# desplegable no es una puerta cerrada, porque el formulario se puede mandar
+# a mano.
+def is_general_manager(user) -> bool:
+    """El manager de la casa entera: el que no está atado a una sede."""
+    return bool(user) and user.role == Role.MANAGER and not getattr(user, "site_id", None)
+
+
+def can_manage(actor, target) -> bool:
+    """Si `actor` puede tocar la cuenta de `target`: su nivel, su clave, su alta.
+
+    Nadie toca al dueño de la plataforma salvo él mismo, y nadie toca a un
+    igual: dos managers generales de la misma casa no se dan de baja el uno al
+    otro.
+    """
+    if not (actor and target) or actor.restaurant_id != target.restaurant_id:
+        return False
+    if actor.role == Role.OWNER:
+        return True
+    if target.role == Role.OWNER:
+        return False                       # la plataforma no la toca la casa
+    if target.role == Role.MANAGER:
+        # A un manager solo le entra el general, y solo si el otro es de local.
+        return is_general_manager(actor) and not is_general_manager(target)
+    return actor.role == Role.MANAGER
+
+
+def grantable_roles(actor) -> list:
+    """Los niveles que esa persona puede repartir. Nunca uno por encima suyo."""
+    if not actor:
+        return []
+    if actor.role == Role.OWNER:
+        return list(Role)
+    if is_general_manager(actor):
+        return [r for r in Role if r != Role.OWNER]
+    if actor.role == Role.MANAGER:
+        return [r for r in Role if r not in (Role.OWNER, Role.MANAGER)]
+    return []
