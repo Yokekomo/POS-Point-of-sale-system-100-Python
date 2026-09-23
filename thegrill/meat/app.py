@@ -623,9 +623,11 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
     halal = True if form.get("halal") else None
     envasado = (form.get("pack_date") or "").strip()
     sacrificio = (form.get("slaughter_date") or "").strip()
-    # Cómo bajó del camión. Es de la descarga entera, que es como se mide: se
-    # abre la caja, se clava el termómetro y ese número vale para lo que venía
-    # dentro.
+    # Cómo bajó del camión. Va con la pieza, no con el camión: se abre su caja,
+    # se clava el termómetro y ese número es suyo. En la misma descarga una
+    # viene a dos grados y otra a seis, y el día que sale mal se pregunta por
+    # esa. Se arrastra de la anterior para no teclearlo veinte veces, pero cada
+    # pieza guarda el que tenía delante cuando se dio de alta.
     llegada = Storage.FROZEN if form.get("arrival") == "FROZEN" else Storage.CHILLED
     grados = _num(form.get("arrival_c"))
     al_arcon = bool(form.get("frozen_on_arrival")) and llegada == Storage.CHILLED

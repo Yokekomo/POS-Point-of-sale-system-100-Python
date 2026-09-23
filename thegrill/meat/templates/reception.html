@@ -70,36 +70,6 @@
                {% if previo.get('halal') %}checked{% endif %}>
         <span>{{ t("m.rec.halal") }}</span></label>
     </div>
-
-    {# Cómo bajó del camión. No es lo mismo una pieza que llega congelada que
-       una que llega fresca y se mete al arcón: las dos acaban en el
-       congelador, pero la primera nunca estuvo fresca en esta casa. Y la
-       temperatura de la caja al abrirla es lo primero que se pregunta el día
-       que una pieza sale mal. #}
-    <h3 style="font-size:15px;margin:18px 0 4px" data-tour="llegada">{{ t("m.rec.arrival_title") }}</h3>
-    <div class="grid">
-      <div><label for="arrival">{{ t("m.rec.arrival") }}</label>
-        <select id="arrival" name="arrival">
-          <option value="CHILLED" {% if previo.get('arrival') != 'FROZEN' %}selected{% endif %}
-            >{{ t("m.rec.arrival_chilled") }}</option>
-          <option value="FROZEN" {% if previo.get('arrival') == 'FROZEN' %}selected{% endif %}
-            >{{ t("m.rec.arrival_frozen") }}</option>
-        </select></div>
-      <div><label for="arrival_c" title="{{ t('m.rec.arrival_c_help') }}">{{ t("m.rec.arrival_c") }}</label>
-        <input id="arrival_c" name="arrival_c" inputmode="decimal" placeholder="2,4"
-               title="{{ t('m.rec.arrival_c_help') }}"
-               value="{{ previo.get('arrival_c','') }}"></div>
-    </div>
-    <div class="help">{{ t("m.rec.arrival_c_help") }}</div>
-    {# Solo tiene sentido si llega fresca: lo que ya viene congelado no se
-       vuelve a congelar. El guion de abajo lo esconde cuando no toca. #}
-    <div id="alarcon" style="margin-top:12px">
-      <label class="casilla" for="frozen_on_arrival">
-        <input id="frozen_on_arrival" name="frozen_on_arrival" type="checkbox" value="1"
-               {% if previo.get('frozen_on_arrival') %}checked{% endif %}>
-        <span>{{ t("m.rec.freeze_now") }}</span></label>
-    </div>
-    <div class="help" id="alarconayuda">{{ t("m.rec.freeze_now_help") }}</div>
   </details>
 
   {# 2. La pieza que tienes en la mano, con su etiqueta dentro: la etiqueta no
@@ -135,6 +105,39 @@
                title="{{ t('m.rec.price_help') }}"></label>
       {% endif %}
     </div>
+    {# Cómo bajó del camión **esta** bolsa. Se mide caja por caja: en el mismo
+       camión una viene a dos grados y otra a seis, y el día que una pieza sale
+       mal lo que se pregunta es a cuánto llegó esa. Viene puesto lo de la
+       anterior, que casi siempre vale, y se cambia el día que no.
+
+       Y no es lo mismo llegar congelada que llegar fresca y meterla al arcón:
+       las dos acaban en el congelador, pero la primera nunca estuvo fresca en
+       esta casa. #}
+    <h3 style="font-size:15px;margin:18px 0 4px" data-tour="llegada">{{ t("m.rec.arrival_title") }}</h3>
+    <div class="campos">
+      <label for="arrival">{{ t("m.rec.arrival") }}
+        <select id="arrival" name="arrival">
+          <option value="CHILLED" {% if previo.get('arrival') != 'FROZEN' %}selected{% endif %}
+            >{{ t("m.rec.arrival_chilled") }}</option>
+          <option value="FROZEN" {% if previo.get('arrival') == 'FROZEN' %}selected{% endif %}
+            >{{ t("m.rec.arrival_frozen") }}</option>
+        </select></label>
+      <label for="arrival_c" title="{{ t('m.rec.arrival_c_help') }}">{{ t("m.rec.arrival_c") }}
+        <input id="arrival_c" name="arrival_c" inputmode="decimal" placeholder="2,4"
+               title="{{ t('m.rec.arrival_c_help') }}"
+               value="{{ previo.get('arrival_c','') }}"></label>
+    </div>
+    <div class="help">{{ t("m.rec.arrival_c_help") }}</div>
+    {# Solo tiene sentido si llega fresca: lo que ya viene congelado no se
+       vuelve a congelar. El guion de abajo lo esconde cuando no toca. #}
+    <div id="alarcon" style="margin-top:12px">
+      <label class="casilla" for="frozen_on_arrival">
+        <input id="frozen_on_arrival" name="frozen_on_arrival" type="checkbox" value="1"
+               {% if previo.get('frozen_on_arrival') %}checked{% endif %}>
+        <span>{{ t("m.rec.freeze_now") }}</span></label>
+    </div>
+    <div class="help" id="alarconayuda">{{ t("m.rec.freeze_now_help") }}</div>
+
     <details class="masetq">
       <summary>{{ t("m.rec.row_diff") }}</summary>
       <p class="help">{{ t("m.rec.row_diff_help") }}</p>

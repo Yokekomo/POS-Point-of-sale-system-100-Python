@@ -203,7 +203,7 @@ def test_the_butcher_sees_the_meat_but_never_the_money(client):
 
     recepcion = luis.get("/recepcion").text
     assert "8017" in recepcion                  # la pieza y sus kilos
-    assert "Coste de la pieza" not in recepcion  # su coste, no
+    assert "Coste del primal" not in recepcion  # su coste, no
 
 
 def test_the_butcher_sees_the_cuts_of_a_piece_without_its_money(client):
@@ -247,7 +247,7 @@ def test_the_manager_does_see_the_money(client):
     con_carne(client)
     hoy = client.get("/hoy").text
     assert "Valor en cámara" in hoy
-    assert "Coste de la pieza" in client.get("/recepcion").text
+    assert "Coste del primal" in client.get("/recepcion").text
     assert "/ kg" in client.get("/cortes").text
 
 
@@ -428,7 +428,7 @@ def test_the_label_sheet_is_there_for_anyone_who_works_the_meat(client):
     assert hoja.status_code == 200
     # Veinticuatro etiquetas y los tres huecos que se rellenan a rotulador.
     assert hoja.text.count('class="etq"') == 24
-    for hueco in ("Número de pieza", "Pieza", "Peso (kg)", "Fecha"):
+    for hueco in ("Número de primal", "Primal", "Peso (kg)", "Fecha"):
         assert hueco in hoja.text, hueco
     # Y sin márgenes de impresora, que son los que descuadran la rejilla.
     assert "@page { size: A4; margin: 0 }" in hoja.text
@@ -683,13 +683,13 @@ def test_the_whole_piece_screen_says_what_it_holds(client):
 
     pantalla = ana.get("/maduracion").text
 
-    assert "<h1>Piezas enteras</h1>" in pantalla
-    assert "Piezas enteras" in pantalla and "Maduración" in pantalla
+    assert "<h1>Primales enteros</h1>" in pantalla
+    assert "Primales enteros" in pantalla and "Maduración" in pantalla
     # La maduración sigue teniendo su sitio, ahora como una parte con nombre.
     assert "<h2>Maduración y congelador</h2>" in pantalla
     # Y las fichas de trabajo se anuncian antes de aparecer.
-    assert (pantalla.index("Qué se le hace a una pieza")
-            < pantalla.index("<b>Mover una pieza</b>"))
+    assert (pantalla.index("Qué se le hace a un primal")
+            < pantalla.index("<b>Mover un primal</b>"))
 
 
 def test_the_assistant_cannot_move_a_piece(client):

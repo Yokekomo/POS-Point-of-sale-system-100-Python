@@ -188,3 +188,66 @@ def test_a_line_about_one_thing_is_written_in_the_singular():
 
     # Una clave sin singular escrito sigue funcionando y no revienta.
     assert t("es", "m.ag.days", n=1) == "Días"
+
+
+# --------------------------------------------------- primal no es lo mismo que pieza
+# En una carnicería «pieza» significa dos cosas, y en un programa que cuenta
+# kilos y dinero mezclarlas sale caro:
+#
+# - El **primal** es lo que baja del camión entero, madura, se traslada y se
+#   despieza. Tiene número de serie, precio por kilo y merma de maduración.
+# - Una **pieza** es una unidad de un corte ya hecho: «17 piezas de 330 g»,
+#   «faltan 4 piezas de solomillo». Se cuenta, no se despieza.
+#
+# Quien lee la pantalla tiene que saber de cuál le están hablando.
+SOBRE_EL_PRIMAL = {
+    "m.rec.piece_step": "2. El primal",
+    "m.rec.serial": "Número de primal",
+    "m.rec.submit_one": "Dar de alta este primal",
+    "m.ag.page": "Primales enteros",
+    "m.nav.aging": "Primales enteros",
+    "m.price.title": "Primales esperando precio",
+    "m.tg.pick_primals": "Marca los primales que entran en este despiece.",
+    "m.tr.send_primal": "Mandar un primal",
+}
+
+# Y estas son unidades de un corte: aquí «primal» sería mentira.
+SOBRE_LAS_UNIDADES = ("m.tg.g_piece", "m.df.per_piece", "m.df.real_weight",
+                      "meat.pieces", "waste.pieces", "m.tg.h_pieces")
+
+
+def test_the_whole_piece_is_called_a_primal_everywhere():
+    """Recepción, maduración, precios, despiece y traslados hablan del primal."""
+    from thegrill.meat import app as _   # noqa: F401  (mezcla los dos catálogos)
+    from thegrill.web.i18n import TRANSLATIONS
+
+    for clave, dicho in SOBRE_EL_PRIMAL.items():
+        assert TRANSLATIONS["es"][clave] == dicho, clave
+        assert "primal" in TRANSLATIONS["en"][clave].lower(), clave
+
+
+def test_a_unit_of_a_cut_is_still_called_a_piece():
+    """«17 piezas de 330 g» no son diecisiete primales."""
+    from thegrill.meat import app as _   # noqa: F401
+    from thegrill.web.i18n import TRANSLATIONS
+
+    for clave in SOBRE_LAS_UNIDADES:
+        assert "primal" not in TRANSLATIONS["es"][clave].lower(), clave
+        assert "primal" not in TRANSLATIONS["en"][clave].lower(), clave
+
+
+def test_nobody_is_left_saying_both_words_for_the_same_thing():
+    """En una frase sobre el primal no puede quedar la palabra vieja."""
+    import re
+
+    from thegrill.meat import app as _   # noqa: F401
+    from thegrill.web.i18n import TRANSLATIONS
+
+    mezcladas = [c for c in SOBRE_EL_PRIMAL
+                 if re.search(r"\bpieza", TRANSLATIONS["es"][c], re.I)]
+    assert not mezcladas, mezcladas
+    # Y el español no se queda con el género de antes: era «la pieza» y ahora
+    # es «el primal», que arrastra artículos, pronombres y adjetivos.
+    restos = [c for c, v in TRANSLATIONS["es"].items()
+              if re.search(r"\b(una|esta|esa|ninguna|la|las) primal", v)]
+    assert not restos, restos

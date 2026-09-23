@@ -1279,7 +1279,7 @@ class TestRecepcionDeUnaEnUna:
             "csrf": csrf_from(form.text), "lot": "L-ROTU", "sku": "Ribeye AUS",
             "price_kg": "30", "serial:0": "9210", "kg:0": "9,1"})
         # Con el número y el peso, que es lo que hay que escribir encima.
-        assert "9210 · 9.1 kg" in r.text and "en la pieza" in r.text
+        assert "9210 · 9.1 kg" in r.text and "en el primal" in r.text
 
     def test_a_phone_with_no_signal_still_books_the_piece(self, client):
         """La foto necesita línea; lo escrito, no. Lo escrito manda."""
