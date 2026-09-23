@@ -795,7 +795,10 @@ if ("serviceWorker" in navigator) {
     apuntado: {{ t("off.noted")|tojson }},
     espera: {{ t("off.waiting")|tojson }},
     reintento: {{ t("off.retrying")|tojson }},
-    sinfoto: {{ t("m.rec.photo_offline")|tojson }}
+    sinfoto: {{ t("m.rec.photo_offline")|tojson }},
+    entrar: {{ t("off.login_again")|tojson }},
+    reintentar: {{ t("off.resend")|tojson }},
+    tirar: {{ t("off.discard")|tojson }}
   };
 
   function cola() {
@@ -821,7 +824,10 @@ if ("serviceWorker" in navigator) {
     });
     var panel = document.getElementById("colapanel");
     var main = document.querySelector("main");
-    if (!lista.length) { if (panel) panel.remove(); return; }
+    // También cuenta lo apartado: si el panel desapareciera al vaciarse la
+    // cola, lo que el servidor rechazó no se volvería a ver nunca y no habría
+    // manera de reintentarlo ni de tirarlo.
+    if (!lista.length && !apartados().length) { if (panel) panel.remove(); return; }
     if (!panel && main) {
       panel = document.createElement("div");
       panel.id = "colapanel";
@@ -829,16 +835,45 @@ if ("serviceWorker" in navigator) {
       main.insertBefore(panel, main.firstChild);
     }
     if (!panel) return;
-    var filas = lista.map(function (x) {
+    var fuera = apartados();
+    function fila(x, esperando) {
       var hora = new Date(x.cuando).toTimeString().slice(0, 5);
       var que = (x.accion || "").replace("/", "").replace("/", " · ");
-      var estado = x.rechazado ? textos.rechazado
-                 : (x.intentos ? textos.reintento : textos.espera);
-      return '<div class="rowflex" style="gap:10px;padding:6px 0">' +
-             '<span class="tag ' + (x.rechazado ? "bad" : "warn") + '">' + hora + "</span>" +
-             "<b>" + que + '</b><span class="muted" style="flex:1">' + estado + "</span></div>";
-    }).join("");
-    panel.innerHTML = '<b>' + textos.pendiente_titulo + " · " + lista.length + "</b>" + filas;
+      // Qué es, no solo de qué pantalla viene: con veinte apuntes iguales en
+      // la lista hay que poder saber cuál es cuál sin abrir nada.
+      var suyo = x.datos || {};
+      var pistas = [];
+      ["serial", "serial:0", "kg", "kg:0", "lot", "pieces"].forEach(function (k) {
+        if (suyo[k]) pistas.push(suyo[k]);
+      });
+      var estado = esperando ? (x.intentos ? textos.reintento : textos.espera)
+                             : textos.rechazado;
+      var botones = esperando ? "" :
+        '<button type="button" class="btn ghost" data-vuelve="' + x.id + '">' +
+        textos.reintentar + '</button>' +
+        '<button type="button" class="btn ghost" data-tira="' + x.id + '">' +
+        textos.tirar + '</button>';
+      return '<div class="rowflex" style="gap:10px;padding:8px 0;flex-wrap:wrap;' +
+             'align-items:center">' +
+             '<span class="tag ' + (esperando ? "warn" : "bad") + '">' + hora + "</span>" +
+             "<b>" + que + "</b>" +
+             '<span class="muted">' + pistas.slice(0, 3).join(" · ") + "</span>" +
+             '<span class="muted" style="flex:1">' + estado + "</span>" + botones + "</div>";
+    }
+    var filas = lista.map(function (x) { return fila(x, true); }).join("") +
+                fuera.map(function (x) { return fila(x, false); }).join("");
+    panel.innerHTML = '<b>' + textos.pendiente_titulo + " · " +
+                      (lista.length + fuera.length) + "</b>" + filas;
+    panel.querySelectorAll("[data-vuelve]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        window.cola.reintentar(b.getAttribute("data-vuelve"));
+      });
+    });
+    panel.querySelectorAll("[data-tira]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        window.cola.tirar(b.getAttribute("data-tira"));
+      });
+    });
   }
 
   // El aviso flotante de la señal. Se pone arriba del todo, en todas las
@@ -901,6 +936,25 @@ if ("serviceWorker" in navigator) {
 
   // --------------------------------------- guardar sin red: se apunta y sigue
   document.querySelectorAll("form[data-cola]").forEach(function (formulario) {
+    // La llave contra duplicados va SIEMPRE, con red y sin ella. El servidor
+    // sabe reconocer un envío repetido —`_ya_estaba`— pero solo lo hacía con
+    // los que venían de la cola, o sea justo en el caso raro: con cobertura,
+    // dos toques con guante apuntaban dos mermas. Se pone al pintar y se
+    // renueva después de cada envío, que si no el segundo alta del mismo
+    // formulario llegaría con la llave del primero y se tomaría por repetida.
+    function marcarEnvio() {
+      var campo = formulario.querySelector("input[name=envio]");
+      if (!campo) {
+        campo = document.createElement("input");
+        campo.type = "hidden";
+        campo.name = "envio";
+        formulario.appendChild(campo);
+      }
+      campo.value = numero();
+      return campo;
+    }
+    var llave = marcarEnvio();
+
     formulario.addEventListener("submit", function (ev) {
       if (navigator.onLine && !cola().length) {
         if (form && formulario === form) localStorage.removeItem("cuenta:" + form.dataset.keep);
@@ -922,7 +976,8 @@ if ("serviceWorker" in navigator) {
         }
         datos[k] = v;
       });
-      datos.envio = numero();
+      datos.envio = llave.value || numero();
+      marcarEnvio();                  // el siguiente apunte lleva la suya
       var lista = cola();
       lista.push({id: datos.envio, accion: formulario.getAttribute("action"),
                   datos: datos, cuando: Date.now(), intentos: 0});
@@ -946,21 +1001,42 @@ if ("serviceWorker" in navigator) {
     var lista = cola();
     if (!lista.length || mandando || !navigator.onLine) return;
     var primero = lista[0];
-    if (primero.rechazado) return;    // eso lo tiene que mirar una persona
     mandando = true;
     decir(textos.enviando, true);
+    // El token se coge AHORA, no cuando se apuntó. Un móvil compartido entre
+    // el turno de mañana y el de tarde guardaba el token de quien lo tenía
+    // antes, y al mandarlo el servidor contestaba 403: el apunte se quedaba
+    // atascado por algo que no tenía nada que ver con lo apuntado.
+    var ahoraToken = {{ csrf|tojson }};
+    if (ahoraToken && primero.datos && "csrf" in primero.datos) {
+      primero.datos.csrf = ahoraToken;
+    }
     var cuerpo = new URLSearchParams(primero.datos);
     var corte = ("AbortController" in window) ? new AbortController() : null;
     var reloj = setTimeout(function () { if (corte) corte.abort(); }, 15000);
     fetch(primero.accion, {
       method: "POST", body: cuerpo, credentials: "same-origin",
-      headers: {"Content-Type": "application/x-www-form-urlencoded"},
+      // Sin esto, el navegador sigue solo la redirección a la pantalla de
+      // entrar, devuelve su 200 y la cola daba por guardado lo que no se
+      // guardó: el recuento desaparecía y la pantalla cantaba «enviado».
+      redirect: "manual",
+      headers: {"Content-Type": "application/x-www-form-urlencoded",
+                "X-Cola": "1"},
       signal: corte ? corte.signal : undefined
     }).then(function (r) {
       clearTimeout(reloj);
       mandando = false;
       var ahora = cola();
-      if (r.ok || r.status === 303) {
+
+      // Hay que volver a entrar. No se toca nada: lo apuntado espera a que
+      // alguien entre otra vez, que es exactamente lo que tiene que pasar.
+      if (r.status === 401 || r.status === 402 || r.type === "opaqueredirect" ||
+          (r.status >= 300 && r.status < 400)) {
+        decir(textos.entrar, true);
+        return;
+      }
+
+      if (r.ok) {
         ahora = ahora.filter(function (x) { return x.id !== primero.id; });
         guardarCola(ahora);
         decir(ahora.length ? textos.enviando : textos.enviado, ahora.length > 0,
@@ -969,12 +1045,18 @@ if ("serviceWorker" in navigator) {
         else { setTimeout(function () { location.reload(); }, 600); }
         return;
       }
-      // El servidor lo ha rechazado: la hoja se cerró, la pieza ya no está.
-      // Eso no se reintenta solo; se enseña para que alguien lo mire.
+
+      // El servidor lo ha rechazado de verdad: la hoja se cerró, la pieza ya
+      // no está. Eso no se reintenta solo, pero **no puede tapar a los de
+      // detrás**: se aparta a su propia lista y la cola sigue. Antes se
+      // quedaba el primero y congelaba el turno entero.
       if (r.status >= 400 && r.status < 500) {
-        ahora.forEach(function (x) { if (x.id === primero.id) x.rechazado = r.status; });
+        ahora = ahora.filter(function (x) { return x.id !== primero.id; });
         guardarCola(ahora);
+        primero.rechazado = r.status;
+        apartar(primero);
         decir(textos.rechazado, true);
+        mandar();
         return;
       }
       throw new Error(r.status);      // 5xx: culpa del servidor, se reintenta
@@ -986,6 +1068,24 @@ if ("serviceWorker" in navigator) {
       guardarCola(ahora);
       decir(textos.fallo, true);
     });
+  }
+
+  // Lo apartado: lo que el servidor rechazó. Vive fuera de la cola para que no
+  // tape a nadie, y se queda hasta que una persona lo mire.
+  function apartados() {
+    try { return JSON.parse(localStorage.getItem("grill_apartados") || "[]"); }
+    catch (e) { return []; }
+  }
+
+  function guardarApartados(lista) {
+    try { localStorage.setItem("grill_apartados", JSON.stringify(lista)); } catch (e) {}
+    pintarContador();
+  }
+
+  function apartar(envio) {
+    var lista = apartados();
+    lista.push(envio);
+    guardarApartados(lista.slice(-40));      // cuarenta ya son demasiados
   }
 
   // Se reintenta al volver la señal, al abrir cualquier pantalla y cada poco:
@@ -1019,7 +1119,26 @@ if ("serviceWorker" in navigator) {
       guardarCola(lista);
       if (navigator.onLine) mandar();
     },
-    pendientes: function () { return cola().length; }
+    pendientes: function () { return cola().length; },
+    // Lo que el servidor rechazó, para que una persona lo mire y decida.
+    apartados: apartados,
+    reintentar: function (id) {
+      var fuera = apartados(), vuelve = null;
+      fuera = fuera.filter(function (x) {
+        if (x.id !== id) return true;
+        vuelve = x; return false;
+      });
+      guardarApartados(fuera);
+      if (!vuelve) return;
+      delete vuelve.rechazado;
+      var lista = cola();
+      lista.push(vuelve);
+      guardarCola(lista);
+      mandar();
+    },
+    tirar: function (id) {
+      guardarApartados(apartados().filter(function (x) { return x.id !== id; }));
+    }
   };
 })();
 </script>

@@ -823,6 +823,11 @@ ES = {
     "trace.trim_kg": 'Aprovechado',
     "trace.went_to": 'Dónde ha ido',
     "trace.sale_days": 'Las ventas, día a día',
+
+    # ---- la cola: volver a entrar, reintentar, tirar
+    "off.login_again": "Hay que volver a entrar: lo apuntado sigue aquí y se manda solo en cuanto entres.",
+    "off.resend": "Volver a mandar",
+    "off.discard": "Tirar",
 }
 
 
@@ -1510,6 +1515,11 @@ EN = {
     "trace.trim_kg": 'Kept as trim',
     "trace.went_to": 'Where it went',
     "trace.sale_days": 'The sales, day by day',
+
+    # ---- la cola: volver a entrar, reintentar, tirar
+    "off.login_again": "You have to sign in again: what you noted is still here and goes on its own once you do.",
+    "off.resend": "Send again",
+    "off.discard": "Discard",
 }
 
 
@@ -2197,6 +2207,11 @@ FR = {
     "trace.trim_kg": 'Récupéré',
     "trace.went_to": 'Où elle est allée',
     "trace.sale_days": 'Les ventes, jour par jour',
+
+    # ---- la cola: volver a entrar, reintentar, tirar
+    "off.login_again": "Il faut se reconnecter : ce qui est noté reste ici et part tout seul dès que tu entres.",
+    "off.resend": "Renvoyer",
+    "off.discard": "Jeter",
 }
 
 
@@ -2884,6 +2899,11 @@ DE = {
     "trace.trim_kg": 'Verwertet',
     "trace.went_to": 'Wohin es ging',
     "trace.sale_days": 'Die Verkäufe, Tag für Tag',
+
+    # ---- la cola: volver a entrar, reintentar, tirar
+    "off.login_again": "Du musst dich neu anmelden: Das Notierte bleibt hier und geht von allein raus, sobald du drin bist.",
+    "off.resend": "Nochmal senden",
+    "off.discard": "Verwerfen",
 }
 
 
@@ -3571,6 +3591,11 @@ NL = {
     "trace.trim_kg": 'Benut',
     "trace.went_to": 'Waar het heen is gegaan',
     "trace.sale_days": 'De verkopen, dag voor dag',
+
+    # ---- la cola: volver a entrar, reintentar, tirar
+    "off.login_again": "Je moet opnieuw inloggen: wat je noteerde staat er nog en gaat vanzelf weg zodra je binnen bent.",
+    "off.resend": "Opnieuw versturen",
+    "off.discard": "Weggooien",
 }
 
 
@@ -4258,6 +4283,11 @@ AR = {
     "trace.trim_kg": 'مستفاد منه',
     "trace.went_to": 'إلى أين ذهب',
     "trace.sale_days": 'المبيعات، يوماً بيوم',
+
+    # ---- la cola: volver a entrar, reintentar, tirar
+    "off.login_again": "عليك تسجيل الدخول من جديد: ما سجّلته باقٍ هنا ويُرسَل وحده بمجرد دخولك.",
+    "off.resend": "إعادة الإرسال",
+    "off.discard": "تجاهل",
 }
 
 
@@ -4933,6 +4963,11 @@ HU = {
     "trace.trim_kg": 'Hasznosítva',
     "trace.went_to": 'Hová került',
     "trace.sale_days": 'Az eladások, naponként',
+
+    # ---- la cola: volver a entrar, reintentar, tirar
+    "off.login_again": "Újra be kell lépned: amit felírtál, itt marad, és magától elmegy, amint belépsz.",
+    "off.resend": "Újraküldés",
+    "off.discard": "Eldobás",
 }
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

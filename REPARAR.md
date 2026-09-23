@@ -37,10 +37,10 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 
 ## 2. La cámara sin cobertura, que es para lo que se vende esto
 
-- [ ] **La cola da por enviado lo que no se guardó.** `base.html:963`: el
+- [x] **La cola da por enviado lo que no se guardó.** `base.html:963`: el
       `fetch` sigue el 303 a `/login` y devuelve 200, así que se borra el
       apunte y se canta «enviado». Igual con la casa bloqueada por impago.
-- [ ] **Un solo rechazo congela la cola para siempre.** `base.html:949`. Un 403
+- [x] **Un solo rechazo congela la cola para siempre.** `base.html:949`. Un 403
       de CSRF —móvil compartido entre turnos— y todo lo que se apunte detrás se
       queda dentro del teléfono. La única salida es borrarlo todo.
 - [ ] **La cola solo se enciende si `navigator.onLine` es falso**, que es justo
@@ -123,6 +123,11 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 ---
 
 ## Ya reparado
+
+- [x] **Que la cola no mienta**, y el token se coja al mandar y no al apuntar:
+      con eso el rechazo por token viejo —el más frecuente— deja de existir.
+      Y la llave contra duplicados va ya en todos los formularios, con red y
+      sin ella. `tests/test_cola.py`.
 
 - [x] **Las siete del bloque 1**, y con ellas `tests/test_puertas.py`: nueve
       pruebas que no comprueban que el manager pueda, sino **que el de al lado

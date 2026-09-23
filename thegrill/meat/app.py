@@ -91,14 +91,29 @@ def lang_for(request: Request, session: Session | None = None, user: User | None
                         restaurant_lang=restaurant_lang)
 
 
+# La cola del teléfono manda esta cabecera en todo lo que reenvía. A ella hay
+# que contestarle con un número, no con una redirección: un `fetch` sigue la
+# redirección solo, recibe el 200 de la pantalla de entrar y da por guardado lo
+# que no se guardó. Así se perdían recuentos enteros sin que nadie se enterara.
+CABECERA_COLA = "x-cola"
+
+
+def _de_la_cola(request: Request) -> bool:
+    return request.headers.get(CABECERA_COLA) == "1"
+
+
 def require_user(request: Request, session: Session = Depends(get_db)):
     found = current(request, session)
     if found is None:
+        if _de_la_cola(request):
+            raise HTTPException(status_code=401, detail="")
         raise HTTPException(status_code=303, headers={"Location": "/login"})
     user, _ = found
     restaurant = session.get(Restaurant, user.restaurant_id)
     # Una cuenta bloqueada no trabaja. Se puede entrar, ver por qué y salir.
     if restaurant is not None and restaurant.blocked and user.role != Role.OWNER:
+        if _de_la_cola(request):
+            raise HTTPException(status_code=402, detail="")
         raise HTTPException(status_code=303, headers={"Location": "/cuenta"})
     return found
 
@@ -228,6 +243,33 @@ def _num(raw: str | None, default: float | None = None) -> float | None:
     if raw is None or not str(raw).strip():
         return default
     return float(str(raw).replace(",", "."))
+
+
+@app.middleware("http")
+async def respuestas_para_la_cola(request: Request, call_next):
+    """A la cola del teléfono se le contesta con números, no con redirecciones.
+
+    Casi todas las rutas acaban en un 303 a la pantalla siguiente, que es lo
+    correcto para un navegador. Para un `fetch` es un problema: si lo sigue,
+    recibe el 200 de la pantalla de destino —también cuando ese destino es la
+    de entrar— y no hay manera de distinguir «guardado» de «tu sesión ha
+    caducado». Y si no lo sigue, el navegador devuelve una respuesta opaca sin
+    cabeceras, así que tampoco se puede mirar adónde iba.
+
+    Se resuelve aquí, una vez, y no en cada ruta: al que manda la cabecera de
+    la cola se le traduce el 303 a un número que dice lo que pasó. Un 204 es
+    «hecho, no hay nada que enseñar»; el 401 y el 402, «vuelve a entrar» y «la
+    casa está bloqueada».
+    """
+    response = await call_next(request)
+    if not _de_la_cola(request) or response.status_code not in (302, 303, 307):
+        return response
+    destino = response.headers.get("location", "")
+    if destino.startswith("/login"):
+        return Response(status_code=401)
+    if destino.startswith("/cuenta"):
+        return Response(status_code=402)
+    return Response(status_code=204)
 
 
 @app.middleware("http")
