@@ -28,7 +28,7 @@ from thegrill.models import (Despiece, DespieceCut, DespiecePrimal, IngredientIt
                              IngredientLot, IngredientMovement, MovementKind, Primal,
                              PrimalStatus, Storage, User)
 from thegrill.rules import TGInput, validate_tg
-from thegrill.web import locking
+from thegrill.web import exacto, locking
 
 EPSILON = 1e-9
 MAX_CUTS_PER_PRIMAL = 10      # lo que sale de un primal en la práctica
@@ -128,17 +128,30 @@ def allocate(cuts: list[DespieceCut], total_cost: float) -> list[Allocation]:
     """Reparte el coste del primal entre lo aprovechable, por kg × valor.
 
     La merma no entra en el reparto: su coste lo absorben los cortes.
+
+    El reparto es **exacto al céntimo**: la suma de lo que se le asigna a cada
+    corte es idéntica al coste de la pieza, no parecida. Se hace en céntimos
+    enteros y lo que sobra se reparte por resto mayor (ver `exacto.py`).
+    Dividiendo en coma flotante y redondeando cada parte por su lado, la suma
+    fallaba por unas millonésimas: nada en una pieza, y un cuadre que no sale
+    al cabo de cien mil.
+
+    El precio por kilo que sale de aquí es un **derivado**: 100 € entre 3 kg
+    son 33,333… y eso no es exacto en ninguna representación. La verdad es el
+    coste; el precio por kilo se calcula para enseñarlo y para valorar, pero
+    quien quiera reconstruir el total tiene que sumar los costes, no
+    multiplicar los kilos por su precio.
     """
     usable = [c for c in cuts if c.total_kg > EPSILON]
     total_weight = sum(c.total_kg * (c.value_index or 1.0) for c in usable)
     if total_weight <= EPSILON:
         raise ButcheryError("El despiece no tiene cortes con peso: no hay entre qué repartir")
 
+    pesos = [c.total_kg * (c.value_index or 1.0) for c in usable]
+    costes = exacto.repartir_dinero(total_cost, pesos)
     out = []
-    for cut in usable:
-        weight = cut.total_kg * (cut.value_index or 1.0)
-        cost = round(total_cost * weight / total_weight, 6)
-        out.append(Allocation(cut=cut, kg=cut.total_kg, weight=round(weight, 6), cost=cost,
+    for cut, peso, cost in zip(usable, pesos, costes):
+        out.append(Allocation(cut=cut, kg=cut.total_kg, weight=round(peso, 6), cost=cost,
                               unit_cost=round(cost / cut.total_kg, 6)))
     return out
 
@@ -406,7 +419,7 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
     """
     from thegrill.models import (ConsumptionMode, DefrostEntry, DefrostKind, Ingredient,
                                  PrimalPar)
-    from thegrill.web import costing, sites
+    from thegrill.web import costing, exacto, sites
     on = on or date.today()
     result = MeatStatus(date=on)
     principal = sites.main(session, restaurant_id).id if site_id else None

@@ -292,7 +292,7 @@ def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: st
             received_date=received, site_id=destino.id,
             chamber=(chamber or "").strip()[:48] or None,
             landed_usd_per_kg=row.price_kg,
-            piece_cost_usd=round(row.kg * row.price_kg, 4) if row.price_kg else None,
+            piece_cost_usd=round(row.kg * row.price_kg, 2) if row.price_kg else None,
             frozen_use_by=row.use_by, status=PrimalStatus.IN_STOCK,
             supplier_lot=(row.supplier_lot or None),
             producer_plant=(row.producer_plant or None),
@@ -374,7 +374,9 @@ def set_price(session: Session, user: User, serial: str, price_kg: float,
     if price_kg is None or price_kg <= 0:
         raise MeatError(t(lang, "m.rec.price_needed", serial=pieza.serial))
     pieza.landed_usd_per_kg = float(price_kg)
-    pieza.piece_cost_usd = round((pieza.received_kg or pieza.weight_kg or 0.0) * price_kg, 4)
+    # Al céntimo, como la factura: si la pieza arrastra milésimas, todo
+    # lo que se reparta luego a partir de ella las arrastra también.
+    pieza.piece_cost_usd = round((pieza.received_kg or pieza.weight_kg or 0.0) * price_kg, 2)
     session.flush()
     return pieza
 

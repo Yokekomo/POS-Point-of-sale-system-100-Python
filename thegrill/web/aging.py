@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Alert, AlertSeverity, AuditLog, IngredientItem, IngredientLot,
                              IngredientMovement, LossKind, MovementKind, Primal,
                              PrimalStatus, PrimalWeighing, Storage, User, WeightSale)
-from thegrill.web import service, sites
+from thegrill.web import exacto, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -544,16 +544,35 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
     before_per_kg = cost_per_kg(primal)
     whole = total_cost(primal)
     kept_cost = 0.0
+    lotes = []
     for part in parts:
         lot = _keep_trim(session, user, primal, part.kg, part.item_id,
                          value_index=part.value_index, use_by=use_by, on=on)
         part.serial = lot.serial
-        part.cost = round(lot.qty * lot.unit_cost, 6)
-        kept_cost = round(kept_cost + part.cost, 6)
+        lotes.append(lot)
+
+    # Lo que se llevan los recortes se reparte en céntimos enteros, y lo que
+    # queda en la pieza es el resto exacto. Calculando cada parte por su lado
+    # —kilos por precio por índice— y restando, la pieza se quedaba con unas
+    # milésimas de más o de menos que ya no cuadraban con nada.
+    if whole is not None and lotes:
+        objetivo = min(round(whole, 2),
+                       round(sum(l.qty * l.unit_cost for l in lotes), 2))
+        trozos = exacto.repartir_dinero(objetivo, [l.qty * l.unit_cost for l in lotes])
+        for part, lot, cost in zip(parts, lotes, trozos):
+            part.cost = cost
+            lot.unit_cost = round(cost / lot.qty, 6) if lot.qty > EPSILON else 0.0
+            for mv in session.query(IngredientMovement).filter_by(lot_id=lot.id):
+                mv.cost = cost
+        kept_cost = round(sum(trozos), 2)
+    else:
+        for part, lot in zip(parts, lotes):
+            part.cost = round(lot.qty * lot.unit_cost, 6)
+            kept_cost = round(kept_cost + part.cost, 6)
 
     primal.weight_kg = round(previous - removed_kg, 6)
     if whole is not None:
-        primal.piece_cost_usd = round(max(0.0, whole - kept_cost), 6)
+        primal.piece_cost_usd = round(max(0.0, round(whole, 2) - kept_cost), 2)
         primal.landed_usd_per_kg = (round(primal.piece_cost_usd / primal.weight_kg, 6)
                                     if primal.weight_kg > EPSILON else None)
     session.add(PrimalWeighing(
