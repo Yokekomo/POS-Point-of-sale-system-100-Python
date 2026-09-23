@@ -2,6 +2,9 @@ __pycache__/
 *.pyc
 .pytest_cache/
 thegrill.db
+# Y los dos ficheros que SQLite deja al lado en modo WAL.
+thegrill.db-wal
+thegrill.db-shm
 backups/
 reports_out/
 .wa_session.lock
