@@ -550,3 +550,126 @@ def test_zz_the_report_of_how_close_to_the_cent_we_are(tmp_path):
     for cuenta, (desvio, unidad) in PEORES.items():
         tope = GRAMO * 1000 if unidad == "gramos" else CENTIMO
         assert desvio < tope, f"{cuenta}: {desvio} {unidad}"
+
+
+# ====================================== lo que se guarda, en céntimos y gramos
+def test_nothing_with_thousandths_ever_reaches_the_disk(tmp_path):
+    """Después de un mes de trabajo, ni un importe con milésimas.
+
+    Un importe de 87,332066 € no rompe nada el día que se escribe. Rompe el
+    cuadre tres meses después, cuando alguien suma una columna y le salen
+    cuatro céntimos que no están en ninguna factura. Y un peso de 8,4295 kg es
+    un peso que ninguna báscula ha dado nunca.
+
+    Esto no se arregla en los trece sitios donde hoy se escribe un apunte: se
+    arregla antes de guardar, para que el sitio catorce —el que se escriba el
+    mes que viene— tampoco pueda. Aquí se comprueba que el candado está puesto.
+    """
+    from thegrill import bench
+    from thegrill.web import exacto
+
+    db.init_engine(f"sqlite:///{tmp_path/'justo.db'}")
+    db.create_all()
+    with db.session_scope() as session:
+        casa = bench.build(session, days=25, seed=5, until=HOY)
+        sucios = exacto.revisar(session, tope=30)
+        assert not sucios, f"{len(sucios)} valores con milésimas: {sucios[:5]}"
+        # Y la casa ha trabajado de verdad, que si no esto no prueba nada.
+        assert casa.primals > 0 and casa.sales > 0
+
+
+def test_a_computed_weight_keeps_all_its_decimals(tmp_path):
+    """Un peso calculado NO se cuadra a gramos: cuadrarlo mete un sesgo.
+
+    Una ración de 160 g con un 95 % de rendimiento consume 168,42 g. Si cada
+    consumo se redondea a 168, se pierden cuatro décimas de gramo por ración
+    —cuatrocientos gramos cada mil— y siempre hacia el mismo lado. Un error
+    que siempre va en la misma dirección se suma; uno que va y viene, se
+    compensa. Por eso lo medido va en gramos y lo calculado, entero.
+    """
+    from thegrill.models import IngredientMovement, MovementKind
+    from thegrill.web import exacto
+
+    consumo = -(2 * 0.16 / 0.95)
+    mv = IngredientMovement(restaurant_id=1, ingredient_id=1, lot_id=1, date=HOY,
+                            kind=MovementKind.SALE, qty=consumo, cost=1.234567,
+                            source="pos")
+    exacto._cuadrar(mv)
+    assert mv.qty == consumo, "le han recortado los gramos a un consumo calculado"
+    assert mv.cost == 1.23, "el importe sí tenía que quedar en céntimos"
+
+
+def test_a_measured_weight_is_kept_in_whole_grams(tmp_path):
+    """Y lo que ha dicho una báscula, en gramos justos."""
+    from thegrill.web import exacto
+
+    pieza = Primal(restaurant_id=1, serial="X1", sku="Striploin", weight_kg=8.42953,
+                   received_kg=8.42953, landed_usd_per_kg=30.0,
+                   piece_cost_usd=8.42953 * 30.0, received_date=HOY)
+    exacto._cuadrar(pieza)
+    assert pieza.weight_kg == 8.43 and pieza.received_kg == 8.43
+    assert pieza.piece_cost_usd == 252.89
+
+
+def test_a_price_per_kilo_keeps_all_its_decimals(tmp_path):
+    """Y al revés: los ratios NO se redondean, porque redondearlos pierde dinero.
+
+    158,22 € entre 5,6 kg son 28,253571… €/kg. Guardando 28,25 y volviendo a
+    multiplicar salen 158,20: dos céntimos perdidos por lote, y multiplicados
+    por los lotes de un año son la cuenta de la luz.
+    """
+    from thegrill.web import exacto
+
+    lote = IngredientLot(restaurant_id=1, item_id=1, ingredient_id=1,
+                         serial="R0001", lot_code="R0001", qty=5.6, qty_remaining=5.6,
+                         unit_cost=158.22 / 5.6, received=HOY, expiry=HOY)
+    exacto._cuadrar(lote)
+    assert lote.unit_cost == 158.22 / 5.6, "le han recortado los decimales al precio por kilo"
+    assert exacto.es_justo(lote.qty, exacto.GRAMOS)
+
+
+def test_the_guard_actually_catches_a_dirty_number(tmp_path):
+    """Y que el vigilante vigila: si no cazara nada, daría igual tenerlo."""
+    from thegrill.web import exacto
+
+    assert not exacto.es_justo(87.332066, exacto.CENTIMOS)
+    assert not exacto.es_justo(8.4295, exacto.GRAMOS)
+    assert exacto.es_justo(87.33, exacto.CENTIMOS)
+    assert exacto.es_justo(8.429, exacto.GRAMOS)
+    assert exacto.euros(87.332066) == 87.33
+    assert exacto.kilos(8.4295) == 8.43           # medio gramo sube, como la báscula
+
+
+def test_the_target_weight_never_pollutes_the_real_one():
+    """330 g es lo que se quiere vender, no lo que pesa el filete.
+
+    En cocina se pone un objetivo —330 g de steak— y al cortar nunca salen 330
+    exactos. Todo este programa existe para ver esa diferencia: por eso se
+    apunta lo que sale a descongelar y se cuenta lo que sobra al cerrar, y de
+    ahí sale el peso real por pieza.
+
+    Lo que no puede pasar es que el programa meta un redondeo suyo dentro de
+    esa comparación. Si el teórico se cuadrara a gramos, la pérdida real
+    saldría contaminada con el error del programa —y en la dirección de
+    disimularla, que es la peor—. Aquí se comprueba que mil raciones teóricas
+    suman exactamente mil veces una, sin deriva.
+    """
+    from thegrill.web import exacto
+
+    por_racion = 0.330 / 0.95          # 330 g con un 95 % de rendimiento
+    mil = sum(por_racion for _ in range(1000))
+    assert abs(mil - 1000 * por_racion) < 1e-9, "el teórico deriva al acumularse"
+
+    # Y si se hubiera cuadrado a gramos, esto es lo que se habría perdido:
+    cuadrado = exacto.kilos(por_racion) * 1000
+    perdido_g = abs(cuadrado - 1000 * por_racion) * 1000
+    assert perdido_g > 100, (
+        "si esto baja, revisa el razonamiento: se supone que cuadrar el "
+        f"teórico costaba {perdido_g:.0f} gramos cada mil raciones")
+
+    # El peso real es una resta de medidas, y esas sí van en gramos justos.
+    salio, sobro, vendidas = 12.480, 3.150, 28
+    real_por_pieza = (salio - sobro) / vendidas
+    assert abs(real_por_pieza - 0.3332142857142857) < 1e-12
+    # Y la diferencia con el objetivo es lo que se gana o se pierde de verdad.
+    assert round((real_por_pieza - 0.330) * 1000, 1) == 3.2

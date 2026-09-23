@@ -26,6 +26,10 @@ def init_engine(database_url: str = "sqlite:///thegrill.db"):
     if database_url.startswith("sqlite"):
         event.listen(_engine, "connect", _sqlite_ready)
     _SessionFactory = sessionmaker(bind=_engine, expire_on_commit=False, class_=Session)
+    # Ningún importe con milésimas ni ningún peso con miligramos llega al
+    # disco. Se engancha aquí, que es por donde pasa todo lo que se guarda.
+    from thegrill.web import exacto
+    exacto.enganchar(Session)
     return _engine
 
 
