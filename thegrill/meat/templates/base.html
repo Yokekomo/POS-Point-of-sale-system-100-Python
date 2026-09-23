@@ -54,7 +54,9 @@ h1{font-size:22px;margin:0 0 4px;letter-spacing:-.02em}
 h2{font-size:17px;margin:28px 0 10px;letter-spacing:-.01em}
 p.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
-.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+/* Aire entre recuadros: con doce píxeles se tocan y cinco números seguidos se
+   leen como una mancha en vez de como cinco cosas distintas. */
+.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
 /* ==================================== fichas de acción, una detrás de otra
    Mover una pieza, pesarla, limpiarla, venderla al peso: cada una es un
    formulario entero. Puestas en columnas se quedan estrechas y se estropean
@@ -76,8 +78,15 @@ p.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
    Solo donde hay un nombre encima de un hueco: la misma rejilla se usa para
    los recuadros de cifras, y ahí bajarlo todo al suelo dejaría los números
    flotando. Un navegador que no entienda `:has` se queda como estaba. */
-.grid > div:has(> label){display:flex;flex-direction:column;justify-content:flex-end}
-.grid > div:has(> label) > label{margin-bottom:auto}
+.grid > div:has(> label){display:flex;flex-direction:column}
+/* El nombre de cada hueco ocupa dos líneas aunque use una sola, y se apoya en
+   el suelo de las dos: así los huecos de escribir arrancan todos a la misma
+   altura, lleve el de al lado un nombre largo —«Temperatura al recibir
+   (°C)»— o corto. Antes se empujaba el contenido al suelo de la fila, y
+   bastaba con que un hueco llevara una línea de ayuda debajo para que ese
+   subiera y la fila saliera torcida. */
+.grid > div:has(> label) > label{min-height:2.7em;margin-top:14px;
+  display:flex;align-items:flex-end}
 .tile{display:block;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   padding:16px;text-decoration:none;color:inherit}
 .tile:hover{border-color:var(--accent)}

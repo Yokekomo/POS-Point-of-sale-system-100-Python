@@ -51,6 +51,8 @@
 </div>
 <p class="muted">{{ t("team.note") }}</p>
 <p class="help">{{ t("pass.reset_help") }}</p>
+{# Por qué no hay una columna que enseñe la contraseña de cada uno. #}
+<p class="help">{{ t("pass.no_peek") }}</p>
 {% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 
@@ -81,4 +83,28 @@
     {% for r in roles %}<li><b>{{ t("role." ~ r.value) }}</b> — {{ t("role.help." ~ r.value) }}</li>{% endfor %}
   </ul>
 </div>
+
+<script nonce="{{ nonce }}">
+// Una contraseña que se pueda dictar por teléfono sin deletrear: dos trozos
+// que se leen y cuatro cifras. La inventa el navegador, así que no viaja a
+// ninguna parte hasta que se guarda, y se queda a la vista para dictarla.
+(function () {
+  var TROZOS = ["bara", "mesa", "lomo", "sal", "brasa", "cava", "roca", "pino",
+                "nube", "faro", "vela", "rama", "duna", "olmo"];
+  function inventar() {
+    var azar = new Uint32Array(3);
+    crypto.getRandomValues(azar);
+    return TROZOS[azar[0] % TROZOS.length] + "-" + TROZOS[azar[1] % TROZOS.length]
+           + "-" + (azar[2] % 9000 + 1000);
+  }
+  document.querySelectorAll("button.dame").forEach(function (boton) {
+    boton.addEventListener("click", function () {
+      var hueco = boton.form.querySelector("input[name=password]");
+      hueco.value = inventar();
+      hueco.focus();
+      hueco.select();
+    });
+  });
+})();
+</script>
 {% endblock %}

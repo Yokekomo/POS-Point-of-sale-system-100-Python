@@ -566,7 +566,7 @@ def test_every_money_figure_says_which_money_it_is(client):
 
     assert '<span class="uni">£</span></b><span>Valor en cámara</span>' in ana.get("/hoy").text
     # En una columna el símbolo va una vez, en su nombre, y no en cada fila.
-    assert "Coste por kilo (£)" in ana.get("/maduracion").text
+    assert "Valor (£)" in ana.get("/maduracion").text
     assert "Precio por kilo (£/kg)" in ana.get("/recepcion").text
     with db.session_scope() as s:
         rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()

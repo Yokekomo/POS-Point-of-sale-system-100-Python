@@ -87,7 +87,7 @@
 
 <h2>{{ t("m.ag.title") }}</h2>
 <p class="help">{{ t("m.ag.sub") }}</p>
-<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+<div class="grid">
   <div class="kpi"><b>{{ summary.aging_pieces }}</b><span>{{ t("m.ag.aging") }}</span>
     <div class="muted">{{ "%.1f"|format(summary.aging_kg) }} kg</div></div>
   <div class="kpi"><b>{{ summary.frozen_pieces }}</b><span>{{ t("m.ag.frozen") }}</span>
@@ -109,36 +109,43 @@
 {% if rows %}
 <div class="card scroll">
 <table>
-<tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.rec.sku") }}</th><th>{{ t("m.ag.where") }}</th>
-    <th class="num">{{ t("m.ag.days") }}</th><th class="num">{{ t("m.ag.start_kg") }}</th>
-    <th class="num">{{ t("m.ag.now_kg") }}</th><th class="num">{{ t("m.ag.lost") }}</th>
-    <th class="num">{{ t("m.ag.trim") }}</th><th class="num">{{ t("m.ag.sold_kg") }}</th>
+{# Trece columnas no caben en una pantalla, y lo que no cabe se mira con la
+   barra de abajo o no se mira. Lo que va junto se enseña junto: los dos pesos
+   en una columna, el agua y el cuchillo en otra, y el dinero en la suya. #}
+<tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.ag.where") }}</th>
+    <th class="num">{{ t("m.ag.days") }}</th>
+    <th class="num">{{ t("m.ag.now_kg") }}</th>
+    <th class="num">{{ t("m.ag.gone") }}</th>
     <th class="num">{{ t("m.ag.yield") }}</th>
-    {% if can("money") %}<th class="num">{{ t("m.ag.per_kg") }} ({{ moneda }})</th>
-    <th class="num">{{ t("inv.value") }} ({{ moneda }})</th>{% endif %}
+    {% if can("money") %}<th class="num">{{ t("m.ag.money") }} ({{ moneda }})</th>{% endif %}
     <th>{{ t("ing.expiry") }}</th></tr>
 {% for r in rows %}
 <tr>
-  <td><b>{{ r.serial }}</b>{% if r.grade %}<div class="muted">{{ r.grade }}</div>{% endif %}</td>
-  <td>{{ r.sku }}</td>
+  <td><b>{{ r.serial }}</b><div class="muted">{{ r.sku }}{% if r.grade %} ·
+      {{ r.grade }}{% endif %}</div></td>
   <td>{{ t("m.st." ~ r.storage.value) }}
       {% if r.since %}<div class="muted">{{ r.since }}</div>{% endif %}</td>
   <td class="num">{{ r.days }}
       {% if r.target_days %}<div class="muted">
         {% if r.ready %}{{ t("m.ag.is_ready") }}{% else %}{{ t("m.ag.days_left", n=r.days_left) }}{% endif %}
       </div>{% endif %}</td>
-  <td class="num">{% if r.start_kg %}{{ "%.3f"|format(r.start_kg) }}{% endif %}</td>
-  <td class="num">{{ "%.3f"|format(r.kg) }}</td>
+  {# Lo que pesa hoy manda; lo que pesaba al entrar va debajo, que es contra
+     lo que se lee la pérdida. #}
+  <td class="num">{{ "%.3f"|format(r.kg) }}
+      {% if r.start_kg %}<div class="muted">{{ t("m.ag.from_kg",
+        kg="%.3f"|format(r.start_kg)) }}</div>{% endif %}</td>
+  {# El agua y el cuchillo son dos maneras de perder kilos y se leen juntas. #}
   <td class="num">{% if r.loss_kg %}-{{ "%.3f"|format(r.loss_kg) }}
-      <div class="muted">{{ "%.1f"|format(r.loss_pct) }} %</div>{% endif %}</td>
-  <td class="num">{% if r.trim_kg %}-{{ "%.3f"|format(r.trim_kg) }}
-      {% if r.trim_kept_kg %}<div class="muted">{{ "%.1f"|format(r.trim_kept_kg) }} {{ t("m.tg.trim")|lower }}</div>{% endif %}{% endif %}</td>
-  <td class="num">{% if r.sold_kg %}{{ "%.3f"|format(r.sold_kg) }}{% endif %}</td>
+      <span class="muted">{{ "%.1f"|format(r.loss_pct) }} %</span>{% endif %}
+      {% if r.trim_kg %}<div class="muted">-{{ "%.3f"|format(r.trim_kg) }}
+        {{ t("m.ag.trim")|lower }}{% if r.trim_kept_kg %} ·
+        {{ "%.1f"|format(r.trim_kept_kg) }} {{ t("m.tg.trim")|lower }}{% endif %}</div>{% endif %}</td>
   <td class="num">{% if r.yield_pct is not none %}{{ "%.0f"|format(r.yield_pct) }} %
-      <div class="muted">{{ "%.1f"|format(r.received_kg) }} kg</div>{% endif %}</td>
+      <div class="muted">{{ "%.1f"|format(r.received_kg) }} kg{% if r.sold_kg %} ·
+        {{ "%.1f"|format(r.sold_kg) }} {{ t("m.ag.sold_kg")|lower }}{% endif %}</div>{% endif %}</td>
   {% if can("money") %}
-  <td class="num">{% if r.cost_per_kg %}{{ "%.2f"|format(r.cost_per_kg) }}{% endif %}</td>
-  <td class="num">{% if r.value %}{{ "%.2f"|format(r.value) }}{% endif %}</td>
+  <td class="num">{% if r.value %}{{ "%.2f"|format(r.value) }}{% endif %}
+      {% if r.cost_per_kg %}<div class="muted">{{ "%.2f"|format(r.cost_per_kg) }} / kg</div>{% endif %}</td>
   {% endif %}
   <td>{{ r.use_by or "" }}
       {% if r.last_weighed %}<div class="muted">{{ t("m.ag.weighed_on", date=r.last_weighed) }}</div>{% endif %}</td>
