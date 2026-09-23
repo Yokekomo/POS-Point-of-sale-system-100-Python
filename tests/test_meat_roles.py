@@ -663,8 +663,10 @@ def test_the_menu_is_ordered_by_where_the_meat_goes(client):
     # enterrada entre el inventario y el parte del día.
     assert bajo("La carne") == ["/maduracion", "/carne", "/traslados",
                                 "/trazabilidad"]
+    # El cuadre va entre las ventas y el parte: se abre el día que el mes no
+    # sale, que es cuando ya se está mirando el inventario y lo vendido.
     assert bajo("Los números") == ["/inventario", "/recepcion/precios",
-                                   "/ventas", "/parte"]
+                                   "/ventas", "/cuadre", "/parte"]
     assert bajo("Catálogo") == ["/cortes", "/carta", "/ingredientes"]
 
     # «Alertas» y «Avisos» eran la misma palabra dos veces en el mismo menú.

@@ -1,0 +1,104 @@
+{% extends "base.html" %}{% block title %}{{ t("m.cu.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("m.cu.title") }}</h1>
+<p class="sub">{{ t("m.cu.sub") }}</p>
+
+{# 1. El residuo. Lo primero y lo más grande, porque es la pregunta con la que
+   se entra aquí: «¿dónde están los kilos que faltan?». #}
+<div class="card" data-tour="residuo">
+  <h2>{{ t("m.cu.gap_title") }}</h2>
+  <p class="help">{{ t("m.cu.gap_help") }}</p>
+  <div class="kpis">
+    <div class="kpi"><b>{{ "%.1f"|format(numeros.sin_explicar_kg) }}<span class="uni">kg</span></b>
+      <span>{{ t("m.cu.gap_kg") }}</span></div>
+    {% if can("money") %}
+    <div class="kpi"><b><span class="uni">{{ moneda }}</span>{{ "%.0f"|format(numeros.sin_explicar_eur|abs) }}</b>
+      <span>{{ t("m.cu.gap_money") }}</span></div>
+    {% endif %}
+    <div class="kpi"><b>{{ numeros.peores|length }}</b>
+      <span>{{ t("m.cu.gap_items") }}</span></div>
+  </div>
+
+  {% if numeros.peores %}
+  <div class="scroll">
+    <table>
+      <tr><th>{{ t("m.cu.item") }}</th>
+        <th class="num">{{ t("m.cu.in") }}</th>
+        <th class="num">{{ t("m.cu.sold") }}</th>
+        <th class="num">{{ t("m.cu.wasted") }}</th>
+        <th class="num">{{ t("m.cu.moved") }}</th>
+        <th class="num">{{ t("m.cu.gap_kg") }}</th>
+        <th class="num">%</th></tr>
+      {% for l in numeros.peores[:25] %}
+      <tr>
+        <td>{{ l.nombre }}</td>
+        <td class="num">{{ "%.1f"|format(l.entrado_kg) }}</td>
+        <td class="num">{{ "%.1f"|format(l.vendido_kg) }}</td>
+        <td class="num">{{ "%.1f"|format(l.tirado_kg) }}</td>
+        <td class="num">{{ "%.1f"|format(l.movido_kg + l.elaborado_kg) }}</td>
+        <td class="num"><span class="tag {{ 'bad' if l.ajustado_kg < -0.005 else 'warn' }}">
+          {{ "%.2f"|format(l.ajustado_kg) }}</span></td>
+        <td class="num">{% if l.parte is not none %}{{ l.parte }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">{{ t("m.cu.gap_none") }}</p>
+  {% endif %}
+</div>
+
+{# 2. La banda. Lo normal para cada corte EN ESTA CASA: un umbral redondo
+   traído de fuera no vale para nadie. #}
+<div class="card" data-tour="banda">
+  <h2>{{ t("m.cu.band_title") }}</h2>
+  <p class="help">{{ t("m.cu.band_help") }}</p>
+  {% if bandas %}
+  <div class="scroll">
+    <table>
+      <tr><th>{{ t("m.cu.cut") }}</th>
+        <th class="num">{{ t("m.cu.band_n") }}</th>
+        <th class="num">{{ t("m.cu.band_median") }}</th>
+        <th class="num">{{ t("m.cu.band_range") }}</th></tr>
+      {% for b in bandas[:20] %}
+      <tr><td>{{ b.que }}</td>
+        <td class="num">{{ b.n }}</td>
+        <td class="num">{{ "%.2f"|format(b.mediana) }} kg</td>
+        <td class="num">{{ "%.2f"|format(b.bajo if b.bajo > 0 else 0) }} – {{ "%.2f"|format(b.alto) }} kg</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">{{ t("m.cu.band_none") }}</p>
+  {% endif %}
+</div>
+
+{# 3. El dedo. Va al final y con su explicación delante: es un número, no una
+   acusación, y leído sin contexto hace daño. #}
+<div class="card" data-tour="dedo">
+  <h2>{{ t("m.cu.finger_title") }}</h2>
+  <p class="help">{{ t("m.cu.finger_help") }}</p>
+  {# La advertencia va ANTES de la tabla y siempre, haya alguien a quien
+     juzgar o no: leída después ya no sirve de nada. #}
+  <p class="help">{{ t("m.cu.finger_fair") }}</p>
+  {% if dedos %}
+  <div class="scroll">
+    <table>
+      <tr><th>{{ t("m.cu.who") }}</th>
+        <th class="num">{{ t("m.cu.weighings") }}</th>
+        <th class="num">{{ t("m.cu.finger_round") }}</th>
+        <th>{{ t("m.cu.finger_verdict") }}</th></tr>
+      {% for d in dedos %}
+      <tr><td>{{ d.nombre }}</td>
+        <td class="num">{{ d.n }}</td>
+        <td class="num">{{ "%.0f"|format(d.redondos) }} %</td>
+        <td><span class="tag {{ 'ok' if d.veredicto == 'pesa' else ('warn' if d.veredicto == 'mira' else 'bad') }}">
+          {{ t("m.cu.finger." ~ d.veredicto) }}</span></td></tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">{{ t("m.cu.finger_none") }}</p>
+  {% endif %}
+</div>
+{% endblock %}

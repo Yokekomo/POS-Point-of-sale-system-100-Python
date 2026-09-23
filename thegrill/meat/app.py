@@ -34,7 +34,7 @@ from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, Cou
                              PrimalStatus, Recipe, RequestStatus, Restaurant, Role,
                              Rotation, Site, SiteKind, Storage, Unit, User)
 from thegrill.models import BugStatus
-from thegrill.web import (aging, auth, butchery, costing, defrost, i18n, inventory,
+from thegrill.web import (aging, auth, butchery, costing, cuadre, defrost, i18n, inventory,
                           money, pos_import, service, sites, tracing, twofactor,
                           waste)
 
@@ -2408,6 +2408,38 @@ def set_bug_status(report_id: int, request: Request, estado: str = Form(...),
     except bugs.BugError as e:
         raise HTTPException(status_code=404, detail=str(e)) from None
     return RedirectResponse("/admin/fallos", status_code=303)
+
+
+@app.get("/cuadre", response_class=HTMLResponse)
+def cuadre_page(request: Request, ctx=Depends(needs(perms.MONEY)),
+                session: Session = Depends(get_db), meses: str = "1"):
+    """El cuadre: los kilos que no se sabe dónde han ido, y por qué.
+
+    Es la pantalla que se abre cuando el mes no sale. Solo dirección: enseña
+    dinero y, en la última parte, dice quién pesa y quién calcula a ojo, que
+    no es algo que deba colgarse en el pase.
+    """
+    user, auth_session = ctx
+    hoy = date.today()
+    try:
+        cuantos = max(1, min(12, int(meses)))
+    except ValueError:
+        cuantos = 1
+    desde = (hoy.replace(day=1) - timedelta(days=31 * (cuantos - 1))).replace(day=1)
+    numeros = cuadre.cuadre(session, user.restaurant_id, desde, hoy)
+    bandas = [b for b in (cuadre.banda_del_corte(session, user.restaurant_id, sku)
+                          for sku in _cortes_de_la_casa(session, user.restaurant_id))
+              if b is not None]
+    return page(request, "cuadre.html", user, auth_session, session,
+                numeros=numeros, bandas=sorted(bandas, key=lambda b: -b.n),
+                dedos=cuadre.dedos(session, user.restaurant_id, desde, hoy),
+                desde=desde, hasta=hoy, meses=cuantos)
+
+
+def _cortes_de_la_casa(session: Session, restaurant_id: int) -> list[str]:
+    """Los cortes de primal que esta casa recibe, sin repetir."""
+    return sorted({p.sku for p in session.query(Primal)
+                   .filter_by(restaurant_id=restaurant_id) if p.sku})
 
 
 @app.get("/parte", response_class=HTMLResponse)

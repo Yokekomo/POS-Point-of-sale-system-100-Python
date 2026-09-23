@@ -72,8 +72,14 @@ def _una_tanda(argumentos) -> dict:
     for i in range(cuantas):
         indice = desde + i
         with db.session_scope() as session:
+            # Las sedes se reparten por bloques y no por pares. Con pares, la
+            # equivocación que hace falta un local —mandar una pieza y que
+            # nadie la toque— caía siempre en casas de una sola sede y no se
+            # podía meter nunca: salía «no cabía» en las mil casas y parecía
+            # probada cuando no se había probado.
             casa = bench.build(session, days=dias, seed=semilla * 100000 + indice,
-                               until=HOY, multisite=indice % 2 == 0, index=indice)
+                               until=HOY, index=indice,
+                               multisite=(indice // len(torpeza.CATALOGO)) % 2 == 0)
             nombre = casa.name or f"casa-{indice}"
             rotos.extend(f"{nombre}: {e}" for e in casa.errors[:3])
 

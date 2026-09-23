@@ -574,10 +574,13 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
   {# Lo que se cuadra: lo que hay contado, lo que costó, lo que se vendió y el
      parte que se cuelga. #}
   {% call grupo(t("m.nav.g_numbers"), ['/inventario', '/recepcion/precios',
-                                       '/ventas', '/parte'], sitio) %}
+                                       '/ventas', '/cuadre', '/parte'], sitio) %}
   {% if can("count") %}<a class="item {{ 'on' if aqui == '/inventario' }}" href="/inventario">{{ t("nav.inventory") }}</a>{% endif %}
   {% if can("money") %}<a class="item {{ 'on' if aqui == '/recepcion/precios' }}" href="/recepcion/precios">{{ t("m.price.nav") }}</a>{% endif %}
   {% if can("menu") %}<a class="item {{ 'on' if aqui == '/ventas' }}" href="/ventas">{{ t("nav.sales") }}</a>{% endif %}
+  {# El cuadre va aquí y no en «La casa»: se abre el día que el mes no sale,
+     que es justo cuando se está mirando el inventario y las ventas. #}
+  {% if can("money") %}<a class="item {{ 'on' if aqui == '/cuadre' }}" href="/cuadre">{{ t("m.nav.cuadre") }}</a>{% endif %}
   <a class="item {{ 'on' if aqui == '/parte' }}" href="/parte">{{ t("m.rp.title") }}</a>
   {% endcall %}
 
