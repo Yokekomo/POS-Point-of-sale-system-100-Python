@@ -97,6 +97,22 @@ def entra(page, base: str):
     page.fill("input[name=password]", "clave-larga-1")
     page.click("button[type=submit]")
     page.wait_for_url(f"{base}/hoy")
+    sin_tutorial()
+
+
+def sin_tutorial(email="ana0@banco.com"):
+    """Aquí se prueba la pantalla pequeña, no el tutorial de bienvenida.
+
+    Se da por visto antes de empezar, que es como está quien lleva una semana
+    trabajando. El tutorial tiene sus propias pruebas, en `test_tutorial.py`.
+    """
+    from thegrill.meat import tours, tutorial
+    from thegrill.models import User
+
+    with db.session_scope() as session:
+        persona = session.query(User).filter_by(email=email).one()
+        for pantalla in tours.TOURS:
+            tutorial.marcar(session, persona, pantalla)
 
 
 @pytest.fixture(scope="module")

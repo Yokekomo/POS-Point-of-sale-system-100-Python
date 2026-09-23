@@ -1239,6 +1239,29 @@ class GatewayEvent(Base):
     received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class TourVisto(TenantMixin, Base):
+    """Quién ha visto ya el tutorial de qué pantalla.
+
+    En el servidor y por persona, no en el navegador: en una cocina el móvil
+    y la tablet se comparten, y si la marca viviera en el aparato el primero
+    que entrara se llevaría el tutorial de todos y el segundo no vería
+    ninguno.
+
+    Se guarda la versión porque un tutorial que cambia tiene que volver a
+    salir: si se rehace una pantalla, quien ya la conocía necesita que le
+    cuenten lo nuevo.
+    """
+    __tablename__ = "tours_vistos"
+    __table_args__ = (UniqueConstraint("user_id", "pantalla", name="uq_tour_user_screen"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    pantalla: Mapped[str] = mapped_column(String(32), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    completo: Mapped[bool] = mapped_column(Boolean, default=True)   # falso: lo saltó
+    fecha: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Tarifa(Base):
     """El precio publicado, que se cambia desde la consola y no tocando el código.
 

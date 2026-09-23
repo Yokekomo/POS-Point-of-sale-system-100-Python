@@ -185,3 +185,35 @@ def test_a_database_from_before_two_people_at_once_gets_the_rule(tmp_path):
 
     assert "shift_closures.site_key" in añadidas
     assert "uq_shift_closure" in indices("shift_closures")
+
+
+def test_a_brand_new_table_appears_by_itself_on_a_house_that_is_working(tmp_path):
+    """El tutorial guarda quién lo ha visto en una tabla suya, que no existía.
+
+    Una casa que lleva meses trabajando no tiene esa tabla. No hay que hacer
+    nada: `create_all` —que es lo que corre al arrancar— la crea sola, y lo
+    que ya había dentro se queda como estaba.
+    """
+    from thegrill.meat import tutorial
+    from thegrill.models import TourVisto
+
+    db.init_engine(f"sqlite:///{tmp_path/'sin_tabla.db'}")
+    db.create_all()
+    with db.session_scope() as s:
+        rest, ana = auth.create_restaurant(s, "Asador", "ana@a.com", "Ana",
+                                           "clave-larga-1", language="es")
+        s.add(Primal(restaurant_id=rest.id, serial="8017", sku="Ribeye", weight_kg=9.0,
+                     landed_usd_per_kg=30.0, piece_cost_usd=270.0, received_date=HOY))
+        s.flush()
+    with db.session_scope() as s:
+        s.execute(text('DROP TABLE "tours_vistos"'))
+
+    db.create_all()          # esto es lo que hace el programa al arrancar
+    assert db.add_missing_columns() == []
+
+    with db.session_scope() as s:
+        persona = s.query(User).one()
+        tutorial.marcar(s, persona, "recepcion")
+        assert tutorial.visto(s, persona, "recepcion", 1)
+        assert s.query(TourVisto).count() == 1
+        assert s.query(Primal).one().serial == "8017"

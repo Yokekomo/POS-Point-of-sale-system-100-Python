@@ -98,11 +98,11 @@
       <input id="staff" name="staff"></div>
     <div><label for="before_kg">{{ t("m.tg.before_kg") }}</label>
       <input id="before_kg" name="before_kg" inputmode="decimal" required></div>
-    <div><label for="waste_kg">{{ t("m.tg.waste_kg") }}</label>
+    <div data-tour="merma"><label for="waste_kg">{{ t("m.tg.waste_kg") }}</label>
       <input id="waste_kg" name="waste_kg" inputmode="decimal" value="0"></div>
   </div>
 
-  <h2>{{ t("m.tg.primals") }}</h2>
+  <h2 data-tour="piezas">{{ t("m.tg.primals") }}</h2>
   {# Las que están en la cámara pero todavía no valen nada no salen en la
      lista. Decirlo evita el rato de buscar una pieza que sabes que entró. #}
   {% if sin_precio %}
@@ -140,7 +140,7 @@
      escribiendo. Y «a peso» era una casilla en medio de la fila con dos
      columnas a cada lado, de las que solo una pareja valía: ahora se elige y
      se enseña solo la que toca. #}
-  <div id="cortes">
+  <div id="cortes" data-tour="cortes">
   {% for i in rows %}
   <fieldset class="pieza corte" data-corte="{{ i }}">
     <div class="campos">
@@ -214,7 +214,7 @@
       <dt>{{ t("m.tg.trim") }}</dt><dd>{{ t("m.tg.h_trim") }}</dd>
     </dl>
   </details>
-  <button class="wide" type="submit">{{ t("m.tg.submit") }}</button>
+  <button class="wide" type="submit" data-tour="cerrar">{{ t("m.tg.submit") }}</button>
 </form>
 </div>
 

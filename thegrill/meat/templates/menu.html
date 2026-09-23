@@ -8,7 +8,8 @@
 <div class="card scroll">
 <table>
 <tr><th>{{ t("m.menu.dish") }}</th><th>{{ t("m.tg.cut_name") }}</th>
-    <th class="num">{{ t("m.menu.grams") }}</th><th>{{ t("m.menu.pos") }}</th>
+    <th class="num" data-tour="gramos">{{ t("m.menu.grams") }}</th>
+    <th data-tour="pos">{{ t("m.menu.pos") }}</th>
     <th class="num">{{ t("rec.price") }}</th><th class="num">{{ t("m.menu.cost") }}</th>
     <th class="num">{{ t("rec.food_cost") }}</th></tr>
 {% for r in rows %}

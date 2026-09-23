@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from thegrill import db, version
 from thegrill.meat import (billing, bugs, gateway, mailer, novedades, perms, privacy,
-                           security, tarifa)
+                           security, tarifa, tours, tutorial)
 from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
 from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, CountPeriod,
@@ -150,7 +150,13 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
             # El símbolo de la moneda de la casa. Va en el nombre de cada
             # columna y de cada recuadro de dinero, igual que los kilos: un
             # número suelto no dice si son euros o dólares.
-            "moneda": money.simbolo(_moneda_de(session, user))}
+            "moneda": money.simbolo(_moneda_de(session, user)),
+            # El tutorial de esta pantalla, si toca. Los pasos vienen ya
+            # traducidos y ya filtrados por nivel: lo que no le toca a esta
+            # persona no llega al navegador.
+            "tour": tutorial.para(session, user, request.url.path, lang,
+                                  forzar=request.query_params.get("tour") == "1"),
+            "tour_aqui": tours.RUTAS.get(request.url.path.rstrip("/") or "/")}
     base.update(ctx)
     return templates.TemplateResponse(request, name, base)
 
@@ -2483,7 +2489,11 @@ const CACHE = 'carnes-v1';
 const DE_MANO = ['/hoy', '/inventario', '/maduracion', '/carne', '/descongelado',
                  '/descongelado/recuento', '/recepcion', '/recepcion/precios',
                  '/despiece', '/merma', '/traslados', '/cortes', '/ventas', '/parte',
-                 '/trazabilidad'];
+                 '/trazabilidad',
+                 // El tutorial también abre en la cámara: si sus dos ficheros
+                 // no están guardados, la primera vez que alguien entra sin
+                 // cobertura se queda sin él.
+                 '/static/tour/driver.js', '/static/tour/driver.css'];
 
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', event => {
@@ -2576,6 +2586,25 @@ button:hover{filter:brightness(1.08)}</style></head><body><div>
               .replace("__LANG__", lang).replace("__DIR__", i18n.direction(lang)))
     return Response(codigo, media_type="application/javascript",
                     headers={"Cache-Control": "no-cache"})
+
+
+@app.post("/tour/visto")
+def tour_seen(request: Request, pantalla: str = Form(...), completo: str = Form("1"),
+              csrf: str = Form(""), ctx=Depends(require_user),
+              session: Session = Depends(get_db)):
+    """«Ya he visto el tutorial de esta pantalla».
+
+    Se marca para quien lo pide y para nadie más: el usuario sale de la
+    sesión, no de lo que mande el navegador. Y la pantalla tiene que existir
+    en el registro, que si no cualquiera llena la tabla con nombres inventados.
+    """
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    try:
+        tutorial.marcar(session, user, pantalla, completo=completo not in ("", "0"))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="") from None
+    return JSONResponse({"ok": True})
 
 
 @app.get("/healthz")

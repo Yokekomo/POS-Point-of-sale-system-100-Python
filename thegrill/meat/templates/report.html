@@ -13,7 +13,7 @@
 
 <h1>{{ t("m.rp.title") }}</h1>
 <p class="sub">{{ restaurant.name }}{% if report.site %} · {{ report.site }}{% endif %} · {{ report.date }}</p>
-<p class="help noprint">{{ t("m.rp.help") }}</p>
+<p class="help noprint" data-tour="imprimir">{{ t("m.rp.help") }}</p>
 
 <form method="get" action="/parte" class="noprint" style="margin-bottom:14px">
   <label for="fecha">{{ t("common.date") }}</label>

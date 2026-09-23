@@ -7,7 +7,7 @@
 {% if not history %}<p class="sub">{{ t("trace.sub") }}</p>{% endif %}
 
 <div class="card">
-<form method="get" action="/trazabilidad" class="rowflex">
+<form method="get" action="/trazabilidad" class="rowflex" data-tour="buscar">
   <input name="serial" value="{{ serial }}" placeholder="{{ t("trace.search") }}"
          style="flex:1" autofocus>
   <button type="submit">{{ t("records.filter") }}</button>

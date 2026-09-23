@@ -160,7 +160,7 @@
 {% endif %}
 
 {% if to_count and can("count") %}
-<h2>{{ t("m.ag.daily") }}</h2>
+<h2 data-tour="conteo">{{ t("m.ag.daily") }}</h2>
 {% if counted %}
 <div class="card">
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
@@ -254,7 +254,7 @@
 
   {% if can("age") %}
   <div class="card">
-    <b>{{ t("m.ag.trim_title") }}</b>
+    <b data-tour="limpiar">{{ t("m.ag.trim_title") }}</b>
     <form method="post" action="/maduracion/limpiar">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <label for="tr_serial">{{ t("m.rec.serial") }}</label>

@@ -6,10 +6,10 @@
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 
 {% if not pending %}
-<div class="card muted">{{ t("m.price.none") }}</div>
+<div class="card muted" data-tour="lista">{{ t("m.price.none") }}</div>
 {% else %}
 <div class="card">
-<form method="post" action="/recepcion/precios" data-cola data-keep="precios">
+<form method="post" action="/recepcion/precios" data-tour="precio" data-cola data-keep="precios">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="grid">
     <div><label for="all_price" title="{{ t('m.price.all_help') }}">{{ t("m.price.all") }}</label>

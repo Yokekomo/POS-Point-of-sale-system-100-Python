@@ -21,12 +21,13 @@
   <div class="kpi"><b>{{ status.expiring | length }}</b><span>{{ t("meat.expiring_soon") }}</span></div>
 </div>
 
-<h2>{{ t("meat.cuts") }}</h2>
+<h2 data-tour="cortes">{{ t("meat.cuts") }}</h2>
 <div class="card scroll">
 <table>
 <tr><th>{{ t("rec.component") }}</th><th class="num">{{ t("ing.stock") }}</th>
     <th class="num">{{ t("meat.serials_open") }}</th><th class="num">{{ t("meat.thawed") }}</th>
-    <th class="num">{{ t("meat.min") }}</th><th class="num">{{ t("meat.expiry_days") }}</th></tr>
+    <th class="num">{{ t("meat.min") }}</th>
+    <th class="num" data-tour="caducan">{{ t("meat.expiry_days") }}</th></tr>
 {% for c in status.cuts %}
 <tr>
   <td>{{ c.name }}

@@ -484,6 +484,43 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
   font-size:28px;line-height:1;text-decoration:none;padding:8px 12px;border-radius:10px}
 .drawer .close:hover{color:var(--ink);background:var(--bg)}
 </style>
+{% if tour_aqui %}
+{# Driver.js está copiado dentro (MIT, ver static/tour/LEEME.md): esta web no
+   carga nada de fuera, y así el tutorial también abre dentro de la cámara. #}
+<link rel="stylesheet" href="/static/tour/driver.css">
+<style nonce="{{ nonce }}">
+/* Las ventanas del tutorial son para una mano con guante: botones altos y el
+   de saltar siempre a la vista. */
+.driver-popover{background:var(--card);color:var(--ink);border:1px solid var(--line);
+  border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.45);max-width:22rem}
+.driver-popover-title{font-size:17px;font-weight:700;color:var(--ink)}
+.driver-popover-description{color:var(--muted);font-size:15px;line-height:1.45}
+.driver-popover-progress-text{color:var(--muted);font-size:13px}
+.driver-popover-footer button{min-height:48px;padding:0 18px;border-radius:10px;
+  font:inherit;font-weight:650;border:1px solid var(--line);background:var(--bg);
+  color:var(--ink);text-shadow:none}
+.driver-popover-footer .driver-popover-next-btn{background:var(--accent);
+  border-color:var(--accent);color:var(--accent-ink)}
+.driver-popover-arrow{border-color:var(--card)}
+.driver-popover-close-btn.tour-saltar{color:var(--muted);font-size:15px;font-weight:650;
+  width:auto;height:48px;padding:0 14px;inset-inline-end:4px;top:2px}
+.driver-popover-close-btn.tour-saltar:hover{color:var(--ink)}
+/* En árabe las ventanas y sus botones van de derecha a izquierda, como todo
+   lo demás: si no, el «siguiente» queda donde el ojo busca el «atrás». */
+[dir="rtl"] .driver-popover-footer{flex-direction:row-reverse}
+[dir="rtl"] .driver-popover{direction:rtl;text-align:right}
+/* El «?» de repetir: flota a la derecha del título y no empuja nada. */
+.tour-otra-vez{float:inline-end;width:34px;height:34px;border-radius:999px;
+  border:1px solid var(--line);color:var(--muted);text-decoration:none;
+  display:flex;align-items:center;justify-content:center;font-weight:700;
+  margin-inline-start:12px}
+.tour-otra-vez:hover{border-color:var(--accent);color:var(--accent)}
+@media (pointer:coarse){.tour-otra-vez{width:44px;height:44px}}
+/* En papel no hay tutorial: el parte del día se cuelga en el pase. */
+@media print{.driver-popover,.driver-overlay,.driver-active-element,
+  .tour-otra-vez{display:none !important}}
+</style>
+{% endif %}
 </head>
 <body>
 {# Un grupo del menú. Se abre solo el que tiene dentro la pantalla en la que
@@ -582,7 +619,12 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
          {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
     </div>
 {% endif %}
-<main>{% block body %}{% endblock %}
+<main>{% if user and tour_aqui %}
+{# Repetir el tutorial cuando se quiera: el que lo saltó el primer día y el
+   que lleva un mes sin recibir un camión. Discreto y en su sitio. #}
+<a class="tour-otra-vez" href="?tour=1" aria-label="{{ t('m.tour.again') }}"
+   title="{{ t('m.tour.again') }}">?</a>
+{% endif %}{% block body %}{% endblock %}
 {% if not user %}
 {% if not cookies_seen %}
 <div class="card" id="cookiebar">
@@ -952,6 +994,23 @@ if ("serviceWorker" in navigator) {
   setInterval(mandar, 8000);
   pintarContador();
   if (cola().length && navigator.onLine) mandar();
+
+  // La cola, para quien no es un formulario. El tutorial apunta «ya lo he
+  // visto» desde un guion, no desde un `submit`, y dentro de la cámara eso
+  // también tiene que esperar a que vuelva la señal en vez de perderse.
+  window.cola = {
+    apuntar: function (accion, datos) {
+      var carga = {};
+      Object.keys(datos || {}).forEach(function (k) { carga[k] = datos[k]; });
+      carga.envio = numero();
+      var lista = cola();
+      lista.push({id: carga.envio, accion: accion, datos: carga,
+                  cuando: Date.now(), intentos: 0});
+      guardarCola(lista);
+      if (navigator.onLine) mandar();
+    },
+    pendientes: function () { return cola().length; }
+  };
 })();
 </script>
 <script nonce="{{ nonce }}">
@@ -1122,5 +1181,79 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("online", mirar);
 })();
 </script>
+{% if tour_aqui and tour %}
+<script src="/static/tour/driver.js" nonce="{{ nonce }}"></script>
+<script nonce="{{ nonce }}">
+// El tutorial de esta pantalla. Los pasos llegan ya traducidos y ya filtrados
+// por nivel desde el servidor: aquí no se decide quién ve qué.
+(function () {
+  var PASOS = {{ tour.pasos | tojson }};
+  var PANTALLA = {{ tour.pantalla|tojson }};
+  var TEXTOS = {
+    siguiente: {{ t("m.tour.next")|tojson }},
+    atras: {{ t("m.tour.back")|tojson }},
+    saltar: {{ t("m.tour.skip")|tojson }},
+    hecho: {{ t("m.tour.done")|tojson }},
+    paso: {{ t("m.tour.step")|tojson }}
+  };
+  // La biblioteca se cuelga de `window.driver.js` cuando se carga así, suelta
+  // en la página. Se mira también `window.driver` por si cambia de sitio.
+  var LIB = (window.driver && window.driver.js) || window.driver;
+  if (!LIB || !LIB.driver || !PASOS.length) return;
+
+  // Un paso cuyo elemento no está en la página se salta: una lista vacía —un
+  // día sin piezas que pesar— no puede dejar el tutorial a medias.
+  var pasos = PASOS.filter(function (p) {
+    return document.querySelector('[data-tour="' + p.selector + '"]');
+  }).map(function (p) {
+    return {element: '[data-tour="' + p.selector + '"]',
+            popover: {title: p.titulo, description: p.texto}};
+  });
+  if (!pasos.length) { apuntar(true); return; }
+
+  var apuntado = false;
+  function apuntar(completo) {
+    // Una sola vez por carga: si el envío falla, no se vuelve a intentar ni
+    // vuelve a salir el tutorial en esta sesión.
+    if (apuntado) return;
+    apuntado = true;
+    var datos = {csrf: {{ csrf|tojson }}, pantalla: PANTALLA,
+                 completo: completo ? "1" : "0"};
+    if (!navigator.onLine && window.cola) { window.cola.apuntar("/tour/visto", datos); return; }
+    var cuerpo = new FormData();
+    Object.keys(datos).forEach(function (k) { cuerpo.append(k, datos[k]); });
+    fetch("/tour/visto", {method: "POST", body: cuerpo, credentials: "same-origin"})
+      .catch(function () { if (window.cola) window.cola.apuntar("/tour/visto", datos); });
+  }
+
+  var guia = LIB.driver({
+    showProgress: true,
+    progressText: TEXTOS.paso,            // «Paso {{ '{{current}}' }} de {{ '{{total}}' }}»
+    nextBtnText: TEXTOS.siguiente,
+    prevBtnText: TEXTOS.atras,
+    doneBtnText: TEXTOS.hecho,
+    showButtons: ["next", "previous", "close"],
+    allowClose: true,
+    steps: pasos,
+    // La biblioteca deja el cerrar como una equis pequeña. Aquí «Saltar» va
+    // con todas sus letras y en todos los pasos: quien no quiere el tutorial
+    // tiene que poder salirse sin buscar nada.
+    onPopoverRender: function (popover) {
+      if (popover && popover.closeButton) {
+        popover.closeButton.textContent = TEXTOS.saltar;
+        popover.closeButton.classList.add("tour-saltar");
+      }
+    },
+    // Se apunta cuando el tutorial se cierra, sea por «Saltar», por
+    // «Entendido» o por tocar fuera. Con `onDestroyStarted` puesto, la
+    // biblioteca deja el cierre en nuestras manos: por eso se llama a
+    // `destroy()` aquí, que si no el globo se quedaría en la pantalla.
+    onDestroyStarted: function () { apuntar(true); guia.destroy(); },
+    onDestroyed: function () { apuntar(true); }
+  });
+  guia.drive();
+})();
+</script>
+{% endif %}
 </body>
 </html>

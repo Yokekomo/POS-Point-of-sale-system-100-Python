@@ -13,7 +13,7 @@
   {# 1. El lote. Lo primero de todo: se abre la descarga —de dónde viene, qué
      trae— y luego se le van metiendo bolsas. Se escribe una vez y se queda
      puesto, así que a partir de la segunda pieza viene plegado y no estorba. #}
-  <details class="masetq" {% if not previo.get("lot") %}open{% endif %}
+  <details class="masetq" data-tour="lote" {% if not previo.get("lot") %}open{% endif %}
            style="margin-top:0">
     {# Plegado dice cuál es: se configura una vez y luego se le van subiendo
        piezas, y hay que poder ver de un vistazo que sigues en el lote bueno. #}
@@ -76,7 +76,7 @@
        congelador, pero la primera nunca estuvo fresca en esta casa. Y la
        temperatura de la caja al abrirla es lo primero que se pregunta el día
        que una pieza sale mal. #}
-    <h3 style="font-size:15px;margin:18px 0 4px">{{ t("m.rec.arrival_title") }}</h3>
+    <h3 style="font-size:15px;margin:18px 0 4px" data-tour="llegada">{{ t("m.rec.arrival_title") }}</h3>
     <div class="grid">
       <div><label for="arrival">{{ t("m.rec.arrival") }}</label>
         <select id="arrival" name="arrival">
@@ -106,7 +106,7 @@
      es un paso aparte, es de esta bolsa. Se coge la bolsa, se le hace la foto
      a la etiqueta y se escriben sus números, todo en el mismo sitio. #}
   <h2>{{ t("m.rec.piece_step") }}</h2>
-  <fieldset class="pieza">
+  <fieldset class="pieza" data-tour="pieza">
     <h3 style="font-size:15px;margin:0 0 4px">{{ t("m.rec.photo_first") }}</h3>
     <p class="help">{{ t("m.rec.photo_first_help") }}</p>
     <input type="file" name="foto" accept="image/*" capture="environment" id="lafoto" hidden>
