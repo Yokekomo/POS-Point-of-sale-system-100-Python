@@ -12,27 +12,27 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 
 ## 1. Nada de esto puede llegar a un cliente
 
-- [ ] **Un encargado de local se hace jefe del grupo en tres peticiones.**
+- [x] **Un encargado de local se hace jefe del grupo en tres peticiones.**
       `meat/app.py:1340` (`POST /manager/equipo/{id}/sede`) no llama a
       `perms.can_manage`; sus cuatro rutas hermanas sí. Y «manager general» se
       define como «manager sin sede», así que quitarse la sede es ascender.
       Después degrada a la dueña metiéndola en un local.
-- [ ] **Un encargado de local cancela la cuenta del grupo entero.**
+- [x] **Un encargado de local cancela la cuenta del grupo entero.**
       `meat/app.py:543` pide solo `perms.TEAM`, que tienen todos los managers.
       Sin contraseña y sin confirmación.
-- [ ] **Uno se cambia su propia contraseña sin saber la anterior.**
+- [x] **Uno se cambia su propia contraseña sin saber la anterior.**
       `meat/app.py:2322` y `2344`: el `target.id != user.id` deja pasar el caso
       «yo sobre mí mismo», que es el peligroso. Una tablet olvidada es la cuenta.
-- [ ] **Una casa abre inventario en la cámara de otra.** `inventory.py:85`
+- [x] **Una casa abre inventario en la cámara de otra.** `inventory.py:85`
       acepta el `site_id` del formulario sin comprobar de quién es. Y luego no
       ajusta nada: se cuenta la cámara entera y no se mueve un kilo.
-- [ ] **Los códigos de recuperación viajan en la barra de direcciones.**
+- [x] **Los códigos de recuperación viajan en la barra de direcciones.**
       `meat/app.py:2294`. Acaban en el historial de la tablet y en los registros
       del proxy, en claro y para siempre. Valen como segundo factor completo.
-- [ ] **La edición de cocina no tiene ni un middleware de seguridad.**
+- [x] **La edición de cocina no tiene ni un middleware de seguridad.**
       `web/app.py:36`: sin CSP, sin nosniff, sin X-Frame-Options. Y escribe
       `<script nonce="">`, que parece que hay política y no la hay.
-- [ ] **La foto se lee entera en memoria antes de mirar si cabe.**
+- [x] **La foto se lee entera en memoria antes de mirar si cabe.**
       `meat/app.py:664`. Un POST de 300 MB son 300 MB en el proceso.
 
 ## 2. La cámara sin cobertura, que es para lo que se vende esto
@@ -123,6 +123,10 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 ---
 
 ## Ya reparado
+
+- [x] **Las siete del bloque 1**, y con ellas `tests/test_puertas.py`: nueve
+      pruebas que no comprueban que el manager pueda, sino **que el de al lado
+      no pueda**, que es lo que nadie escribe hasta que pasa.
 
 - [x] **El reparto del coste perdía millonésimas.** Ahora en céntimos enteros
       por restos mayores (patrón Money de Fowler). `exacto.py`.

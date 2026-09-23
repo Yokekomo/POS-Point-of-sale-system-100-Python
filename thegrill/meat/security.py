@@ -34,40 +34,15 @@ LOGIN_LOCK_SECONDS = 300
 FORM_ATTEMPTS = 5
 FORM_WINDOW_SECONDS = 3600
 
-SECURITY_HEADERS = {
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
-    "Cross-Origin-Opener-Policy": "same-origin",
-    "Cross-Origin-Resource-Policy": "same-origin",
-}
+# Las cabeceras y la política viven en el motor compartido, que es donde
+# tienen que estar: la otra edición se había quedado sin ellas justamente por
+# estar aquí. Se reexportan para no tocar las catorce referencias de siempre.
+from thegrill.web.seguridad import CABECERAS as SECURITY_HEADERS  # noqa: E402
+from thegrill.web.seguridad import nuevo_nonce as new_nonce       # noqa: E402
 
 
-def new_nonce() -> str:
-    """Un número distinto en cada respuesta para marcar nuestros scripts."""
-    return secrets.token_urlsafe(16)
+from thegrill.web.seguridad import politica as content_policy  # noqa: E402
 
-
-def content_policy(nonce: str) -> str:
-    """Qué puede cargar y ejecutar el navegador en esta página.
-
-    Los scripts se marcan con el número de esta respuesta: así el navegador
-    ejecuta los nuestros y no uno que alguien consiga colar en la página. Con
-    `unsafe-inline` puesto, cualquier script inyectado se ejecutaría igual.
-
-    Los estilos sí llevan `unsafe-inline`, porque el HTML usa `style=` en
-    muchos sitios; un estilo inyectado no ejecuta código.
-    """
-    # `blob:` en las imágenes: la recepción enseña la foto de la etiqueta recién
-    # hecha antes de mandarla, para saber que ha salido legible. Esa vista es un
-    # `blob:` que crea la propia página con el fichero que acaba de elegir la
-    # persona; no trae nada de fuera y no se puede apuntar a otro sitio.
-    return (f"default-src 'self'; img-src 'self' data: blob:; "
-            f"style-src 'self' 'unsafe-inline'; "
-            f"script-src 'self' 'nonce-{nonce}'; form-action 'self'; "
-            f"frame-ancestors 'none'; base-uri 'self'; object-src 'none'; "
-            f"connect-src 'self'")
 
 # El freno vive en la base de datos cuando hay una a mano, porque si vive en la
 # memoria de un proceso deja de frenar en cuanto hay más de uno: cinco intentos

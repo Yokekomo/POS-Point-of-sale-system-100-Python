@@ -24,8 +24,8 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, Co
                              RecipeKind, RecipeLine, Restaurant, Role, Rotation,
                              TemplateField, Unit, User)
 
-from thegrill.web import (auth, butchery, costing, i18n, inventory, money, service,
-                          sheets, tracing, waste)
+from thegrill.web import (auth, butchery, costing, i18n, inventory, money, seguridad,
+                          service, sheets, tracing, waste)
 from thegrill.web.seed import seed_templates
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
@@ -34,6 +34,9 @@ UPLOAD_DIR = os.environ.get("GRILL_UPLOAD_DIR", "uploads")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.filters["ceil_pct"] = butchery.ceil_pct
 app = FastAPI(title="Plataforma de gestión de cocina")
+# Las mismas cabeceras que la otra edición. Esta no tenía ninguna, y sus
+# plantillas escribían `<script nonce="">`: parecía que había política.
+seguridad.enganchar(app)
 
 
 # --------------------------------------------------------------- utilidades
@@ -91,6 +94,10 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
     lang = ctx.pop("lang", None) or lang_for(request, session, user)
     base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
             "today": date.today().isoformat(),
+            # El número de esta respuesta, que es lo que marca nuestros
+            # guiones. Sin esto las plantillas escribían `nonce=""` y con la
+            # política puesta el navegador no ejecutaría ni uno.
+            "nonce": getattr(request.state, "nonce", ""),
             # La plataforma de cocina no tiene niveles de carne: las plantillas
             # que comparte con esa edición preguntan, y aquí se responde con lo
             # que la cocina ya hacía: el manager manda, el dinero lo ve todo el

@@ -1,5 +1,6 @@
 """Pruebas de extremo a extremo sobre la web: quién puede entrar dónde."""
 import os
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -66,7 +67,11 @@ def test_bad_login_does_not_reveal_whether_the_email_exists(client):
     a = client.post("/login", data={"email": "ana@casa.com", "password": "mala"})
     b = client.post("/login", data={"email": "nadie@nada.com", "password": "mala"})
     assert "Email o contraseña incorrectos" in a.text
-    assert a.text == b.text
+    # Las dos respuestas tienen que ser la misma página. Lo único que cambia
+    # es el número que marca los guiones de cada respuesta, que es distinto a
+    # propósito: si se repitiera, dejaría de servir para lo que sirve.
+    sin_nonce = lambda t: re.sub(r'nonce="[^"]*"', 'nonce="X"', t)   # noqa: E731
+    assert sin_nonce(a.text) == sin_nonce(b.text)
 
 
 # -------------------------------------------------------------- empleado

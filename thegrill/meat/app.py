@@ -543,9 +543,18 @@ def home(request: Request, ctx=Depends(require_user), session: Session = Depends
 @app.post("/cuenta/cancelar")
 def cancel_own_account(request: Request, reason: str = Form(""), csrf: str = Form(""),
                        ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
-    """La casa cancela su cuenta. En prueba y antes de tiempo, sin pagar nada."""
+    """La casa cancela su cuenta. En prueba y antes de tiempo, sin pagar nada.
+
+    Es la acción más cara del programa, y la pedía cualquier manager —también
+    el de un local— porque `TEAM` lo tienen todos. Un viernes por la noche el
+    obrador y los dos locales se quedaban cancelados. Esto lo hace quien lleva
+    la casa entera, y nadie más.
+    """
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    if not (perms.is_general_manager(user) or user.role == Role.OWNER):
+        raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
     restaurant = session.get(Restaurant, user.restaurant_id)
     if restaurant is None or restaurant.platform:
         raise HTTPException(status_code=404, detail="")
@@ -661,7 +670,8 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
         subida = form.get("foto")
         if created and isinstance(subida, UploadFile) and subida.filename:
             meat.store_label_photo(session, created[0], subida.content_type or "",
-                                   await subida.read(), UPLOAD_DIR, lang=lang)
+                                   await _leer_foto(request, subida, lang),
+                                   UPLOAD_DIR, lang=lang)
     except (meat.MeatError, ValueError) as e:
         return _reception(request, user, auth_session, session, error=str(e),
                           previo=_del_camion(form))
@@ -679,6 +689,33 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
         hecho = i18n.t(lang, "m.rec.done", n=len(created), lot=lot or "—")
     return _reception(request, user, auth_session, session, previo=_del_camion(form),
                       done=hecho)
+
+
+async def _leer_foto(request: Request, subida, lang: str = "es") -> bytes:
+    """Lee una foto sin meterse en memoria lo que no cabe.
+
+    Antes se leía entera y después se miraba si pasaba del tope: un envío de
+    trescientos megas eran trescientos megas dentro del proceso para acabar
+    contestando que no cabía, y con dos a la vez en plena descarga de camión el
+    servicio se caía. Ahora se mira lo que dice la cabecera y, aunque mienta,
+    se corta en cuanto se pasa: se lee a trozos de un mega, que es donde ni se
+    pierde tiempo en llamadas ni se hincha la memoria.
+    """
+    tope = service.MAX_UPLOAD_BYTES
+    demasiado = meat.MeatError(i18n.t(lang, "valid.photo_too_big",
+                                      n=tope // (1024 * 1024)))
+    # La cabecera puede mentir, pero cuando dice la verdad ahorra la lectura
+    # entera. El doble del tope deja sitio al resto del formulario.
+    dicho = request.headers.get("content-length")
+    if dicho and dicho.isdigit() and int(dicho) > tope * 2:
+        raise demasiado
+    trozos, leido = [], 0
+    while trozo := await subida.read(1024 * 1024):
+        leido += len(trozo)
+        if leido > tope:
+            raise demasiado
+        trozos.append(trozo)
+    return b"".join(trozos)
 
 
 def _del_camion(form) -> dict:
@@ -843,7 +880,8 @@ async def upload_label_photo(serial: str, request: Request,
         return RedirectResponse(volver, status_code=303)
     try:
         meat.store_label_photo(session, pieza, subida.content_type or "",
-                               await subida.read(), UPLOAD_DIR, lang=lang)
+                               await _leer_foto(request, subida, lang),
+                               UPLOAD_DIR, lang=lang)
     except meat.MeatError as e:
         return RedirectResponse(f"{volver}?foto={quote(str(e))}", status_code=303)
     return RedirectResponse(volver, status_code=303)
@@ -1342,10 +1380,20 @@ async def save_site_pars(site_id: int, request: Request, ctx=Depends(needs(perms
 @app.post("/manager/equipo/{user_id}/sede")
 def change_site(user_id: int, request: Request, site: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
-    """A qué sede pertenece esa persona. Sin sede, ve la casa entera."""
+    """A qué sede pertenece esa persona. Sin sede, ve la casa entera.
+
+    Y por eso esta ruta manda tanto como la del nivel: «manager general» es un
+    manager **sin sede**, así que quitarle la sede a alguien es ascenderlo a
+    jefe de toda la casa. El encargado de un local podía quitarse la suya y
+    acto seguido meter a la dueña en un local. Tres peticiones y la casa
+    cambiaba de manos.
+    """
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
     target = _own(session, user, User, user_id, request)
+    if target.id == user.id or not perms.can_manage(user, target):
+        raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
     try:
         sites.assign(session, user, target, int(site) if site.strip() else None)
     except (sites.SiteError, ValueError) as e:
@@ -2216,20 +2264,30 @@ def news_api(request: Request, desde: int = 0, ctx=Depends(require_user),
 @app.get("/configuracion", response_class=HTMLResponse)
 def settings_page(request: Request, ctx=Depends(require_user),
                   session: Session = Depends(get_db), saved: int = 0, changed: int = 0,
-                  off: int = 0, codes: str = "", error: str = ""):
+                  off: int = 0, error: str = ""):
+    # Sin `codes`: por la barra de direcciones no entran ni salen los códigos
+    # de repuesto. Los pinta el POST que los crea, una vez y ahí se acabó.
     user, auth_session = ctx
-    restaurant = session.get(Restaurant, user.restaurant_id)
     # Si aún no la tiene puesta, se le propone un secreto para que lo meta en
     # el teléfono. Hasta que teclee un código no queda activada.
     if not user.totp_enabled and not user.totp_secret:
         user.totp_secret = twofactor.new_secret()
         session.flush()
+    return _settings(request, user, auth_session, session, saved=bool(saved),
+                     changed=bool(changed), off=bool(off), error=error)
+
+
+def _settings(request: Request, user, auth_session, session, saved: bool = False,
+              changed: bool = False, off: bool = False, error: str = "",
+              codes: list | None = None):
+    """La pantalla de configuración, que se pinta desde el GET y desde el POST."""
+    restaurant = session.get(Restaurant, user.restaurant_id)
     return page(request, "settings.html", user, auth_session, session,
-                restaurant=restaurant, saved=bool(saved), changed=bool(changed),
-                off=bool(off), error=error, pos_modes=list(PosMatch),
+                restaurant=restaurant, saved=saved, changed=changed,
+                off=off, error=error, pos_modes=list(PosMatch),
                 currencies=money.MONEDAS,
                 version=version.actual(),
-                codes=[c for c in (codes or "").split("-") if c],
+                codes=codes or [],
                 tfa_uri=twofactor.uri(user.totp_secret or "", user.email,
                                       issuer=i18n.t(lang_for(request, session, user),
                                                     "m.app.title")),
@@ -2291,7 +2349,12 @@ def enable_second_step(request: Request, code: str = Form(...), csrf: str = Form
     user.totp_enabled = True
     user.recovery_codes = twofactor.store_recovery(codigos)
     session.flush()
-    return RedirectResponse(f"/configuracion?codes={'-'.join(codigos)}", status_code=303)
+    # Los códigos NO viajan en la barra de direcciones. Cada uno vale como
+    # segundo factor entero, y por ahí acababan en el historial de la tablet
+    # de cocina y en el registro del proxy, en claro y para siempre. Se pinta
+    # la pantalla aquí mismo: se ven una vez, se apuntan, y no quedan escritos
+    # en ningún sitio por el que pasen.
+    return _settings(request, user, auth_session, session, codes=codigos)
 
 
 @app.post("/configuracion/2fa/quitar")
@@ -2319,7 +2382,11 @@ def clear_team_second_step(user_id: int, request: Request, csrf: str = Form(""),
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
     target = _own(session, user, User, user_id, request)
-    if target.id != user.id and not perms.can_manage(user, target):
+    # Uno sobre sí mismo no es el caso fácil, es el peligroso: por aquí se
+    # quitaba el segundo factor sin saber la contraseña de antes. Una tablet
+    # olvidada encima del pase es la cuenta entera. Para lo de uno mismo está
+    # `/configuracion`, que sí la pide.
+    if target.id == user.id or not perms.can_manage(user, target):
         raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
     target.totp_enabled = False
     target.totp_secret = None
@@ -2340,8 +2407,10 @@ def reset_team_password(user_id: int, request: Request, password: str = Form(...
     lang = lang_for(request, session, user)
     target = _own(session, user, User, user_id, request)
     # Al dueño de la plataforma no lo toca la casa, y a un manager solo le
-    # entra el general —y solo si el otro lleva un local—.
-    if target.id != user.id and not perms.can_manage(user, target):
+    # entra el general —y solo si el otro lleva un local—. Y uno sobre sí
+    # mismo, tampoco: aquí no se pide la contraseña de antes, así que por aquí
+    # se cambiaba la propia sin saberla. Eso va por `/configuracion`.
+    if target.id == user.id or not perms.can_manage(user, target):
         raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
     try:
         auth.set_password(session, target, password, lang=lang)

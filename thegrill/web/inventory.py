@@ -94,6 +94,13 @@ def open_count(session: Session, user: User, period: CountPeriod = CountPeriod.M
     if site_id is None:
         mia = sites.of_user(session, user)
         site_id = mia.id if mia else None
+    else:
+        # La sede viene del formulario, así que hay que preguntar de quién es.
+        # Sin esto, una casa abría la hoja colgada de la cámara de otra —y lo
+        # peor no era el cruce: al cerrar no encontraba nada que ajustar, así
+        # que se contaba la cámara entera, no saltaba ningún error y no se
+        # movía un kilo.
+        site_id = sites._site(session, user, site_id).id
     already = (session.query(MeatCount)
                .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN,
                           site_id=site_id).first())

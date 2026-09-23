@@ -8,6 +8,8 @@ perder el teléfono no deja a nadie fuera para siempre.
 """
 import time
 
+import re
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -79,8 +81,14 @@ def enciende(client, email="albano@marina.com"):
     r = client.post("/configuracion/2fa/activar",
                     data={"csrf": csrf_from(pantalla.text),
                           "code": twofactor.code_at(secreto)})
-    assert r.status_code == 303 and "codes=" in r.headers["location"]
-    return secreto, r.headers["location"].split("codes=")[1].split("-")
+    # Los códigos salen en la propia respuesta, no en la barra de direcciones:
+    # cada uno vale como segundo factor entero y por ahí acababan en el
+    # historial de la tablet y en el registro del proxy.
+    assert r.status_code == 200, r.status_code
+    assert "codes=" not in r.text
+    codigos = re.findall(r"\b[A-Z0-9]{10}\b", r.text)
+    assert len(codigos) >= 6, r.text[:400]
+    return secreto, codigos[:6]
 
 
 def test_turning_it_on_needs_a_code_from_the_phone(client):
