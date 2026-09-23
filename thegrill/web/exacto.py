@@ -129,9 +129,15 @@ def es_justo(valor: float | None, por: int = CENTIMOS) -> bool:
 # 5,6 kg son 28,253571… €/kg, y redondear eso a 28,25 y volver a multiplicar
 # pierde dos céntimos por lote. Un ratio se guarda con todos sus decimales y
 # no se usa nunca para reconstruir un total; para eso está el importe.
+# Y el coste de un apunte del libro tampoco está, aunque lo parezca. Una
+# salida de cámara vale `kilos × precio por kilo`: es un derivado, no lo que
+# nadie paga. Cuadrándolo al céntimo línea a línea, un lote de 20 kg
+# descontado en cincuenta veces dejaba hasta medio euro de diferencia entre
+# el libro y lo que queda en el lote —y el residuo del cuadre no llegaba
+# nunca a cero por mucho que se contara—. El céntimo se redondea donde se
+# enseña el total, no en cada apunte.
 A_CENTIMOS = {
     "primals": ("piece_cost_usd",),
-    "ingredient_movements": ("cost",),
 }
 # Y en los pesos, la misma distinción que en el dinero, por el mismo motivo.
 #

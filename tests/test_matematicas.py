@@ -579,7 +579,7 @@ def test_nothing_with_thousandths_ever_reaches_the_disk(tmp_path):
 
 
 def test_a_computed_weight_keeps_all_its_decimals(tmp_path):
-    """Un peso calculado NO se cuadra a gramos: cuadrarlo mete un sesgo.
+    """Lo calculado NO se cuadra, ni en gramos ni en céntimos: mete un sesgo.
 
     Una ración de 160 g con un 95 % de rendimiento consume 168,42 g. Si cada
     consumo se redondea a 168, se pierden cuatro décimas de gramo por ración
@@ -596,7 +596,10 @@ def test_a_computed_weight_keeps_all_its_decimals(tmp_path):
                             source="pos")
     exacto._cuadrar(mv)
     assert mv.qty == consumo, "le han recortado los gramos a un consumo calculado"
-    assert mv.cost == 1.23, "el importe sí tenía que quedar en céntimos"
+    # Y su dinero tampoco, por lo mismo: el coste de una salida de cámara es
+    # kilos por precio por kilo, otro derivado. Redondear cada apunte al
+    # céntimo separaba el libro del lote hasta medio euro por partida.
+    assert mv.cost == 1.234567, "le han recortado los céntimos a un coste calculado"
 
 
 def test_a_measured_weight_is_kept_in_whole_grams(tmp_path):
