@@ -23,7 +23,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from thegrill import db, version
-from thegrill.meat import billing, bugs, gateway, mailer, novedades, perms, privacy, security
+from thegrill.meat import (billing, bugs, gateway, mailer, novedades, perms, privacy,
+                           security, tarifa)
 from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
 from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, CountPeriod,
@@ -339,6 +340,7 @@ def cookies_page(request: Request, session: Session = Depends(get_db)):
 @app.get("/precios", response_class=HTMLResponse)
 def pricing(request: Request, session: Session = Depends(get_db)):
     return page(request, "public_pricing.html", lang=lang_for(request, session),
+                precio=tarifa.publicada(session), moneda_de=money.simbolo,
                 trial_days=billing.TRIAL_DAYS, retention_days=privacy.RETENTION_DAYS)
 
 
@@ -1847,12 +1849,14 @@ def tracing_page(request: Request, ctx=Depends(needs(perms.STOCK)),
 # ====================================================== LA PLATAFORMA
 @app.get("/admin", response_class=HTMLResponse)
 def admin_home(request: Request, ctx=Depends(require_owner),
-               session: Session = Depends(get_db), done: str = ""):
-    """La consola del dueño: solicitudes, casas y el recibo del mes."""
+               session: Session = Depends(get_db), done: str = "", error: str = ""):
+    """La consola del dueño: solicitudes, casas, el recibo del mes y la tarifa."""
     user, auth_session = ctx
     rows = billing.requests(session)
     privacy.note_access(session, user, len(rows))     # mirar datos deja huella
     return page(request, "admin.html", user, auth_session, session, done=done,
+                error=error, tarifa=tarifa.fila(session),
+                precio=tarifa.publicada(session), monedas=money.MONEDAS,
                 requests=privacy.readable(rows),
                 accounts=billing.accounts(session),
                 groups=billing.grouped(session),
@@ -1884,6 +1888,38 @@ def group_payment(request: Request, group: str = Form(...), action: str = Form("
         elif action == "block":
             billing.mark_unpaid(session, user, casa, block=True, note=note.strip() or None)
     return RedirectResponse("/admin?done=1", status_code=303)
+
+
+@app.post("/admin/tarifa")
+def save_pricing(request: Request, currency: str = Form("EUR"),
+                 per_outlet: str = Form(""), extra_outlet: str = Form(""),
+                 sale_on: str = Form(""), sale_price: str = Form(""),
+                 sale_label: str = Form(""), sale_until: str = Form(""),
+                 yearly_on: str = Form(""), yearly_months: str = Form("10"),
+                 csrf: str = Form(""), ctx=Depends(require_owner),
+                 session: Session = Depends(get_db)):
+    """El precio de la web, cambiado sin desplegar nada.
+
+    Es lo que permite salir con una rebaja de fundador y quitarla el día que
+    haya clientes suficientes, que es una decisión de negocio y no de código.
+    """
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    try:
+        hasta = date.fromisoformat(sale_until) if sale_until.strip() else None
+    except ValueError:
+        return RedirectResponse("/admin?error=fecha#tarifa", status_code=303)
+    try:
+        tarifa.guardar(
+            session, user, currency=currency,
+            per_outlet=_num(per_outlet, 0.0) or 0.0,
+            extra_outlet=_num(extra_outlet),
+            sale_on=bool(sale_on), sale_price=_num(sale_price),
+            sale_label=sale_label, sale_until=hasta,
+            yearly_on=bool(yearly_on), yearly_months=_num(yearly_months, 10.0) or 10.0)
+    except tarifa.TarifaError as e:
+        return RedirectResponse(f"/admin?error={quote(str(e))}#tarifa", status_code=303)
+    return RedirectResponse("/admin?done=1#tarifa", status_code=303)
 
 
 @app.post("/admin/solicitud/{request_id}/borrar")

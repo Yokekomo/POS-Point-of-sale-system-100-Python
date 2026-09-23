@@ -785,3 +785,89 @@ def test_several_outlets_of_one_company_are_billed_together(client):
             assert casa.paid_until == _date(2026, 12, 31)
         otro = s.query(Restaurant).filter_by(name="Otro Asador").one()
         assert otro.billing != Estado.ACTIVE          # esa no es del grupo
+
+
+# ------------------------------------------------ el precio que se publica
+def test_the_owner_sets_the_price_the_sales_site_shows(client):
+    """El precio de la web se cambia desde la consola, no desplegando código.
+
+    Salir con una rebaja de fundador mientras no hay clientes suficientes y
+    quitarla el día que los haya es una decisión de negocio; si exige tocar el
+    programa, no se hace cuando toca sino cuando hay un rato.
+    """
+    # De partida, noventa y nueve euros y sin rebaja.
+    publico = client.get("/precios").text
+    assert '<b>99 <span class="uni">€</span></b>' in publico
+    assert "Oferta de lanzamiento" not in publico
+
+    como_dueno(client)
+    token = csrf_from(client.get("/admin").text)
+    assert client.post("/admin/tarifa", data={
+        "csrf": token, "currency": "EUR", "per_outlet": "99", "extra_outlet": "79",
+        "sale_on": "1", "sale_price": "69", "sale_label": "Precio de fundador",
+        "yearly_on": "1", "yearly_months": "10"}).status_code == 303
+
+    publico = client.get("/precios").text
+    assert "Precio de fundador" in publico and "−30 %" in publico
+    assert '<s class="antes">99</s>' in publico      # el de antes, tachado
+    assert '69 <span class="uni">€</span>' in publico
+    assert "79" in publico                           # y el segundo local
+    # Diez mensualidades del precio en vigor, no del normal.
+    assert "690" in publico and "138" in publico     # el año y lo que se ahorra
+
+
+def test_a_discount_that_is_not_a_discount_is_refused(client):
+    """Una «rebaja» por encima del precio normal deja un tachado absurdo."""
+    como_dueno(client)
+    token = csrf_from(client.get("/admin").text)
+    respuesta = client.post("/admin/tarifa", data={
+        "csrf": token, "currency": "EUR", "per_outlet": "99",
+        "sale_on": "1", "sale_price": "120"})
+    assert respuesta.status_code == 303
+    assert "error=" in respuesta.headers["location"]
+    assert '<b>99 <span class="uni">€</span></b>' in client.get("/precios").text
+
+
+def test_a_discount_with_a_date_switches_itself_off(client):
+    """Si hay que acordarse de quitarla a mano, un día se queda puesta."""
+    from thegrill.meat import tarifa
+
+    como_dueno(client)
+    token = csrf_from(client.get("/admin").text)
+    hasta = HOY + timedelta(days=30)
+    assert client.post("/admin/tarifa", data={
+        "csrf": token, "currency": "EUR", "per_outlet": "99", "sale_on": "1",
+        "sale_price": "69", "sale_until": hasta.isoformat()}).status_code == 303
+
+    with db.session_scope() as s:
+        assert tarifa.publicada(s, on=hasta).price == 69.0          # el último día, sí
+        assert tarifa.publicada(s, on=hasta + timedelta(days=1)).price == 99.0
+        assert not tarifa.publicada(s, on=hasta + timedelta(days=1)).on_sale
+
+
+def test_the_price_is_only_the_shop_window(client):
+    """Cambiar el escaparate no toca a quien ya está dentro."""
+    como_dueno(client)
+    alta_de_casa(client)
+    token = csrf_from(client.get("/admin").text)
+    client.post("/admin/tarifa", data={"csrf": token, "currency": "EUR",
+                                       "per_outlet": "149"})
+    with db.session_scope() as s:
+        casa = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        # La casa sigue con su plan y su estado: la tarifa es otra cosa.
+        assert casa.plan is not None and casa.billing is not None
+
+
+def test_nobody_but_the_owner_touches_the_price(client):
+    """El precio de la plataforma no lo pone el manager de una casa."""
+    como_dueno(client)
+    alta_de_casa(client)
+    manager = sesion("manager@marina.com")
+    token = csrf_from(manager.get("/configuracion").text)
+    client = manager
+    # Un 404: para quien no es de la plataforma, esa puerta ni existe.
+    assert manager.post("/admin/tarifa", data={
+        "csrf": token, "currency": "EUR", "per_outlet": "1"}).status_code == 404
+    with db.session_scope() as s:
+        from thegrill.meat import tarifa
+        assert tarifa.publicada(s).normal == 99.0

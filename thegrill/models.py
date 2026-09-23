@@ -1239,6 +1239,38 @@ class GatewayEvent(Base):
     received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class Tarifa(Base):
+    """El precio publicado, que se cambia desde la consola y no tocando el código.
+
+    Una cuota al mes por local. Mientras no haya clientes suficientes conviene
+    enseñar una rebaja —la de fundador—, y eso no puede exigir un despliegue:
+    se enciende, se le pone precio y se apaga el día que ya no hace falta.
+
+    Aquí no se cobra nada: esto es lo que dice la web de venta. Lo que se cobra
+    de verdad lo lleva la pasarela.
+    """
+    __tablename__ = "tarifas"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    currency: Mapped[str] = mapped_column(String(3), default="EUR")
+    # Lo que cuesta un local al mes, y lo que cuesta cada local a partir del
+    # segundo: un grupo con obrador y tres locales no paga cuatro veces lo
+    # mismo, y eso hay que poder decirlo en la web.
+    per_outlet: Mapped[float] = mapped_column(Float, default=99.0)
+    extra_outlet: Mapped[float | None] = mapped_column(Float)
+    # La rebaja. Sin fecha de fin dura hasta que se apaga a mano, que es lo que
+    # se quiere cuando lo que se espera no es un día sino un número de clientes.
+    sale_on: Mapped[bool] = mapped_column(Boolean, default=False)
+    sale_price: Mapped[float | None] = mapped_column(Float)
+    sale_label: Mapped[str | None] = mapped_column(String(64))
+    sale_until: Mapped[date | None] = mapped_column(Date)
+    # La oferta del año: cuántas mensualidades se pagan por doce meses.
+    yearly_on: Mapped[bool] = mapped_column(Boolean, default=False)
+    yearly_months: Mapped[float] = mapped_column(Float, default=10.0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+
+
 class Submission(Base):
     """Un envío que ya se aplicó, apuntado para no aplicarlo dos veces.
 

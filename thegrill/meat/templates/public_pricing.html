@@ -6,22 +6,50 @@
 <div class="banner ok"><b>{{ t("price.trial", days=trial_days) }}</b> ·
   {{ t("price.trial_help") }}</div>
 
+{# El precio sale de la consola, no del código: una rebaja de fundador tiene
+   que poder encenderse y apagarse el día que haga falta, y eso no puede
+   depender de un despliegue. #}
+{% set mon = moneda_de(precio.currency) %}
+{% if precio.on_sale %}
+<div class="rebaja">
+  <b>{{ precio.label or t("price.sale") }}</b>
+  {% if precio.discount_pct %} · −{{ precio.discount_pct }} %{% endif %}
+  {% if precio.until %} · {{ t("price.sale_until", date=precio.until) }}{% endif %}
+</div>
+{% endif %}
+
 <div class="grid">
   <div class="card">
     <b>{{ t("price.single") }}</b>
-    <div class="kpi" style="border:0;padding:10px 0"><b>{{ t("price.ask") }}</b>
+    <div class="kpi" style="border:0;padding:10px 0">
+      <b>{% if precio.on_sale %}<s class="antes">{{ "%.0f"|format(precio.normal) }}</s>
+        {% endif %}{{ "%.0f"|format(precio.price) }} <span class="uni">{{ mon }}</span></b>
       <span>{{ t("price.per_outlet") }}</span></div>
     <div class="muted">{{ t("plan.SINGLE") }}</div>
     <a class="btn ghost" style="margin-top:12px" href="/solicitar?plan=SINGLE">{{ t("price.contact") }}</a>
   </div>
   <div class="card">
     <b>{{ t("price.multi") }}</b>
-    <div class="kpi" style="border:0;padding:10px 0"><b>{{ t("price.ask") }}</b>
-      <span>{{ t("price.per_outlet") }}</span></div>
-    <div class="muted">{{ t("plan.MULTI") }}</div>
+    <div class="kpi" style="border:0;padding:10px 0">
+      <b>{{ "%.0f"|format(precio.extra or precio.price) }} <span class="uni">{{ mon }}</span></b>
+      <span>{% if precio.extra %}{{ t("price.per_extra") }}{% else %}{{ t("price.per_outlet") }}{% endif %}</span></div>
+    <div class="muted">{{ t("plan.MULTI") }}{% if precio.extra %} ·
+      {{ t("price.first_one", price="%.0f"|format(precio.price) ~ " " ~ mon) }}{% endif %}</div>
     <a class="btn ghost" style="margin-top:12px" href="/solicitar?plan=MULTI">{{ t("price.contact") }}</a>
   </div>
 </div>
+
+{% if precio.yearly %}
+{# Pagar el año por adelantado sale más barato y además evita la baja de
+   febrero: quien ha pagado doce meses no se va en el segundo. #}
+<div class="card anual">
+  <b>{{ t("price.yearly") }}</b>
+  <p style="margin:6px 0 0">{{ t("price.yearly_line",
+      year="%.0f"|format(precio.yearly) ~ " " ~ mon,
+      months="%.10g"|format(precio.yearly_months),
+      saving="%.0f"|format(precio.yearly_saving) ~ " " ~ mon) }}</p>
+</div>
+{% endif %}
 
 <h2>{{ t("price.included") }}</h2>
 <div class="card">

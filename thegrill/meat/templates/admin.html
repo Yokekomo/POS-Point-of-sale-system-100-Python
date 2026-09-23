@@ -8,6 +8,74 @@
 {% if not encryption_on %}<div class="banner bad">{{ t("priv.encryption_off") }}</div>
 {% else %}<div class="banner ok">{{ t("priv.encryption_on") }}</div>{% endif %}
 
+{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+
+{# La tarifa que ve quien entra en la web de venta. Se cambia desde aquí y no
+   tocando el código: salir con una rebaja de fundador y quitarla el día que
+   haya clientes suficientes es una decisión de negocio, y no puede depender
+   de un despliegue. Lo que se cobra de verdad lo lleva la pasarela: cambiar
+   el escaparate no cambia lo que paga quien ya está dentro. #}
+<h2 id="tarifa">{{ t("adm.pricing") }}</h2>
+<div class="card">
+<p class="help" style="margin-top:0">{{ t("adm.pricing_help") }}</p>
+<form method="post" action="/admin/tarifa">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div class="grid">
+    <div><label for="per_outlet">{{ t("adm.price_outlet") }}</label>
+      <input id="per_outlet" name="per_outlet" inputmode="decimal" required
+             value="{{ "%.10g"|format(tarifa.per_outlet or 99) }}"></div>
+    <div><label for="extra_outlet">{{ t("adm.price_extra") }}</label>
+      <input id="extra_outlet" name="extra_outlet" inputmode="decimal"
+             placeholder="{{ t("adm.price_extra_ph") }}"
+             value="{{ "%.10g"|format(tarifa.extra_outlet) if tarifa.extra_outlet else "" }}"></div>
+    <div><label for="currency">{{ t("settings.currency") }}</label>
+      <select id="currency" name="currency">
+        {% for code, simbolo in monedas.items() %}
+        <option value="{{ code }}" {% if code == tarifa.currency %}selected{% endif %}
+          >{{ code }} · {{ simbolo }}</option>
+        {% endfor %}
+      </select></div>
+  </div>
+
+  <h3 style="font-size:15px;margin:20px 0 4px">{{ t("adm.sale") }}</h3>
+  <label class="casilla" for="sale_on">
+    <input id="sale_on" name="sale_on" type="checkbox" value="1"
+           {% if tarifa.sale_on %}checked{% endif %}>
+    <span>{{ t("adm.sale_on") }}</span></label>
+  <div class="help">{{ t("adm.sale_help") }}</div>
+  <div class="grid" style="margin-top:12px">
+    <div><label for="sale_price">{{ t("adm.sale_price") }}</label>
+      <input id="sale_price" name="sale_price" inputmode="decimal"
+             value="{{ "%.10g"|format(tarifa.sale_price) if tarifa.sale_price else "" }}"></div>
+    <div><label for="sale_label">{{ t("adm.sale_label") }}</label>
+      <input id="sale_label" name="sale_label" placeholder="{{ t("adm.sale_label_ph") }}"
+             value="{{ tarifa.sale_label or "" }}"></div>
+    <div><label for="sale_until">{{ t("adm.sale_until") }}</label>
+      <input id="sale_until" name="sale_until" type="date"
+             value="{{ tarifa.sale_until.isoformat() if tarifa.sale_until else "" }}"></div>
+  </div>
+  <div class="help">{{ t("adm.sale_until_help") }}</div>
+
+  <h3 style="font-size:15px;margin:20px 0 4px">{{ t("adm.yearly") }}</h3>
+  <label class="casilla" for="yearly_on">
+    <input id="yearly_on" name="yearly_on" type="checkbox" value="1"
+           {% if tarifa.yearly_on %}checked{% endif %}>
+    <span>{{ t("adm.yearly_on") }}</span></label>
+  <div class="grid" style="margin-top:12px">
+    <div><label for="yearly_months">{{ t("adm.yearly_months") }}</label>
+      <input id="yearly_months" name="yearly_months" inputmode="decimal"
+             value="{{ "%.10g"|format(tarifa.yearly_months or 10) }}"></div>
+  </div>
+  <div class="help">{{ t("adm.yearly_help") }}</div>
+
+  <button class="wide" type="submit" style="margin-top:16px">{{ t("common.save") }}</button>
+</form>
+<p class="help" style="margin-bottom:0">{{ t("adm.pricing_now",
+    price="%.10g"|format(precio.price) ~ " " ~ monedas.get(precio.currency, precio.currency),
+    normal="%.10g"|format(precio.normal)) }}
+  <a href="/precios" target="_blank" rel="noopener">{{ t("adm.pricing_see") }}</a></p>
+</div>
+
 <h2>{{ t("adm.requests") }}</h2>
 <div class="card scroll">
 <table>
