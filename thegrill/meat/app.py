@@ -852,6 +852,11 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
+    # Ahora la hoja se puede apuntar sin señal, así que el teléfono reintenta:
+    # sin esto, un despiece volcado dos veces mete los cortes dos veces.
+    repetido = _ya_estaba(request, session, user, str(form.get("envio") or ""), "/despiece")
+    if repetido is not None:
+        return repetido
     try:
         rows = []
         for i in range(meat.MAX_CUTS):
@@ -1302,12 +1307,15 @@ def _transfers(request, user, auth_session, session, *, done="", error=""):
 
 @app.post("/traslados/pieza", response_class=HTMLResponse)
 def send_primal(request: Request, serial: str = Form(...), site: str = Form(...),
-                note: str = Form(""), csrf: str = Form(""),
+                note: str = Form(""), csrf: str = Form(""), envio: str = Form(""),
                 ctx=Depends(needs(perms.TRANSFER)), session: Session = Depends(get_db)):
     """La pieza entera se va a otra sede, con su número y su coste."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
+    repetido = _ya_estaba(request, session, user, envio, "/traslados")
+    if repetido is not None:
+        return repetido
     try:
         sent = sites.send_primal(session, user, serial.strip(), int(site or 0),
                                  note=note.strip() or None)
@@ -1321,11 +1329,15 @@ def send_primal(request: Request, serial: str = Form(...), site: str = Form(...)
 @app.post("/traslados/corte", response_class=HTMLResponse)
 def send_cut(request: Request, serial: str = Form(...), kg: str = Form(...),
              site: str = Form(...), note: str = Form(""), csrf: str = Form(""),
+             envio: str = Form(""),
              ctx=Depends(needs(perms.TRANSFER)), session: Session = Depends(get_db)):
     """Cortes a otra sede: el lote entero, o unos kilos partiendo el lote."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
+    repetido = _ya_estaba(request, session, user, envio, "/traslados")
+    if repetido is not None:
+        return repetido
     try:
         sent = sites.send_cut(session, user, serial.strip(), _num(kg, 0.0) or 0.0,
                               int(site or 0), note=note.strip() or None)
@@ -2625,7 +2637,19 @@ def service_worker(request: Request, idioma: str = ""):
     # cuando menos ganas hay de traducir nada.
     lang = idioma if i18n.is_supported(idioma) else lang_for(request)
     codigo = """
-const CACHE = 'carnes-v1';
+// Dos almacenes, y no uno, porque no se borran a la vez.
+//
+// En las **pantallas** hay datos de alguien: números de pieza, kilos, precios.
+// Un móvil de cocina lo usan cuatro personas, así que al salir de la sesión
+// eso se borra. En el **armazón** no hay datos de nadie: es el guion del
+// tutorial, su hoja de estilo y el icono.
+//
+// Antes había uno solo y al salir se borraba entero. Como el ayudante no
+// cambia, su `activate` no vuelve a dispararse nunca, así que lo borrado no
+// se volvía a guardar: desde el primer cierre de sesión, cada mañana salía
+// «Sin conexión» en la cámara.
+const CACHE = 'carnes-datos-v1';
+const ARMAZON = 'carnes-armazon-v1';
 
 // Las pantallas de contar se guardan nada más entrar, sin esperar a que
 // alguien las visite: en la cámara puede tocar abrir una por primera vez.
@@ -2635,26 +2659,39 @@ const CACHE = 'carnes-v1';
 const DE_MANO = ['/hoy', '/inventario', '/maduracion', '/carne', '/descongelado',
                  '/descongelado/recuento', '/recepcion', '/recepcion/precios',
                  '/despiece', '/merma', '/traslados', '/cortes', '/ventas', '/parte',
-                 '/trazabilidad',
-                 // El tutorial también abre en la cámara: si sus dos ficheros
-                 // no están guardados, la primera vez que alguien entra sin
-                 // cobertura se queda sin él.
-                 '/static/tour/driver.js', '/static/tour/driver.css',
-                 // Y el icono de la casa, que lo pide cada pantalla.
-                 '/static/icono.svg'];
+                 '/trazabilidad'];
+
+// El tutorial también abre en la cámara, y el icono lo pide cada pantalla.
+// Nada de esto lleva datos de nadie, así que sobrevive al cierre de sesión.
+const DEL_ARMAZON = ['/static/tour/driver.js', '/static/tour/driver.css',
+                     '/static/icono.svg'];
+
+async function llenar(nombre, rutas) {
+  const cache = await caches.open(nombre);
+  await Promise.all(rutas.map(async ruta => {
+    try {
+      const res = await fetch(ruta, {credentials: 'same-origin'});
+      if (res.ok) await cache.put(ruta, res.clone());
+    } catch (e) { /* sin red al arrancar: ya se guardará al visitarla */ }
+  }));
+}
 
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     await self.clients.claim();
-    const cache = await caches.open(CACHE);
-    await Promise.all(DE_MANO.map(async ruta => {
-      try {
-        const res = await fetch(ruta, {credentials: 'same-origin'});
-        if (res.ok) await cache.put(ruta, res.clone());
-      } catch (e) { /* sin red al arrancar: ya se guardará al visitarla */ }
-    }));
+    await llenar(ARMAZON, DEL_ARMAZON);
+    await llenar(CACHE, DE_MANO);
   })());
+});
+
+// Y cuando alguien entra, la página lo pide: el `activate` no vuelve a
+// dispararse mientras el ayudante no cambie, así que sin esto las pantallas
+// borradas al salir no se volvían a guardar nunca.
+self.addEventListener('message', event => {
+  if (event.data && event.data.tipo === 'llena') {
+    event.waitUntil(llenar(CACHE, DE_MANO));
+  }
 });
 
 self.addEventListener('fetch', event => {
@@ -2664,10 +2701,13 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;     // los avisos, al día o nada
 
-  // Un fallo de red no siempre es quedarse sin cobertura: a veces es el
-  // servidor que todavía está arrancando, o la wifi que ha parpadeado. Se
-  // prueba dos veces antes de dar nada por perdido, que enseñar la pantalla de
-  // «sin conexión» por medio segundo de nada asusta más que esperar.
+  // La avería de una cámara no es «sin señal»: es **una raya**. El punto de
+  // acceso se ve, el navegador cree que hay red, y la petición se queda
+  // colgada sin fallar nunca. Sin plazo, el `catch` no llegaba jamás y la
+  // pantalla se quedaba en blanco indefinidamente teniendo la copia guardada
+  // al lado. Por eso lo primero es el plazo, y lo segundo la copia.
+  const PLAZO = 2500;      // en una cámara, más de esto es que no hay
+
   const conRed = () => fetch(req).then(res => {
     if (res.ok && res.type === 'basic') {
       const copia = res.clone();
@@ -2676,14 +2716,32 @@ self.addEventListener('fetch', event => {
     return res;
   });
 
-  event.respondWith(
-    conRed()
-      .catch(() => new Promise(listo => setTimeout(listo, 900)).then(conRed))
-      .catch(() =>
-        caches.match(req).then(hit => hit || caches.match(url.pathname)).then(hit => hit || new Response(
-          OFFLINE, {status: 200, headers: {'Content-Type': 'text/html; charset=utf-8'}}))
-      )
-  );
+  const conPlazo = () => new Promise((cumple, falla) => {
+    const reloj = setTimeout(() => falla(new Error('tarde')), PLAZO);
+    conRed().then(
+      res => { clearTimeout(reloj); cumple(res); },
+      err => { clearTimeout(reloj); falla(err); });
+  });
+
+  event.respondWith((async () => {
+    try { return await conPlazo(); } catch (e) { /* ni red ni paciencia */ }
+
+    // La copia guardada vale más que seguir esperando: quien está contando
+    // necesita la pantalla ahora, no dentro de diez segundos.
+    const guardado = (await caches.match(req)) || (await caches.match(url.pathname));
+    if (guardado) return guardado;
+
+    // Sin copia sí merece la pena insistir: a veces es el servidor
+    // arrancando, o la wifi parpadeando, y enseñar «sin conexión» por medio
+    // segundo de nada asusta más que esperar.
+    try {
+      await new Promise(listo => setTimeout(listo, 900));
+      return await conRed();
+    } catch (e) { /* ahora sí */ }
+
+    return new Response(OFFLINE,
+      {status: 200, headers: {'Content-Type': 'text/html; charset=utf-8'}});
+  })());
 });
 
 // La pantalla de cuando no hay nada guardado. No es un sitio donde dejar a

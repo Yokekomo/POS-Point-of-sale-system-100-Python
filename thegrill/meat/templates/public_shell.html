@@ -419,7 +419,16 @@ a.back:hover{color:var(--ember)}
 // Quien llega a la portada o a la pantalla de entrar no tiene sesión: si el
 // aparato guardaba copias de las pantallas de otro, se borran aquí. Un móvil
 // de cocina lo usan cuatro personas.
-if (window.caches) { caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); }); }
+//
+// Solo el almacén con datos dentro. El armazón —el guion del tutorial, su
+// hoja de estilo, el icono— no lleva nada de nadie y se queda: borrarlo
+// también era lo que dejaba la cámara sin pantallas cada mañana, porque el
+// ayudante no cambia y no vuelve a rellenarlo por su cuenta.
+if (window.caches) {
+  caches.keys().then(function (ks) {
+    ks.forEach(function (k) { if (k.indexOf("armazon") < 0) caches.delete(k); });
+  });
+}
 </script>
 </body>
 </html>

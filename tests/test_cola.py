@@ -181,3 +181,50 @@ def test_one_rejected_note_does_not_freeze_the_whole_shift(navegador):
         assert page.evaluate("() => window.cola.apartados().length") == 0
     finally:
         contexto.close()
+
+
+def test_the_butchery_sheet_survives_having_no_signal(navegador):
+    """La hoja más cara de rellenar del programa, y se hace donde no hay señal.
+
+    Peso de antes, merma y hasta diez cortes con sus kilos. Se guardaba para
+    poder **abrirla** sin cobertura, pero no para mandarla: al darle a volcar
+    se perdía entera. La segunda vez que le pasa, el carnicero coge un papel y
+    ya no vuelve.
+    """
+    base, chromium = navegador
+    contexto = chromium.new_context(viewport=MOVIL, has_touch=True)
+    try:
+        page = contexto.new_page()
+        entra(page, base)
+        page.goto(f"{base}/despiece")
+        page.wait_for_timeout(400)
+        assert page.locator("form[data-cola]").count() >= 1, \
+            "la hoja de despiece no tiene cola"
+        assert page.evaluate(
+            """() => {
+                const f = document.querySelector('form[data-cola]');
+                const e = f && f.querySelector('input[name=envio]');
+                return !!(e && e.value);
+            }"""), "y sin llave, reintentar volcaría los cortes dos veces"
+    finally:
+        contexto.close()
+
+
+def test_transfers_survive_having_no_signal(navegador):
+    """El obrador manda carne al local desde el muelle, que es donde peor se ve
+    la wifi de toda la casa."""
+    base, chromium = navegador
+    contexto = chromium.new_context(viewport=MOVIL, has_touch=True)
+    try:
+        page = contexto.new_page()
+        entra(page, base)
+        page.goto(f"{base}/traslados")
+        page.wait_for_timeout(400)
+        formularios = page.locator("form[data-cola]")
+        assert formularios.count() >= 1, "los traslados no tienen cola"
+        assert page.evaluate(
+            """() => [...document.querySelectorAll('form[data-cola]')]
+                     .every(f => f.querySelector('input[name=envio]'))"""), \
+            "a algún formulario le falta la llave contra duplicados"
+    finally:
+        contexto.close()

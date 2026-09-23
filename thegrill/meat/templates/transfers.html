@@ -31,7 +31,9 @@
 <div class="fichas">
   <div class="card">
     <b>{{ t("m.tr.send_primal") }}</b>
-    <form method="post" action="/traslados/pieza">
+    {# El obrador manda carne al local desde el muelle, que es donde peor
+       se ve la wifi de toda la casa. #}
+    <form method="post" action="/traslados/pieza" data-cola data-keep="traslado-pieza">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <label for="sp_serial" data-tour="piezas">{{ t("m.rec.serial") }}</label>
       <select id="sp_serial" name="serial" required>
@@ -50,7 +52,7 @@
 
   <div class="card">
     <b>{{ t("m.tr.send_cut") }}</b>
-    <form method="post" action="/traslados/corte">
+    <form method="post" action="/traslados/corte" data-cola data-keep="traslado-corte">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <label for="sc_serial">{{ t("m.tr.lot") }}</label>
       <select id="sc_serial" name="serial" required>

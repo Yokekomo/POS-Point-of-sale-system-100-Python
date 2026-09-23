@@ -1101,6 +1101,18 @@ if ("serviceWorker" in navigator) {
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) mandar();
   });
+  // Al entrar, se le pide al ayudante que vuelva a guardar las pantallas de
+  // trabajo: al cerrar sesión se borraron, y su `activate` no se dispara otra
+  // vez mientras el ayudante no cambie. Una vez por sesión del navegador, que
+  // son quince peticiones y no hacen falta en cada pantalla.
+  try {
+    if (!sessionStorage.getItem("grill_lleno") && navigator.serviceWorker &&
+        navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({tipo: "llena"});
+      sessionStorage.setItem("grill_lleno", "1");
+    }
+  } catch (e) {}
+
   setInterval(mandar, 8000);
   pintarContador();
   if (cola().length && navigator.onLine) mandar();

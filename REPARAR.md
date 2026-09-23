@@ -45,11 +45,11 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       queda dentro del teléfono. La única salida es borrarlo todo.
 - [ ] **La cola solo se enciende si `navigator.onLine` es falso**, que es justo
       lo que no pasa en una cámara: el punto de acceso se ve y no se llega.
-- [ ] **Despiece y traslados no tienen cola.** Se guardan para abrirlos sin
+- [x] **Despiece y traslados no tienen cola.** Se guardan para abrirlos sin
       señal pero no se pueden mandar: la hoja más cara de rellenar se pierde.
-- [ ] **Salir de la sesión borra las copias y no vuelven.** Desde el primer
+- [x] **Salir de la sesión borra las copias y no vuelven.** Desde el primer
       cierre de sesión, cada mañana sale «Sin conexión» en la cámara.
-- [ ] **El ayudante espera a la red sin plazo.** Con una raya, pantalla en
+- [x] **El ayudante espera a la red sin plazo.** Con una raya, pantalla en
       blanco indefinida teniendo la copia guardada al lado.
 - [ ] **La hora del apunte se guarda y no se manda.** Lo apuntado a las 23:50 y
       mandado a las 00:10 queda fechado al día siguiente.

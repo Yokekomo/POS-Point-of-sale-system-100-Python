@@ -87,7 +87,10 @@
 {% endif %}
 
 <div class="card">
-<form method="post" action="/despiece">
+{# La hoja más cara de rellenar del programa —peso de antes, merma y hasta
+   diez cortes con sus kilos— y se hace justo donde no hay señal. Sin cola
+   se perdía entera; la segunda vez que pasa, el carnicero coge un papel. #}
+<form method="post" action="/despiece" data-cola data-keep="despiece">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="grid">
     <div><label for="tg">{{ t("m.tg.number") }}</label>
