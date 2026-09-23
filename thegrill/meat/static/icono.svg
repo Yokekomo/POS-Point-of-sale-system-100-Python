@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img"
+     aria-label="Control de carnes">
+  <!-- El icono de la casa: la cuchilla del carnicero.
+
+       Está hecho para leerse a dieciséis píxeles en una pestaña, que es donde
+       se ve de verdad: dos formas, dos colores y nada fino. La baldosa lleva
+       el color de la casa, así que se distingue igual sobre una barra clara
+       que sobre una oscura, y no hace falta una versión para cada tema.
+
+       De aquí salen también `favicon.ico` y `icono-180.png` —el mismo dibujo,
+       ya en puntos, para quien no entiende vectores y para la pantalla de
+       inicio del iPhone—. Si se cambia esto, hay que volver a sacarlos. -->
+  <rect width="32" height="32" rx="7" fill="#8a3d1f"/>
+  <g fill="#f6f6f4" transform="rotate(-14 16 16)">
+    <rect x="7.2" y="9.3" width="15.2" height="13.4" rx="1.5"/>
+    <rect x="21.4" y="14" width="9.6" height="4" rx="2"/>
+  </g>
+</svg>

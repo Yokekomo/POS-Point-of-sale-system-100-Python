@@ -768,3 +768,30 @@ def test_the_daily_count_of_the_aging_fridge_is_the_butchers_job(client):
 
     with db.session_scope() as s:
         assert s.query(Primal).filter_by(serial="9300").one().weight_kg == 8.7
+
+
+# ------------------------------------------------------------- la cara del programa
+def test_the_tab_has_a_face_and_nobody_asks_for_it_twice(client):
+    """El navegador pide `/favicon.ico` él solo, lo pongamos o no.
+
+    Antes no estaba y eran cuatrocientos cuatro por pantalla: la pestaña sin
+    cara y la consola llena de rojo, que es donde se miran los fallos de
+    verdad. Ahora está, y además se dice en cada página para que ni lo pida.
+    """
+    icono = client.get("/favicon.ico")
+    assert icono.status_code == 200
+    assert icono.content[:4] == b"\x00\x00\x01\x00", "eso no es un icono"
+    assert client.get("/static/icono.svg").status_code == 200
+    assert client.get("/static/icono-180.png").status_code == 200
+
+    for ruta in ("/hoy", "/carne", "/recepcion"):
+        pagina = client.get(ruta).text
+        assert 'rel="icon" href="/static/icono.svg"' in pagina, ruta
+        # Y el teléfono, que es donde acaba esto, lo pone en su pantalla de
+        # inicio con el icono de la casa y no con una foto de la pantalla.
+        assert 'rel="apple-touch-icon"' in pagina, ruta
+
+
+def test_the_face_is_kept_for_when_there_is_no_signal(client):
+    """La pantalla de «sin señal» también lleva icono, y sin línea no se baja."""
+    assert "/static/icono.svg" in client.get("/sw.js").text

@@ -16,7 +16,8 @@ from urllib.parse import quote
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import (HTMLResponse, JSONResponse, RedirectResponse, Response)
+from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
+                               RedirectResponse, Response)
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import UploadFile   # el de request.form()
 from fastapi.templating import Jinja2Templates
@@ -2493,7 +2494,9 @@ const DE_MANO = ['/hoy', '/inventario', '/maduracion', '/carne', '/descongelado'
                  // El tutorial también abre en la cámara: si sus dos ficheros
                  // no están guardados, la primera vez que alguien entra sin
                  // cobertura se queda sin él.
-                 '/static/tour/driver.js', '/static/tour/driver.css'];
+                 '/static/tour/driver.js', '/static/tour/driver.css',
+                 // Y el icono de la casa, que lo pide cada pantalla.
+                 '/static/icono.svg'];
 
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', event => {
@@ -2546,6 +2549,7 @@ self.addEventListener('fetch', event => {
 const OFFLINE = `<!doctype html><html lang="__LANG__" dir="__DIR__"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>__TITULO__</title>
+<link rel="icon" href="/static/icono.svg" type="image/svg+xml">
 <style>body{font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;
 display:grid;place-items:center;min-height:100vh;background:#12100e;color:#f4f1ec;
 padding:24px;text-align:center}
@@ -2605,6 +2609,19 @@ def tour_seen(request: Request, pantalla: str = Form(...), completo: str = Form(
     except KeyError:
         raise HTTPException(status_code=404, detail="") from None
     return JSONResponse({"ok": True})
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    """El icono de la casa.
+
+    Las pantallas ya lo dicen con una etiqueta, pero Safari y los buscadores
+    lo piden aquí de todas formas. Sin esto son un 404 por visita: no rompe
+    nada, pero ensucia la consola y deja la pestaña sin cara.
+    """
+    return FileResponse(os.path.join(STATIC_DIR, "favicon.ico"),
+                        media_type="image/x-icon",
+                        headers={"Cache-Control": "public, max-age=604800"})
 
 
 @app.get("/healthz")

@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{% block title %}{{ t("m.app.title") }}{% endblock %}</title>
+{# El icono de la casa. Sin esto el navegador pide `/favicon.ico` por su cuenta
+   en cada pantalla y se lleva un 404: una pestaña sin cara y la consola sucia.
+   El vector para el ordenador, los puntos para la pantalla de inicio del
+   teléfono, que es donde acaba esto en una cocina. #}
+<link rel="icon" href="/static/icono.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/static/icono-180.png">
 <style>
 :root{
   --bg:#f6f6f4; --card:#fff; --ink:#1c1b19; --muted:#6b6862; --line:#e2e0db;

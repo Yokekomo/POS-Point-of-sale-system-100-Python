@@ -676,7 +676,10 @@ PUBLICAS = {"/", "/precios", "/solicitar", "/cookies", "/login", "/signup", "/jo
             "/logout", "/healthz", "/idioma/{lang}",
             # El ayudante que guarda copias de pantalla no lleva datos: solo el
             # código que dice qué guardar. Se pide antes de entrar, a propósito.
-            "/sw.js"}
+            "/sw.js",
+            # El icono de la pestaña: el navegador lo pide él solo, también en
+            # la pantalla de entrar. Es un dibujo, no lleva nada de la casa.
+            "/favicon.ico"}
 
 
 def test_no_screen_opens_without_logging_in(client):

@@ -6,7 +6,11 @@
 <title>{% block title %}{{ t("m.app.title") }}{% endblock %}</title>
 <meta name="description" content="{{ t("ld.sub") }}">
 <meta name="color-scheme" content="light dark">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2312100e'/%3E%3Crect x='9' y='9' width='14' height='14' rx='4' fill='%23e0703a'/%3E%3C/svg%3E">
+{# El mismo icono que dentro: quien nos ve en la web y quien trabaja con el
+   programa tienen que reconocer la misma pestaña. #}
+<link rel="icon" href="/static/icono.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/static/icono-180.png">
 <style>
 /* La portada va por su cuenta: es lo primero que ve alguien que no nos conoce,
    y no tiene por qué parecerse a la pantalla de trabajo. Oscura, con la carne
