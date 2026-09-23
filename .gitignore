@@ -7,3 +7,7 @@ reports_out/
 .wa_session.lock
 uploads/
 *.db-journal
+# Lo que sale de una auditoría: capturas, informes y registros. Se vuelve a
+# generar con `python3 -m simulacion.correr`, así que no se guarda: son
+# treinta megas de imágenes que envejecen en una semana.
+.auditoria/
