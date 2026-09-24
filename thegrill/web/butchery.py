@@ -221,14 +221,28 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
     # entera». Si otra persona la está despiezando en la mesa de al lado, una
     # de las dos se lo lleva y la otra se entera ahora, no cuando el inventario
     # de fin de mes diga que sobran nueve kilos que nunca existieron.
+    # Y o se cogen todas, o no se coge ninguna. Con tres piezas en la mesa, si
+    # la segunda la acababa de coger otra persona, la primera se quedaba
+    # marcada como cortada **sin un solo corte detrás**: en la cámara había una
+    # pieza entera que el programa daba por despiezada, y el de fuera no tenía
+    # manera de saberlo hasta el recuento. Las que ya se habían cogido se
+    # devuelven antes de avisar.
+    cogidas: list[Primal] = []
     for primal in primals:
-        if not locking.claim(session, Primal, primal.id,
-                             {"status": PrimalStatus.IN_STOCK},
-                             {"status": PrimalStatus.CUT, "status_ref": despiece.tg,
-                              "status_date": despiece.date}):
-            raise ButcheryError(
-                f"{despiece.tg}: la pieza {primal.serial} la acaba de despiezar otra "
-                "persona. Mira el despiece que ya está hecho antes de repetirlo.")
+        if locking.claim(session, Primal, primal.id,
+                         {"status": PrimalStatus.IN_STOCK},
+                         {"status": PrimalStatus.CUT, "status_ref": despiece.tg,
+                          "status_date": despiece.date}):
+            cogidas.append(primal)
+            continue
+        for devuelta in cogidas:
+            locking.claim(session, Primal, devuelta.id,
+                          {"status": PrimalStatus.CUT, "status_ref": despiece.tg},
+                          {"status": PrimalStatus.IN_STOCK, "status_ref": None,
+                           "status_date": None})
+        raise ButcheryError(
+            f"{despiece.tg}: la pieza {primal.serial} la acaba de despiezar otra "
+            "persona. Mira el despiece que ya está hecho antes de repetirlo.")
 
     result = PostResult(tg=despiece.tg, mass=mass,
                         yield_pct=yield_pct(despiece.weight_before_kg, total_cuts_kg),

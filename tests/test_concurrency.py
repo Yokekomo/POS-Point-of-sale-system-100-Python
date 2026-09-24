@@ -574,3 +574,60 @@ def test_four_phones_saving_the_same_sheet_over_the_web(tmp_path, monkeypatch):
         assert len(contadas) == 8              # las ocho, de los cuatro móviles
         assert set(contadas.values()) == {3.5}
         assert len({l.counted_by for l in hoja.lines if l.counted_by}) == 4
+
+
+def test_a_butchery_of_three_that_loses_one_gives_the_others_back(casa, monkeypatch):
+    """O se cogen las tres piezas, o no se coge ninguna.
+
+    La comprobación de antes mira cómo están las piezas; el problema es lo que
+    pasa **entre** esa mirada y la orden de cogerlas, que es donde vive la
+    carrera de verdad. Con tres en la mesa, si la segunda se la llevaba otra
+    persona en ese hueco, la primera se quedaba marcada como cortada **sin un
+    solo corte detrás**: en la cámara había una pieza entera que el programa
+    daba por despiezada, y el de fuera no tenía manera de enterarse hasta el
+    recuento del mes.
+    """
+    rest_id, obrador, _playa, _sierra, item_id = casa
+    with db.session_scope() as s:
+        for serial in ("8018", "8019"):
+            s.add(Primal(restaurant_id=rest_id, serial=serial, sku="RIBEYE_AUS",
+                         weight_kg=9.0, received_kg=9.0, received_date=HOY,
+                         landed_usd_per_kg=30.0, piece_cost_usd=270.0,
+                         frozen_use_by=HOY + timedelta(days=60),
+                         site_id=obrador, status=PrimalStatus.IN_STOCK))
+
+    # La segunda pieza se la lleva otra persona justo entre la comprobación y
+    # la orden de cogerla. Es el único hueco en el que puede pasar.
+    de_verdad = butchery.locking.claim
+    cogidas = {"n": 0}
+
+    def a_medias(session, model, ident, expected, values):
+        if values.get("status") == PrimalStatus.CUT:
+            cogidas["n"] += 1
+            if cogidas["n"] == 2:
+                return False
+        return de_verdad(session, model, ident, expected, values)
+
+    monkeypatch.setattr(butchery.locking, "claim", a_medias)
+
+    with db.session_scope() as s:
+        paco = _usuario(s, rest_id, "Paco")
+        with pytest.raises(meat.MeatError, match="otra persona"):
+            meat.post_butchery(s, paco, "TG-TRES", ["8017", "8018", "8019"], 27.0,
+                               [meat.CutRow(name="Entrecot", item_id=item_id,
+                                            pieces=81, grams=300.0)],
+                               waste_kg=2.7, on=HOY)
+        # La pantalla lo enseña y contesta: la petición termina bien y la
+        # sesión se guarda. Eso es lo que dejaba las piezas marcadas.
+
+    with db.session_scope() as s:
+        estados = {p.serial: p.status for p in s.query(Primal)
+                   .filter(Primal.restaurant_id == rest_id,
+                           Primal.serial.in_(["8017", "8018", "8019"]))}
+        # Ninguna se queda cortada: o las tres, o ninguna.
+        assert set(estados.values()) == {PrimalStatus.IN_STOCK}
+        # Y ni un despiece ni un corte de un despiece que no llegó a existir.
+        assert not [d for d in s.query(Despiece).filter_by(restaurant_id=rest_id)
+                    if d.tg == "TG-TRES"]
+        assert s.query(IngredientLot).filter(
+            IngredientLot.lot_code == "TG-TRES").count() == 0

@@ -202,8 +202,13 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       dos veces. Ahora primero se sacan los kilos y solo después nace el
       número que los lleva. Un error que se ve se arregla; uno que deja carne
       inventada en el inventario no lo ve nadie hasta el recuento.
-- [ ] **Un despiece de varias piezas que choca a mitad deja piezas marcadas como
-      cortadas** sin cortes detrás.
+- [x] **Un despiece de varias piezas que choca a mitad deja piezas marcadas como
+      cortadas** sin cortes detrás. Las piezas se cogen una a una con su orden
+      de «ponla cortada si sigue entera»; con tres en la mesa, si la segunda se
+      la llevaba otra persona en el hueco entre la comprobación y la orden, la
+      primera se quedaba marcada. En la cámara había entonces una pieza entera
+      que el programa daba por despiezada. Ahora o se cogen todas o no se coge
+      ninguna: las que ya estaban cogidas se devuelven antes de avisar.
 
 ---
 
@@ -231,6 +236,11 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       guardaba 15, el «1.250» que se guardaba 1,25 y los rangos de proceso.
       `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
       `tests/test_rangos.py`.
+
+- [x] **O se cortan todas las piezas, o no se corta ninguna.** Y una prueba de
+      velocidad que se ponía roja cuando la máquina estaba ocupada: se queda
+      con la visita más rápida, que es la única en la que lo que se mide es la
+      pantalla y no el ordenador.
 
 - [x] **La actualización de una casa en marcha, y su parte.** Columnas
       obligatorias, reglas de unicidad, listas cerradas de PostgreSQL, y lo
