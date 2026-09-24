@@ -12,7 +12,7 @@ Corre por su cuenta, con su propia base de datos:
 import json
 import logging
 import os
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from datetime import date, datetime, timedelta, timezone
 import zoneinfo
 from dataclasses import fields, is_dataclass
@@ -193,18 +193,24 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
     # El recado de lo último que se guardó, si lo hay. Se enseña una vez y se
     # borra: la pantalla que lo enseña es una de verdad —se llegó a ella con
     # una redirección— y recargarla no vuelve a mandar nada.
-    if auth_session is not None and getattr(auth_session, "flash", None):
-        if not base.get("done"):
-            base["done"] = auth_session.flash
-        auth_session.flash = None
-    if auth_session is not None and getattr(auth_session, "flash_data", None):
+    if auth_session is not None and (getattr(auth_session, "flash", None)
+                                     or getattr(auth_session, "flash_data", None)):
         try:
-            guardado = json.loads(auth_session.flash_data)
+            guardado = json.loads(auth_session.flash_data or "{}")
         except ValueError:                                   # pragma: no cover
             guardado = {}
-        for nombre, valor in guardado.items():
-            if not base.get(nombre):
-                base[nombre] = _objeto(valor)
+        # Y solo en la pantalla a la que iba. Si de la recepción se salta al
+        # despiece sin pasar por la recepción, el recado de la pieza que se
+        # acaba de dar de alta no tiene nada que hacer en la hoja del
+        # despiece: se tira. Enseñarlo donde caiga es peor que perderlo.
+        donde = guardado.pop(DONDE_IBA, None)
+        if donde is None or donde == request.url.path:
+            if auth_session.flash and not base.get("done"):
+                base["done"] = auth_session.flash
+            for nombre, valor in guardado.items():
+                if not base.get(nombre):
+                    base[nombre] = _objeto(valor)
+        auth_session.flash = None
         auth_session.flash_data = None
     return templates.TemplateResponse(request, name, base)
 
@@ -283,6 +289,7 @@ def _num(raw: str | None, default: float | None = None,
 
 # La marca con la que un objeto viaja como texto sin dejar de ser un objeto.
 CAMPOS_DE_UN_OBJETO = "__campos__"
+DONDE_IBA = "__pantalla__"
 
 
 def _en_texto(valor):
@@ -348,7 +355,9 @@ def _hecho(auth_session, destino: str, recado: str = "",
         auth_session.flash = recado or None
         # Lo que no cabe en una frase viaja aparte. `default=str` es para las
         # fechas: van y vuelven como texto, que es como las pinta la pantalla.
-        auth_session.flash_data = (json.dumps(estado, default=str) if estado else None)
+        # Y con ello va a qué pantalla iba, para que no se enseñe en otra.
+        estado[DONDE_IBA] = urlsplit(destino).path
+        auth_session.flash_data = json.dumps(estado, default=str)
     return RedirectResponse(destino, status_code=303)
 
 
@@ -919,10 +928,7 @@ async def _recibir(request, user, auth_session, session, form, lang):
     # número y los kilos de la anterior es la manera de dar de alta dos veces
     # lo mismo. Lo escrito entero se devuelve cuando algo falla, que es cuando
     # hace falta, y no cuando se ha guardado.
-    # Tampoco esta: lo del camión se queda puesto para la siguiente bolsa y
-    # eso es media pantalla de estado. El apunte doble lo impide la llave.
-    return _reception(request, user, auth_session, session, previo=_del_camion(form),
-                      done=hecho)
+    return _hecho(auth_session, "/recepcion", hecho, previo=_del_camion(form))
 
 
 async def _leer_foto(request: Request, subida, lang: str = "es") -> bytes:
@@ -1109,12 +1115,10 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
         return _butchery(request, user, auth_session, session,
                          error=_dicho(e, lang_for(request, session, user)),
                          previo=_lo_escrito(form))
-    # Esta no se convierte a redirección todavía: el despiece contesta con
-    # sus avisos y con la hoja, y hacerlo bien es un trabajo aparte. El apunte
-    # doble aquí ya lo impide la llave del envío.
-    return _butchery(request, user, auth_session, session, issues=result.issues,
-                     done=i18n.t(lang, "m.tg.posted", tg=result.tg, cuts=len(result.lots),
-                                 kg=f"{sum(l.qty for l in result.lots):.10g}"))
+    return _hecho(auth_session, "/despiece",
+                  i18n.t(lang, "m.tg.posted", tg=result.tg, cuts=len(result.lots),
+                         kg=f"{sum(l.qty for l in result.lots):.10g}"),
+                  issues=list(result.issues))
 
 
 # ============================================================== CÁMARA
@@ -1330,9 +1334,9 @@ def defrost_close(request: Request, shift: str = Form(""), csrf: str = Form(""),
     except (defrost.DefrostError, ValueError) as e:
         return _defrost(request, user, auth_session, session, shift=shift, error=_dicho(e, lang_for(request, session, user)),
                         tab="recuento")
-    return _defrost(request, user, auth_session, session, shift=shift, closed=result,
-                    tab="recuento",
-                    done=i18n.t(lang, "m.df.closed", n=len(result.consumed)))
+    return _hecho(auth_session, f"/descongelado/recuento?shift={shift}",
+                  i18n.t(lang, "m.df.closed", n=len(result.consumed)),
+                  closed=_en_texto(result))
 
 
 # ========================================================== MADURACIÓN

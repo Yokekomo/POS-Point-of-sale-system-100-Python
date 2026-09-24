@@ -139,7 +139,7 @@ def test_but_two_real_entries_are_two(client):
 def test_reloading_the_screen_does_not_book_the_piece_again(client):
     """Recargar reenvía el mismo formulario, con la misma llave: no repite."""
     primera = _recibir(client, envio="llave-de-la-pantalla")
-    assert primera.status_code == 200
+    assert primera.status_code == 303          # guardar redirige: recargar no reenvía
     otra_vez = _recibir(client, envio="llave-de-la-pantalla")
     assert otra_vez.status_code in (200, 303)
     with db.session_scope() as s:
@@ -213,7 +213,8 @@ def test_the_reception_screen_does_not_open_a_thousand_pixels_down(client):
 def test_but_from_the_second_bag_on_the_cursor_does_help(client):
     """Con el lote ya puesto el bloque viene plegado, los kilos están arriba
     y el cursor ahí ahorra un toque por pieza."""
-    despues = _recibir(client, envio="r-1").text
+    assert _recibir(client, envio="r-1").status_code == 303
+    despues = client.get("/recepcion").text    # el lote se quedó puesto
     assert "autofocus" in despues
 
 
@@ -231,6 +232,24 @@ def test_the_message_of_what_was_saved_survives_the_redirect(client):
 
     primera = client.get("/merma").text
     assert "Merma apuntada · Entrecot · 1,200 kg" in primera
+
+
+def test_a_message_never_shows_up_on_a_screen_it_was_not_meant_for(client):
+    """Un recado de la recepción en la hoja del despiece confunde y miente.
+
+    Con la redirección, el recado espera en la sesión a que se pida la
+    pantalla. Si quien lo guardó se va a otra sin pasar por ella —del muelle
+    directo a la mesa de despiece— el recado no puede aparecer allí: habla de
+    una pieza que se acaba de dar de alta y en esa hoja no significa nada.
+    Perderlo es mejor que enseñarlo donde no toca.
+    """
+    assert _recibir(client, envio="r-2").status_code == 303
+    # «8017» sí sale en el despiece: es la pieza, que está esperando a que la
+    # corten. Lo que no puede salir es el recado de que se acaba de dar de alta.
+    assert "dado de alta" not in client.get("/despiece").text
+
+    # Y tampoco se queda esperando a la próxima vez que se entre en recepción.
+    assert "dado de alta" not in client.get("/recepcion").text
 
 
 def test_and_it_is_shown_once_and_only_once(client):

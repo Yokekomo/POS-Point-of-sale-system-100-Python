@@ -48,7 +48,7 @@ def test_the_chamber_speaks_the_language_of_the_house(tmp_path, monkeypatch):
     """Lo que sale de una plantilla: «12,3 kg» y no «12.3 kg»."""
     with _casa(tmp_path, monkeypatch, "es") as c:
         login(c)
-        assert _recibir(c, "12,345").status_code == 200
+        assert _recibir(c, "12,345").status_code == 303
         pagina = c.get("/carne").text
         assert "12,3" in pagina and ">12.3" not in pagina
 
@@ -56,7 +56,7 @@ def test_the_chamber_speaks_the_language_of_the_house(tmp_path, monkeypatch):
 def test_and_english_keeps_the_point(tmp_path, monkeypatch):
     with _casa(tmp_path, monkeypatch, "en") as c:
         login(c)
-        assert _recibir(c, "12.345").status_code == 200
+        assert _recibir(c, "12.345").status_code == 303
         assert "12.3" in c.get("/carne").text
 
 
@@ -68,15 +68,17 @@ def test_a_number_inside_a_sentence_too(tmp_path, monkeypatch):
     """
     with _casa(tmp_path, monkeypatch, "es") as c:
         login(c)
-        r = _recibir(c, "12,345")
-        assert "12,345" in r.text and "12.345" not in r.text
+        _recibir(c, "12,345")
+        recado = c.get("/recepcion").text
+        assert "12,345" in recado and "12.345" not in recado
 
 
 def test_and_that_sentence_keeps_the_point_in_english(tmp_path, monkeypatch):
     with _casa(tmp_path, monkeypatch, "en") as c:
         login(c)
-        r = _recibir(c, "12.345")
-        assert "12.345" in r.text and "12,345" not in r.text
+        _recibir(c, "12.345")
+        recado = c.get("/recepcion").text
+        assert "12.345" in recado and "12,345" not in recado
 
 
 def test_a_serial_never_turns_into_a_number(tmp_path, monkeypatch):

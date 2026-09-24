@@ -147,7 +147,7 @@ def test_the_butcher_can_do_the_whole_meat_round(client):
     assert luis.post("/recepcion", data={
         "csrf": csrf_from(recepcion.text), "lot": "DXB1", "sku": "Striploin AUS",
         "use_by": str(HOY + timedelta(days=40)),
-        "serial:0": "8017", "kg:0": "9,4"}).status_code == 200
+        "serial:0": "8017", "kg:0": "9,4"}).status_code == 303
 
     # El precio no es suyo: el carnicero descarga y apunta lo que llega, y la
     # pieza se queda esperando a que dirección la active. Hasta entonces no se
@@ -162,7 +162,7 @@ def test_the_butcher_can_do_the_whole_meat_round(client):
     assert luis.post("/despiece", data={
         "csrf": csrf_from(despiece.text), "tg": "TG-0001", "before_kg": "9,4",
         "waste_kg": "0,6", "primal": "8017", "cut:0": "Striploin steak",
-        "item:0": item_id, "pieces:0": "17", "grams:0": "330"}).status_code == 200
+        "item:0": item_id, "pieces:0": "17", "grams:0": "330"}).status_code == 303
 
     with db.session_scope() as s:
         assert s.query(Primal).one().status.value == "CUT"
@@ -176,7 +176,7 @@ def test_the_butcher_can_do_the_whole_meat_round(client):
         "csrf": csrf_from(descongelado.text), "serial": "8017-01",
         "pieces": "2", "total_kg": "0,70"}).status_code == 303
     assert luis.post("/descongelado/cierre",
-                     data={"csrf": csrf_from(descongelado.text)}).status_code == 200
+                     data={"csrf": csrf_from(descongelado.text)}).status_code == 303
 
     inventario = luis.get("/inventario")
     assert luis.post("/inventario/abrir", data={"csrf": csrf_from(inventario.text),

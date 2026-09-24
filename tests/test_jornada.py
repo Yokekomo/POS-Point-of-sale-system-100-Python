@@ -200,7 +200,7 @@ def test_what_was_written_last_night_is_filed_last_night(client):
     r = client.post("/recepcion", data={
         "csrf": csrf_from(form.text), "lot": "L1", "sku": "Striploin",
         "price_kg": "32", "serial:0": "8017", "kg:0": "9,4", "cuando": sello})
-    assert r.status_code == 200
+    assert r.status_code == 303
     with db.session_scope() as s:
         assert s.query(Primal).one().received_date == date.today() - timedelta(days=1)
 

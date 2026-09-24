@@ -175,20 +175,35 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       redirección, y el recado de lo que se guardó viaja aparte —en la sesión,
       no en la barra de direcciones— y se enseña una sola vez.
 
-- [ ] **Tres pantallas siguen contestando al POST con la pantalla entera:**
-      recepción, despiece y el cierre de descongelado. Las cuatro de
-      maduración ya no: el bloque de números que enseñan —la pesada, el
-      recuento, la limpieza, la venta al corte— viaja ahora en la sesión y se
-      vuelve a montar al pintar, con sus campos y con lo que la clase calcula.
+- [x] **Ninguna pantalla contesta ya al POST con la pantalla entera.** Las
+      tres que quedaban —recepción, despiece y el cierre de descongelado— van
+      por el mismo camino que las demás: guardar contesta con una redirección
+      y el recado viaja en la sesión, no en la barra de direcciones. Lo que
+      enseñaban después de guardar viaja con él: en recepción, lo del camión
+      —lote, artículo, precio, fechas— que se queda puesto para la siguiente
+      bolsa, y nunca el número ni los kilos de la pieza anterior; en despiece,
+      los avisos del cuadre; en el cierre, el bloque de números del turno con
+      lo que la clase calcula. Recargar ya no pregunta «¿reenviar
+      formulario?» en ninguna pantalla de esta app.
 
-      Las tres que quedan cuestan lo mismo en código y mucho más en pruebas:
-      **treinta y siete** que esperan un 200 y recibirían un 303. Ninguna es
-      un fallo, todas son del mismo tipo, y por eso mismo reescribirlas en
-      lote es la manera de que una prueba deje de comprobar lo que comprobaba
-      sin que nadie lo vea. Merecen su propio rato, no ir pegadas al final de
-      otra cosa. Mientras tanto el apunte doble lo impide la llave del envío,
-      que tiene su prueba: lo que queda es la pregunta del navegador, molesta
-      y no peligrosa.
+      Las pruebas se reescribieron una por una, mirando qué comprobaba cada
+      una antes de tocarla: la mayoría mira la base de datos y eso sigue
+      valiendo igual; solo cambia el código de la respuesta y de dónde se lee
+      el recado. Y hay dos grupos que no se pueden mezclar: **lo que se
+      guarda bien contesta 303** y el texto se lee en la pantalla de después;
+      **lo que falla sigue contestando 200** con el formulario y lo escrito
+      dentro, que es justo lo que hace falta para corregirlo.
+
+- [x] **El recado salía en la pantalla que cayera, no en la suya.** Lo
+      descubrió la ronda entera del carnicero: recibe una pieza en el muelle y
+      se va derecho a la mesa de despiece sin volver a mirar la recepción, y
+      el «Primal 8017 · 9,4 kg dado de alta» le aparecía encima de la hoja del
+      despiece. Hablaba de otra cosa y en esa hoja no significaba nada. Ahora
+      el recado viaja con la pantalla a la que iba, y si se llega a otra se
+      tira sin enseñarlo: perder una confirmación es mejor que enseñarla donde
+      confunde. Esto solo se ve cuando guardar redirige —antes la pantalla y
+      el recado eran la misma respuesta y no podían separarse—, así que es un
+      fallo que el arreglo de arriba destapó, no uno que trajera.
 - [x] **Un error deja la pantalla en blanco** con el título «Error 400». Ahora
       cuando el error no trae texto se dice qué ha pasado —si te has
       equivocado tú, si no te toca, o si eso ya no está—, en el idioma de

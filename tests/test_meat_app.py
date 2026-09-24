@@ -137,7 +137,8 @@ def test_a_delivery_books_each_piece_with_its_own_number_and_cost(client):
         "grade": "MB9+", "origin": "AUS", "price_kg": "32", "use_by": str(HOY + timedelta(days=40)),
         "serial:0": "8017", "kg:0": "9,4",
         "serial:1": "8018", "kg:1": "10,2", "price:1": "34"})
-    assert r.status_code == 200
+    # Guardar contesta con una redirección: recargar no da de alta otra vez.
+    assert r.status_code == 303
     with db.session_scope() as s:
         piezas = s.query(Primal).order_by(Primal.serial).all()
         assert [p.serial for p in piezas] == ["8017", "8018"]
@@ -233,7 +234,9 @@ def deliver(client, serials=("8017",), kg=10.0, price=30.0):
     for i, serial in enumerate(serials):
         data[f"serial:{i}"] = serial
         data[f"kg:{i}"] = str(kg)
-    assert client.post("/recepcion", data=data).status_code == 200
+    # Guardar contesta con una redirección: el recado espera en la pantalla
+    # de después, para que recargar no vuelva a dar de alta el camión.
+    assert client.post("/recepcion", data=data).status_code == 303
 
 
 def butcher(client, items, tg="TG-0001", before=10.0, waste="0,6"):
@@ -254,8 +257,8 @@ def test_butchering_turns_a_primal_into_cuts_with_their_own_serials(client):
     signup(client)
     items = setup_cuts(client)
     deliver(client)
-    r = butcher(client, items)
-    assert r.status_code == 200 and "TG-0001" in r.text
+    assert butcher(client, items).status_code == 303
+    assert "TG-0001" in client.get("/despiece").text
 
     with db.session_scope() as s:
         lots = s.query(IngredientLot).order_by(IngredientLot.serial).all()
@@ -331,7 +334,7 @@ def test_a_rejected_butchery_never_loses_the_primal(client):
 
     # Y vuelve a estar en la lista, lista para despiezar otra vez.
     assert "8017" in client.get("/despiece").text
-    assert butcher(client, items, tg="TG-0008").status_code == 200
+    assert butcher(client, items, tg="TG-0008").status_code == 303
     with db.session_scope() as s:
         assert s.query(Primal).filter_by(serial="8017").one().status == PrimalStatus.CUT
         assert s.query(IngredientLot).count() == 3
@@ -375,8 +378,8 @@ def test_a_butchery_whose_weight_does_not_add_up_is_posted_with_a_warning(client
         "primal": "8017",
         "cut:0": "Striploin steak", "item:0": items["Striploin steak"],
         "pieces:0": "10", "grams:0": "250"})              # 2,5 kg de 10: faltan 7,5
-    assert r.status_code == 200
-    assert "banner warn" in r.text                        # lo dice
+    assert r.status_code == 303
+    assert "banner warn" in client.get("/despiece").text  # lo dice
     with db.session_scope() as s:
         assert s.query(Despiece).one().posted             # pero lo vuelca
         assert s.query(Primal).one().status == PrimalStatus.CUT
@@ -433,7 +436,7 @@ def test_the_shift_count_turns_into_real_consumption(client):
     assert "8017-01" in estado
 
     r = client.post("/descongelado/cierre", data={"csrf": token})
-    assert r.status_code == 200
+    assert r.status_code == 303
     with db.session_scope() as s:
         lot = s.query(IngredientLot).filter_by(serial="8017-01").one()
         assert lot.qty_remaining == pytest.approx(5.0 - 1.5, abs=0.001)   # salió 2,5, quedó 1,0
@@ -781,7 +784,7 @@ def test_a_submission_that_arrives_twice_is_applied_once(client):
 
     primera = client.post("/recepcion", data=datos)
     segunda = client.post("/recepcion", data=datos)
-    assert primera.status_code == 200
+    assert primera.status_code == 303
     assert segunda.status_code == 303          # «ya está hecho», sin escribir
 
     with db.session_scope() as s:
@@ -985,7 +988,7 @@ class TestEtiquetaYPrecio:
 
     def test_each_piece_keeps_the_label_it_came_with(self, client):
         signup(client)
-        assert self.recibir(client).status_code == 200
+        assert self.recibir(client).status_code == 303
         with db.session_scope() as s:
             piezas = {p.serial: p for p in s.query(Primal)}
             uno, dos = piezas["8017"], piezas["8018"]
@@ -1093,7 +1096,7 @@ class TestEtiquetaYPrecio:
 
         # Y ahora sí se despieza.
         assert "8017" in paco.get("/despiece").text
-        assert butcher(paco, items).status_code == 200
+        assert butcher(paco, items).status_code == 303
         with db.session_scope() as s:
             assert s.query(Despiece).count() == 1
 
@@ -1226,9 +1229,11 @@ class TestRecepcionDeUnaEnUna:
         r = client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-QUIEN", "sku": "Ribeye AUS MB7",
             "price_kg": "32", "serial:0": "9500", "kg:0": "9,1"})
-        assert "L-QUIEN" in r.text and "Ribeye AUS MB7" in r.text
+        assert r.status_code == 303
+        pantalla = client.get("/recepcion").text
+        assert "L-QUIEN" in pantalla and "Ribeye AUS MB7" in pantalla
         # Y plegado, porque ya está configurado: lo que se toca es la pieza.
-        assert "<details" in r.text and 'name="lot"' in r.text
+        assert "<details" in pantalla and 'name="lot"' in pantalla
 
     def test_the_label_travels_with_the_piece_in_one_go(self, client, tmp_path,
                                                         monkeypatch):
@@ -1240,7 +1245,7 @@ class TestRecepcionDeUnaEnUna:
             "producer_plant": "Teys Biloela", "serial:0": "9200", "kg:0": "9,2",
             "price_kg": "32"},
             files={"foto": ("etiqueta.png", PNG, "image/png")})
-        assert r.status_code == 200
+        assert r.status_code == 303
         with db.session_scope() as s:
             pieza = s.query(Primal).filter_by(serial="9200").one()
             assert pieza.producer_plant == "Teys Biloela"
@@ -1255,15 +1260,18 @@ class TestRecepcionDeUnaEnUna:
             "grade": "MB7", "origin": "AUS", "producer_plant": "Teys Biloela",
             "est_code": "AUS 1234", "breed": "Angus", "price_kg": "32",
             "serial:0": "9201", "kg:0": "9,2"})
-        assert r.status_code == 200
+        # Guardar redirige, y lo del camión llega con la pantalla de detrás:
+        # es la misma caja, así que no se vuelve a teclear el matadero.
+        assert r.status_code == 303
+        pantalla = client.get("/recepcion").text
         for valor in ("L-CAMION", "Ribeye AUS", "Teys Biloela", "AUS 1234", "Angus"):
-            assert f'value="{valor}"' in r.text, valor
+            assert f'value="{valor}"' in pantalla, valor
         # Y lo de la pieza se vacía: la siguiente es otra bolsa. La casilla de
         # los kilos vuelve en blanco y con el cursor puesto, que es donde va a
         # escribir el de fuera. Se mira lo que hace la casilla, no cómo está
         # escrita: el `autofocus` va detrás de una condición y no pegado.
         import re
-        casilla = re.search(r'<input name="kg:0"[^>]*>', r.text, re.S)
+        casilla = re.search(r'<input name="kg:0"[^>]*>', pantalla, re.S)
         assert casilla, "no está la casilla de los kilos"
         assert "autofocus" in casilla.group(0)
         assert 'value=""' in casilla.group(0)
@@ -1285,8 +1293,11 @@ class TestRecepcionDeUnaEnUna:
         r = client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-ROTU", "sku": "Ribeye AUS",
             "price_kg": "30", "serial:0": "9210", "kg:0": "9,1"})
-        # Con el número y el peso, que es lo que hay que escribir encima.
-        assert "9210 · 9,1 kg" in r.text and "en el primal" in r.text
+        # Con el número y el peso, que es lo que hay que escribir encima. El
+        # recado llega con la pantalla de detrás, no como respuesta al POST.
+        assert r.status_code == 303
+        recado = client.get("/recepcion").text
+        assert "9210 · 9,1 kg" in recado and "en el primal" in recado
 
     def test_a_phone_with_no_signal_still_books_the_piece(self, client):
         """La foto necesita línea; lo escrito, no. Lo escrito manda."""
@@ -1297,7 +1308,7 @@ class TestRecepcionDeUnaEnUna:
             "csrf": csrf_from(form.text), "lot": "L-SINRED", "sku": "Ribeye AUS",
             "price_kg": "30", "serial:0": "9202", "kg:0": "8,8",
             "envio": "numero-de-la-cola"})
-        assert r.status_code == 200
+        assert r.status_code == 303
         with db.session_scope() as s:
             pieza = s.query(Primal).filter_by(serial="9202").one()
             assert pieza.photo_ref is None      # se hace luego, desde la lista
@@ -1320,7 +1331,7 @@ def test_the_butchery_takes_the_weight_of_the_whole_tray(client):
         "before_kg": "10", "waste_kg": "0,6", "primal": "8017",
         "cut:0": "Striploin steak", "item:0": items["Striploin steak"],
         "pieces:0": "18", "total:0": "5,4", "index:0": "1"})
-    assert r.status_code == 200
+    assert r.status_code == 303
     with db.session_scope() as s:
         corte = s.query(DespieceCut).filter_by(cut_name="Striploin steak").one()
         assert corte.pieces == 18
@@ -1339,7 +1350,7 @@ def test_grams_per_piece_still_work_for_what_comes_from_the_paper(client):
         "before_kg": "10", "waste_kg": "0,6", "primal": "8017",
         "cut:0": "Striploin steak", "item:0": items["Striploin steak"],
         "pieces:0": "20", "grams:0": "250", "index:0": "1"})
-    assert r.status_code == 200
+    assert r.status_code == 303
     with db.session_scope() as s:
         corte = s.query(DespieceCut).filter_by(cut_name="Striploin steak").one()
         assert corte.weight_per_piece_g == 250

@@ -84,7 +84,7 @@ def test_meat_that_arrives_warm_is_written_down_not_rejected(client):
         "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "32",
         "arrival": "CHILLED", "arrival_c": "12",
         "serial:0": "8017", "kg:0": "9,4"})
-    assert r.status_code == 200
+    assert r.status_code == 303                   # se guarda: el aviso no la tumba
     with db.session_scope() as s:
         pieza = s.query(Primal).one()
         assert pieza.arrival_c == 12.0            # el número, tal cual llegó
