@@ -1022,8 +1022,19 @@ class TestReport:
 
         mes = defrost.month_so_far(s, rest.id, on=HOY)
         assert mes.shifts == 1 and mes.month == HOY.month
-        assert mes.drip_kg >= 0 and mes.total_loss == pytest.approx(
-            round(mes.loss_cost + mes.drip_cost, 2))
+        # Lo que se ha ido es el desvío contra la carta, y **nada más**. El
+        # agua del descongelado es la parte de ese mismo desvío que pasa de lo
+        # que dice la carta, así que sumarla aparte era contar dos veces el
+        # mismo kilo: un turno pasado de uno salía a cincuenta y dos euros
+        # donde hubo veintiséis.
+        #
+        # Antes esto comprobaba `total_loss == loss_cost + drip_cost`, o sea
+        # la fórmula y no la verdad: una prueba que garantizaba el error en
+        # vez de cazarlo.
+        assert mes.drip_kg >= 0
+        assert mes.total_loss == pytest.approx(round(mes.loss_cost, 2))
+        assert mes.drip_cost <= max(mes.loss_cost, 0) + 1e-6, (
+            "el agua no puede ser más que el desvío del que forma parte")
 
     def test_the_daily_report_gathers_the_day(self, casa):
         from thegrill.models import Storage

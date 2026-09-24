@@ -530,6 +530,14 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
             f"{previous:.10g}. Una limpieza no puede dejar la pieza en nada.")
 
     parts = [p for p in (parts or []) if p.kg and p.kg > 0]
+    # Una pieza sin precio no se limpia guardando recortes, por lo mismo que no
+    # se despieza: el recorte entraría en cámara a cero euros, se guardaría como
+    # `last_cost` del artículo, y de ahí saldría el coste de todos los platos
+    # que lo lleven. Carne gratis en el escandallo. El despiece tiene esa
+    # puerta desde siempre; a la limpieza se le olvidó, y la limpieza la hace
+    # el carnicero, que es justo quien no ve dinero y no puede darse cuenta.
+    if parts and total_cost(primal) is None:
+        raise AgingError(t(lang, "m.ag.trim_needs_price", serial=primal.serial))
     kept_total = round(sum(p.kg for p in parts), 6)
     if kept_total > removed_kg + 0.001:
         raise AgingError(
@@ -619,7 +627,10 @@ def _keep_trim(session: Session, user: User, primal: Primal, kg: float, item_id:
                         grade=primal.grade, origin=primal.origin)
     session.add(lot)
     session.flush()
-    item.last_cost = unit_cost
+    # Un cero no es un precio: si se guarda como referencia del artículo, el
+    # escandallo de los platos que lo lleven sale gratis y nadie lo ve.
+    if unit_cost > 0:
+        item.last_cost = unit_cost
     session.add(IngredientMovement(
         restaurant_id=user.restaurant_id, ingredient_id=item.ingredient_id, lot_id=lot.id,
         date=on, kind=MovementKind.IN, qty=lot.qty, cost=round(lot.qty * unit_cost, 6),

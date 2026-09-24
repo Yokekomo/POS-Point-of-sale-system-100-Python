@@ -56,13 +56,13 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 
 ## 3. Lo que hace perder dinero
 
-- [ ] **La maduración no llega al precio.** `service.py:376`: al poner el precio
+- [x] **La maduración no llega al precio.** `service.py:376`: al poner el precio
       se escribe el del albarán, no el del kilo que queda. Una pieza de 10 kg
       que madura hasta 8,5 sale a 30 €/kg en vez de 35,29. **45 € por pieza.**
-- [ ] **Limpiar una pieza sin precio mete recortes a cero euros**
+- [x] **Limpiar una pieza sin precio mete recortes a cero euros**
       (`aging.py:609`) y envenena el escandallo de todos los platos que la
       lleven. El despiece sí tiene esa puerta; la limpieza no.
-- [ ] **La pérdida del mes sale al doble.** `defrost.py:493`: el desvío del
+- [x] **La pérdida del mes sale al doble.** `defrost.py:493`: el desvío del
       turno y el agua del descongelado son el mismo dinero y se suman dos veces.
       Y hay una prueba que garantiza el error en vez de cazarlo.
 - [ ] **El Excel del POS multiplica por diez o por cien.** `pos_import.py:138`:

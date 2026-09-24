@@ -676,3 +676,73 @@ def test_the_target_weight_never_pollutes_the_real_one():
     assert abs(real_por_pieza - 0.3332142857142857) < 1e-12
     # Y la diferencia con el objetivo es lo que se gana o se pierde de verdad.
     assert round((real_por_pieza - 0.330) * 1000, 1) == 3.2
+
+
+# ============================================ el dinero que se perdía de verdad
+def test_the_price_lands_on_todays_kilo_not_on_the_invoices(cocina):
+    """El carnicero recibe sin precio y dirección lo pone después.
+
+    A veces días después, y para entonces la pieza lleva una semana madurando
+    y pesa menos. Se escribía el precio del albarán tal cual, así que una
+    pieza de 10 kg a 30 €/kg que ya estaba en 8,5 salía a 30 €/kg en vez de a
+    35,29. Todo lo que se apoya en ese número —la venta al peso, la pizarra,
+    los recortes, lo esperado en el inventario— cobraba de menos: **45 € por
+    pieza, el 15 %**, y justo en el módulo que existe para lo contrario.
+
+    El coste sale del peso de la factura; el precio del kilo, del peso de hoy.
+    El agua que se fue ya está pagada.
+    """
+    from thegrill.meat import service as meat
+
+    session, rest, ana, _ = cocina
+    pieza, _ = _pieza(session, rest, "P9100", 10.0, 0.0, dias=20)
+    pieza.landed_usd_per_kg = None
+    pieza.piece_cost_usd = None
+    session.flush()
+    aging.weigh(session, ana, pieza.serial, 8.5, on=HOY - timedelta(days=1))
+
+    meat.set_price(session, ana, pieza.serial, 30.0)
+    session.refresh(pieza)
+
+    assert pieza.piece_cost_usd == 300.0, "lo pagado son los kilos de la factura"
+    assert abs(aging.cost_per_kg(pieza) - 300.0 / 8.5) < 1e-4, "el kilo, contra el de hoy"
+    # Y lo que vale la pieza sigue siendo lo que costó, no un 15 % menos.
+    assert abs(aging.cost_per_kg(pieza) * pieza.weight_kg - 300.0) < CENTIMO
+
+
+def test_trimmings_of_an_unpriced_piece_never_enter_at_zero(cocina):
+    """Entraban a cero euros y de ahí salía el coste de todos los platos.
+
+    El despiece tiene esa puerta desde siempre —«si la pieza vale cero, todos
+    los cortes salen a cero y el rastro del dinero se pierde ahí»—; a la
+    limpieza se le olvidó. Y la limpieza la hace el carnicero, que es
+    exactamente quien no ve dinero y no puede darse cuenta.
+    """
+    session, rest, ana, item = cocina
+    pieza, _ = _pieza(session, rest, "P9200", 9.0, 0.0)
+    pieza.landed_usd_per_kg = None
+    pieza.piece_cost_usd = None
+    session.flush()
+
+    with pytest.raises(aging.AgingError):
+        aging.trim(session, ana, pieza.serial, removed_kg=1.0,
+                   parts=[aging.TrimPart(item_id=item.id, kg=0.6, value_index=0.3)],
+                   on=HOY, use_by=HOY + timedelta(days=15))
+    # Y sin recortes que guardar sí se deja limpiar: tirar no necesita precio.
+    aging.trim(session, ana, pieza.serial, removed_kg=1.0, parts=[], on=HOY,
+               use_by=HOY + timedelta(days=15))
+
+
+def test_the_month_does_not_count_the_same_kilo_twice(cocina):
+    """El desvío del turno y el agua del descongelado son el mismo dinero.
+
+    El agua es la parte de lo consumido que pasa de lo que dice la carta; el
+    desvío es lo consumido menos lo que dice la carta. Sumarlos daba el doble:
+    un turno pasado de un kilo salía a 52 € donde hubo 26.
+    """
+    from thegrill.web import defrost
+
+    mes = defrost.MonthSoFar(year=2026, month=9, shifts=1)
+    mes.loss_cost, mes.drip_cost, mes.drip_kg = 26.0, 26.0, 1.0
+    assert mes.total_loss == 26.0, "el agua no se suma aparte: ya está dentro"
+    assert mes.drip_share == 100.0, "y se dice qué parte del desvío es agua"

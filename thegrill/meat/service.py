@@ -373,10 +373,26 @@ def set_price(session: Session, user: User, serial: str, price_kg: float,
         raise MeatError(t(lang, "m.rec.no_piece", serial=serial))
     if price_kg is None or price_kg <= 0:
         raise MeatError(t(lang, "m.rec.price_needed", serial=pieza.serial))
-    pieza.landed_usd_per_kg = float(price_kg)
-    # Al céntimo, como la factura: si la pieza arrastra milésimas, todo
-    # lo que se reparta luego a partir de ella las arrastra también.
-    pieza.piece_cost_usd = round((pieza.received_kg or pieza.weight_kg or 0.0) * price_kg, 2)
+    # El coste sale del peso de la factura —los kilos que se pagaron— y al
+    # céntimo: si la pieza arrastra milésimas, todo lo que se reparta luego a
+    # partir de ella las arrastra también.
+    recibido = pieza.received_kg or pieza.weight_kg or 0.0
+    pieza.piece_cost_usd = round(recibido * price_kg, 2)
+
+    # Y el precio del kilo se calcula contra el peso de HOY, no contra el de la
+    # factura. Aquí se perdía el dinero: el carnicero recibe sin precio y
+    # dirección lo pone después, a veces días después, y para entonces la pieza
+    # lleva una semana madurando y pesa menos. Poniendo el del albarán, una
+    # pieza de 10 kg a 30 €/kg que ya está en 8,5 salía a 30 en vez de a 35,29,
+    # y todo lo que se apoya en ese número —la venta al peso, la pizarra, los
+    # recortes, lo esperado en el inventario— cobraba de menos. Cuarenta y
+    # cinco euros por pieza, el quince por ciento, en lo contrario de para lo
+    # que existe el módulo de maduración.
+    #
+    # Es lo mismo que hacen pesar y limpiar: el agua que se fue ya está pagada.
+    quedan = pieza.weight_kg or recibido
+    pieza.landed_usd_per_kg = (round(pieza.piece_cost_usd / quedan, 6)
+                               if quedan > 1e-9 else float(price_kg))
     session.flush()
     return pieza
 

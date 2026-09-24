@@ -709,6 +709,7 @@ ES = {
     "m.cu.finger.no_pesa": "No pesa: calcula",
     "m.cu.finger_fair": "Esto no acusa a nadie: dice que unos números no salen del azar. Antes de hablar con alguien, mira si su báscula funciona y si tiene una donde trabaja.",
     "m.cu.finger_none": "Aún no hay pesadas suficientes para decir nada de nadie.",
+    "m.ag.trim_needs_price": "El primal {serial} todavía no tiene precio, así que sus recortes entrarían a cero euros y eso se llevaría por delante el coste de los platos. Ponle precio primero.",
 }
 
 EN = {
@@ -1403,6 +1404,7 @@ EN = {
     "m.cu.finger.no_pesa": "Not weighing: guessing",
     "m.cu.finger_fair": "This accuses nobody: it says some numbers do not come from chance. Before talking to anyone, check that their scale works and that they have one where they work.",
     "m.cu.finger_none": "Not enough weighings yet to say anything about anyone.",
+    "m.ag.trim_needs_price": "Primal {serial} has no price yet, so its trimmings would come in at zero and that would wreck the cost of every dish using them. Price it first.",
 }
 
 FR = {
@@ -2097,6 +2099,7 @@ FR = {
     "m.cu.finger.no_pesa": "Ne pèse pas : estime",
     "m.cu.finger_fair": "Cela n'accuse personne : cela dit que certains chiffres ne viennent pas du hasard. Avant de parler à quelqu'un, vérifie que sa balance marche et qu'il en a une là où il travaille.",
     "m.cu.finger_none": "Pas encore assez de pesées pour dire quoi que ce soit de quiconque.",
+    "m.ag.trim_needs_price": "La primale {serial} n'a pas encore de prix : ses parures entreraient à zéro euro et cela fausserait le coût de tous les plats qui en contiennent. Mets-lui un prix d'abord.",
 }
 
 DE = {
@@ -2791,6 +2794,7 @@ DE = {
     "m.cu.finger.no_pesa": "Wiegt nicht: schätzt",
     "m.cu.finger_fair": "Das beschuldigt niemanden: es sagt, dass manche Zahlen nicht vom Zufall kommen. Bevor du jemanden ansprichst, sieh nach, ob seine Waage funktioniert und ob er überhaupt eine hat, wo er arbeitet.",
     "m.cu.finger_none": "Noch nicht genug Wiegungen, um über jemanden etwas zu sagen.",
+    "m.ag.trim_needs_price": "Das Primal {serial} hat noch keinen Preis, also kämen seine Parüren mit null Euro herein und das würde die Kosten jedes Gerichts damit ruinieren. Zuerst bepreisen.",
 }
 
 NL = {
@@ -3485,6 +3489,7 @@ NL = {
     "m.cu.finger.no_pesa": "Weegt niet: schat",
     "m.cu.finger_fair": "Dit beschuldigt niemand: het zegt dat sommige cijfers niet van toeval komen. Voordat je iemand aanspreekt, kijk of zijn weegschaal werkt en of hij er wel een heeft waar hij werkt.",
     "m.cu.finger_none": "Nog niet genoeg wegingen om iets over iemand te zeggen.",
+    "m.ag.trim_needs_price": "Primal {serial} heeft nog geen prijs, dus zijn afsnijdsels komen op nul binnen en dat sloopt de kostprijs van elk gerecht ermee. Geef er eerst een prijs aan.",
 }
 
 AR = {
@@ -4179,6 +4184,7 @@ AR = {
     "m.cu.finger.no_pesa": "لا يزن: يُقدِّر",
     "m.cu.finger_fair": "هذا لا يتهم أحداً: يقول إن بعض الأرقام لا تأتي من الصدفة. قبل الحديث مع أحد، تحقّق من أن ميزانه يعمل وأن لديه ميزاناً حيث يعمل.",
     "m.cu.finger_none": "لا توجد بعد عمليات وزن كافية لقول شيء عن أحد.",
+    "m.ag.trim_needs_price": "القطعة {serial} بلا سعر بعد، فتدخل قصاصاتها بصفر وهذا يُفسد تكلفة كل طبق يستعملها. ضع لها سعراً أولاً.",
 }
 
 
@@ -4875,6 +4881,7 @@ HU = {
     "m.cu.finger.no_pesa": "Nem mér: saccol",
     "m.cu.finger_fair": "Ez senkit nem vádol: azt mondja, hogy egyes számok nem a véletlenből jönnek. Mielőtt bárkivel beszélnél, nézd meg, működik-e a mérlege, és van-e egyáltalán ott, ahol dolgozik.",
     "m.cu.finger_none": "Még nincs elég mérés ahhoz, hogy bárkiről bármit mondjunk.",
+    "m.ag.trim_needs_price": "A(z) {serial} darabnak még nincs ára, így a nyesedéke nulla forinton kerülne be, és ez tönkretenné minden vele készülő étel költségét. Előbb árazd be.",
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

@@ -491,8 +491,25 @@ class MonthSoFar:
 
     @property
     def total_loss(self) -> float:
-        """Lo que se ha ido en el mes: el desvío y el agua, juntos y en dinero."""
-        return round(self.loss_cost + self.drip_cost, 2)
+        """Lo que se ha ido en el mes, en dinero. Una sola vez.
+
+        Sumaba el desvío y el agua, y son **la misma cifra contada dos veces**.
+        El desvío es lo consumido menos lo que dice la carta; el agua del
+        descongelado es la parte de lo consumido que pasa de lo que dice la
+        carta. Un turno que se pasa un kilo salía como cincuenta y dos euros
+        perdidos donde hubo veintiséis.
+
+        El agua sigue estando —`drip_cost`— pero como desglose de esto, que es
+        lo que de verdad explica: «de los veintiséis, veintiséis son agua».
+        """
+        return round(self.loss_cost, 2)
+
+    @property
+    def drip_share(self) -> float | None:
+        """Qué parte del desvío es agua del descongelado, en tanto por ciento."""
+        if abs(self.loss_cost) < 0.005:
+            return None
+        return round(self.drip_cost / self.loss_cost * 100, 1)
 
 
 def month_so_far(session: Session, restaurant_id: int, on: date | None = None,
