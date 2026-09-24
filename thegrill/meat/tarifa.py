@@ -1,4 +1,4 @@
-"""El precio que se publica en la web de venta.
+"""[00657] El precio que se publica en la web de venta.
 
 Se cambia desde la consola de la plataforma, no tocando el código: mientras no
 haya clientes suficientes conviene enseñar una rebaja, y encender o apagar esa
@@ -15,18 +15,18 @@ from sqlalchemy.orm import Session
 
 from thegrill.models import Tarifa, User
 
-# Lo que se enseña mientras nadie haya dicho otra cosa.
+# [00666] Lo que se enseña mientras nadie haya dicho otra cosa.
 POR_DEFECTO = 99.0
 MESES_AL_AÑO = 12
 
 
 class TarifaError(ValueError):
-    """El precio que se quiere publicar no se puede publicar."""
+    """[00658] El precio que se quiere publicar no se puede publicar."""
 
 
 @dataclass
 class Publicada:
-    """La tarifa tal y como la va a leer quien entre en la web."""
+    """[00659] La tarifa tal y como la va a leer quien entre en la web."""
     currency: str
     normal: float                    # lo que cuesta un local al mes
     extra: float | None              # y cada local a partir del segundo
@@ -39,28 +39,28 @@ class Publicada:
 
     @property
     def yearly(self) -> float | None:
-        """Lo que cuesta el año pagado por adelantado."""
+        """[00663] Lo que cuesta el año pagado por adelantado."""
         if not self.yearly_on:
             return None
         return round(self.price * self.yearly_months, 2)
 
     @property
     def yearly_saving(self) -> float | None:
-        """Y cuánto se ahorra frente a pagarlo mes a mes."""
+        """[00664] Y cuánto se ahorra frente a pagarlo mes a mes."""
         if not self.yearly_on:
             return None
         return round(self.price * (MESES_AL_AÑO - self.yearly_months), 2)
 
     @property
     def discount_pct(self) -> int | None:
-        """Cuánto baja la rebaja, en porcentaje redondo, para el cartel."""
+        """[00665] Cuánto baja la rebaja, en porcentaje redondo, para el cartel."""
         if not self.on_sale or self.normal <= 0:
             return None
         return int(round((1 - self.price / self.normal) * 100))
 
 
 def fila(session: Session) -> Tarifa:
-    """La tarifa de la casa. Si todavía no hay ninguna, se crea la de partida."""
+    """[00660] La tarifa de la casa. Si todavía no hay ninguna, se crea la de partida."""
     row = session.query(Tarifa).order_by(Tarifa.id).first()
     if row is None:
         row = Tarifa(currency="EUR", per_outlet=POR_DEFECTO)
@@ -70,7 +70,7 @@ def fila(session: Session) -> Tarifa:
 
 
 def publicada(session: Session, on: date | None = None) -> Publicada:
-    """Lo que hay que enseñar hoy en la web de venta.
+    """[00661] Lo que hay que enseñar hoy en la web de venta.
 
     Una rebaja con fecha de fin se apaga sola el día siguiente: si hay que
     acordarse de quitarla a mano, un día se queda puesta.
@@ -96,7 +96,7 @@ def guardar(session: Session, user: User, *, currency: str, per_outlet: float,
             sale_price: float | None = None, sale_label: str = "",
             sale_until: date | None = None, yearly_on: bool = False,
             yearly_months: float = 10.0) -> Tarifa:
-    """Publica una tarifa nueva. Lo que no cuadra no se guarda."""
+    """[00662] Publica una tarifa nueva. Lo que no cuadra no se guarda."""
     if per_outlet <= 0:
         raise TarifaError("El precio por local tiene que ser mayor que cero")
     if extra_outlet is not None and extra_outlet <= 0:
@@ -104,7 +104,7 @@ def guardar(session: Session, user: User, *, currency: str, per_outlet: float,
     if sale_on:
         if not sale_price or sale_price <= 0:
             raise TarifaError("Una rebaja necesita su precio")
-        # Una «rebaja» que sube el precio no es una rebaja, y en el escaparate
+        # [00667] Una «rebaja» que sube el precio no es una rebaja, y en el escaparate
         # quedaría un precio tachado más bajo que el que se pide.
         if sale_price >= per_outlet:
             raise TarifaError("La rebaja tiene que quedar por debajo del precio normal")

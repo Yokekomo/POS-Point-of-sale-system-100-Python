@@ -1,4 +1,4 @@
-"""Modelo de datos de la plataforma.
+"""[00687] Modelo de datos de la plataforma.
 
 Dos capas:
 
@@ -31,13 +31,13 @@ class Role(str, enum.Enum):
 
 
 class Plan(str, enum.Enum):
-    """Lo que tiene contratado la casa."""
+    """[00688] Lo que tiene contratado la casa."""
     SINGLE = "SINGLE"        # un local
     MULTI = "MULTI"          # varios locales bajo la misma cuenta
 
 
 class Billing(str, enum.Enum):
-    """Cómo está la cuenta con el recibo del mes."""
+    """[00689] Cómo está la cuenta con el recibo del mes."""
     SETUP = "SETUP"          # dada de alta, sin método de pago todavía
     TRIAL = "TRIAL"          # de prueba, con tarjeta puesta y sin cobrar
     ACTIVE = "ACTIVE"        # al día
@@ -85,7 +85,7 @@ class PrimalStatus(str, enum.Enum):
 
 
 class SiteKind(str, enum.Enum):
-    """Qué hace cada sede de la casa.
+    """[00690] Qué hace cada sede de la casa.
 
     Un grupo no son tres restaurantes iguales: es un obrador donde se reciben,
     maduran y despiezan las piezas, y unos locales que consumen de él. El
@@ -96,7 +96,7 @@ class SiteKind(str, enum.Enum):
 
 
 class Storage(str, enum.Enum):
-    """Dónde está la pieza, que cambia lo que le pasa dentro.
+    """[00691] Dónde está la pieza, que cambia lo que le pasa dentro.
 
     En refrigeración la pieza es la que llegó. Congelada, el reloj se para y
     la vida útil pasa a ser la del congelador. Madurando pierde agua todos los
@@ -109,7 +109,7 @@ class Storage(str, enum.Enum):
 
 
 class LossKind(str, enum.Enum):
-    """Por qué pesa menos una pieza. No es lo mismo el agua que el cuchillo.
+    """[00692] Por qué pesa menos una pieza. No es lo mismo el agua que el cuchillo.
 
     El agua se evapora y no deja nada: sale de los kilos y no del dinero. La
     limpieza sí deja algo —la costra que se tira o los recortes que se
@@ -129,7 +129,7 @@ class MovementType(str, enum.Enum):
 
 
 class SourceStatus(str, enum.Enum):
-    """Regla 12: tres estados, nunca colapsar (c) en "0/done"."""
+    """[00693] Regla 12: tres estados, nunca colapsar (c) en "0/done"."""
     DONE = "DONE"
     NOT_POSTED_YET = "NOT_POSTED_YET"
     BLOCKED = "BLOCKED"
@@ -141,21 +141,21 @@ class HaccpKind(str, enum.Enum):
 
 
 class Unit(str, enum.Enum):
-    """Unidad base del ingrediente. Las recetas se escriben en esta unidad."""
+    """[00694] Unidad base del ingrediente. Las recetas se escriben en esta unidad."""
     KG = "KG"
     L = "L"
     UNIT = "UNIT"
 
 
 class PosMatch(str, enum.Enum):
-    """Por qué campo identifica el POS cada artículo."""
+    """[00695] Por qué campo identifica el POS cada artículo."""
     CODE = "CODE"   # solo por el número de artículo
     NAME = "NAME"   # solo por el nombre
     BOTH = "BOTH"   # por cualquiera de los dos; el código manda
 
 
 class ConsumptionMode(str, enum.Enum):
-    """Cómo se descuenta un ingrediente del almacén."""
+    """[00696] Cómo se descuenta un ingrediente del almacén."""
     RECIPE = "RECIPE"   # al vender, según el escandallo
     COUNT = "COUNT"     # al cerrar turno, por el conteo físico de descongelado
 
@@ -166,7 +166,7 @@ class DefrostKind(str, enum.Enum):
 
 
 class Rotation(str, enum.Enum):
-    """Cómo salen los lotes de un ingrediente madre."""
+    """[00697] Cómo salen los lotes de un ingrediente madre."""
     FEFO = "FEFO"   # antes lo que antes caduca (por defecto, lo correcto en fresco)
     FIFO = "FIFO"   # antes lo que antes entró (seco y no perecedero)
 
@@ -182,7 +182,7 @@ class MovementKind(str, enum.Enum):
     WASTE = "WASTE"      # merma
     PRODUCTION = "PRODUCTION"   # consumo por elaborar una producción
     ADJUST = "ADJUST"    # ajuste por conteo físico
-    # Ni se ha vendido ni se ha tirado: ha cambiado de sitio o de número. Un
+    # [00734] Ni se ha vendido ni se ha tirado: ha cambiado de sitio o de número. Un
     # traslado a otra sede o unas piezas que salen del arcón parten el lote, y
     # esos kilos tienen que salir en el libro o el lote se queda sin explicar.
     MOVE = "MOVE"
@@ -195,11 +195,11 @@ class FefoStage(str, enum.Enum):
 
 # ====================================================== Mixin de inquilino
 class TenantMixin:
-    """Toda tabla operativa pertenece a un restaurante."""
+    """[00698] Toda tabla operativa pertenece a un restaurante."""
 
     @declared_attr
     def restaurant_id(cls) -> Mapped[int]:
-        """De qué casa es esta fila. Todas las tablas la llevan.
+        """[00729] De qué casa es esta fila. Todas las tablas la llevan.
 
         Es lo que separa una casa de otra en la misma base: sin esto, una consulta
         que se olvide del filtro enseña la carne del vecino.
@@ -216,15 +216,15 @@ class Restaurant(Base):
     slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     join_code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     timezone: Mapped[str] = mapped_column(String(64), default="UTC")
-    # A qué hora se cierra el día. Una cocina no cierra a medianoche: a las dos
+    # [00735] A qué hora se cierra el día. Una cocina no cierra a medianoche: a las dos
     # de la mañana se sigue sirviendo, y lo que se apunta entonces es del
     # servicio de anoche, no del día que acaba de empezar. Vacío quiere decir
     # «la de la casa», que son las tres; el manager puede poner otra.
     day_cut_hour: Mapped[int | None] = mapped_column(Integer)
-    # Cuántos días dura lo que se ha descongelado. Vacío quiere decir «los de
+    # [00736] Cuántos días dura lo que se ha descongelado. Vacío quiere decir «los de
     # la casa», que son tres; cada plan de autocontrol pone los suyos.
     thaw_days: Mapped[int | None] = mapped_column(Integer)
-    # A cuánto tiene que bajar del camión cada cosa. Lo pone el plan de
+    # [00737] A cuánto tiene que bajar del camión cada cosa. Lo pone el plan de
     # autocontrol de la casa y no el programa: la norma es el mínimo, y una
     # casa que se exige más no tiene por qué renunciar a que el programa se lo
     # controle. Vacío quiere decir «lo que trae de serie».
@@ -232,7 +232,7 @@ class Restaurant(Base):
     chilled_max_c: Mapped[float | None] = mapped_column(Float)
     frozen_min_c: Mapped[float | None] = mapped_column(Float)
     frozen_max_c: Mapped[float | None] = mapped_column(Float)
-    # La moneda en la que cobra y paga esta casa. Se elige en la
+    # [00738] La moneda en la que cobra y paga esta casa. Se elige en la
     # configuración; lo que se enseña al lado de cada cifra sale de aquí.
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
     language: Mapped[str] = mapped_column(String(5), default="es")   # idioma por defecto del local
@@ -240,10 +240,10 @@ class Restaurant(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    # --- la cuenta: quién es la casa y cómo está con el recibo del mes
+    # [00739] --- la cuenta: quién es la casa y cómo está con el recibo del mes
     platform: Mapped[bool | None] = mapped_column(Boolean, default=False)  # la casa del dueño
     plan: Mapped[Plan | None] = mapped_column(Enum(Plan))
-    # Varias casas de la misma empresa comparten grupo: se facturan juntas y se
+    # [00740] Varias casas de la misma empresa comparten grupo: se facturan juntas y se
     # ven juntas. Cada una sigue teniendo su cámara y su gente, que es lo que
     # una cocina espera; lo que se junta es el recibo.
     group_name: Mapped[str | None] = mapped_column(String(96), index=True)
@@ -254,14 +254,14 @@ class Restaurant(Base):
     billing_note: Mapped[str | None] = mapped_column(Text)        # por qué se bloqueó, o qué falta
     trial_ends: Mapped[date | None] = mapped_column(Date)         # hasta cuándo dura la prueba
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime)
-    # --- el método de pago: lo guarda la pasarela, aquí solo su referencia.
+    # [00741] --- el método de pago: lo guarda la pasarela, aquí solo su referencia.
     # En esta plataforma no entra un número de tarjeta: ni se pide ni se guarda.
     payment_provider: Mapped[str | None] = mapped_column(String(32))
     payment_ref: Mapped[str | None] = mapped_column(String(190))   # cliente en la pasarela
     payment_brand: Mapped[str | None] = mapped_column(String(32))  # VISA, MASTERCARD…
     payment_last4: Mapped[str | None] = mapped_column(String(4))
     payment_expiry: Mapped[str | None] = mapped_column(String(7))  # MM/AAAA
-    # --- datos fiscales, los que hacen falta para facturar
+    # [00742] --- datos fiscales, los que hacen falta para facturar
     legal_name: Mapped[str | None] = mapped_column(String(190))
     tax_number: Mapped[str | None] = mapped_column(String(64))
     address: Mapped[str | None] = mapped_column(Text)
@@ -274,22 +274,22 @@ class Restaurant(Base):
 
     @property
     def blocked(self) -> bool:
-        """Si la casa no puede entrar: sin pagar, cancelada o dada de baja."""
+        """[00730] Si la casa no puede entrar: sin pagar, cancelada o dada de baja."""
         return self.billing in (Billing.BLOCKED, Billing.CANCELLED) or not self.active
 
     @property
     def has_payment_method(self) -> bool:
-        """Si la casa tiene una forma de pago guardada."""
+        """[00731] Si la casa tiene una forma de pago guardada."""
         return bool(self.payment_ref)
 
     @property
     def needs_attention(self) -> bool:
-        """Si hay que mirar el recibo de esta casa: debe o está bloqueada."""
+        """[00732] Si hay que mirar el recibo de esta casa: debe o está bloqueada."""
         return self.billing in (Billing.PAST_DUE, Billing.BLOCKED)
 
 
 class AccessRequest(Base):
-    """Una casa que pide acceso desde la web pública.
+    """[00699] Una casa que pide acceso desde la web pública.
 
     Se guarda siempre, se avise o no por correo: una solicitud que se pierde es
     un cliente que no vuelve. Lleva datos personales y fiscales, así que no sale
@@ -331,7 +331,7 @@ class User(TenantMixin, Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_login: Mapped[datetime | None] = mapped_column(DateTime)
-    # Verificación en dos pasos: el secreto de los seis dígitos, si la tiene
+    # [00743] Verificación en dos pasos: el secreto de los seis dígitos, si la tiene
     # puesta, y las huellas de los códigos de repuesto —los códigos mismos no
     # se guardan—.
     # La sede donde está: se añadió después, y a una tabla que ya existe no
@@ -354,16 +354,16 @@ class AuthSession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
-    # La sesión que ha pasado la contraseña pero aún no los seis dígitos: existe
+    # [00744] La sesión que ha pasado la contraseña pero aún no los seis dígitos: existe
     # para nada más que enseñar esa pantalla.
     pending_2fa: Mapped[bool | None] = mapped_column(Boolean, default=False)
-    # El recado de lo último que se guardó, para enseñarlo **después** de
+    # [00745] El recado de lo último que se guardó, para enseñarlo **después** de
     # redirigir. Sin esto, la pantalla que contesta a un POST es la respuesta
     # del POST: recargar vuelve a mandarlo, y el navegador pregunta si quieres
     # reenviar el formulario, que es una pregunta que nadie sabe contestar con
     # una pieza en la mano. Se guarda aquí, se enseña una vez y se borra.
     flash: Mapped[str | None] = mapped_column(Text)
-    # Y el bloque de números que va con el recado, cuando lo que hay que
+    # [00746] Y el bloque de números que va con el recado, cuando lo que hay que
     # enseñar no cabe en una frase: el cuadre de un despiece, la pesada de una
     # pieza, lo del camión que se queda puesto para la siguiente bolsa. Viaja
     # como texto y se vuelve a montar al pintar la pantalla.
@@ -371,7 +371,7 @@ class AuthSession(Base):
 
 
 class RecordTemplate(TenantMixin, Base):
-    """Plantilla de registro: lo que un restaurante concreto quiere capturar."""
+    """[00700] Plantilla de registro: lo que un restaurante concreto quiere capturar."""
     __tablename__ = "record_templates"
     __table_args__ = (UniqueConstraint("restaurant_id", "code", name="uq_template_restaurant_code"),)
 
@@ -413,7 +413,7 @@ class TemplateField(Base):
 
 
 class Record(TenantMixin, Base):
-    """Un registro enviado por un empleado. Append-only."""
+    """[00701] Un registro enviado por un empleado. Append-only."""
     __tablename__ = "records"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -447,7 +447,7 @@ class RecordValue(Base):
 
     @property
     def display(self) -> str:
-        """El valor para enseñar, sea del tipo que sea.
+        """[00733] El valor para enseñar, sea del tipo que sea.
 
         Un parte guarda números, textos, fechas y síes: se guarda cada uno en su
         columna y aquí se saca el que tenga algo.
@@ -488,7 +488,7 @@ class Alert(TenantMixin, Base):
 
 
 class Notification(TenantMixin, Base):
-    """Aviso dirigido a una persona concreta dentro de la plataforma.
+    """[00702] Aviso dirigido a una persona concreta dentro de la plataforma.
 
     Existe para que una alerta crítica no se quede esperando a que alguien
     entre a mirar: aparece en el contador de la cabecera de quien debe actuar.
@@ -519,7 +519,7 @@ class Primal(TenantMixin, Base):
     grade: Mapped[str | None] = mapped_column(String(32))
     origin: Mapped[str | None] = mapped_column(String(32))
     weight_kg: Mapped[float] = mapped_column(Float)          # lo que pesa HOY
-    # Lo que pesaba al entrar. No se toca nunca: es contra esto contra lo que
+    # [00747] Lo que pesaba al entrar. No se toca nunca: es contra esto contra lo que
     # se mide el rendimiento de toda la pieza —agua, limpieza y lo vendible—.
     received_kg: Mapped[float | None] = mapped_column(Float)
     lot: Mapped[str | None] = mapped_column(String(16), index=True)
@@ -529,14 +529,14 @@ class Primal(TenantMixin, Base):
     status: Mapped[PrimalStatus] = mapped_column(Enum(PrimalStatus), default=PrimalStatus.IN_STOCK)
     status_ref: Mapped[str | None] = mapped_column(String(16))
     status_date: Mapped[date | None] = mapped_column(Date)
-    # ---- lo que viene escrito en la etiqueta del proveedor, pieza a pieza.
+    # [00748] ---- lo que viene escrito en la etiqueta del proveedor, pieza a pieza.
     # Dos bolsas de la misma caja no son la misma carne: pueden traer distinto
     # número de canal, distinta fecha de sacrificio y distinta calificación. Lo
     # que se copia de aquí es lo que contesta «¿de dónde salió esta pieza?»
     # cuando lo preguntan por teléfono, y sin ello el recorrido empieza en el
     # muelle en vez de en el matadero.
     label_product: Mapped[str | None] = mapped_column(String(128))
-    # El número de la etiqueta del proveedor: el que traza al animal o al grupo.
+    # [00749] El número de la etiqueta del proveedor: el que traza al animal o al grupo.
     # No es nuestro lote de recepción —ese lo ponemos nosotros—, es el suyo.
     supplier_lot: Mapped[str | None] = mapped_column(String(48), index=True)
     producer_plant: Mapped[str | None] = mapped_column(String(128), index=True)
@@ -544,7 +544,7 @@ class Primal(TenantMixin, Base):
     breed: Mapped[str | None] = mapped_column(String(48))
     slaughter_date: Mapped[date | None] = mapped_column(Date)
     pack_date: Mapped[date | None] = mapped_column(Date)
-    # ---- cómo llegó, que no es lo mismo que dónde está ahora.
+    # [00750] ---- cómo llegó, que no es lo mismo que dónde está ahora.
     # Una pieza que llega congelada y una que llega fresca y se mete al arcón
     # acaban las dos en el congelador, pero no son la misma carne: la primera
     # nunca estuvo fresca en esta casa y la segunda sí. Y la temperatura a la
@@ -552,11 +552,11 @@ class Primal(TenantMixin, Base):
     # mal, así que se apunta al recibirla y no se toca más.
     arrival: Mapped[Storage | None] = mapped_column(Enum(Storage))
     arrival_c: Mapped[float | None] = mapped_column(Float)
-    # Llegó fresca y va derecha al arcón, sin pasar por la cámara.
+    # [00751] Llegó fresca y va derecha al arcón, sin pasar por la cámara.
     frozen_on_arrival: Mapped[bool | None] = mapped_column(Boolean)
     expiry_label: Mapped[date | None] = mapped_column(Date)
     frozen_use_by: Mapped[date | None] = mapped_column(Date)
-    # Dónde está y desde cuándo. Madurando se guarda además el peso con el que
+    # [00752] Dónde está y desde cuándo. Madurando se guarda además el peso con el que
     # entró y los días a los que se apunta, que es lo que permite decir cuánto
     # lleva perdido y cuándo está lista.
     storage: Mapped[Storage | None] = mapped_column(Enum(Storage), default=Storage.CHILLED)
@@ -565,12 +565,12 @@ class Primal(TenantMixin, Base):
     aging_target_days: Mapped[int | None] = mapped_column(Integer)
     halal: Mapped[bool | None] = mapped_column(Boolean)
     photo_ref: Mapped[str | None] = mapped_column(String(256))
-    # La sede donde está: se añadió después, y a una tabla que ya existe no
+    # [00753] La sede donde está: se añadió después, y a una tabla que ya existe no
     # se le puede colgar una clave ajena en SQLite. Va como número con
     # índice para que la base de datos de una casa en marcha y la de una
     # casa nueva tengan la misma forma. Vacío es la sede principal.
     site_id: Mapped[int | None] = mapped_column(Integer, index=True)
-    # Y dentro de la sede, en qué cámara: «Cámara 2», «Arcón pasillo». Un
+    # [00754] Y dentro de la sede, en qué cámara: «Cámara 2», «Arcón pasillo». Un
     # nombre escrito por ellos, que es como la llaman en la casa.
     chamber: Mapped[str | None] = mapped_column(String(48), index=True)
     suspect_phantom: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -578,7 +578,7 @@ class Primal(TenantMixin, Base):
 
 
 class Site(TenantMixin, Base):
-    """Una sede de la casa: el obrador o uno de los locales.
+    """[00703] Una sede de la casa: el obrador o uno de los locales.
 
     La carne está siempre en una sede concreta, porque «cuánto queda» sin decir
     dónde no sirve para trabajar: el obrador puede tener ocho piezas y el local
@@ -596,7 +596,7 @@ class Site(TenantMixin, Base):
 
 
 class Transfer(TenantMixin, Base):
-    """Un traslado de carne de una sede a otra.
+    """[00704] Un traslado de carne de una sede a otra.
 
     Lo que viaja se lleva su número y su coste: una pieza que sale del obrador
     entra en el local valiendo lo mismo, ni más barata por el camino ni más
@@ -647,7 +647,7 @@ class Despiece(TenantMixin, Base):
 
 
 class DespiecePrimal(Base):
-    """ÚNICA fuente de verdad de qué seriales consume cada despiece."""
+    """[00705] ÚNICA fuente de verdad de qué seriales consume cada despiece."""
     __tablename__ = "despiece_primals"
     __table_args__ = (UniqueConstraint("despiece_id", "serial", name="uq_despiece_serial"),)
 
@@ -661,7 +661,7 @@ class DespiecePrimal(Base):
 
 
 class DespieceCut(Base):
-    """Un corte de salida del despiece.
+    """[00706] Un corte de salida del despiece.
 
     El corte es lo que enlaza la carne con la cocina: apunta a un artículo, el
     artículo cuelga de un ingrediente madre, y la madre se usa en las recetas.
@@ -677,7 +677,7 @@ class DespieceCut(Base):
     total_kg: Mapped[float] = mapped_column(Float)
     item_id: Mapped[int | None] = mapped_column(ForeignKey("ingredient_items.id"), index=True)
     is_trim: Mapped[bool] = mapped_column(Boolean, default=False)   # parte para reusar
-    # Sale limpio y entero, para cortarlo al vender: no hay piezas ni gramos
+    # [00755] Sale limpio y entero, para cortarlo al vender: no hay piezas ni gramos
     # por pieza, solo los kilos que entran en cámara.
     by_weight: Mapped[bool | None] = mapped_column(Boolean, default=False)
     value_index: Mapped[float] = mapped_column(Float, default=1.0)  # reparto del coste del primal
@@ -801,7 +801,7 @@ class HaccpCheck(TenantMixin, Base):
 
 # ============================================ Ingredientes, lotes y recetas
 class Ingredient(TenantMixin, Base):
-    """Ingrediente MADRE: «leche». Es lo que se escribe en las recetas.
+    """[00707] Ingrediente MADRE: «leche». Es lo que se escribe en las recetas.
 
     Debajo cuelgan los artículos concretos que se compran («leche entera marca
     X»), y debajo de cada artículo sus lotes con caducidad y precio. Así la
@@ -818,15 +818,15 @@ class Ingredient(TenantMixin, Base):
     consumption: Mapped[ConsumptionMode] = mapped_column(Enum(ConsumptionMode),
                                                          default=ConsumptionMode.RECIPE)
     min_stock: Mapped[float | None] = mapped_column(Float)   # mínimo para avisar
-    # El gramaje habitual en el plato: gramos, mililitros o unidades, según la
+    # [00756] El gramaje habitual en el plato: gramos, mililitros o unidades, según la
     # unidad base. Es lo que se escribe en cocina, y de ahí sale lo que cuesta
     # la ración.
     portion_g: Mapped[float | None] = mapped_column(Float)
-    # Un corte que se vende a peso no lleva ración fija: se corta delante del
+    # [00757] Un corte que se vende a peso no lleva ración fija: se corta delante del
     # cliente y el POS manda los gramos de esa venta. Es como se vende la carne
     # madurada, y por eso su stock vive en kilos y no en piezas.
     sold_by_weight: Mapped[bool | None] = mapped_column(Boolean, default=False)
-    # Lo que pesa una unidad de este ingrediente, en gramos. Es el único
+    # [00758] Lo que pesa una unidad de este ingrediente, en gramos. Es el único
     # número que permite escribirlo todo en gramos sin mentir:
     #
     #   huevo    →    55 g cada uno
@@ -848,7 +848,7 @@ class Ingredient(TenantMixin, Base):
 
 
 class IngredientItem(TenantMixin, Base):
-    """Artículo concreto atado a un ingrediente madre: la marca que se compra.
+    """[00708] Artículo concreto atado a un ingrediente madre: la marca que se compra.
 
     Cambiar de proveedor es dar de alta otro artículo bajo la misma madre. Las
     recetas ni se enteran.
@@ -871,7 +871,7 @@ class IngredientItem(TenantMixin, Base):
 
 
 class IngredientLot(TenantMixin, Base):
-    """Una entrada concreta de un artículo: su caducidad, su cantidad y su precio.
+    """[00709] Una entrada concreta de un artículo: su caducidad, su cantidad y su precio.
 
     El consumo FEFO compite entre todos los lotes de la misma madre, sea cual
     sea la marca: sale antes lo que antes caduca.
@@ -892,24 +892,24 @@ class IngredientLot(TenantMixin, Base):
     qty_remaining: Mapped[float] = mapped_column(Float)        # lo que queda
     unit_cost: Mapped[float] = mapped_column(Float)            # precio por unidad base
     stage: Mapped[FefoStage] = mapped_column(Enum(FefoStage), default=FefoStage.MASTER)
-    # La etiqueta de la pieza: lo que hay que leer sin ir a buscar el despiece.
+    # [00759] La etiqueta de la pieza: lo que hay que leer sin ir a buscar el despiece.
     pieces: Mapped[int | None] = mapped_column(Integer)          # cuántas piezas salieron
-    # Peso MEDIO por pieza: los kilos reales entre las piezas. Un corte a mano
+    # [00760] Peso MEDIO por pieza: los kilos reales entre las piezas. Un corte a mano
     # nunca sale exacto, así que lo que vale es el total pesado y el recuento.
     piece_weight_g: Mapped[float | None] = mapped_column(Float)
     nominal_piece_g: Mapped[float | None] = mapped_column(Float)  # el peso al que se apunta
     grade: Mapped[str | None] = mapped_column(String(32))        # MB9+, Prime, Choice…
     origin: Mapped[str | None] = mapped_column(String(32))       # AUS, USA, JPN…
-    # Cortado de una pieza congelada: la porción nace congelada y no se vende
+    # [00761] Cortado de una pieza congelada: la porción nace congelada y no se vende
     # hasta que alguien la saca a descongelar.
     frozen: Mapped[bool | None] = mapped_column(Boolean, default=False)
-    # La fecha que traía en el congelador, para cuando se saca. Al
+    # [00762] La fecha que traía en el congelador, para cuando se saca. Al
     # descongelarse manda la de después —tres días, no diez meses— y `expiry`
     # pasa a ser esa; la de antes se guarda aquí porque sigue siendo verdad y
     # es la que hay que poder enseñar si alguien pregunta de dónde salió.
     frozen_expiry: Mapped[date | None] = mapped_column(Date)
     chamber: Mapped[str | None] = mapped_column(String(48), index=True)
-    # La sede donde está: se añadió después, y a una tabla que ya existe no
+    # [00763] La sede donde está: se añadió después, y a una tabla que ya existe no
     # se le puede colgar una clave ajena en SQLite. Va como número con
     # índice para que la base de datos de una casa en marcha y la de una
     # casa nueva tengan la misma forma. Vacío es la sede principal.
@@ -920,7 +920,7 @@ class IngredientLot(TenantMixin, Base):
 
 
 class IngredientMovement(TenantMixin, Base):
-    """Libro de movimientos: de dónde sale y adónde va cada gramo."""
+    """[00710] Libro de movimientos: de dónde sale y adónde va cada gramo."""
     __tablename__ = "ingredient_movements"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -937,7 +937,7 @@ class IngredientMovement(TenantMixin, Base):
 
 
 class Recipe(TenantMixin, Base):
-    """Escandallo. Un plato que se vende, o una elaboración que usan otras recetas."""
+    """[00711] Escandallo. Un plato que se vende, o una elaboración que usan otras recetas."""
     __tablename__ = "recipes"
     __table_args__ = (UniqueConstraint("restaurant_id", "code", name="uq_recipe_restaurant_code"),)
 
@@ -951,21 +951,21 @@ class Recipe(TenantMixin, Base):
     yield_unit: Mapped[Unit | None] = mapped_column(Enum(Unit))
     sale_price: Mapped[float | None] = mapped_column(Float)          # PVP con impuestos
     vat_pct: Mapped[float] = mapped_column(Float, default=0.0)       # para el food cost neto
-    # El plato que se cobra por kilo: el POS manda los gramos de cada venta y
+    # [00764] El plato que se cobra por kilo: el POS manda los gramos de cada venta y
     # el precio sale de ahí, no de una ración fija.
     by_weight: Mapped[bool | None] = mapped_column(Boolean, default=False)
     price_per_kg: Mapped[float | None] = mapped_column(Float)        # PVP por kilo, con impuestos
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text)
 
-    # dos claves apuntan a `recipes` (la receta y su elaboración), hay que decir cuál
+    # [00765] dos claves apuntan a `recipes` (la receta y su elaboración), hay que decir cuál
     lines: Mapped[list["RecipeLine"]] = relationship(
         back_populates="recipe", cascade="all, delete-orphan",
         foreign_keys="RecipeLine.recipe_id", order_by="RecipeLine.sort_order")
 
 
 class RecipeLine(Base):
-    """Una línea del escandallo: un ingrediente base o una elaboración."""
+    """[00712] Una línea del escandallo: un ingrediente base o una elaboración."""
     __tablename__ = "recipe_lines"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -973,7 +973,7 @@ class RecipeLine(Base):
     ingredient_id: Mapped[int | None] = mapped_column(ForeignKey("ingredients.id"), index=True)
     sub_recipe_id: Mapped[int | None] = mapped_column(ForeignKey("recipes.id"), index=True)
     qty: Mapped[float] = mapped_column(Float)                  # peso NETO, el que va al plato
-    # La línea cuyo peso lo decide la balanza en el momento de la venta. Su
+    # [00766] La línea cuyo peso lo decide la balanza en el momento de la venta. Su
     # `qty` es solo una referencia: el que manda es el que llega del POS.
     by_weight: Mapped[bool | None] = mapped_column(Boolean, default=False)
     waste_pct: Mapped[float] = mapped_column(Float, default=0.0)   # merma de limpieza sobre el bruto
@@ -1003,9 +1003,9 @@ class CountItemKind(str, enum.Enum):
 
 
 class MeatCount(TenantMixin, Base):
-    """Inventario físico de carne: se cuenta pieza a pieza y se cuadra."""
+    """[00713] Inventario físico de carne: se cuenta pieza a pieza y se cuadra."""
     __tablename__ = "meat_counts"
-    # Una cámara, una hoja abierta, y que lo diga la base de datos: dos
+    # [00767] Una cámara, una hoja abierta, y que lo diga la base de datos: dos
     # encargados dándole a «abrir inventario» a la vez abrían dos hojas de la
     # misma cámara, y cada uno contaba en la suya. La columna solo lleva
     # número mientras la hoja está abierta; al cerrarla se queda vacía, y una
@@ -1023,10 +1023,10 @@ class MeatCount(TenantMixin, Base):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime)
     complete: Mapped[bool] = mapped_column(Boolean, default=False)   # se contó todo
     cancel_reason: Mapped[str | None] = mapped_column(Text)
-    # La cámara que se ha contado. Vacío es la casa entera, que es como se
+    # [00768] La cámara que se ha contado. Vacío es la casa entera, que es como se
     # contaba antes de que hubiera sedes.
     site_id: Mapped[int | None] = mapped_column(Integer, index=True)
-    # La sede mientras la hoja está abierta; vacío en cuanto se cierra.
+    # [00769] La sede mientras la hoja está abierta; vacío en cuanto se cierra.
     open_key: Mapped[int | None] = mapped_column(Integer)
 
     lines: Mapped[list["MeatCountLine"]] = relationship(
@@ -1034,7 +1034,7 @@ class MeatCount(TenantMixin, Base):
 
 
 class MeatCountLine(Base):
-    """Una pieza del inventario: lo que dice el sistema y lo que se ha contado."""
+    """[00714] Una pieza del inventario: lo que dice el sistema y lo que se ha contado."""
     __tablename__ = "meat_count_lines"
     __table_args__ = (UniqueConstraint("count_id", "serial", name="uq_count_serial"),)
 
@@ -1049,12 +1049,12 @@ class MeatCountLine(Base):
     unit_cost: Mapped[float | None] = mapped_column(Float)
     outcome: Mapped[str | None] = mapped_column(String(16))       # resultado al cerrar
     note: Mapped[str | None] = mapped_column(Text)
-    # Quién la contó y cuándo. Una cámara grande se cuenta entre dos, cada uno
+    # [00770] Quién la contó y cuándo. Una cámara grande se cuenta entre dos, cada uno
     # con su móvil, y hace falta saber de quién es cada número: si el que se
     # guarda no es el que uno escribió, se ve a quién preguntarle.
     counted_by: Mapped[int | None] = mapped_column(Integer)
     counted_at: Mapped[datetime | None] = mapped_column(DateTime)
-    # Dos personas contaron la misma pieza y no les dio lo mismo. Manda el
+    # [00771] Dos personas contaron la misma pieza y no les dio lo mismo. Manda el
     # último, pero queda dicho: una pieza en discusión no es una pieza contada.
     # Admite vacío para que le llegue también a las casas que ya funcionaban.
     disputed: Mapped[bool | None] = mapped_column(Boolean, default=False)
@@ -1063,7 +1063,7 @@ class MeatCountLine(Base):
 
 
 class PrimalPar(TenantMixin, Base):
-    """Mínimo de primales por SKU. Si al cerrar el día quedan menos, se avisa."""
+    """[00715] Mínimo de primales por SKU. Si al cerrar el día quedan menos, se avisa."""
     __tablename__ = "primal_pars"
     __table_args__ = (UniqueConstraint("restaurant_id", "sku", name="uq_par_restaurant_sku"),)
 
@@ -1081,7 +1081,7 @@ class BugStatus(str, enum.Enum):
 
 
 class BugReport(Base):
-    """Un fallo contado por quien lo ha sufrido.
+    """[00716] Un fallo contado por quien lo ha sufrido.
 
     Quien está delante de la pantalla ve cosas que ninguna prueba ve: el número
     que no cuadra el martes, la pantalla que se queda en blanco con su teclado.
@@ -1111,14 +1111,14 @@ class BugReport(Base):
 
 
 class ShiftClosure(TenantMixin, Base):
-    """El cuadre de un turno, guardado.
+    """[00717] El cuadre de un turno, guardado.
 
     El cierre ya decía lo que se había perdido, pero se lo llevaba la pantalla:
     para saber cuánto va en el mes había que ir aviso por aviso. Aquí queda
     escrito turno a turno, con su sede, y el mes se suma solo.
     """
     __tablename__ = "shift_closures"
-    # Un turno, un cuadre, y que lo diga la base de datos: dos personas dándole
+    # [00772] Un turno, un cuadre, y que lo diga la base de datos: dos personas dándole
     # a cerrar a la vez escribían dos filas y el mes salía el doble. La sede va
     # también en número, con cero para la casa de un solo local: una columna
     # vacía no choca con otra vacía, y entonces la regla no sujetaba nada.
@@ -1143,7 +1143,7 @@ class ShiftClosure(TenantMixin, Base):
 
 
 class SitePar(TenantMixin, Base):
-    """El mínimo de una sede. Lo que la sede no diga, lo dice la casa.
+    """[00718] El mínimo de una sede. Lo que la sede no diga, lo dice la casa.
 
     La playa en agosto y la sierra en enero no quieren el mismo mínimo del
     mismo corte, y hasta ahora el aviso saltaba o callaba para las dos a la
@@ -1162,7 +1162,7 @@ class SitePar(TenantMixin, Base):
 
 
 class PrimalWeighing(TenantMixin, Base):
-    """Cada vez que se vuelve a pesar una pieza entera.
+    """[00719] Cada vez que se vuelve a pesar una pieza entera.
 
     Madurando, la pieza pierde agua: pesa menos cada semana. Esos kilos no se
     los lleva nadie, se evaporan, así que su coste se queda en lo que queda y
@@ -1178,7 +1178,7 @@ class PrimalWeighing(TenantMixin, Base):
     date: Mapped[date] = mapped_column(Date, index=True)
     storage: Mapped[Storage] = mapped_column(Enum(Storage), default=Storage.AGING)
     kind: Mapped[LossKind | None] = mapped_column(Enum(LossKind), default=LossKind.EVAPORATION)
-    # De lo que se quitó limpiando: lo que se ha aprovechado y lo que se tira.
+    # [00773] De lo que se quitó limpiando: lo que se ha aprovechado y lo que se tira.
     # Una limpieza casi nunca es todo lo uno o todo lo otro.
     kept_kg: Mapped[float | None] = mapped_column(Float)
     waste_kg: Mapped[float | None] = mapped_column(Float)
@@ -1187,7 +1187,7 @@ class PrimalWeighing(TenantMixin, Base):
     kg: Mapped[float] = mapped_column(Float)
     loss_kg: Mapped[float] = mapped_column(Float, default=0.0)
     cost_per_kg: Mapped[float | None] = mapped_column(Float)     # a cómo queda el kilo
-    # Y a cómo estaba antes: es lo que valían los kilos que se fueron, y sin
+    # [00774] Y a cómo estaba antes: es lo que valían los kilos que se fueron, y sin
     # eso no se puede decir en dinero lo que se ha tirado limpiando.
     cost_per_kg_before: Mapped[float | None] = mapped_column(Float)
     days: Mapped[int | None] = mapped_column(Integer)            # los que lleva madurando
@@ -1198,7 +1198,7 @@ class PrimalWeighing(TenantMixin, Base):
 
 
 class WeightSale(TenantMixin, Base):
-    """Venta a peso: la pieza se corta delante del cliente y se cobra por kilo.
+    """[00720] Venta a peso: la pieza se corta delante del cliente y se cobra por kilo.
 
     Es como se vende la carne madurada, y por eso no pasa por el escandallo:
     no hay gramos fijos que valgan, cada corte pesa lo que pesa. Se apunta lo
@@ -1222,7 +1222,7 @@ class WeightSale(TenantMixin, Base):
 
 
 class DefrostEntry(TenantMixin, Base):
-    """Descongelado: lo que se saca a descongelar y lo que queda al cerrar.
+    """[00721] Descongelado: lo que se saca a descongelar y lo que queda al cerrar.
 
     Cada apunte va con el serial de la pieza, las piezas y el peso total. La
     diferencia entre lo que había, lo que se sacó y lo que queda al acabar el
@@ -1248,7 +1248,7 @@ class DefrostEntry(TenantMixin, Base):
 
 
 class PosProduct(TenantMixin, Base):
-    """Producto del POS → emplatado. Fuente única del mapeo.
+    """[00722] Producto del POS → emplatado. Fuente única del mapeo.
 
     Según el POS, el artículo viene identificado por un código numérico o por
     su nombre. Se guardan los dos y se empareja por cualquiera de ellos.
@@ -1280,7 +1280,7 @@ class ChainCheckpoint(TenantMixin, Base):
 
 
 class GatewayEvent(Base):
-    """Un evento de la pasarela de pago, ya procesado.
+    """[00723] Un evento de la pasarela de pago, ya procesado.
 
     La pasarela reintenta hasta que le contestas bien, así que el mismo evento
     llega varias veces. Aquí queda su número para no aplicarlo dos: cobrar dos
@@ -1298,7 +1298,7 @@ class GatewayEvent(Base):
 
 
 class TourVisto(TenantMixin, Base):
-    """Quién ha visto ya el tutorial de qué pantalla.
+    """[00724] Quién ha visto ya el tutorial de qué pantalla.
 
     En el servidor y por persona, no en el navegador: en una cocina el móvil
     y la tablet se comparten, y si la marca viviera en el aparato el primero
@@ -1321,7 +1321,7 @@ class TourVisto(TenantMixin, Base):
 
 
 class Tarifa(Base):
-    """El precio publicado, que se cambia desde la consola y no tocando el código.
+    """[00725] El precio publicado, que se cambia desde la consola y no tocando el código.
 
     Una cuota al mes por local. Mientras no haya clientes suficientes conviene
     enseñar una rebaja —la de fundador—, y eso no puede exigir un despliegue:
@@ -1334,18 +1334,18 @@ class Tarifa(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
-    # Lo que cuesta un local al mes, y lo que cuesta cada local a partir del
+    # [00775] Lo que cuesta un local al mes, y lo que cuesta cada local a partir del
     # segundo: un grupo con obrador y tres locales no paga cuatro veces lo
     # mismo, y eso hay que poder decirlo en la web.
     per_outlet: Mapped[float] = mapped_column(Float, default=99.0)
     extra_outlet: Mapped[float | None] = mapped_column(Float)
-    # La rebaja. Sin fecha de fin dura hasta que se apaga a mano, que es lo que
+    # [00776] La rebaja. Sin fecha de fin dura hasta que se apaga a mano, que es lo que
     # se quiere cuando lo que se espera no es un día sino un número de clientes.
     sale_on: Mapped[bool] = mapped_column(Boolean, default=False)
     sale_price: Mapped[float | None] = mapped_column(Float)
     sale_label: Mapped[str | None] = mapped_column(String(64))
     sale_until: Mapped[date | None] = mapped_column(Date)
-    # La oferta del año: cuántas mensualidades se pagan por doce meses.
+    # [00777] La oferta del año: cuántas mensualidades se pagan por doce meses.
     yearly_on: Mapped[bool] = mapped_column(Boolean, default=False)
     yearly_months: Mapped[float] = mapped_column(Float, default=10.0)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -1353,7 +1353,7 @@ class Tarifa(Base):
 
 
 class Submission(Base):
-    """Un envío que ya se aplicó, apuntado para no aplicarlo dos veces.
+    """[00726] Un envío que ya se aplicó, apuntado para no aplicarlo dos veces.
 
     Un teléfono sin cobertura guarda lo que se escribe y lo manda cuando puede.
     A veces lo manda dos veces: porque el primero se quedó colgado y no se supo
@@ -1380,7 +1380,7 @@ class Submission(Base):
 
 
 class Novedad(TenantMixin, Base):
-    """Algo que acaba de pasar en la casa y que el de al lado tiene que ver.
+    """[00727] Algo que acaba de pasar en la casa y que el de al lado tiene que ver.
 
     En un servicio no hay tiempo de ir a mirar la cámara para enterarse de que
     han entrado seis lomos o de que alguien acaba de despiezar. Quien está en
@@ -1399,7 +1399,7 @@ class Novedad(TenantMixin, Base):
     label: Mapped[str | None] = mapped_column(String(96))          # qué ha entrado, o qué se ha despiezado
     pieces: Mapped[int] = mapped_column(Integer, default=0)
     kg: Mapped[float] = mapped_column(Float, default=0.0)
-    # La sede donde ha pasado: lo que entra en el obrador no le hace falta
+    # [00778] La sede donde ha pasado: lo que entra en el obrador no le hace falta
     # saberlo al que está en el local de la playa.
     site_id: Mapped[int | None] = mapped_column(Integer, index=True)
     by_user_id: Mapped[int | None] = mapped_column(Integer, index=True)
@@ -1408,7 +1408,7 @@ class Novedad(TenantMixin, Base):
 
 
 class AccessBrake(Base):
-    """Los intentos fallidos, apuntados donde los ven todos los procesos.
+    """[00728] Los intentos fallidos, apuntados donde los ven todos los procesos.
 
     El freno a las contraseñas no puede vivir en la memoria de un proceso: con
     cuatro trabajadores detrás del mismo servidor, cinco intentos se convierten

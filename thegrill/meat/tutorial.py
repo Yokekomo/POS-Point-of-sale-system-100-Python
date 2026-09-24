@@ -1,4 +1,4 @@
-"""Cuándo sale el tutorial de una pantalla y cómo se apunta que ya se vio.
+"""[00681] Cuándo sale el tutorial de una pantalla y cómo se apunta que ya se vio.
 
 La marca vive en el servidor y por persona: en una cocina el móvil y la
 tablet se comparten, y si viviera en el aparato el primero que entrara se
@@ -16,14 +16,14 @@ from thegrill.web.i18n import t
 
 @dataclass
 class Guia:
-    """El tutorial de una pantalla, listo para enseñarse."""
+    """[00682] El tutorial de una pantalla, listo para enseñarse."""
     pantalla: str
     version: int
     pasos: list
 
 
 def visto(session: Session, user: User, pantalla: str, version: int) -> bool:
-    """Si esa persona ya vio ese tutorial en esa versión o más nueva."""
+    """[00683] Si esa persona ya vio ese tutorial en esa versión o más nueva."""
     row = (session.query(TourVisto)
            .filter_by(user_id=user.id, pantalla=pantalla).first())
     return row is not None and (row.version or 0) >= version
@@ -31,7 +31,7 @@ def visto(session: Session, user: User, pantalla: str, version: int) -> bool:
 
 def para(session: Session, user: User | None, ruta: str, lang: str,
          forzar: bool = False) -> Guia | None:
-    """El tutorial que toca aquí y ahora, o nada.
+    """[00684] El tutorial que toca aquí y ahora, o nada.
 
     Nada si esa pantalla no tiene, si esa persona ya lo vio o si, después de
     quitar los pasos que no le tocan por su nivel, no queda ninguno: un
@@ -44,7 +44,7 @@ def para(session: Session, user: User | None, ruta: str, lang: str,
         return None
     if not forzar and visto(session, user, tour.pantalla, tour.version):
         return None
-    # El filtro por nivel se hace aquí, y lo que se quita no sale de esta
+    # [00686] El filtro por nivel se hace aquí, y lo que se quita no sale de esta
     # función: ni al HTML ni al JSON. Quien no ve dinero no recibe el paso que
     # habla de dinero, aunque mire el código fuente de la página.
     # Diccionarios y no objetos: de aquí salen tal cual al JSON de la plantilla.
@@ -56,7 +56,7 @@ def para(session: Session, user: User | None, ruta: str, lang: str,
 
 
 def marcar(session: Session, user: User, pantalla: str, completo: bool = True) -> TourVisto:
-    """Apunta que esta persona ya lo vio. La versión la pone el servidor.
+    """[00685] Apunta que esta persona ya lo vio. La versión la pone el servidor.
 
     La manda el navegador, así que el número de versión no se cree: se coge
     del registro. Si no se creyera tampoco el nombre de la pantalla, alguien

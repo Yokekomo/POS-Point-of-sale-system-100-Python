@@ -1,4 +1,4 @@
-"""Orquestador de la cadena diaria (§6): pasos secuenciales, checkpoint por paso,
+"""[00779] Orquestador de la cadena diaria (§6): pasos secuenciales, checkpoint por paso,
 idempotente y reanudable. Cada paso devuelve uno de los tres estados (regla 12).
 
 Los pasos se registran con `Chain.step(...)`; el cuerpo real de cada paso vive en
@@ -14,7 +14,7 @@ from thegrill.models import SourceStatus
 
 
 class TransientError(Exception):
-    """500/529/timeout: se reintenta con backoff. Problemas de contenido NO son transitorios."""
+    """[00780] 500/529/timeout: se reintenta con backoff. Problemas de contenido NO son transitorios."""
 
 
 @dataclass
@@ -25,42 +25,42 @@ class StepResult:
 
 
 class CheckpointStore(Protocol):
-    """Dónde se apunta por dónde va la cadena: en memoria o en la base."""
+    """[00781] Dónde se apunta por dónde va la cadena: en memoria o en la base."""
 
     def get(self, run_date: date, step: str) -> SourceStatus | None:
-        """Cómo acabó ese paso ese día, o nada si no se ha corrido todavía."""
+        """[00785] Cómo acabó ese paso ese día, o nada si no se ha corrido todavía."""
         ...
 
     def set(self, run_date: date, step: str, state: SourceStatus, detail: str) -> None:
-        """Apunta cómo acabó el paso, para no repetirlo si se relanza el día."""
+        """[00786] Apunta cómo acabó el paso, para no repetirlo si se relanza el día."""
         ...
 
 
 class MemoryCheckpoints:
     def __init__(self):
-        """Checkpoints en memoria: para las pruebas y para una pasada suelta."""
+        """[00787] Checkpoints en memoria: para las pruebas y para una pasada suelta."""
         self.data: dict[tuple[date, str], tuple[SourceStatus, str]] = {}
 
     def get(self, run_date, step):
-        """Cómo acabó ese paso ese día, si consta."""
+        """[00788] Cómo acabó ese paso ese día, si consta."""
         v = self.data.get((run_date, step))
         return v[0] if v else None
 
     def set(self, run_date, step, state, detail):
-        """Guarda el resultado del paso en el diccionario."""
+        """[00789] Guarda el resultado del paso en el diccionario."""
         self.data[(run_date, step)] = (state, detail)
 
 
 class DbCheckpoints:
-    """Checkpoints persistidos en `chain_checkpoints`, por restaurante."""
+    """[00782] Checkpoints persistidos en `chain_checkpoints`, por restaurante."""
 
     def __init__(self, session_scope, restaurant_id: int):
-        """Los checkpoints de un restaurante, contra la base de datos."""
+        """[00790] Los checkpoints de un restaurante, contra la base de datos."""
         self.session_scope = session_scope
         self.restaurant_id = restaurant_id
 
     def get(self, run_date, step):
-        """Cómo acabó ese paso ese día, según la tabla."""
+        """[00791] Cómo acabó ese paso ese día, según la tabla."""
         from thegrill.models import ChainCheckpoint
         with self.session_scope() as s:
             row = (s.query(ChainCheckpoint)
@@ -69,7 +69,7 @@ class DbCheckpoints:
             return row.state if row else None
 
     def set(self, run_date, step, state, detail):
-        """Guarda o actualiza la fila del paso, con la hora en que terminó."""
+        """[00792] Guarda o actualiza la fila del paso, con la hora en que terminó."""
         from thegrill.models import ChainCheckpoint
         with self.session_scope() as s:
             row = (s.query(ChainCheckpoint)
@@ -100,12 +100,12 @@ class RunReport:
 
     @property
     def blocked(self) -> list[str]:
-        """Los pasos que se atascaron: lo que hay que mirar a mano."""
+        """[00793] Los pasos que se atascaron: lo que hay que mirar a mano."""
         return [n for n, r in self.results.items() if r.state == SourceStatus.BLOCKED]
 
     @property
     def not_posted(self) -> list[str]:
-        """Los pasos cuyo origen aún no había publicado los datos.
+        """[00794] Los pasos cuyo origen aún no había publicado los datos.
 
         No es un fallo: la caja todavía no ha cerrado, la factura no ha llegado.
         Se vuelve a intentar en la pasada siguiente y por eso no se marcan hechos.
@@ -116,27 +116,27 @@ class RunReport:
 class Chain:
     def __init__(self, checkpoints: CheckpointStore, sleep_fn=_time.sleep,
                  backoff=config.RETRY_BACKOFF_SECONDS):
-        """La cadena, con dónde apuntar los checkpoints y cuánto esperar entre intentos."""
+        """[00795] La cadena, con dónde apuntar los checkpoints y cuánto esperar entre intentos."""
         self.steps: list[Step] = []
         self.checkpoints = checkpoints
         self.sleep = sleep_fn
         self.backoff = backoff
 
     def step(self, name: str, only_weekday: int | None = None):
-        """Registra un paso. Se usa como decorador sobre la función que lo hace.
+        """[00796] Registra un paso. Se usa como decorador sobre la función que lo hace.
 
         Con `only_weekday` el paso solo corre ese día de la semana —el inventario
         los lunes, el plan de pan los martes—: el resto de días se salta y consta
         como saltado, no como hecho.
         """
         def deco(fn):
-            """Apunta la función en la lista de pasos y la devuelve intacta."""
+            """[00800] Apunta la función en la lista de pasos y la devuelve intacta."""
             self.steps.append(Step(name, fn, only_weekday))
             return fn
         return deco
 
     def run(self, run_date: date, stop_on_blocked: bool = False) -> RunReport:
-        """Corre la cadena entera de un día y devuelve el parte.
+        """[00797] Corre la cadena entera de un día y devuelve el parte.
 
         Un paso que ya consta hecho no se repite: la cadena se puede relanzar
         tantas veces como haga falta y solo trabaja lo que quedó pendiente, que es
@@ -161,7 +161,7 @@ class Chain:
         return report
 
     def _run_with_retry(self, st: Step, run_date: date) -> StepResult:
-        """Corre un paso, reintentando solo lo que tiene sentido reintentar.
+        """[00798] Corre un paso, reintentando solo lo que tiene sentido reintentar.
 
         Un corte de red o un 500 se vuelven a intentar esperando cada vez un poco
         más. Un fichero ilegible o una columna que no está, no: por muchas veces
@@ -180,7 +180,7 @@ class Chain:
         return StepResult(SourceStatus.BLOCKED, "sin resultado")
 
 
-# Los nombres conservan la numeración de la especificación de negocio (§6) para
+# [00801] Los nombres conservan la numeración de la especificación de negocio (§6) para
 # que cada paso siga siendo rastreable en una auditoría. Se retiraron el paso 1
 # (fichaje de personal) y el 9 (pedidos a locales), así que la cadena empieza en
 # el 2 y salta del 8b al 10.
@@ -201,7 +201,7 @@ STEP_ORDER = [
 
 def build_default_chain(checkpoints: CheckpointStore, handlers: dict[str, Callable[[date], StepResult]],
                         **kw) -> Chain:
-    """Monta la cadena en el orden canónico con los handlers disponibles.
+    """[00783] Monta la cadena en el orden canónico con los handlers disponibles.
     Un paso sin handler queda registrado como BLOCKED ('no implementado'), nunca como done."""
     chain = Chain(checkpoints, **kw)
     for name, weekday in STEP_ORDER:
@@ -211,12 +211,12 @@ def build_default_chain(checkpoints: CheckpointStore, handlers: dict[str, Callab
 
 
 def _not_implemented(name):
-    """El relleno de un paso que todavía no existe: siempre atascado.
+    """[00784] El relleno de un paso que todavía no existe: siempre atascado.
 
     Nunca «hecho». Un paso sin código que dijera que sí dejaría el día cerrado
     con un trozo de la cadena sin correr y sin que nadie se enterara.
     """
     def fn(run_date):
-        """Devuelve siempre atascado, diciendo qué paso falta por escribir."""
+        """[00799] Devuelve siempre atascado, diciendo qué paso falta por escribir."""
         return StepResult(SourceStatus.BLOCKED, f"{name}: handler no implementado")
     return fn

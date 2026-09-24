@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block title %}{{ t("trace.title") }}{% endblock %}
 {% block body %}
 <h1>{{ t("trace.title") }}</h1>
-{# Explicar para qué sirve la pantalla solo hace falta cuando está vacía. Con
+{# [01602] Explicar para qué sirve la pantalla solo hace falta cuando está vacía. Con
    una pieza abierta —casi siempre se llega tocando su número, no buscando— son
    tres líneas entre el título y lo que se viene a ver. #}
 {% if not history %}<p class="sub">{{ t("trace.sub") }}</p>{% endif %}
@@ -34,11 +34,11 @@
    {% if h.awaiting_price %}<span class="tag warn">{{ t("m.price.waiting") }}</span>{% endif %}
    {% if h.suspect_phantom %}<span class="tag bad">{{ t("trace.suspect") }}</span>{% endif %}</p>
 
-{# El principio del recorrido: de dónde salió esta carne antes de ser nuestra. #}
+{# [01603] El principio del recorrido: de dónde salió esta carne antes de ser nuestra. #}
 <h2>{{ t("trace.origin") }}</h2>
 <div class="card">
 {% if h.label %}
-  {# La etiqueta, primero y de verdad: la foto que se hizo en el muelle. Un
+  {# [01604] La etiqueta, primero y de verdad: la foto que se hizo en el muelle. Un
      enlace que hay que pulsar no la enseña, y lo que se quiere aquí es
      comparar de un vistazo lo tecleado con lo que pone el papel. #}
   {% if h.label.has_photo %}
@@ -88,7 +88,7 @@
   <div class="kpi"><b>{{ "%.3f"|format(h.waste_kg) }}</b><span>{{ t("trace.waste_kg") }}</span></div>
 </div>
 
-{# Una tarjeta por lote, y debajo lo que salió de él con su propio número:
+{# [01605] Una tarjeta por lote, y debajo lo que salió de él con su propio número:
    lo que viajó al local de la playa o lo que salió del arcón. Es una macro
    y no un bucle porque un hijo puede tener hijos —se manda a la playa y
    allí se saca del congelador— y la historia tiene que llegar hasta el
@@ -114,7 +114,7 @@
     {% endif %}
   </p>
   {% endif %}
-  {# Lo que salió de este corte y en qué se ha convertido. En rejilla y no en
+  {# [01606] Lo que salió de este corte y en qué se ha convertido. En rejilla y no en
      tabla: en el móvil las columnas del dinero se iban fuera de la pantalla, y
      son las que se miran. #}
   <div class="cifras">
@@ -152,7 +152,7 @@
   </div>
 
   {% if cut.by_dish %}
-  {# Dónde ha ido, junto y por plato. Con lo aprovechado es la pregunta de
+  {# [01607] Dónde ha ido, junto y por plato. Con lo aprovechado es la pregunta de
      verdad: el recorte de un lomo caro acaba en la hamburguesa o en el tartar,
      y saber en cuál dice si ese recorte se está pagando. #}
   <div style="margin-top:12px">
@@ -167,7 +167,7 @@
   {% endif %}
 
   {% if cut.sales %}
-  {# El día a día, plegado: es largo y casi nunca es lo que se viene a ver. #}
+  {# [01608] El día a día, plegado: es largo y casi nunca es lo que se viene a ver. #}
   <details style="margin-top:10px">
     <summary class="muted" style="font-size:13px;cursor:pointer;padding:6px 0"
       >{{ t("trace.sale_days") }} ({{ cut.sales|length }})</summary>
@@ -208,7 +208,7 @@
      {% for other in h.butchery.shared_with %}<a href="/trazabilidad?serial={{ other }}">{{ other }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
    {% endif %}</p>
 {% if h.butchery.shared %}
-{# Los cortes salen revueltos: de cuál de las tres piezas salió este filete no
+{# [01609] Los cortes salen revueltos: de cuál de las tres piezas salió este filete no
    lo sabe nadie. Lo que se puede decir es qué parte del despiece es de esta, y
    es lo que se le apunta. #}
 <div class="banner warn">{{ t("trace.share", pct="%.10g"|format(h.butchery.share_pct),
@@ -219,7 +219,7 @@
 {% endif %}
 
 {% if h.trims %}
-{# Lo que se quitó de la pieza antes de cortarla, o en vez de cortarla. Cuelga
+{# [01610] Lo que se quitó de la pieza antes de cortarla, o en vez de cortarla. Cuelga
    del primal y no del despiece: una pieza que se limpia y se vende entera no
    tiene despiece, y su historia se acababa en «llegó». #}
 <h2>{{ t("trace.trims") }}</h2>
@@ -228,7 +228,7 @@
 {% endif %}
 
 {% if h.weight_sales %}
-{# La venta al corte no deja lote ni pasa por el escandallo: cada trozo pesa lo
+{# [01611] La venta al corte no deja lote ni pasa por el escandallo: cada trozo pesa lo
    que pesa. Sin leerla de su tabla, una pieza madurada vendida entera al corte
    salía como carne que no se vendió nunca. #}
 <h2>{{ t("trace.weight_sales") }}</h2>

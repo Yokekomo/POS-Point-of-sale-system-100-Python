@@ -1,4 +1,4 @@
-"""Lo que acaba de pasar en la casa, para el que está en otra pantalla.
+"""[00509] Lo que acaba de pasar en la casa, para el que está en otra pantalla.
 
 En un servicio, dos personas trabajan la misma carne desde sitios distintos: el
 del muelle da de alta seis lomos mientras el de la mesa despieza, y el que está
@@ -32,11 +32,11 @@ from thegrill.web import i18n, sites
 RECEPCION = "RECEPCION"
 DESPIECE = "DESPIECE"
 
-# Una jornada larga. Pasado eso deja de ser una novedad: quien entra por la
+# [00516] Una jornada larga. Pasado eso deja de ser una novedad: quien entra por la
 # mañana no quiere encontrarse los avisos del turno de noche encima del título.
 VENTANA = timedelta(hours=12)
 
-# Cuántas se contestan de golpe. Si han pasado veinte cosas, el aviso no es el
+# [00517] Cuántas se contestan de golpe. Si han pasado veinte cosas, el aviso no es el
 # sitio para verlas: están en la cámara y en la pantalla de cada cosa.
 CUANTAS = 6
 
@@ -46,7 +46,7 @@ TEXTOS = {RECEPCION: "new.recepcion", DESPIECE: "new.despiece"}
 def anotar(session: Session, user: User, kind: str, *, ref: str | None = None,
            label: str | None = None, pieces: int = 0, kg: float = 0.0,
            site_id: int | None = None) -> Novedad:
-    """Deja escrito que ha pasado algo, para que lo vean los de al lado."""
+    """[00510] Deja escrito que ha pasado algo, para que lo vean los de al lado."""
     if site_id is None:
         mia = sites.of_user(session, user)
         site_id = mia.id if mia else None
@@ -63,7 +63,7 @@ def anotar(session: Session, user: User, kind: str, *, ref: str | None = None,
 def recientes(session: Session, restaurant_id: int, *, desde_id: int = 0,
               site_id: int | None = None, salvo_user: int | None = None,
               ahora: datetime | None = None, limit: int = CUANTAS) -> list[Novedad]:
-    """Las novedades que esa persona todavía no ha visto.
+    """[00511] Las novedades que esa persona todavía no ha visto.
 
     `desde_id` es hasta dónde había leído: se contesta lo que vino después. Sin
     sede, se ven todas —un encargado que va y viene entre el obrador y el local
@@ -78,14 +78,14 @@ def recientes(session: Session, restaurant_id: int, *, desde_id: int = 0,
         q = q.filter((Novedad.by_user_id.is_(None)) | (Novedad.by_user_id != salvo_user))
     if site_id:
         q = q.filter((Novedad.site_id.is_(None)) | (Novedad.site_id == site_id))
-    # Las últimas, pero devueltas en el orden en que pasaron: el aviso de
+    # [00518] Las últimas, pero devueltas en el orden en que pasaron: el aviso de
     # arriba es el más viejo, y se van apilando debajo como se van leyendo.
     ultimas = q.order_by(Novedad.id.desc()).limit(max(1, int(limit))).all()
     return list(reversed(ultimas))
 
 
 def ultimo_id(session: Session, restaurant_id: int) -> int:
-    """El número de la última novedad. El teléfono que entra por primera vez
+    """[00512] El número de la última novedad. El teléfono que entra por primera vez
     arranca de aquí: lo de antes de llegar no se le enseña."""
     fila = (session.query(Novedad.id)
             .filter(Novedad.restaurant_id == restaurant_id)
@@ -94,7 +94,7 @@ def ultimo_id(session: Session, restaurant_id: int) -> int:
 
 
 def frase(lang: str, fila: Novedad) -> tuple[str, str]:
-    """La frase, en el idioma de quien la lee, partida en dos.
+    """[00513] La frase, en el idioma de quien la lee, partida en dos.
 
     Arriba, lo que hay que entender de un vistazo con las manos ocupadas: qué
     ha entrado y cuánto de eso. Debajo, en pequeño, lo que hace falta para ir a
@@ -109,13 +109,13 @@ def frase(lang: str, fila: Novedad) -> tuple[str, str]:
 
 
 def texto(lang: str, fila: Novedad) -> str:
-    """Las dos partes seguidas, para donde no quepan dos líneas."""
+    """[00514] Las dos partes seguidas, para donde no quepan dos líneas."""
     titulo, detalle = frase(lang, fila)
     return f"{titulo} · {detalle}"
 
 
 def olvidar_viejas(session: Session, days: int = 7) -> int:
-    """Una novedad de la semana pasada no avisa de nada: ocupa sitio."""
+    """[00515] Una novedad de la semana pasada no avisa de nada: ocupa sitio."""
     limite = datetime.utcnow() - timedelta(days=days)
     return (session.query(Novedad).filter(Novedad.created_at < limite)
             .delete(synchronize_session=False))

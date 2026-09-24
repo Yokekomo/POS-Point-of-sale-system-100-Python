@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{% block title %}{{ t("m.app.title") }}{% endblock %}</title>
-{# El icono de la casa. Sin esto el navegador pide `/favicon.ico` por su cuenta
+{# [01542] El icono de la casa. Sin esto el navegador pide `/favicon.ico` por su cuenta
    en cada pantalla y se lleva un 404: una pestaña sin cara y la consola sucia.
    El vector para el ordenador, los puntos para la pantalla de inicio del
    teléfono, que es donde acaba esto en una cocina. #}
@@ -499,7 +499,7 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
 .drawer .close:hover{color:var(--ink);background:var(--bg)}
 </style>
 {% if tour_aqui %}
-{# Driver.js está copiado dentro (MIT, ver static/tour/LEEME.md): esta web no
+{# [01543] Driver.js está copiado dentro (MIT, ver static/tour/LEEME.md): esta web no
    carga nada de fuera, y así el tutorial también abre dentro de la cámara. #}
 <link rel="stylesheet" href="/static/tour/driver.css">
 <style nonce="{{ nonce }}">
@@ -537,7 +537,7 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
 {% endif %}
 </head>
 <body>
-{# Un grupo del menú. Se abre solo el que tiene dentro la pantalla en la que
+{# [01544] Un grupo del menú. Se abre solo el que tiene dentro la pantalla en la que
    estás; los demás se quedan plegados y el menú cabe entero sin barra. Es
    `<details>` del navegador: funciona sin guiones y sin red. #}
 {% macro grupo(titulo, rutas, sitio, siempre=false) %}
@@ -548,7 +548,7 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
 </details>
 {% endmacro %}
 
-{# El menú está ordenado por el recorrido de la carne, que es de lo que va el
+{# [01545] El menú está ordenado por el recorrido de la carne, que es de lo que va el
    programa: primero lo que se toca hoy, después dónde está cada pieza y por
    dónde ha pasado, después los números que se cuadran, y al final lo que se
    configura una vez. Antes «El día» mezclaba el trabajo con las pantallas de
@@ -562,11 +562,11 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
   {% if can("receive") %}<a class="item {{ 'on' if aqui == '/recepcion' }}" href="/recepcion">{{ t("m.nav.reception") }}</a>{% endif %}
   {% if can("butcher") %}<a class="item {{ 'on' if aqui == '/despiece' }}" href="/despiece">{{ t("m.nav.butchery") }}</a>{% endif %}
   {% if can("defrost") %}<a class="item {{ 'on' if aqui == '/descongelado' }}" href="/descongelado">{{ t("m.nav.defrost") }}</a>{% endif %}
-  {# La merma se apunta el día que pasa, no a fin de mes: va con el trabajo. #}
+  {# [01546] La merma se apunta el día que pasa, no a fin de mes: va con el trabajo. #}
   {% if can("waste") %}<a class="item {{ 'on' if aqui == '/merma' }}" href="/merma">{{ t("nav.waste") }}</a>{% endif %}
   {% endcall %}
 
-  {# Dónde está la carne y por dónde ha pasado. La trazabilidad es de lo que
+  {# [01547] Dónde está la carne y por dónde ha pasado. La trazabilidad es de lo que
      va esto, y estaba enterrada en un grupo llamado «Control». #}
   {% if can("stock") %}
   {% call grupo(t("m.nav.g_meat"), ['/maduracion', '/carne', '/traslados',
@@ -578,20 +578,20 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
   {% endcall %}
   {% endif %}
 
-  {# Lo que se cuadra: lo que hay contado, lo que costó, lo que se vendió y el
+  {# [01548] Lo que se cuadra: lo que hay contado, lo que costó, lo que se vendió y el
      parte que se cuelga. #}
   {% call grupo(t("m.nav.g_numbers"), ['/inventario', '/recepcion/precios',
                                        '/ventas', '/cuadre', '/parte'], sitio) %}
   {% if can("count") %}<a class="item {{ 'on' if aqui == '/inventario' }}" href="/inventario">{{ t("nav.inventory") }}</a>{% endif %}
   {% if can("money") %}<a class="item {{ 'on' if aqui == '/recepcion/precios' }}" href="/recepcion/precios">{{ t("m.price.nav") }}</a>{% endif %}
   {% if can("menu") %}<a class="item {{ 'on' if aqui == '/ventas' }}" href="/ventas">{{ t("nav.sales") }}</a>{% endif %}
-  {# El cuadre va aquí y no en «La casa»: se abre el día que el mes no sale,
+  {# [01549] El cuadre va aquí y no en «La casa»: se abre el día que el mes no sale,
      que es justo cuando se está mirando el inventario y las ventas. #}
   {% if can("money") %}<a class="item {{ 'on' if aqui == '/cuadre' }}" href="/cuadre">{{ t("m.nav.cuadre") }}</a>{% endif %}
   <a class="item {{ 'on' if aqui == '/parte' }}" href="/parte">{{ t("m.rp.title") }}</a>
   {% endcall %}
 
-  {# Lo que se escribe una vez y se queda: no es trabajo del día. #}
+  {# [01550] Lo que se escribe una vez y se queda: no es trabajo del día. #}
   {% if can("stock") or can("menu") %}
   {% call grupo(t("m.nav.g_catalogue"), ['/cortes', '/carta', '/ingredientes'],
                 sitio) %}
@@ -637,7 +637,7 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
     </div>
 {% endif %}
 <main>{% if user and tour_aqui %}
-{# Repetir el tutorial cuando se quiera: el que lo saltó el primer día y el
+{# [01551] Repetir el tutorial cuando se quiera: el que lo saltó el primer día y el
    que lleva un mes sin recibir un camión. Discreto y en su sitio. #}
 <a class="tour-otra-vez" href="?tour=1" aria-label="{{ t('m.tour.again') }}"
    title="{{ t('m.tour.again') }}">?</a>
@@ -660,7 +660,7 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
 {% if user %}
   </div>
 </div>
-{# La barra de abajo lleva el trabajo del día, no las pantallas de consulta:
+{# [01552] La barra de abajo lleva el trabajo del día, no las pantallas de consulta:
    en el móvil el pulgar es para recibir, despiezar y contar, y lo que hay en
    cámara ya se ve de un vistazo en «Hoy». Se llenan cuatro huecos con lo
    primero que esta persona pueda hacer, así que al ayudante —que ni recibe ni
@@ -694,7 +694,7 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
 </div>
 {% endif %}
 
-{# La columna de avisos. Vive fuera de <main> porque flota encima de todas las
+{# [01553] La columna de avisos. Vive fuera de <main> porque flota encima de todas las
    pantallas, y está siempre puesta —aunque vacía— para que el lector de
    pantalla anuncie lo que le caiga dentro: una región que se crea en el
    momento no la lee nadie. #}

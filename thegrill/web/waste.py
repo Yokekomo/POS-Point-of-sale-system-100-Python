@@ -1,4 +1,4 @@
-"""Merma de producto ya en cámara.
+"""[01517] Merma de producto ya en cámara.
 
 La merma del despiece ya la absorben los cortes al repartir el coste del
 primal. Esto es la otra: la pieza que se echa a perder **después**, ya cortada
@@ -27,7 +27,7 @@ EPSILON = 1e-9
 
 
 class WasteError(ValueError):
-    """La merma no se puede registrar tal y como está."""
+    """[01518] La merma no se puede registrar tal y como está."""
 
 
 @dataclass
@@ -46,7 +46,7 @@ class WasteResult:
 
     @property
     def cost_increase_pct(self) -> float | None:
-        """Cuánto sube el coste por kilo de lo que queda, y con él su food cost."""
+        """[01529] Cuánto sube el coste por kilo de lo que queda, y con él su food cost."""
         if not self.absorbed or self.unit_cost_before <= EPSILON:
             return None
         return round((self.unit_cost_after - self.unit_cost_before)
@@ -57,7 +57,7 @@ def record(session: Session, user: User, kg: float, serial: str | None = None,
            ingredient_id: int | None = None, pieces: int | None = None,
            reason: str | None = None, on: date | None = None,
            absorb: bool = True, lang: str | None = None) -> WasteResult:
-    """Registra una merma y reparte su coste entre lo que queda del lote.
+    """[01519] Registra una merma y reparte su coste entre lo que queda del lote.
 
     Se indica el serial de la pieza, o el ingrediente si no lleva serial, en
     cuyo caso se tira del lote que toque por rotación.
@@ -87,7 +87,7 @@ def record(session: Session, user: User, kg: float, serial: str | None = None,
 
     absorbed = False
     if absorb and lot.qty_remaining > EPSILON:
-        # El coste de lo tirado se queda en lo que sobra: sube su precio por kilo.
+        # [01530] El coste de lo tirado se queda en lo que sobra: sube su precio por kilo.
         lot.unit_cost = round(value / lot.qty_remaining, 6)
         absorbed = True
 
@@ -108,7 +108,7 @@ def record(session: Session, user: User, kg: float, serial: str | None = None,
 
 def _find_lot(session: Session, user: User, serial: str | None,
               ingredient_id: int | None) -> IngredientLot:
-    """El lote del que se tira, por su número o por el ingrediente.
+    """[01520] El lote del que se tira, por su número o por el ingrediente.
 
     Y con la puerta cerrada: no se tira la carne de otra sede. De un lote que
     ya está a cero no queda nada que tirar, y decirlo es mejor que dejar el
@@ -130,7 +130,7 @@ def _find_lot(session: Session, user: User, serial: str | None,
         ingredient = session.get(Ingredient, ingredient_id)
         if ingredient is None or ingredient.restaurant_id != user.restaurant_id:
             raise WasteError("Ese ingrediente no es de este restaurante")
-        # La merma sale de donde está quien la apunta: el que tira carne en el
+        # [01531] La merma sale de donde está quien la apunta: el que tira carne en el
         # local no está tirando la del obrador.
         mia = sites.of_user(session, user)
         lots = costing.rotation_order(session, user.restaurant_id, ingredient,
@@ -143,7 +143,7 @@ def _find_lot(session: Session, user: User, serial: str | None,
 
 
 def _ref(lot: IngredientLot, pieces: int | None, reason: str | None) -> str:
-    """Todo lo que identifica la merma, en una línea del libro."""
+    """[01521] Todo lo que identifica la merma, en una línea del libro."""
     bits = [lot.lot_code or "", lot.serial or ""]
     if pieces:
         bits.append(f"{pieces} pz")
@@ -153,7 +153,7 @@ def _ref(lot: IngredientLot, pieces: int | None, reason: str | None) -> str:
 
 
 def _announce(session: Session, user: User, result: WasteResult, lang: str) -> None:
-    """Deja el aviso de la merma y se lo manda a quien lleva la casa.
+    """[01522] Deja el aviso de la merma y se lo manda a quien lleva la casa.
 
     De cincuenta euros para arriba se sube el tono: no es lo mismo tirar un
     recorte que tirar un lomo, y si las dos cosas avisan igual se dejan de
@@ -176,7 +176,7 @@ def _announce(session: Session, user: User, result: WasteResult, lang: str) -> N
 
 def recent(session: Session, restaurant_id: int, days: int = 30,
            on: date | None = None) -> list[IngredientMovement]:
-    """Las últimas mermas de cámara, con su lote, sus kilos y su coste.
+    """[01523] Las últimas mermas de cámara, con su lote, sus kilos y su coste.
 
     La ventana cuenta hacia atrás desde `on`, que por defecto es hoy. El parte
     de un día pasado —el de ayer, que se imprime por la mañana— pregunta por
@@ -193,14 +193,14 @@ def recent(session: Session, restaurant_id: int, days: int = 30,
             .limit(200).all())
 
 
-# ------------------------------------------------- todo lo que se tira, junto
+# [01532] ------------------------------------------------- todo lo que se tira, junto
 CHAMBER = "chamber"      # la pieza ya cortada que se echa a perder
 TRIM = "trim"            # la costra y la grasa que se van al limpiar una pieza
 
 
 @dataclass
 class WasteLine:
-    """Una línea de lo que se ha tirado, venga de donde venga.
+    """[01524] Una línea de lo que se ha tirado, venga de donde venga.
 
     La merma de cámara y lo que se tira limpiando una pieza son la misma cosa
     mirada desde dos sitios: carne comprada que no se va a vender. Se apuntan
@@ -230,7 +230,7 @@ class WasteTotals:
 
 def everything(session: Session, restaurant_id: int, days: int = 30,
                on: date | None = None) -> list[WasteLine]:
-    """Todo lo tirado en el periodo: lo de cámara y lo de las limpiezas.
+    """[01525] Todo lo tirado en el periodo: lo de cámara y lo de las limpiezas.
 
     Como en `recent`, la ventana termina en `on` —hoy si no se dice otra cosa—
     para que el parte de un día pasado encuentre lo que se tiró ese día.
@@ -241,7 +241,7 @@ def everything(session: Session, restaurant_id: int, days: int = 30,
              .filter_by(restaurant_id=restaurant_id)}
     people = {u.id: u.name for u in session.query(User)
               .filter_by(restaurant_id=restaurant_id)}
-    # Solo se traen los lotes y las piezas de las mermas que se van a enseñar.
+    # [01533] Solo se traen los lotes y las piezas de las mermas que se van a enseñar.
     # Cargar la cámara entera —miles de lotes de medio año— para poner nombre a
     # las cuatro mermas de hoy era la mitad de lo que tardaba el parte del día.
     movimientos = recent(session, restaurant_id, days=days, on=on)
@@ -259,7 +259,7 @@ def everything(session: Session, restaurant_id: int, days: int = 30,
                                           Primal.serial.in_(seriales))):
             skus[serial] = sku
             lote_de[serial] = lote
-    # El serial sale del lote, no de leerlo de la referencia: la referencia es
+    # [01534] El serial sale del lote, no de leerlo de la referencia: la referencia es
     # un texto para el ojo humano y cambia de forma según lo que traiga.
     ids = {m.lot_id for m in movimientos if m.lot_id}
     lotes = {lot.id: lot for lot in session.query(IngredientLot)
@@ -297,7 +297,7 @@ def everything(session: Session, restaurant_id: int, days: int = 30,
 
 
 def totals(lines: list[WasteLine]) -> WasteTotals:
-    """Lo que suma todo eso, que es la pregunta de fin de mes."""
+    """[01526] Lo que suma todo eso, que es la pregunta de fin de mes."""
     out = WasteTotals(lines=len(lines))
     for line in lines:
         out.kg = round(out.kg + line.kg, 6)
@@ -310,7 +310,7 @@ def totals(lines: list[WasteLine]) -> WasteTotals:
 
 
 def _pieces_of(ref: str) -> int | None:
-    """Las piezas que se tiraron, si se contaron al apuntarlo."""
+    """[01527] Las piezas que se tiraron, si se contaron al apuntarlo."""
     for parte in (p.strip() for p in ref.split("·")):
         if parte.endswith("pz"):
             try:
@@ -321,7 +321,7 @@ def _pieces_of(ref: str) -> int | None:
 
 
 def _reason_of(ref: str) -> str | None:
-    """El motivo que se escribió al tirar, si se escribió alguno.
+    """[01528] El motivo que se escribió al tirar, si se escribió alguno.
 
     La referencia lleva el lote, el serial, las piezas y el motivo, separados
     por puntos, y lo único que no es ninguna de las otras tres cosas es el

@@ -1,4 +1,4 @@
-"""Lógica de la plataforma: validar y guardar registros, evaluar límites,
+"""[01377] Lógica de la plataforma: validar y guardar registros, evaluar límites,
 generar alertas y calcular las estadísticas del panel del manager.
 
 Reglas que no se negocian:
@@ -36,10 +36,10 @@ MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 
 
 class ValidationError(ValueError):
-    """El formulario no se puede guardar. `errors` lleva el detalle por campo."""
+    """[01378] El formulario no se puede guardar. `errors` lleva el detalle por campo."""
 
     def __init__(self, errors: dict[str, str]):
-        """Guarda los fallos por casilla, para pintarlos donde están.
+        """[01392] Guarda los fallos por casilla, para pintarlos donde están.
 
         Un mensaje suelto obliga a buscar cuál de las doce casillas era.
         """
@@ -48,7 +48,7 @@ class ValidationError(ValueError):
 
 
 def fmt_number(n: float) -> str:
-    """5.0 -> «5», 9.40 -> «9.4». El mensaje de alerta se lee igual venga de
+    """[01379] 5.0 -> «5», 9.40 -> «9.4». El mensaje de alerta se lee igual venga de
     memoria o de la base de datos."""
     return f"{n:.10g}"
 
@@ -77,7 +77,7 @@ def notify(session: Session, restaurant_id: int, user_ids, title: str, body: str
            kind: NotificationKind = NotificationKind.ALERT,
            alert_id: int | None = None, record_id: int | None = None,
            now: datetime | None = None) -> list[Notification]:
-    """Deja un aviso dentro de la plataforma para cada persona indicada."""
+    """[01380] Deja un aviso dentro de la plataforma para cada persona indicada."""
     now = now or datetime.utcnow()
     out = []
     for uid in dict.fromkeys(user_ids):          # sin duplicados, manteniendo el orden
@@ -91,28 +91,28 @@ def notify(session: Session, restaurant_id: int, user_ids, title: str, body: str
 
 
 def manager_ids(session: Session, restaurant_id: int) -> list[int]:
-    """Quién lleva la casa: a estos les llegan los avisos."""
+    """[01381] Quién lleva la casa: a estos les llegan los avisos."""
     return [u.id for u in session.query(User)
             .filter_by(restaurant_id=restaurant_id, role=Role.MANAGER, active=True)
             .order_by(User.id)]
 
 
 def unread_count(session: Session, user_id: int) -> int:
-    """Cuántos avisos tiene esa persona sin leer."""
+    """[01382] Cuántos avisos tiene esa persona sin leer."""
     return (session.query(func.count(Notification.id))
             .filter(Notification.user_id == user_id, Notification.read_at.is_(None))
             .scalar() or 0)
 
 
 def recent_notifications(session: Session, user_id: int, limit: int = 50) -> list[Notification]:
-    """Los últimos avisos de esa persona, del más nuevo al más viejo."""
+    """[01383] Los últimos avisos de esa persona, del más nuevo al más viejo."""
     return (session.query(Notification).filter(Notification.user_id == user_id)
             .order_by(Notification.created_at.desc(), Notification.id.desc())
             .limit(limit).all())
 
 
 def mark_all_read(session: Session, user_id: int, now: datetime | None = None) -> int:
-    """Marca como leídas las pendientes. `read_at` deja constancia de cuándo se vio."""
+    """[01384] Marca como leídas las pendientes. `read_at` deja constancia de cuándo se vio."""
     now = now or datetime.utcnow()
     pending = (session.query(Notification)
                .filter(Notification.user_id == user_id, Notification.read_at.is_(None)).all())
@@ -125,7 +125,7 @@ def mark_all_read(session: Session, user_id: int, now: datetime | None = None) -
 # ------------------------------------------------------------- validación
 def parse_field(fld: TemplateField, raw: str | None, today: date,
                 lang: str = DEFAULT_LANG, alert_lang: str | None = None) -> ParsedValue:
-    """Convierte el valor del formulario y evalúa sus límites.
+    """[01385] Convierte el valor del formulario y evalúa sus límites.
 
     `lang` es el idioma de quien rellena (errores); `alert_lang` el del
     restaurante (mensajes de alerta que se guardan)."""
@@ -134,7 +134,7 @@ def parse_field(fld: TemplateField, raw: str | None, today: date,
     pv = ParsedValue(fld.key)
 
     if fld.type == FieldType.BOOL:
-        # Una casilla sin marcar no envía nada: eso es un "no", no un campo vacío.
+        # [01394] Una casilla sin marcar no envía nada: eso es un "no", no un campo vacío.
         pv.flag = raw.lower() in {"1", "true", "on", "si", "sí", "yes", "ja", "oui", "نعم"}
         if fld.required and not pv.flag:
             pv.out_of_range = True
@@ -186,7 +186,7 @@ def parse_field(fld: TemplateField, raw: str | None, today: date,
 
 
 def restaurant_language(session: Session, restaurant_id: int) -> str:
-    """En qué idioma habla la casa. Si no consta, el de serie."""
+    """[01386] En qué idioma habla la casa. Si no consta, el de serie."""
     restaurant = session.get(Restaurant, restaurant_id)
     return (restaurant.language if restaurant else None) or DEFAULT_LANG
 
@@ -195,7 +195,7 @@ def submit_record(session: Session, user: User, template: RecordTemplate, data: 
                   business_date: date | None = None, shift: str | None = None,
                   note: str | None = None, corrects_id: int | None = None,
                   now: datetime | None = None, lang: str | None = None) -> SubmitResult:
-    """Guarda un registro validado. Cualquier empleado del restaurante puede hacerlo."""
+    """[01387] Guarda un registro validado. Cualquier empleado del restaurante puede hacerlo."""
     if template.restaurant_id != user.restaurant_id:
         raise PermissionError("La plantilla pertenece a otro restaurante")
     if not template.active:
@@ -244,7 +244,7 @@ def submit_record(session: Session, user: User, template: RecordTemplate, data: 
         session.add(a)
     session.flush()
 
-    # El aviso va a buscar al manager: una alerta crítica no puede quedarse
+    # [01395] El aviso va a buscar al manager: una alerta crítica no puede quedarse
     # esperando a que alguien entre a mirar el panel.
     notifications = []
     targets = [uid for uid in manager_ids(session, user.restaurant_id) if uid != user.id]
@@ -261,7 +261,7 @@ def submit_record(session: Session, user: User, template: RecordTemplate, data: 
 # --------------------------------------------------------------- adjuntos
 def store_attachment(session: Session, record: Record, filename: str, content_type: str,
                      payload: bytes, upload_dir: str, lang: str = DEFAULT_LANG) -> Attachment:
-    """Guarda una foto del registro. Valida tipo y tamaño antes de escribir."""
+    """[01388] Guarda una foto del registro. Valida tipo y tamaño antes de escribir."""
     if content_type not in ALLOWED_IMAGE_TYPES:
         raise ValidationError({"foto": t(lang, "valid.photo_type", type=content_type)})
     if not payload:
@@ -298,7 +298,7 @@ class TemplateStat:
 
     @property
     def compliance_pct(self) -> float:
-        """Qué parte de los partes que tocaban se ha entregado.
+        """[01393] Qué parte de los partes que tocaban se ha entregado.
 
         Nunca pasa del cien: entregar tres veces el mismo parte no es cumplir el
         trescientos por cien. Y sin partes que tocaran, cien: no se le puede
@@ -326,7 +326,7 @@ class Dashboard:
 
 def dashboard(session: Session, restaurant_id: int, until: date | None = None,
               days: int = 7) -> Dashboard:
-    """Panel del manager: cumplimiento, alertas y actividad del periodo."""
+    """[01389] Panel del manager: cumplimiento, alertas y actividad del periodo."""
     until = until or jornada.hoy(session, restaurant_id)
     since = until - timedelta(days=days - 1)
 
@@ -379,7 +379,7 @@ def dashboard(session: Session, restaurant_id: int, until: date | None = None,
 
 def acknowledge_alert(session: Session, user: User, alert_id: int, resolution: str,
                       lang: str | None = None) -> Alert:
-    """Solo un manager cierra una alerta, y deja escrito qué hizo."""
+    """[01390] Solo un manager cierra una alerta, y deja escrito qué hizo."""
     alert = session.get(Alert, alert_id)
     if alert is None or alert.restaurant_id != user.restaurant_id:
         raise PermissionError("Alerta de otro restaurante")
@@ -393,7 +393,7 @@ def acknowledge_alert(session: Session, user: User, alert_id: int, resolution: s
     alert.resolution = resolution.strip()
     session.flush()
 
-    # Quien registró el problema se entera de qué se hizo con él.
+    # [01396] Quien registró el problema se entera de qué se hizo con él.
     if alert.record_id:
         record = session.get(Record, alert.record_id)
         if record is not None and record.created_by != user.id:
@@ -408,7 +408,7 @@ def acknowledge_alert(session: Session, user: User, alert_id: int, resolution: s
 
 
 def export_records_csv(session: Session, restaurant_id: int, since: date, until: date) -> str:
-    """Export plano para auditoría: una línea por valor registrado."""
+    """[01391] Export plano para auditoría: una línea por valor registrado."""
     import csv
     import io
 

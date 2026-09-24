@@ -1,4 +1,4 @@
-"""Autenticación y autorización.
+"""[00994] Autenticación y autorización.
 
 - Contraseñas con PBKDF2-HMAC-SHA256 y sal por usuario (sin dependencias externas).
 - Sesiones por cookie: el token viaja al navegador, en la base solo vive su hash.
@@ -24,16 +24,16 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class AuthError(Exception):
-    """Credenciales inválidas, cuenta desactivada o código de acceso erróneo."""
+    """[00995] Credenciales inválidas, cuenta desactivada o código de acceso erróneo."""
 
 
 class PermissionDenied(Exception):
-    """El rol del usuario no permite esta acción."""
+    """[00996] El rol del usuario no permite esta acción."""
 
 
 # ------------------------------------------------------------- contraseñas
 def hash_password(password: str, *, rounds: int = PBKDF2_ROUNDS, lang: str = DEFAULT_LANG) -> str:
-    """Guarda la contraseña de forma que no se pueda deshacer.
+    """[00997] Guarda la contraseña de forma que no se pueda deshacer.
 
     PBKDF2 con muchas vueltas y una sal distinta para cada una: si alguien se
     lleva la tabla de usuarios, no se lleva las contraseñas. Las cortas se
@@ -46,14 +46,14 @@ def hash_password(password: str, *, rounds: int = PBKDF2_ROUNDS, lang: str = DEF
     return f"pbkdf2_sha256${rounds}${salt}${dk.hex()}"
 
 
-# Una contraseña que no vale para nadie, para gastar el mismo tiempo cuando el
+# [01015] Una contraseña que no vale para nadie, para gastar el mismo tiempo cuando el
 # correo no existe.
 DUMMY_HASH = ("pbkdf2_sha256$240000$0000000000000000000000000000000000000000000000000000000000000000$"
               "0000000000000000000000000000000000000000000000000000000000000000")
 
 
 def verify_password(password: str, stored: str) -> bool:
-    """Si esa contraseña es la guardada, sin decir nada de más.
+    """[00998] Si esa contraseña es la guardada, sin decir nada de más.
 
     Se comparan los dos resúmenes en tiempo constante: una comparación normal
     tarda un poco más cuantas más letras coinciden, y ese «poco más» se puede
@@ -72,7 +72,7 @@ def verify_password(password: str, stored: str) -> bool:
 
 def set_password(session: Session, user: User, new: str, *, current: str | None = None,
                  close_others: str | None = None, lang: str = DEFAULT_LANG) -> None:
-    """Cambia la contraseña de alguien y cierra sus otras sesiones.
+    """[00999] Cambia la contraseña de alguien y cierra sus otras sesiones.
 
     Si se pasa `current`, hay que acertarla: es el caso de uno cambiando la
     suya. Cuando la cambia un manager o el dueño no se pide, porque la persona
@@ -93,7 +93,7 @@ def set_password(session: Session, user: User, new: str, *, current: str | None 
 
 
 def normalize_email(email: str, lang: str = DEFAULT_LANG) -> str:
-    """Deja el correo en minúsculas y sin espacios, y comprueba que lo parece.
+    """[01000] Deja el correo en minúsculas y sin espacios, y comprueba que lo parece.
 
     Mismo correo escrito de dos maneras es la misma persona: sin esto, quien
     se dio de alta con mayúsculas no puede volver a entrar.
@@ -105,13 +105,13 @@ def normalize_email(email: str, lang: str = DEFAULT_LANG) -> str:
 
 
 def new_join_code() -> str:
-    """Código que el manager reparte para que su equipo se registre."""
+    """[01001] Código que el manager reparte para que su equipo se registre."""
     alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # sin caracteres ambiguos
     return "".join(secrets.choice(alphabet) for _ in range(8))
 
 
 def unique_slug(session: Session, name: str) -> str:
-    """El nombre corto de la casa para la URL, sin repetirse.
+    """[01002] El nombre corto de la casa para la URL, sin repetirse.
 
     Dos «La Parrilla» son dos casas distintas y no pueden compartir dirección,
     así que a la segunda se le pone un número detrás.
@@ -128,7 +128,7 @@ def unique_slug(session: Session, name: str) -> str:
 def create_restaurant(session: Session, name: str, manager_email: str, manager_name: str,
                       password: str, timezone: str = "UTC", currency: str = "EUR",
                       language: str = DEFAULT_LANG) -> tuple[Restaurant, User]:
-    """Alta de un restaurante nuevo con su primer manager (el dueño de la cuenta)."""
+    """[01003] Alta de un restaurante nuevo con su primer manager (el dueño de la cuenta)."""
     email = normalize_email(manager_email, language)
     code = new_join_code()
     while session.query(Restaurant).filter_by(join_code=code).first():
@@ -148,7 +148,7 @@ def create_restaurant(session: Session, name: str, manager_email: str, manager_n
 
 def join_restaurant(session: Session, join_code: str, email: str, name: str, password: str,
                     role: Role = Role.EMPLOYEE, language: str | None = None) -> User:
-    """Alta de empleado con el código del restaurante."""
+    """[01004] Alta de empleado con el código del restaurante."""
     lang = language or DEFAULT_LANG
     restaurant = session.query(Restaurant).filter_by(join_code=(join_code or "").strip().upper()).first()
     if restaurant is None or not restaurant.active:
@@ -166,7 +166,7 @@ def join_restaurant(session: Session, join_code: str, email: str, name: str, pas
 
 # ---------------------------------------------------------------- sesiones
 def _token_hash(token: str) -> str:
-    """El resumen del testigo de sesión: en la base no se guarda el testigo.
+    """[01005] El resumen del testigo de sesión: en la base no se guarda el testigo.
 
     Quien lea la tabla no puede entrar con lo que lee.
     """
@@ -175,7 +175,7 @@ def _token_hash(token: str) -> str:
 
 def authenticate(session: Session, email: str, password: str,
                  restaurant_id: int | None = None, lang: str = DEFAULT_LANG) -> User:
-    """Entra con correo y contraseña, o no entra.
+    """[01006] Entra con correo y contraseña, o no entra.
 
     El mismo mensaje para todo —no existe, contraseña mala, cuenta cerrada—:
     decir cuál de las tres es sería decirle a quien prueba correos cuáles
@@ -196,7 +196,7 @@ def authenticate(session: Session, email: str, password: str,
                 raise AuthError(t(user.language or lang, "login.inactive"))
             return user
     if not candidates:
-        # Sin esto, un correo que no existe responde al instante y uno que sí
+        # [01016] Sin esto, un correo que no existe responde al instante y uno que sí
         # tarda lo que tarda comprobar la contraseña. Esa diferencia dice quién
         # tiene cuenta aquí, así que se gasta el mismo trabajo en ambos casos.
         verify_password(password, DUMMY_HASH)
@@ -204,13 +204,13 @@ def authenticate(session: Session, email: str, password: str,
 
 
 def needs_second_step(user: User) -> bool:
-    """Si esa persona entra con contraseña y además con los seis dígitos."""
+    """[01007] Si esa persona entra con contraseña y además con los seis dígitos."""
     return bool(getattr(user, "totp_enabled", False) and user.totp_secret)
 
 
 def start_session(session: Session, user: User, days: int = SESSION_DAYS,
                   pending_2fa: bool = False) -> tuple[str, AuthSession]:
-    """Abre la sesión y devuelve el testigo que se guarda en la cookie.
+    """[01008] Abre la sesión y devuelve el testigo que se guarda en la cookie.
 
     El testigo solo existe aquí: en la base queda su resumen. Con el segundo
     factor pendiente la sesión nace a medias —sirve para pedir el código y
@@ -229,7 +229,7 @@ def start_session(session: Session, user: User, days: int = SESSION_DAYS,
 
 def resolve_session(session: Session, token: str | None,
                     allow_pending: bool = False) -> tuple[User, AuthSession] | None:
-    """Quién es el de esta sesión, si la sesión vale.
+    """[01009] Quién es el de esta sesión, si la sesión vale.
 
     Una sesión a la espera de los seis dígitos no vale para nada más que para
     la pantalla que los pide: hasta que se teclean, esa persona no ha entrado.
@@ -248,7 +248,7 @@ def resolve_session(session: Session, token: str | None,
 
 
 def finish_second_step(session: Session, auth: AuthSession) -> None:
-    """Los seis dígitos han valido: la sesión pasa a ser una sesión de verdad."""
+    """[01010] Los seis dígitos han valido: la sesión pasa a ser una sesión de verdad."""
     auth.pending_2fa = False
     user = session.get(User, auth.user_id)
     if user is not None:
@@ -257,7 +257,7 @@ def finish_second_step(session: Session, auth: AuthSession) -> None:
 
 
 def end_session(session: Session, token: str | None) -> None:
-    """Cierra la sesión. Sin testigo no hay nada que cerrar."""
+    """[01011] Cierra la sesión. Sin testigo no hay nada que cerrar."""
     if not token:
         return
     auth = session.query(AuthSession).filter_by(token_hash=_token_hash(token)).first()
@@ -266,7 +266,7 @@ def end_session(session: Session, token: str | None) -> None:
 
 
 def check_csrf(auth: AuthSession, submitted: str | None, lang: str = DEFAULT_LANG) -> None:
-    """Comprueba que el formulario salió de nuestra pantalla.
+    """[01012] Comprueba que el formulario salió de nuestra pantalla.
 
     Sin esto, otra página abierta en el mismo navegador puede mandar
     formularios en nombre de quien está dentro —borrar un inventario, cambiar
@@ -278,12 +278,12 @@ def check_csrf(auth: AuthSession, submitted: str | None, lang: str = DEFAULT_LAN
 
 # ------------------------------------------------------------- permisos
 def require_manager(user: User, lang: str = DEFAULT_LANG) -> None:
-    """Cierra la puerta a quien no lleva la casa."""
+    """[01013] Cierra la puerta a quien no lleva la casa."""
     if user.role != Role.MANAGER:
         raise PermissionDenied(t(user.language or lang, "error.managers_only"))
 
 
 def same_restaurant(user: User, restaurant_id: int, lang: str = DEFAULT_LANG) -> None:
-    """Aislamiento entre restaurantes: nadie ve datos de otro."""
+    """[01014] Aislamiento entre restaurantes: nadie ve datos de otro."""
     if user.restaurant_id != restaurant_id:
         raise PermissionDenied(t(user.language or lang, "error.other_restaurant"))

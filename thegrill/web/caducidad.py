@@ -1,4 +1,4 @@
-"""Cuánto dura una cosa desde que deja de estar como estaba.
+"""[01053] Cuánto dura una cosa desde que deja de estar como estaba.
 
 Un lomo congelado caduca dentro de diez meses. El mismo lomo, sacado del arcón
 el martes, caduca el viernes. Es la misma carne y son dos fechas distintas, y
@@ -28,16 +28,16 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-# Los días que aguanta lo descongelado en una casa que no ha dicho los suyos.
+# [01057] Los días que aguanta lo descongelado en una casa que no ha dicho los suyos.
 POR_DEFECTO = 3
 
-# Dos semanas. Más allá de esto ya no es carne descongelada, es otra cosa, y
+# [01058] Dos semanas. Más allá de esto ya no es carne descongelada, es otra cosa, y
 # el tope está para que un dedo no le dé un mes de vida a una bandeja.
 MAXIMO = 14
 
 
 def dias(restaurant) -> int:
-    """Cuántos días aguanta lo descongelado en esta casa."""
+    """[01054] Cuántos días aguanta lo descongelado en esta casa."""
     if restaurant is None:
         return POR_DEFECTO
     cuantos = getattr(restaurant, "thaw_days", None)
@@ -50,7 +50,7 @@ def dias(restaurant) -> int:
 
 
 def tras_descongelar(actual: date | None, on: date, restaurant=None) -> date:
-    """La fecha de consumo de algo que se acaba de sacar del congelador.
+    """[01055] La fecha de consumo de algo que se acaba de sacar del congelador.
 
     `actual` es la que traía. Se devuelve la más cercana de las dos, porque
     descongelar no alarga la vida de nada.
@@ -60,6 +60,6 @@ def tras_descongelar(actual: date | None, on: date, restaurant=None) -> date:
 
 
 def de_la_casa(session, restaurant_id: int | None):
-    """La casa, para quien solo tiene el número a mano."""
+    """[01056] La casa, para quien solo tiene el número a mano."""
     from thegrill.models import Restaurant
     return session.get(Restaurant, restaurant_id) if restaurant_id else None

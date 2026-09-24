@@ -1,4 +1,4 @@
-"""Escribir los números como los lee quien los va a leer.
+"""[01059] Escribir los números como los lee quien los va a leer.
 
 Una casa española que abre el programa en español ve «9.400 kg». Lo lee nueve
 mil cuatrocientos kilos y tarda un segundo en darse cuenta de que son nueve
@@ -21,11 +21,11 @@ import re
 
 from jinja2 import pass_context
 
-# Quién escribe los decimales con coma. El árabe de estas casas usa cifras
+# [01064] Quién escribe los decimales con coma. El árabe de estas casas usa cifras
 # occidentales con punto, así que se queda fuera.
 COMA = {"es", "fr", "de", "nl", "hu"}
 
-# Un número y nada más: signo, cifras, un punto decimal y, como mucho, la
+# [01065] Un número y nada más: signo, cifras, un punto decimal y, como mucho, la
 # unidad pegada detrás —«12.345 g», «7 %», «4 °C»—. Si sale cualquier otra
 # cosa —un nombre, una fecha, un serial, algo ya agrupado por miles— no se
 # toca. La comprobación es esta y no una confianza.
@@ -33,12 +33,12 @@ SOLO_NUMERO = re.compile(r"^[-+−]?\d+(?:\.\d+)?(?:\s?(?:%|[A-Za-z°]{1,3}))?$"
 
 
 def con_coma(texto: str) -> str:
-    """El punto decimal, en coma. Solo si eso es todo lo que hay."""
+    """[01060] El punto decimal, en coma. Solo si eso es todo lo que hay."""
     return texto.replace(".", ",") if SOLO_NUMERO.match(texto) else texto
 
 
 def local(valor, lang: str):
-    """Un valor que va dentro de una frase traducida, con su separador.
+    """[01061] Un valor que va dentro de una frase traducida, con su separador.
 
     Los números de las pantallas pasan por el filtro de las plantillas, pero
     los que van metidos dentro de un texto —«8017 ha perdido 0,412 kg»— los
@@ -54,11 +54,11 @@ def local(valor, lang: str):
 
 @pass_context
 def formato(ctx, plantilla, *args):
-    """Lo mismo que el `format` de Jinja, y después el separador del idioma."""
+    """[01062] Lo mismo que el `format` de Jinja, y después el separador del idioma."""
     texto = plantilla % (args[0] if len(args) == 1 else args)
     return con_coma(texto) if ctx.get("lang") in COMA else texto
 
 
 def enganchar(entorno) -> None:
-    """Deja el filtro puesto en un entorno de plantillas. Idempotente."""
+    """[01063] Deja el filtro puesto en un entorno de plantillas. Idempotente."""
     entorno.filters["format"] = formato

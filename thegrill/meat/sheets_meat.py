@@ -1,4 +1,4 @@
-"""Hojas de carne en Excel, listas para imprimir y rellenar a mano.
+"""[00652] Hojas de carne en Excel, listas para imprimir y rellenar a mano.
 
 Son el respaldo de papel de la cámara: se imprimen, se cuelgan al lado de la
 balanza y se rellenan con bolígrafo cuando no hay móvil a mano. Las columnas
@@ -38,7 +38,7 @@ class Sheet:
 
 
 SHEETS: list[Sheet] = [
-    # El papel del muelle lleva las mismas columnas que la pantalla, la etiqueta
+    # [00656] El papel del muelle lleva las mismas columnas que la pantalla, la etiqueta
     # del proveedor incluida: si el papel no la pide, nadie la copia luego.
     Sheet("recepcion", "m.rec.title", "m.rec.sub", [
         Column("m.rec.lot", "DXB20260910", 18),
@@ -109,7 +109,7 @@ BY_CODE = {s.code: s for s in SHEETS}
 
 def build(ws, sheet: Sheet, restaurant: Restaurant, lang: str = DEFAULT_LANG,
           blank_rows: int = BLANK_ROWS, site: str = ""):
-    """Monta la hoja: cabecera, ejemplo en gris y rejilla en blanco.
+    """[00653] Monta la hoja: cabecera, ejemplo en gris y rejilla en blanco.
 
     Con sede, la hoja lleva su nombre: colgada al lado de la balanza, el papel
     del obrador y el del local no se confunden.
@@ -217,7 +217,7 @@ def build(ws, sheet: Sheet, restaurant: Restaurant, lang: str = DEFAULT_LANG,
 
 def workbook(code: str, restaurant: Restaurant, lang: str = DEFAULT_LANG,
              blank_rows: int = BLANK_ROWS, site: str = "") -> bytes:
-    """Una hoja suelta, o el libro entero con `code="todo"`."""
+    """[00654] Una hoja suelta, o el libro entero con `code="todo"`."""
     wanted = SHEETS if code == "todo" else [BY_CODE[code]]
     wb = Workbook()
     wb.remove(wb.active)
@@ -231,6 +231,6 @@ def workbook(code: str, restaurant: Restaurant, lang: str = DEFAULT_LANG,
 
 
 def filename(code: str, lang: str = DEFAULT_LANG) -> str:
-    """El nombre del fichero que se descarga, en el idioma de la casa."""
+    """[00655] El nombre del fichero que se descarga, en el idioma de la casa."""
     name = "todo" if code == "todo" else t(lang, BY_CODE[code].title_key)
     return filename_for(name, lang)

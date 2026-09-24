@@ -4,7 +4,7 @@
 <h1>{{ t("m.df.title") }}</h1>
 <p class="sub">{{ t("m.df.sub_count") if tab == "recuento" else t("m.df.sub_intake") }}</p>
 
-{# Sacar a descongelar y contar lo que sobra no se hacen a la vez: media
+{# [01564] Sacar a descongelar y contar lo que sobra no se hacen a la vez: media
    mañana lo uno, al cerrar lo otro. Dos pantallas, y se pasa de una a otra. #}
 <div class="tabsrow">
   <a href="/descongelado{% if shift %}?shift={{ shift }}{% endif %}"
@@ -57,7 +57,7 @@
 {% endif %}
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 {% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
-{# El mes es cosa de los cierres: va donde se cierra. #}
+{# [01565] El mes es cosa de los cierres: va donde se cierra. #}
 {% if tab == "recuento" and month is defined and month.shifts and can("money") %}
 <div class="card">
   <b>{{ t("m.df.month") }}</b>
@@ -65,7 +65,7 @@
     <div class="kpi"><b>{{ month.shifts }}</b><span>{{ t("m.df.shifts") }}</span></div>
     <div class="kpi"><b class="{{ 'bad' if month.total_loss > 0 else '' }}">{{ "%.2f"|format(month.total_loss) }} <span class="uni">{{ moneda }}</span></b>
       <span>{{ t("m.df.month_loss") }}</span></div>
-    {# El agua no es otra pérdida además del desvío: es una parte de él. Por
+    {# [01566] El agua no es otra pérdida además del desvío: es una parte de él. Por
        eso va con su porcentaje al lado y no como una cifra suelta, que sumada
        a ojo con la de la izquierda daba el doble de lo que se perdió. #}
     <div class="kpi"><b>{{ "%.3f"|format(month.drip_kg) }}</b>

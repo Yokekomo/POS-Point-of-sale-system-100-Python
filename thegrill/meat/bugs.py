@@ -1,4 +1,4 @@
-"""Los fallos que cuenta quien está delante de la pantalla.
+"""[00449] Los fallos que cuenta quien está delante de la pantalla.
 
 Ninguna prueba ve lo que ve un carnicero a las siete de la mañana: el número
 que no cuadra el martes, la pantalla que se queda en blanco con su teclado, el
@@ -28,7 +28,7 @@ MAX_MESSAGE = 4000
 
 
 class BugError(ValueError):
-    """El parte no se puede guardar tal y como está."""
+    """[00450] El parte no se puede guardar tal y como está."""
 
 
 @dataclass
@@ -38,7 +38,7 @@ class Reported:
 
 
 def address() -> str:
-    """A dónde van los partes. Sin `GRILL_BUGS_EMAIL`, a donde van las solicitudes."""
+    """[00451] A dónde van los partes. Sin `GRILL_BUGS_EMAIL`, a donde van las solicitudes."""
     return (os.environ.get("GRILL_BUGS_EMAIL", "").strip()
             or os.environ.get("GRILL_MAIL_TO", "").strip())
 
@@ -46,7 +46,7 @@ def address() -> str:
 def report(session: Session, user: User | None, message: str, screen: str = "",
            kind: str = "fallo", email: str = "", lang: str = "es",
            site: str = "", version: str = "") -> Reported:
-    """Guarda el parte y lo manda por correo. Lo primero siempre; lo segundo si se puede."""
+    """[00452] Guarda el parte y lo manda por correo. Lo primero siempre; lo segundo si se puede."""
     texto = (message or "").strip()
     if len(texto) < 10:
         raise BugError("Cuenta un poco más: con dos palabras no se puede reproducir.")
@@ -84,7 +84,7 @@ def report(session: Session, user: User | None, message: str, screen: str = "",
 
 def recent(session: Session, limit: int = 100,
            status: BugStatus | None = None) -> list[BugReport]:
-    """Los últimos partes de fallo, del más nuevo al más viejo."""
+    """[00453] Los últimos partes de fallo, del más nuevo al más viejo."""
     query = session.query(BugReport)
     if status is not None:
         query = query.filter(BugReport.status == status)
@@ -92,14 +92,14 @@ def recent(session: Session, limit: int = 100,
 
 
 def mine(session: Session, restaurant_id: int, limit: int = 20) -> list[BugReport]:
-    """Los que ha contado esa casa, para que vea en qué han quedado."""
+    """[00454] Los que ha contado esa casa, para que vea en qué han quedado."""
     return (session.query(BugReport).filter_by(restaurant_id=restaurant_id)
             .order_by(BugReport.created_at.desc()).limit(limit).all())
 
 
 def set_status(session: Session, report_id: int, status: BugStatus,
                note: str | None = None) -> BugReport:
-    """Cambia el estado de un parte de fallo y le deja una nota."""
+    """[00455] Cambia el estado de un parte de fallo y le deja una nota."""
     row = session.get(BugReport, report_id)
     if row is None:
         raise BugError("Ese parte no existe")
@@ -111,7 +111,7 @@ def set_status(session: Session, report_id: int, status: BugStatus,
 
 
 def counts(session: Session) -> dict[str, int]:
-    """Cuántos hay de cada estado, para la pantalla de la plataforma."""
+    """[00456] Cuántos hay de cada estado, para la pantalla de la plataforma."""
     out = {s.value: 0 for s in BugStatus}
     for row in session.query(BugReport):
         out[row.status.value] = out.get(row.status.value, 0) + 1

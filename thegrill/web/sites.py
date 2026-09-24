@@ -1,4 +1,4 @@
-"""Las sedes de una casa, y la carne que va de una a otra.
+"""[01415] Las sedes de una casa, y la carne que va de una a otra.
 
 Un grupo no son tres restaurantes iguales: lo normal es **un obrador** —donde
 se reciben las piezas, se maduran y se despiezan— y **unos locales** que
@@ -30,12 +30,12 @@ CUT = "CUT"
 
 
 class SiteError(ValueError):
-    """El traslado no se puede hacer tal y como está."""
+    """[01416] El traslado no se puede hacer tal y como está."""
 
 
 @dataclass
 class SiteStock:
-    """Lo que hay en una sede, para verlo de un vistazo."""
+    """[01417] Lo que hay en una sede, para verlo de un vistazo."""
     site: Site
     primals: int = 0
     primal_kg: float = 0.0
@@ -44,13 +44,13 @@ class SiteStock:
 
     @property
     def kg(self) -> float:
-        """Toda la carne de la sede: piezas enteras y cortes."""
+        """[01441] Toda la carne de la sede: piezas enteras y cortes."""
         return round(self.primal_kg + self.cut_kg, 3)
 
 
 @dataclass
 class Move:
-    """Un traslado tal y como se lee: con los nombres puestos, no con los números."""
+    """[01418] Un traslado tal y como se lee: con los nombres puestos, no con los números."""
     date: date
     kind: str
     serial: str
@@ -65,7 +65,7 @@ class Move:
 
 @dataclass
 class Sent:
-    """Un traslado, ya hecho."""
+    """[01419] Un traslado, ya hecho."""
     kind: str
     serial: str
     label: str
@@ -78,7 +78,7 @@ class Sent:
 
 # ------------------------------------------------------------------- sedes
 def main(session: Session, restaurant_id: int) -> Site:
-    """La sede de siempre. Si la casa no tiene ninguna, se le crea el obrador.
+    """[01420] La sede de siempre. Si la casa no tiene ninguna, se le crea el obrador.
 
     Una casa que nunca ha oído hablar de sedes tiene una: donde está todo. Así
     lo de antes sigue funcionando sin que nadie tenga que configurar nada.
@@ -96,7 +96,7 @@ def main(session: Session, restaurant_id: int) -> Site:
 
 
 def all_sites(session: Session, restaurant_id: int, active: bool = True) -> list[Site]:
-    """Las sedes de la casa. Una casa sin ninguna tiene el obrador."""
+    """[01421] Las sedes de la casa. Una casa sin ninguna tiene el obrador."""
     query = session.query(Site).filter_by(restaurant_id=restaurant_id)
     if active:
         query = query.filter(Site.active.is_(True))
@@ -106,7 +106,7 @@ def all_sites(session: Session, restaurant_id: int, active: bool = True) -> list
 
 def create(session: Session, user: User, name: str,
            kind: SiteKind = SiteKind.OUTLET, address: str | None = None) -> Site:
-    """Abre una sede nueva.
+    """[01422] Abre una sede nueva.
 
     Antes de nada se asegura de que existe el obrador: un local consume de
     algún sitio, y la carne que ya había en la casa estaba en la sede
@@ -116,7 +116,7 @@ def create(session: Session, user: User, name: str,
     name = (name or "").strip()
     if not name:
         raise SiteError("La sede necesita un nombre")
-    # El obrador primero: un local consume de algún sitio, y la carne que ya
+    # [01442] El obrador primero: un local consume de algún sitio, y la carne que ya
     # había en la casa estaba en la sede principal, no en el local nuevo.
     main(session, user.restaurant_id)
     if (session.query(Site)
@@ -130,7 +130,7 @@ def create(session: Session, user: User, name: str,
 
 
 def where(session: Session, restaurant_id: int, obj) -> Site:
-    """La sede de una pieza o de un lote. Lo que no la diga, está en la principal."""
+    """[01423] La sede de una pieza o de un lote. Lo que no la diga, está en la principal."""
     if getattr(obj, "site_id", None):
         site = session.get(Site, obj.site_id)
         if site is not None:
@@ -139,12 +139,12 @@ def where(session: Session, restaurant_id: int, obj) -> Site:
 
 
 def of_user(session: Session, user: User) -> Site | None:
-    """Dónde trabaja esa persona. Sin sede, ve la casa entera."""
+    """[01424] Dónde trabaja esa persona. Sin sede, ve la casa entera."""
     return session.get(Site, user.site_id) if user.site_id else None
 
 
 def guard(session: Session, user: User, obj) -> Site:
-    """Comprueba que eso está donde trabaja quien lo va a tocar.
+    """[01425] Comprueba que eso está donde trabaja quien lo va a tocar.
 
     Las pantallas ya enseñan solo lo de cada sede, pero una barra sin enlace no
     es una puerta cerrada: escribiendo el número a mano se llega igual. Esto es
@@ -161,7 +161,7 @@ def guard(session: Session, user: User, obj) -> Site:
 # ----------------------------------------------------------------- cámaras
 def set_chamber(session: Session, user: User, serial: str,
                 chamber: str | None) -> tuple[str, str | None]:
-    """Dice en qué cámara de la sede está esa pieza o ese lote.
+    """[01426] Dice en qué cámara de la sede está esa pieza o ese lote.
 
     Una sede grande no tiene una cámara: tiene la de maduración, la de cortes
     y el arcón del pasillo. El nombre lo ponen ellos, que es como la llaman.
@@ -183,7 +183,7 @@ def set_chamber(session: Session, user: User, serial: str,
 
 def chambers(session: Session, restaurant_id: int,
              site_id: int | None = None) -> list[tuple[str, int]]:
-    """Las cámaras que se usan y cuánto hay en cada una, para el desplegable."""
+    """[01427] Las cámaras que se usan y cuánto hay en cada una, para el desplegable."""
     principal = main(session, restaurant_id).id
     cuenta: dict[str, int] = {}
     for primal in (session.query(Primal)
@@ -205,13 +205,13 @@ def chambers(session: Session, restaurant_id: int,
 # ----------------------------------------------------------------- mínimos
 @dataclass
 class Pars:
-    """Los mínimos de una sede: los cortes en kilos y los primales en piezas."""
+    """[01428] Los mínimos de una sede: los cortes en kilos y los primales en piezas."""
     cuts: dict[int, float] = field(default_factory=dict)
     primals: dict[str, int] = field(default_factory=dict)
 
 
 def pars_of(session: Session, restaurant_id: int, site_id: int | None) -> Pars:
-    """Lo que esa sede ha puesto. Lo que no esté aquí lo manda la casa."""
+    """[01429] Lo que esa sede ha puesto. Lo que no esté aquí lo manda la casa."""
     out = Pars()
     if not site_id:
         return out
@@ -226,7 +226,7 @@ def pars_of(session: Session, restaurant_id: int, site_id: int | None) -> Pars:
 
 def set_par(session: Session, user: User, site_id: int, *, ingredient_id: int | None = None,
             sku: str | None = None, minimum: float | None = None) -> SitePar | None:
-    """Pone —o quita— el mínimo de un corte o de un primal en esa sede.
+    """[01430] Pone —o quita— el mínimo de un corte o de un primal en esa sede.
 
     Sin número se borra la fila: esa sede vuelve a regirse por el mínimo de la
     casa, que es lo que quiere decir «no tengo nada especial aquí».
@@ -258,7 +258,7 @@ def set_par(session: Session, user: User, site_id: int, *, ingredient_id: int | 
 def send_primal(session: Session, user: User, serial: str, to_site_id: int,
                 on: date | None = None, note: str | None = None,
                 desde: int | None = None) -> Sent:
-    """Manda una pieza entera a otra sede. Va entera: no se parte por el camino.
+    """[01431] Manda una pieza entera a otra sede. Va entera: no se parte por el camino.
 
     `desde` es la sede en la que el que manda **veía** la pieza cuando le dio a
     mandar. Se compara con dónde está de verdad, y es lo que separa un traslado
@@ -285,7 +285,7 @@ def send_primal(session: Session, user: User, serial: str, to_site_id: int,
 
     coste = (primal.piece_cost_usd if primal.piece_cost_usd is not None
              else (primal.landed_usd_per_kg or 0) * (primal.weight_kg or 0) or None)
-    # La pieza se mueve con su sitio de antes metido en la orden: si otra
+    # [01443] La pieza se mueve con su sitio de antes metido en la orden: si otra
     # persona la acaba de mandar a otro local —o la ha despiezado—, este
     # traslado no se escribe. Si no, el albarán dice que la misma pieza salió
     # para dos sitios y allí la esperan los dos.
@@ -308,7 +308,7 @@ def send_primal(session: Session, user: User, serial: str, to_site_id: int,
 def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: int,
              on: date | None = None, note: str | None = None,
              desde: int | None = None) -> Sent:
-    """Manda cortes a otra sede: el lote entero o unos kilos de él.
+    """[01432] Manda cortes a otra sede: el lote entero o unos kilos de él.
 
     `desde` es la sede en la que se veía el lote al darle a mandar, y hace lo
     mismo que en una pieza: si ya no está ahí, no se manda.
@@ -353,7 +353,7 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
         if lot.pieces and lot.qty_remaining > EPSILON:
             piezas = max(1, int(round(lot.pieces * movido / lot.qty_remaining)))
 
-        # Los kilos se sacan del lote **antes** de que nazca el número que los
+        # [01444] Los kilos se sacan del lote **antes** de que nazca el número que los
         # lleva. Al revés, el hijo quedaba escrito aunque la resta fallara: el
         # local de destino se encontraba un número con kilos que nunca
         # salieron del obrador, y el obrador seguía teniéndolos. Dos veces la
@@ -372,7 +372,7 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
             unit_cost=lot.unit_cost, pieces=piezas, piece_weight_g=lot.piece_weight_g,
             nominal_piece_g=lot.nominal_piece_g, grade=lot.grade, origin=lot.origin,
             frozen=lot.frozen, site_id=destino.id)     # sin cámara: la de allí la ponen ellos
-        # La resta va dentro de la orden, no en Python: dos personas mandando
+        # [01445] La resta va dentro de la orden, no en Python: dos personas mandando
         # del mismo lote a la vez sacaban cada una lo suyo sobre el mismo
         # número de partida, y del lote salían más kilos de los que tenía.
         session.add(hijo)
@@ -392,7 +392,7 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
 
 def journal_split(session: Session, user: User, parent: IngredientLot, child: IngredientLot,
              kg: float, on: date, source: str, where: str) -> None:
-    """Lo que sale de un lote y entra en otro, apuntado en los dos.
+    """[01433] Lo que sale de un lote y entra en otro, apuntado en los dos.
 
     No se ha vendido ni se ha tirado: ha cambiado de sitio o de número. Pero
     del lote han salido kilos, y un lote que baja sin apunte es un lote que no
@@ -413,7 +413,7 @@ def journal_split(session: Session, user: User, parent: IngredientLot, child: In
 
 
 def _child_serial(session: Session, restaurant_id: int, base: str) -> str:
-    """Un número nuevo para lo que se parte: «8017-01·T1», «·T2»…"""
+    """[01434] Un número nuevo para lo que se parte: «8017-01·T1», «·T2»…"""
     for n in range(1, 100):
         candidate = f"{base}·T{n}"
         if not (session.query(IngredientLot)
@@ -423,7 +423,7 @@ def _child_serial(session: Session, restaurant_id: int, base: str) -> str:
 
 
 def _site(session: Session, user: User, site_id: int) -> Site:
-    """La sede de ese número, comprobando que es de esta casa y está abierta."""
+    """[01435] La sede de ese número, comprobando que es de esta casa y está abierta."""
     site = session.get(Site, site_id or 0)
     if site is None or site.restaurant_id != user.restaurant_id:
         raise SiteError("Esa sede no es de esta casa")
@@ -433,7 +433,7 @@ def _site(session: Session, user: User, site_id: int) -> Site:
 
 
 def assign(session: Session, user: User, person: User, site_id: int | None) -> User:
-    """A qué sede pertenece una persona. Sin sede, ve la casa entera.
+    """[01436] A qué sede pertenece una persona. Sin sede, ve la casa entera.
 
     Quien trabaja en un local no quiere ver las ocho piezas del obrador cuando
     busca las suyas, y quien recibe la mercancía necesita que lo que da de alta
@@ -447,7 +447,7 @@ def assign(session: Session, user: User, person: User, site_id: int | None) -> U
 
 
 def set_active(session: Session, user: User, site_id: int, active: bool) -> Site:
-    """Cierra o reabre una sede. Cerrada no recibe carne, pero lo suyo no se borra."""
+    """[01437] Cierra o reabre una sede. Cerrada no recibe carne, pero lo suyo no se borra."""
     site = session.get(Site, site_id or 0)
     if site is None or site.restaurant_id != user.restaurant_id:
         raise SiteError("Esa sede no es de esta casa")
@@ -459,14 +459,14 @@ def set_active(session: Session, user: User, site_id: int, active: bool) -> Site
 
 
 def people(session: Session, restaurant_id: int) -> list[User]:
-    """La gente de la casa que está de alta, por nombre."""
+    """[01438] La gente de la casa que está de alta, por nombre."""
     return (session.query(User).filter_by(restaurant_id=restaurant_id, active=True)
             .order_by(User.name).all())
 
 
 def recent(session: Session, restaurant_id: int, days: int = 30,
            site_id: int | None = None) -> list[Move]:
-    """Los últimos traslados, o los de una sede —lo que entra y lo que sale—."""
+    """[01439] Los últimos traslados, o los de una sede —lo que entra y lo que sale—."""
     query = (session.query(Transfer)
              .filter(Transfer.restaurant_id == restaurant_id,
                      Transfer.date >= jornada.hoy(session, restaurant_id) - timedelta(days=days)))
@@ -484,7 +484,7 @@ def recent(session: Session, restaurant_id: int, days: int = 30,
 
 # ------------------------------------------------------------ lo que hay
 def stock(session: Session, restaurant_id: int) -> list[SiteStock]:
-    """Cuánta carne hay en cada sede, en piezas, kilos y dinero."""
+    """[01440] Cuánta carne hay en cada sede, en piezas, kilos y dinero."""
     sedes = {s.id: SiteStock(site=s) for s in all_sites(session, restaurant_id)}
     principal = main(session, restaurant_id)
 

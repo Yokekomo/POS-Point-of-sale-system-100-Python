@@ -1,4 +1,4 @@
-"""CLI mínima: crear la base de datos y lanzar la cadena."""
+"""[00056] CLI mínima: crear la base de datos y lanzar la cadena."""
 import argparse
 from datetime import date
 
@@ -7,7 +7,7 @@ from thegrill.orchestrator.chain import DbCheckpoints, build_default_chain
 
 
 def _lan_addresses() -> list[str]:
-    """La dirección de esta máquina en la wifi, para abrirla desde el móvil."""
+    """[00057] La dirección de esta máquina en la wifi, para abrirla desde el móvil."""
     import socket
     salida = []
     try:
@@ -20,7 +20,7 @@ def _lan_addresses() -> list[str]:
 
 
 def _open_when_ready(puerto: int, espera: float = 40.0) -> None:
-    """Abre el navegador cuando la demo esté sirviendo de verdad, no antes.
+    """[00058] Abre el navegador cuando la demo esté sirviendo de verdad, no antes.
 
     Montar la demo la primera vez lleva un minuto largo, y durante ese rato el
     navegador solo sabe decir «no se puede acceder a este sitio web». Quien lo
@@ -33,7 +33,7 @@ def _open_when_ready(puerto: int, espera: float = 40.0) -> None:
     import webbrowser
 
     def esperar():
-        """Espera a que el servidor conteste y abre el navegador solo.
+        """[00060] Espera a que el servidor conteste y abre el navegador solo.
 
         En un servidor o dentro de Docker no hay navegador que abrir, y no pasa
         nada: se intenta y se sigue.
@@ -55,7 +55,7 @@ def _open_when_ready(puerto: int, espera: float = 40.0) -> None:
 
 
 def main(argv=None):
-    """La línea de órdenes: crear la base, correr la cadena del día o arrancar la web."""
+    """[00059] La línea de órdenes: crear la base, correr la cadena del día o arrancar la web."""
     p = argparse.ArgumentParser(prog="thegrill")
     p.add_argument("--db", default="sqlite:///thegrill.db")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -129,10 +129,10 @@ def main(argv=None):
         from thegrill.meat import novedades, privacy, security
         with db.session_scope() as session:
             print(f"borradas {privacy.purge(session, days=args.dias)} solicitudes")
-            # Y los números de envío de hace un mes: ningún teléfono guarda
+            # [00061] Y los números de envío de hace un mes: ningún teléfono guarda
             # tanto, así que recordarlos ya no evita nada.
             print(f"borrados {security.forget_old_submissions(session)} números de envío")
-            # Y las novedades de la semana pasada, que ya no avisan de nada.
+            # [00062] Y las novedades de la semana pasada, que ya no avisan de nada.
             print(f"borradas {novedades.olvidar_viejas(session)} novedades")
     elif args.cmd == "demo":
         import os
@@ -140,7 +140,7 @@ def main(argv=None):
         from thegrill import bench
         from thegrill.models import Restaurant
 
-        # La demo va por http, también desde el móvil: sin esto la cookie de
+        # [00063] La demo va por http, también desde el móvil: sin esto la cookie de
         # sesión no se guarda y no se puede entrar.
         os.environ.setdefault("GRILL_INSECURE_COOKIE", "1")
         fichero = args.db.replace("sqlite:///", "")
@@ -153,7 +153,7 @@ def main(argv=None):
                        else bench.demo_accounts(session))
         print()
         print("  CONTROL DE CARNES · demo con un mes de trabajo dentro")
-        # La versión, lo primero: cuando alguien dice que un arreglo no está,
+        # [00064] La versión, lo primero: cuando alguien dice que un arreglo no está,
         # lo primero que hay que saber es si lo que arrancó lo lleva dentro.
         print(f"  Versión: {version.actual()}")
         print("  " + "-" * 66)

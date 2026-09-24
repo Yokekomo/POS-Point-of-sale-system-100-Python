@@ -1,4 +1,4 @@
-"""En qué moneda trabaja la casa.
+"""[01306] En qué moneda trabaja la casa.
 
 Un número suelto en una pantalla —«Valor en cámara: 1573»— no dice si son
 euros, dólares o kilos. La casa elige su moneda una vez y a partir de ahí cada
@@ -10,7 +10,7 @@ Aquí no se convierte nada. Una casa cobra y paga en una moneda y esa es la
 viejo miente más que no poner nada.
 """
 
-# El símbolo que se enseña. Donde varias monedas comparten el «$» se escribe
+# [01309] El símbolo que se enseña. Donde varias monedas comparten el «$» se escribe
 # con su letra delante: en una casa que trabaja en pesos, «$» a secas se lee
 # como dólares y no lo es.
 MONEDAS: dict[str, str] = {
@@ -39,12 +39,12 @@ POR_DEFECTO = "EUR"
 
 
 def es_valida(code: str) -> bool:
-    """Si esa moneda es una de las que conoce el programa."""
+    """[01307] Si esa moneda es una de las que conoce el programa."""
     return (code or "").upper() in MONEDAS
 
 
 def simbolo(code: str | None) -> str:
-    """El símbolo de esa moneda. Si no se reconoce, se enseña su código."""
+    """[01308] El símbolo de esa moneda. Si no se reconoce, se enseña su código."""
     if not code:
         return MONEDAS[POR_DEFECTO]
     return MONEDAS.get(code.upper(), code.upper())

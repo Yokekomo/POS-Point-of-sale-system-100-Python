@@ -1,4 +1,4 @@
-"""El peso se escribe en gramos, que son números enteros y no llevan coma.
+"""[01310] El peso se escribe en gramos, que son números enteros y no llevan coma.
 
 Una báscula de cocina da «9,435 kg» y un teclado de móvil no tiene coma en la
 fila de números: hay que cambiar de teclado, buscar el separador y acertar
@@ -31,7 +31,7 @@ GRAMO = exacto.GRAMOS          # los gramos que tiene un kilo
 
 
 class ConDecimales(ValueError):
-    """Gramos con coma: quien lo escribió seguía pensando en kilos.
+    """[01311] Gramos con coma: quien lo escribió seguía pensando en kilos.
 
     «9,4» en una casilla de gramos son nueve gramos y pico, que no es carne
     que exista. Casi siempre son 9,4 kg mal puestos. No se adivina ni se
@@ -40,8 +40,8 @@ class ConDecimales(ValueError):
     """
 
     def __init__(self, escrito: str, como_kilos: float):
-        """Lo escrito, y la cifra en gramos que hay que poner en su lugar."""
-        # Lo que se tecleó, leído como lo que casi seguro quiso decir —kilos—,
+        """[01321] Lo escrito, y la cifra en gramos que hay que poner en su lugar."""
+        # [01322] Lo que se tecleó, leído como lo que casi seguro quiso decir —kilos—,
         # y los gramos que habría que escribir para decir eso mismo. El aviso
         # no se queda en «está mal»: dice la cifra que hay que poner.
         self.escrito, self.como_kilos = escrito, como_kilos
@@ -50,7 +50,7 @@ class ConDecimales(ValueError):
 
 
 def leer(raw: object, default: float | None = None) -> float | None:
-    """Los gramos que se escribieron, devueltos en kilos.
+    """[01312] Los gramos que se escribieron, devueltos en kilos.
 
     Vacío devuelve `default`. Lo que no es un número levanta `NoEsUnNumero`,
     igual que en cualquier otra casilla. Y lo que trae coma levanta
@@ -71,7 +71,7 @@ def leer(raw: object, default: float | None = None) -> float | None:
 
 
 def escribir(kilos: float | None) -> str:
-    """Los kilos de la base, para volver a pintarlos en su casilla."""
+    """[01313] Los kilos de la base, para volver a pintarlos en su casilla."""
     if kilos is None:
         return ""
     return str(int(round(kilos * GRAMO)))
@@ -79,7 +79,7 @@ def escribir(kilos: float | None) -> str:
 
 def del_formulario(form, nombre: str, viejo: str | None = None,
                    default: float | None = None) -> float | None:
-    """El peso de un campo, en kilos, mirando también el nombre de antes.
+    """[01314] El peso de un campo, en kilos, mirando también el nombre de antes.
 
     Las casillas de peso se llamaban `kg` y ahora se llaman `g`. Eso importa
     más de lo que parece: un teléfono sin cobertura guarda el formulario tal
@@ -104,11 +104,11 @@ def del_formulario(form, nombre: str, viejo: str | None = None,
 
 
 class Falta(ValueError):
-    """La casilla del peso vino vacía. Sin peso no hay apunte que valga."""
+    """[01315] La casilla del peso vino vacía. Sin peso no hay apunte que valga."""
 
 
 def de_dos(gramos: object, kilos: object, default: float | None = None) -> float | None:
-    """El peso, venga con el nombre de ahora o con el de antes.
+    """[01316] El peso, venga con el nombre de ahora o con el de antes.
 
     Lo mismo que `del_formulario`, para las rutas que reciben los campos ya
     sueltos en vez de un formulario entero.
@@ -120,7 +120,7 @@ def de_dos(gramos: object, kilos: object, default: float | None = None) -> float
     return default
 
 
-# --------------------------------------------- de gramos a lo que sea
+# [01323] --------------------------------------------- de gramos a lo que sea
 #
 # Un huevo pesa 55 g y un litro de aceite, 916. Con ese número puesto en el
 # ingrediente, todo se puede escribir en gramos y guardarse en la unidad en la
@@ -133,7 +133,7 @@ GRAMOS_POR_KILO = float(GRAMO)
 
 
 def se_pesa(ingrediente) -> bool:
-    """¿Se puede escribir este ingrediente en gramos?
+    """[01317] ¿Se puede escribir este ingrediente en gramos?
 
     Si su unidad ya es el kilo, sí y sin más cuentas. Si no, solo cuando
     alguien ha dicho lo que pesa una unidad.
@@ -147,7 +147,7 @@ def se_pesa(ingrediente) -> bool:
 
 
 def por_unidad(ingrediente) -> float | None:
-    """Los gramos que pesa una unidad de este ingrediente, si se sabe.
+    """[01318] Los gramos que pesa una unidad de este ingrediente, si se sabe.
 
     El kilo manda sobre lo que haya escrito en la casilla: un kilo pesa mil
     gramos y eso no lo cambia nadie. Si en un ingrediente que ya va en kilos
@@ -165,7 +165,7 @@ def por_unidad(ingrediente) -> float | None:
 
 
 def en_su_unidad(kilos: float | None, ingrediente) -> float | None:
-    """El peso escrito, pasado a la unidad en la que vive el stock.
+    """[01319] El peso escrito, pasado a la unidad en la que vive el stock.
 
     Entra lo que devuelve `leer` —kilos, que es como sale de una casilla de
     gramos— y sale la cantidad en la unidad del ingrediente: 110 g de huevo
@@ -182,7 +182,7 @@ def en_su_unidad(kilos: float | None, ingrediente) -> float | None:
 
 
 def a_gramos(cantidad: float | None, ingrediente) -> float | None:
-    """Y de vuelta, para volver a pintar en la casilla lo que ya estaba."""
+    """[01320] Y de vuelta, para volver a pintar en la casilla lo que ya estaba."""
     if cantidad is None:
         return None
     cuanto = por_unidad(ingrediente)

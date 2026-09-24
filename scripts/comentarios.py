@@ -45,6 +45,12 @@ ANCHO = 5
 # Lo que no es una explicación: no lleva número ni sale en el índice.
 RUIDO = re.compile(r"^#\s*(noqa|type:|pragma|pylint|ruff|fmt:|isort)", re.I)
 
+# Un rótulo de sección —`# ------------- cámaras`— es un letrero, no una
+# explicación: dice dónde estás, no por qué está hecho así. Numerarlos metía
+# ciento sesenta y cuatro entradas en el índice que no contestan a nada y
+# además rompía la raya, que es lo único que hacen: separar a ojo.
+RAYA = re.compile(r"[-=]{4,}")
+
 
 @dataclass
 class Comentario:
@@ -103,6 +109,21 @@ def _docstrings(ruta: pathlib.Path, fuente: str) -> list[Comentario]:
     return fuera
 
 
+def _es_rotulo(juntas: list[str]) -> bool:
+    """Si eso es un letrero de sección y no una explicación.
+
+    Una sola línea, con su raya de guiones y dos o tres palabras de título:
+    `# ---------- cámaras`. Eso no contesta a nada —solo dice por dónde vas al
+    bajar por el fichero— y no tiene que llevar número ni ocupar una fila del
+    índice. En cuanto debajo hay una línea más ya está explicando algo, y
+    entonces sí.
+    """
+    if len(juntas) != 1 or not RAYA.search(juntas[0]):
+        return True if len(juntas) == 1 and not juntas[0].strip("-=# ") else False
+    titulo = RAYA.sub(" ", juntas[0]).strip(" #-=")
+    return len(titulo.split()) <= 5
+
+
 def _bloques(ruta: pathlib.Path, fuente: str) -> list[Comentario]:
     """Los bloques de almohadilla: una o más líneas seguidas de comentario."""
     fuera: list[Comentario] = []
@@ -122,6 +143,8 @@ def _bloques(ruta: pathlib.Path, fuente: str) -> list[Comentario]:
         # Una raya de separación —`# ---- cámara ----`— no explica nada por sí
         # sola, pero si debajo lleva texto sí: se numera el conjunto.
         if not texto or RUIDO.match(crudo) or set(texto) <= set("-=# "):
+            continue
+        if _es_rotulo(juntas):
             continue
         fuera.append(Comentario(_numero_de(texto), str(ruta.relative_to(RAIZ)),
                                 arranca + 1, "bloque", "", texto))

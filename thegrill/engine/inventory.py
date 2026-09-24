@@ -1,4 +1,4 @@
-"""Inventario de carne: cuadrar lo que dice el sistema con lo que hay.
+"""[00116] Inventario de carne: cuadrar lo que dice el sistema con lo que hay.
 
 Se cuenta pieza a pieza, por número de serie. De cada una salen cuatro
 resultados posibles:
@@ -55,7 +55,7 @@ class Line:
 
     @property
     def gap_kg(self) -> float:
-        """Lo que falta o sobra en esa línea. Sin contar, cero.
+        """[00118] Lo que falta o sobra en esa línea. Sin contar, cero.
 
         Una línea que nadie ha contado no es una línea que cuadra: es una que no se
         ha mirado, y meterla como diferencia cero escondería justo lo que falta.
@@ -66,12 +66,12 @@ class Line:
 
     @property
     def gap_value(self) -> float:
-        """Lo que cuesta esa diferencia."""
+        """[00119] Lo que cuesta esa diferencia."""
         return round(self.gap_kg * self.unit_cost, 4) if self.unit_cost else 0.0
 
     @property
     def adjusts(self) -> bool:
-        """Solo se re-ancla el stock de lo que se ha contado de verdad."""
+        """[00120] Solo se re-ancla el stock de lo que se ha contado de verdad."""
         return self.outcome in (SHORT, OVER, NOT_FOUND)
 
 
@@ -80,37 +80,37 @@ class Summary:
     lines: list[Line] = field(default_factory=list)
 
     def of(self, outcome: str) -> list[Line]:
-        """Las líneas que acabaron de una manera: contadas, sin contar, con falta."""
+        """[00121] Las líneas que acabaron de una manera: contadas, sin contar, con falta."""
         return [l for l in self.lines if l.outcome == outcome]
 
     @property
     def complete(self) -> bool:
-        """Un inventario con piezas sin contar no cuadra."""
+        """[00122] Un inventario con piezas sin contar no cuadra."""
         return not self.of(UNCOUNTED)
 
     @property
     def counted_lines(self) -> int:
-        """Cuántas líneas se llegaron a contar."""
+        """[00123] Cuántas líneas se llegaron a contar."""
         return len([l for l in self.lines if l.outcome != UNCOUNTED])
 
     @property
     def gap_kg(self) -> float:
-        """Los kilos que no cuadran en todo el inventario."""
+        """[00124] Los kilos que no cuadran en todo el inventario."""
         return round(sum(l.gap_kg for l in self.lines), 4)
 
     @property
     def shrink_kg(self) -> float:
-        """Lo que falta, en kilos. Positivo es carne que se ha perdido."""
+        """[00125] Lo que falta, en kilos. Positivo es carne que se ha perdido."""
         return round(-sum(l.gap_kg for l in self.lines if l.gap_kg < 0), 4)
 
     @property
     def gap_value(self) -> float:
-        """Lo que cuesta todo lo que no cuadra, sumando faltas y sobras."""
+        """[00126] Lo que cuesta todo lo que no cuadra, sumando faltas y sobras."""
         return round(sum(l.gap_value for l in self.lines), 2)
 
     @property
     def shrink_value(self) -> float:
-        """Solo lo que falta, en dinero, sin que lo tape lo que sobra.
+        """[00127] Solo lo que falta, en dinero, sin que lo tape lo que sobra.
 
         Doscientos euros de menos en el lomo y doscientos de más en la aguja no son
         cero: son cuatrocientos euros de recuento que no se sostiene, y con el
@@ -120,20 +120,20 @@ class Summary:
 
     @property
     def accuracy_pct(self) -> float | None:
-        """Qué parte de las piezas contadas cuadraba."""
+        """[00128] Qué parte de las piezas contadas cuadraba."""
         counted = self.counted_lines
         if not counted:
             return None
         return round(len(self.of(MATCH)) / counted * 100, 1)
 
     def worst(self, n: int = 5) -> list[Line]:
-        """Donde más carne se ha ido, por valor."""
+        """[00129] Donde más carne se ha ido, por valor."""
         return sorted((l for l in self.lines if l.gap_value), key=lambda l: l.gap_value)[:n]
 
 
 def reconcile(expected: list[Expected], counted: list[Counted],
               tolerance_kg: float = TOLERANCE_KG) -> Summary:
-    """Cuadra lo contado contra lo que el sistema dice que debería haber."""
+    """[00117] Cuadra lo contado contra lo que el sistema dice que debería haber."""
     found = {c.serial: c for c in counted}
     summary = Summary()
 
@@ -153,7 +153,7 @@ def reconcile(expected: list[Expected], counted: list[Counted],
         summary.lines.append(Line(item.serial, item.label, item.kind, item.kg, hit.kg,
                                   item.unit_cost, outcome))
 
-    # Lo que apareció en cámara y el sistema no conocía.
+    # [00130] Lo que apareció en cámara y el sistema no conocía.
     for leftover in found.values():
         summary.lines.append(Line(leftover.serial, leftover.serial, "CUT", 0.0,
                                   leftover.kg, None, UNKNOWN))

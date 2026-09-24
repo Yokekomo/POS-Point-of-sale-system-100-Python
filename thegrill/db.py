@@ -1,4 +1,4 @@
-"""Acceso a base de datos: SQLite para empezar, PostgreSQL cambiando la URL."""
+"""[00067] Acceso a base de datos: SQLite para empezar, PostgreSQL cambiando la URL."""
 from contextlib import contextmanager
 from dataclasses import dataclass
 
@@ -15,7 +15,7 @@ _SessionFactory = None
 
 
 def init_engine(database_url: str = "sqlite:///thegrill.db"):
-    """Abre la base de datos: SQLite de serie, PostgreSQL cambiando la URL.
+    """[00068] Abre la base de datos: SQLite de serie, PostgreSQL cambiando la URL.
 
     Deja SQLite preparada para que escriban varios a la vez y engancha el
     redondeo: ningún importe con milésimas ni ningún peso con miligramos llega
@@ -24,7 +24,7 @@ def init_engine(database_url: str = "sqlite:///thegrill.db"):
     global _engine, _SessionFactory
     connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
     if database_url.startswith("sqlite"):
-        # Treinta segundos de espera: en una casa hay dos o tres personas
+        # [00078] Treinta segundos de espera: en una casa hay dos o tres personas
         # escribiendo a la vez, no doscientas. Lo que no puede pasar es que a
         # la que llega segunda le salga un error rojo porque la otra estaba
         # guardando en ese momento.
@@ -33,7 +33,7 @@ def init_engine(database_url: str = "sqlite:///thegrill.db"):
     if database_url.startswith("sqlite"):
         event.listen(_engine, "connect", _sqlite_ready)
     _SessionFactory = sessionmaker(bind=_engine, expire_on_commit=False, class_=Session)
-    # Ningún importe con milésimas ni ningún peso con miligramos llega al
+    # [00079] Ningún importe con milésimas ni ningún peso con miligramos llega al
     # disco. Se engancha aquí, que es por donde pasa todo lo que se guarda.
     from thegrill.web import exacto
     exacto.enganchar(Session)
@@ -41,7 +41,7 @@ def init_engine(database_url: str = "sqlite:///thegrill.db"):
 
 
 def _sqlite_ready(connection, _record) -> None:
-    """Pone la base de datos en modo de varios a la vez.
+    """[00069] Pone la base de datos en modo de varios a la vez.
 
     De serie, SQLite deja escribir a uno y a los demás les cierra la puerta
     entera: mientras el del obrador guarda un despiece, el del local que está
@@ -60,7 +60,7 @@ def _sqlite_ready(connection, _record) -> None:
 
 
 def create_all():
-    """Crea las tablas que falten y pone al día las que ya estaban."""
+    """[00070] Crea las tablas que falten y pone al día las que ya estaban."""
     from thegrill import models  # noqa: F401  (registra las tablas)
     if _engine is None:
         init_engine()
@@ -70,7 +70,7 @@ def create_all():
 
 @dataclass(frozen=True)
 class Pendiente:
-    """Algo que la actualización no ha podido poner, y por qué.
+    """[00071] Algo que la actualización no ha podido poner, y por qué.
 
     Una migración que se calla es peor que una que falla: el programa arranca,
     parece que todo está bien, y la columna que falta se descubre tres semanas
@@ -82,18 +82,18 @@ class Pendiente:
     mano: str = ""    # la orden que lo arregla, si la hay
 
 
-# Lo que no se pudo en la última actualización. Se vacía en cada pasada y lo
+# [00080] Lo que no se pudo en la última actualización. Se vacía en cada pasada y lo
 # lee el panel de la plataforma: es el parte de la migración.
 PENDIENTES: list[Pendiente] = []
 
 
 def pendientes() -> list[Pendiente]:
-    """Lo que quedó sin poner la última vez que se actualizó la base."""
+    """[00072] Lo que quedó sin poner la última vez que se actualizó la base."""
     return list(PENDIENTES)
 
 
 def _literal(column, dialect) -> str | None:
-    """El valor con el que se rellenan las filas que ya existen.
+    """[00073] El valor con el que se rellenan las filas que ya existen.
 
     Una columna obligatoria no se puede añadir a una tabla con datos sin decir
     qué va en las filas de antes. Si el modelo trae un valor por defecto, ese
@@ -118,7 +118,7 @@ def _literal(column, dialect) -> str | None:
 
 
 def add_missing_columns() -> list[str]:
-    """Añade a las tablas que ya existen las columnas y las reglas que falten.
+    """[00074] Añade a las tablas que ya existen las columnas y las reglas que falten.
 
     `create_all` crea tablas, pero no toca las que ya están: una base de datos
     en marcha se quedaba sin las columnas añadidas después y reventaba al leer.
@@ -141,7 +141,7 @@ def add_missing_columns() -> list[str]:
     tables = set(inspector.get_table_names())
     added: list[str] = []
     dialect = _engine.dialect
-    # Cada orden en su propia transacción, y no todas en una. PostgreSQL, en
+    # [00081] Cada orden en su propia transacción, y no todas en una. PostgreSQL, en
     # cuanto una falla, deja la transacción abortada: **todas** las siguientes
     # fallan también, aunque no tengan nada que ver. Con una sola transacción
     # para todo, una columna problemática en la primera tabla se llevaba por
@@ -183,7 +183,7 @@ def add_missing_columns() -> list[str]:
                     continue
                 added.append(f"{table.name}.{column.name}")
 
-    # Los índices, después de las columnas: uno nuevo suele venir con la suya.
+    # [00082] Los índices, después de las columnas: uno nuevo suele venir con la suya.
     inspector = inspect(_engine)
     for table in Base.metadata.sorted_tables:
         if table.name not in tables:
@@ -202,7 +202,7 @@ def add_missing_columns() -> list[str]:
                 continue
             added.append(index.name)
 
-        # Y las reglas de «no puede haber dos iguales». No se pueden añadir a
+        # [00083] Y las reglas de «no puede haber dos iguales». No se pueden añadir a
         # una tabla que ya existe —ni SQLite ni casi nadie deja—, pero un
         # índice único hace exactamente lo mismo. Si los datos de la casa ya
         # tienen un repetido, la orden falla: eso no se arregla solo y hay que
@@ -240,7 +240,7 @@ def add_missing_columns() -> list[str]:
 
 
 def _esta_vacia(connection, tabla: str) -> bool:
-    """Una tabla sin filas admite cualquier columna obligatoria."""
+    """[00075] Una tabla sin filas admite cualquier columna obligatoria."""
     from sqlalchemy import text
     try:
         return connection.execute(
@@ -250,7 +250,7 @@ def _esta_vacia(connection, tabla: str) -> bool:
 
 
 def _valores_nuevos_de_las_listas(added: list[str]) -> None:
-    """En PostgreSQL, los valores nuevos de una lista cerrada hay que añadirlos.
+    """[00076] En PostgreSQL, los valores nuevos de una lista cerrada hay que añadirlos.
 
     En SQLite una lista cerrada es texto y no hay nada que hacer. En PostgreSQL
     es un tipo de verdad, y un valor nuevo —un estado de pieza, una forma de
@@ -272,7 +272,7 @@ def _valores_nuevos_de_las_listas(added: list[str]) -> None:
                 orden = (f"ALTER TYPE \"{tipo.name}\" ADD VALUE IF NOT EXISTS "
                          f"'{valor}'")
                 try:
-                    # Fuera de transacción: PostgreSQL no deja añadir valores a
+                    # [00084] Fuera de transacción: PostgreSQL no deja añadir valores a
                     # un tipo dentro de una.
                     with _engine.connect().execution_options(
                             isolation_level="AUTOCOMMIT") as conexion:
@@ -286,7 +286,7 @@ def _valores_nuevos_de_las_listas(added: list[str]) -> None:
 
 @contextmanager
 def session_scope():
-    """Una sesión con la base: guarda al salir bien, deshace al salir mal.
+    """[00077] Una sesión con la base: guarda al salir bien, deshace al salir mal.
 
     Cuidado con lo que se hace dentro: una función que atrapa un error y sigue
     como si nada sale «bien» de aquí, y lo que hubiera escrito a medias se

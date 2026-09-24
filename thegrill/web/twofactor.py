@@ -1,4 +1,4 @@
-"""Verificación en dos pasos, la de los seis dígitos que cambian cada medio minuto.
+"""[01507] Verificación en dos pasos, la de los seis dígitos que cambian cada medio minuto.
 
 Quien puede bloquear una casa entera o ver el dinero de todas no debería entrar
 solo con una contraseña, porque una contraseña se apunta en un papel, se repite
@@ -29,12 +29,12 @@ RECOVERY_LENGTH = 10   # letras y números, suficientes para no adivinarlos
 
 
 def new_secret() -> str:
-    """Un secreto nuevo, en base32, que es como lo leen las aplicaciones."""
+    """[01508] Un secreto nuevo, en base32, que es como lo leen las aplicaciones."""
     return base64.b32encode(secrets.token_bytes(20)).decode().rstrip("=")
 
 
 def code_at(secret: str, when: float | None = None, offset: int = 0) -> str:
-    """Los seis dígitos que valen en ese momento."""
+    """[01509] Los seis dígitos que valen en ese momento."""
     counter = int((time.time() if when is None else when) // STEP) + offset
     key = base64.b32decode(secret + "=" * (-len(secret) % 8), casefold=True)
     digest = hmac.new(key, struct.pack(">Q", counter), hashlib.sha1).digest()
@@ -44,7 +44,7 @@ def code_at(secret: str, when: float | None = None, offset: int = 0) -> str:
 
 
 def verify(secret: str, code: str, when: float | None = None) -> bool:
-    """Si ese código es uno de los que valen ahora mismo."""
+    """[01510] Si ese código es uno de los que valen ahora mismo."""
     typed = "".join(ch for ch in str(code or "") if ch.isdigit())
     if len(typed) != DIGITS or not secret:
         return False
@@ -55,7 +55,7 @@ def verify(secret: str, code: str, when: float | None = None) -> bool:
 
 
 def uri(secret: str, email: str, issuer: str = "Control de carnes") -> str:
-    """Lo que se escanea o se pega en la aplicación del teléfono."""
+    """[01511] Lo que se escanea o se pega en la aplicación del teléfono."""
     from urllib.parse import quote
     label = quote(f"{issuer}:{email}", safe="")
     return (f"otpauth://totp/{label}?secret={secret}&issuer={quote(issuer)}"
@@ -64,20 +64,20 @@ def uri(secret: str, email: str, issuer: str = "Control de carnes") -> str:
 
 # ------------------------------------------------------ códigos de repuesto
 def new_recovery_codes(n: int = RECOVERY_CODES) -> list[str]:
-    """Códigos de un solo uso, para el día que el teléfono se pierda o se rompa."""
+    """[01512] Códigos de un solo uso, para el día que el teléfono se pierda o se rompa."""
     alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"      # sin letras que se confunden
     return ["".join(secrets.choice(alfabeto) for _ in range(RECOVERY_LENGTH))
             for _ in range(n)]
 
 
 def _fingerprint(code: str) -> str:
-    """Se guarda la huella, no el código: aunque se vea la base, no sirven."""
+    """[01513] Se guarda la huella, no el código: aunque se vea la base, no sirven."""
     clean = "".join(ch for ch in str(code or "") if ch.isalnum()).upper()
     return hashlib.sha256(f"thegrill/recovery/{clean}".encode()).hexdigest()
 
 
 def store_recovery(codes: list[str]) -> str:
-    """Guarda los códigos de recuperación sin guardar los códigos.
+    """[01514] Guarda los códigos de recuperación sin guardar los códigos.
 
     En la base queda su huella: quien lea la tabla no puede entrar con ella.
     """
@@ -85,7 +85,7 @@ def store_recovery(codes: list[str]) -> str:
 
 
 def spend_recovery(stored: str | None, code: str) -> tuple[bool, str]:
-    """Gasta un código de repuesto. Devuelve si valía y lo que queda guardado."""
+    """[01515] Gasta un código de repuesto. Devuelve si valía y lo que queda guardado."""
     try:
         huellas = json.loads(stored or "[]")
     except ValueError:
@@ -99,7 +99,7 @@ def spend_recovery(stored: str | None, code: str) -> tuple[bool, str]:
 
 
 def recovery_left(stored: str | None) -> int:
-    """Cuántos códigos de recuperación quedan sin gastar."""
+    """[01516] Cuántos códigos de recuperación quedan sin gastar."""
     try:
         return len(json.loads(stored or "[]"))
     except ValueError:

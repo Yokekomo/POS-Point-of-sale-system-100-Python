@@ -1,4 +1,4 @@
-"""El parte de ventas del POS, leído de un fichero.
+"""[01324] El parte de ventas del POS, leído de un fichero.
 
 Cada punto de venta exporta lo suyo, pero todos exportan lo mismo: una línea
 por artículo con lo que se ha vendido. Cambian los nombres de las columnas, el
@@ -28,7 +28,7 @@ MAX_BYTES = 4 * 1024 * 1024     # un parte de ventas no pesa más que esto
 MAX_ROWS = 5000                 # ni trae más líneas que esto
 EXTENSIONS = (".csv", ".tsv", ".txt", ".xlsx", ".xlsm")
 
-# Cómo llama cada POS a cada columna. Se compara sin tildes ni mayúsculas.
+# [01345] Cómo llama cada POS a cada columna. Se compara sin tildes ni mayúsculas.
 HEADERS = {
     "code": ("codigo", "cod", "code", "plu", "sku", "referencia", "ref", "id",
              "articulo", "art", "item", "item code", "product code", "codigo articulo"),
@@ -44,12 +44,12 @@ HEADERS = {
 
 
 class ImportError_(ValueError):
-    """El fichero no se puede leer, y se dice por qué."""
+    """[01325] El fichero no se puede leer, y se dice por qué."""
 
 
 @dataclass
 class SaleRow:
-    """Una línea del parte, ya entendida."""
+    """[01326] Una línea del parte, ya entendida."""
     line: int                       # la fila del fichero, para poder señalarla
     code: str | None = None
     name: str | None = None
@@ -59,7 +59,7 @@ class SaleRow:
 
     @property
     def key(self) -> str:
-        """Con qué se busca en el mapeo del POS: el código si lo hay."""
+        """[01339] Con qué se busca en el mapeo del POS: el código si lo hay."""
         return (self.code or self.name or "").strip()
 
 
@@ -72,22 +72,22 @@ class Parsed:
 
     @property
     def units(self) -> float:
-        """Las unidades vendidas que trae el parte, todas sumadas."""
+        """[01340] Las unidades vendidas que trae el parte, todas sumadas."""
         return round(sum(r.units for r in self.rows), 4)
 
     @property
     def kg(self) -> float:
-        """Los kilos del parte, para lo que se vende al peso."""
+        """[01341] Los kilos del parte, para lo que se vende al peso."""
         return round(sum(r.kg or 0.0 for r in self.rows), 4)
 
     @property
     def amount(self) -> float:
-        """Lo facturado según el parte."""
+        """[01342] Lo facturado según el parte."""
         return round(sum(r.amount or 0.0 for r in self.rows), 2)
 
 
 def parse(data: bytes, filename: str = "") -> Parsed:
-    """Lee el fichero y devuelve lo que ha entendido. No toca el almacén."""
+    """[01327] Lee el fichero y devuelve lo que ha entendido. No toca el almacén."""
     if not data:
         raise ImportError_("El fichero está vacío")
     if len(data) > MAX_BYTES:
@@ -102,7 +102,7 @@ def parse(data: bytes, filename: str = "") -> Parsed:
     return _understand(table)
 
 
-# Una celda es texto —y entonces hay que averiguar cómo escribe los decimales—
+# [01346] Una celda es texto —y entonces hay que averiguar cómo escribe los decimales—
 # o es un número que ya venía leído de Excel, y entonces no hay nada que
 # averiguar.
 Celda = str | float
@@ -110,7 +110,7 @@ Celda = str | float
 
 # ------------------------------------------------------------------ lectura
 def _from_text(data: bytes) -> list[list[str]]:
-    """Lee un fichero de texto separado por comas, puntos y comas o tabuladores.
+    """[01328] Lee un fichero de texto separado por comas, puntos y comas o tabuladores.
 
     Cada caja escribe el suyo a su manera, así que el separador se adivina
     mirando las primeras líneas; si no hay quien lo adivine, gana el que más
@@ -122,7 +122,7 @@ def _from_text(data: bytes) -> list[list[str]]:
         dialect = csv.Sniffer().sniff(sample, delimiters=";,\t|")
         delimiter = dialect.delimiter
     except csv.Error:
-        # Sin pistas, gana el separador que más veces aparezca en la cabecera.
+        # [01347] Sin pistas, gana el separador que más veces aparezca en la cabecera.
         head = text.splitlines()[0] if text.splitlines() else ""
         delimiter = max(";,\t|", key=head.count) if head else ","
     reader = csv.reader(io.StringIO(text), delimiter=delimiter)
@@ -130,7 +130,7 @@ def _from_text(data: bytes) -> list[list[str]]:
 
 
 def _decode(data: bytes) -> str:
-    """Averigua con qué juego de letras está escrito el fichero.
+    """[01329] Averigua con qué juego de letras está escrito el fichero.
 
     Se prueban de más moderno a más viejo. Sin esto, un parte guardado en
     Windows llega con la eñe rota y el artículo no casa con el de la carta.
@@ -144,7 +144,7 @@ def _decode(data: bytes) -> str:
 
 
 def _from_excel(data: bytes) -> list[list[Celda]]:
-    """Lo que Excel ya leyó como número no se vuelve a interpretar.
+    """[01330] Lo que Excel ya leyó como número no se vuelve a interpretar.
 
     Pasarlo por `str()` lo convierte en «12.5», y si el resto del parte
     escribe los decimales con coma, ese punto se lee después como separador de
@@ -182,7 +182,7 @@ def _from_excel(data: bytes) -> list[list[Celda]]:
 
 # --------------------------------------------------------------- lo que dice
 def _understand(table: list[list[Celda]]) -> Parsed:
-    """Convierte la tabla en ventas: qué columna es cada cosa y qué dice cada fila.
+    """[01331] Convierte la tabla en ventas: qué columna es cada cosa y qué dice cada fila.
 
     Dos cosas hay que acertar antes de leer nada: dónde está la cabecera —los
     partes traen encima el nombre del local y la fecha— y cómo escribe los
@@ -203,7 +203,7 @@ def _understand(table: list[list[Celda]]) -> Parsed:
         raise ImportError_("No hay columna de artículo: ni código ni nombre")
     out.columns = {field: str(header[index]) for field, index in mapping.items()}
 
-    # Cómo escribe los decimales este fichero. Se decide mirándolo entero y no
+    # [01348] Cómo escribe los decimales este fichero. Se decide mirándolo entero y no
     # celda a celda: «1,236» es un kilo y pico o son mil, pero dentro del mismo
     # parte no son las dos cosas.
     decimal, clear = _decimal_separator(_numeric_cells(table[start:], mapping))
@@ -232,7 +232,7 @@ def _understand(table: list[list[Celda]]) -> Parsed:
 
 
 def _find_header(table: list[list[Celda]]) -> tuple[list[Celda] | None, int]:
-    """La cabecera es la primera fila que nombra al menos dos cosas conocidas."""
+    """[01332] La cabecera es la primera fila que nombra al menos dos cosas conocidas."""
     for index, row in enumerate(table[:10]):
         found = _map_columns(row)
         if len(found) >= 2 and ("code" in found or "name" in found):
@@ -241,7 +241,7 @@ def _find_header(table: list[list[Celda]]) -> tuple[list[Celda] | None, int]:
 
 
 def _map_columns(header: list[Celda]) -> dict[str, int]:
-    """Qué columna es cada cosa, por el nombre de la cabecera.
+    """[01333] Qué columna es cada cosa, por el nombre de la cabecera.
 
     Cada caja llama a las cosas a su manera —«artículo», «producto», «plu»— y
     aquí se traducen todas al mismo sitio. La primera que casa se queda con el
@@ -263,13 +263,13 @@ def _map_columns(header: list[Celda]) -> dict[str, int]:
 
 def _row(row: list[Celda], mapping: dict[str, int], number: int,
          decimal: str = ".") -> SaleRow | None:
-    """Una fila del parte convertida en venta, o nada si no lo es.
+    """[01334] Una fila del parte convertida en venta, o nada si no lo es.
 
     Se cae lo que no es una venta: los totales, los subtotales y las filas sin
     artículo. Vender cero o menos tampoco es vender.
     """
     def cell(field_name: str) -> Celda:
-        """El valor de esa columna en esta fila, o vacío si no está."""
+        """[01343] El valor de esa columna en esta fila, o vacío si no está."""
         index = mapping.get(field_name)
         if index is None or index >= len(row):
             return ""
@@ -277,7 +277,7 @@ def _row(row: list[Celda], mapping: dict[str, int], number: int,
         return valor.strip() if isinstance(valor, str) else valor
 
     def texto(field_name: str) -> str:
-        """Ese valor como texto, sin que un código numérico salga con decimales.
+        """[01344] Ese valor como texto, sin que un código numérico salga con decimales.
 
         Una hoja de cálculo devuelve el código 4070 como 4070.0, y así no casa con
         ningún artículo de la carta.
@@ -304,7 +304,7 @@ def _row(row: list[Celda], mapping: dict[str, int], number: int,
 
 
 def _numeric_cells(rows: list[list[Celda]], mapping: dict[str, int]) -> list[str]:
-    """Las celdas de texto que llevan números: las únicas que dicen cómo se
+    """[01335] Las celdas de texto que llevan números: las únicas que dicen cómo se
     escriben los decimales en este fichero. Las que ya venían como número no
     opinan, porque no tienen separador que interpretar."""
     columnas = [mapping[f] for f in ("units", "kg", "grams", "amount") if f in mapping]
@@ -317,7 +317,7 @@ def _numeric_cells(rows: list[list[Celda]], mapping: dict[str, int]) -> list[str
 
 
 def _decimal_separator(cells: list[str]) -> tuple[str, bool]:
-    """Qué separador usa este fichero para los decimales, y si está claro.
+    """[01336] Qué separador usa este fichero para los decimales, y si está claro.
 
     Con los dos separadores en la misma celda no hay duda: el último es el
     decimal. Con uno solo lo delatan dos cosas: el cero delante —nadie separa
@@ -330,7 +330,7 @@ def _decimal_separator(cells: list[str]) -> tuple[str, bool]:
         if "," in text and "." in text:
             return ("," if text.rfind(",") > text.rfind(".") else "."), True
     for text in cells:
-        # Nadie separa los miles detrás de un cero: «0,824» es menos de un kilo.
+        # [01349] Nadie separa los miles detrás de un cero: «0,824» es menos de un kilo.
         cero = re.match(r"^\s*-?0([.,])\d+\s*$", text)
         if cero:
             return cero.group(1), True
@@ -342,7 +342,7 @@ def _decimal_separator(cells: list[str]) -> tuple[str, bool]:
         for trozo in re.findall(r"\.(\d+)", text):
             if len(trozo) != 3:
                 return ".", True
-    # Todos los grupos de tres cifras y ninguno detrás de un cero: «1.234» son
+    # [01350] Todos los grupos de tres cifras y ninguno detrás de un cero: «1.234» son
     # mil doscientos treinta y cuatro o son uno y pico, y el fichero no lo
     # dice. Antes se tomaba el punto por decimal y se daba por seguro, que es
     # la peor de las dos opciones: el parte entraba dividido entre mil y no
@@ -352,7 +352,7 @@ def _decimal_separator(cells: list[str]) -> tuple[str, bool]:
 
 # ------------------------------------------------------------------ números
 def number_of(raw: str | None, decimal: str = ".") -> float | None:
-    """Un número escrito como lo escriba el POS: 1.234,56 o 1,234.56 o 12 kg.
+    """[01337] Un número escrito como lo escriba el POS: 1.234,56 o 1,234.56 o 12 kg.
 
     `decimal` es el separador que usa ese fichero, decidido mirándolo entero.
     """
@@ -372,7 +372,7 @@ def number_of(raw: str | None, decimal: str = ".") -> float | None:
 
 
 def _norm(value: str) -> str:
-    """Sin tildes, sin mayúsculas y sin dobles espacios, para comparar cabeceras."""
+    """[01338] Sin tildes, sin mayúsculas y sin dobles espacios, para comparar cabeceras."""
     text = unicodedata.normalize("NFKD", str(value or ""))
     text = "".join(c for c in text if not unicodedata.combining(c))
     text = re.sub(r"[^\w\s]", " ", text.lower())

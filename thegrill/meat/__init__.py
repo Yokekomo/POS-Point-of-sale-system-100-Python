@@ -1,4 +1,4 @@
-"""Edición solo carne: control de carnes para restaurantes y hoteles.
+"""[00172] Edición solo carne: control de carnes para restaurantes y hoteles.
 
 Misma casa que la plataforma de cocina, mismo motor probado —despiece, coste,
 FEFO, descongelado, inventario, trazabilidad y merma—, pero con una sola

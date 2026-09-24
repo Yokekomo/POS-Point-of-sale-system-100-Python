@@ -1,4 +1,4 @@
-"""El food cost de ayer: el que dice la carta y el que dijo la cámara.
+"""[01194] El food cost de ayer: el que dice la carta y el que dijo la cámara.
 
 En cocina se pone un objetivo —330 g de steak— y al cortar nunca salen 330
 exactos. Esa diferencia es el negocio, y hasta ahora el programa solo sabía
@@ -38,7 +38,7 @@ NADA = 0.005
 
 @dataclass
 class Plato:
-    """Un plato vendido ayer, con lo que la carta decía que costaba."""
+    """[01195] Un plato vendido ayer, con lo que la carta decía que costaba."""
     nombre: str
     unidades: int
     ingresos: float          # sin impuestos
@@ -47,13 +47,13 @@ class Plato:
 
     @property
     def fc_teorico(self) -> float | None:
-        """A qué food cost debería salir el plato, según el escandallo."""
+        """[01201] A qué food cost debería salir el plato, según el escandallo."""
         return round(self.coste_teorico / self.ingresos * 100, 1) if self.ingresos > NADA else None
 
 
 @dataclass
 class Dia:
-    """El día entero: lo que se vendió, lo que decía la carta y lo que costó."""
+    """[01196] El día entero: lo que se vendió, lo que decía la carta y lo que costó."""
     fecha: date
     platos: list = field(default_factory=list)
     coste_real: float = 0.0          # lo que salió de la cámara por ventas
@@ -62,17 +62,17 @@ class Dia:
 
     @property
     def ingresos(self) -> float:
-        """Lo ingresado en el día, sumando todos los platos."""
+        """[01202] Lo ingresado en el día, sumando todos los platos."""
         return round(sum(p.ingresos for p in self.platos), 2)
 
     @property
     def coste_teorico(self) -> float:
-        """Lo que debería haber costado la materia prima del día."""
+        """[01203] Lo que debería haber costado la materia prima del día."""
         return round(sum(p.coste_teorico for p in self.platos), 2)
 
     @property
     def fc_teorico(self) -> float | None:
-        """El food cost teórico del día entero.
+        """[01204] El food cost teórico del día entero.
 
         El que se compara con el real: la diferencia entre los dos es lo que se
         escapa por la cocina, y es la conversación de la reunión del lunes.
@@ -81,37 +81,37 @@ class Dia:
 
     @property
     def fc_real(self) -> float | None:
-        """Con la merma dentro: lo que se tira lo paga el plato que se vendió."""
+        """[01205] Con la merma dentro: lo que se tira lo paga el plato que se vendió."""
         if self.ingresos <= NADA:
             return None
         return round((self.coste_real + self.merma) / self.ingresos * 100, 1)
 
     @property
     def perdido(self) -> float:
-        """Lo que se ha ido entre el papel y la cámara, en dinero."""
+        """[01206] Lo que se ha ido entre el papel y la cámara, en dinero."""
         return round(self.coste_real + self.merma - self.coste_teorico, 2)
 
     @property
     def puntos(self) -> float | None:
-        """Y en puntos de food cost, que es como se habla de esto."""
+        """[01207] Y en puntos de food cost, que es como se habla de esto."""
         if self.fc_real is None or self.fc_teorico is None:
             return None
         return round(self.fc_real - self.fc_teorico, 1)
 
     @property
     def peores(self) -> list:
-        """Los platos que más dinero mueven, que es por donde se empieza."""
+        """[01208] Los platos que más dinero mueven, que es por donde se empieza."""
         return sorted(self.platos, key=lambda p: -p.ingresos)
 
 
 def _vendido(session: Session, restaurant_id: int, on: date) -> list[SalesByProduct]:
-    """Lo que dice la caja que se vendió ese día, plato a plato."""
+    """[01197] Lo que dice la caja que se vendió ese día, plato a plato."""
     return (session.query(SalesByProduct)
             .filter_by(restaurant_id=restaurant_id, op_date=on).all())
 
 
 def _salido_de_camara(session: Session, restaurant_id: int, on: date) -> tuple[float, float]:
-    """Lo que la cámara entregó ese día: por ventas y por merma, en dinero.
+    """[01198] Lo que la cámara entregó ese día: por ventas y por merma, en dinero.
 
     Se lee del libro de movimientos, que es donde queda apuntado cada gramo
     con su coste. Las salidas vienen en negativo; aquí se cuentan en positivo
@@ -129,11 +129,11 @@ def _salido_de_camara(session: Session, restaurant_id: int, on: date) -> tuple[f
 
 
 def dia(session: Session, restaurant_id: int, on: date | None = None) -> Dia:
-    """El food cost de ese día: el de la carta y el de la cámara."""
+    """[01199] El food cost de ese día: el de la carta y el de la cámara."""
     on = on or (jornada.hoy(session, restaurant_id) - timedelta(days=1))
     salida = Dia(fecha=on)
 
-    # Qué plato es cada artículo del POS. Lo que no esté atado se cuenta
+    # [01209] Qué plato es cada artículo del POS. Lo que no esté atado se cuenta
     # aparte: sus ingresos no se pueden repartir contra ningún escandallo, y
     # meterlos en el total haría que el food cost saliera bajo por arte de
     # magia, que es justo el error que esta pantalla viene a quitar.
@@ -163,6 +163,6 @@ def dia(session: Session, restaurant_id: int, on: date | None = None) -> Dia:
 
 
 def ayer(session: Session, restaurant_id: int, hoy: date | None = None) -> Dia:
-    """Lo de ayer, que es el último día con todos los números hechos."""
+    """[01200] Lo de ayer, que es el último día con todos los números hechos."""
     hoy = hoy or jornada.hoy(session, restaurant_id)
     return dia(session, restaurant_id, hoy - timedelta(days=1))

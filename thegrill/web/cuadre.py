@@ -1,4 +1,4 @@
-"""Tres números que un restaurante no tiene y necesita para cuadrar.
+"""[01094] Tres números que un restaurante no tiene y necesita para cuadrar.
 
 El programa ya dice cuánto entró, cuánto se vendió y cuánto se tiró. Lo que no
 decía es lo de después, que es lo que se mira cuando algo no sale:
@@ -38,14 +38,14 @@ from thegrill.models import (Ingredient, IngredientLot, IngredientMovement,
                              MovementKind, Primal, PrimalWeighing, User)
 from thegrill.web import jornada
 
-# Cinco gramos: el juego de una báscula de muelle, no un agujero.
+# [01117] Cinco gramos: el juego de una báscula de muelle, no un agujero.
 NADA = 0.005
 
 
 # ============================================================ 1. el residuo
 @dataclass
 class Residuo:
-    """Lo que ha pasado con un artículo, y lo que no se explica."""
+    """[01095] Lo que ha pasado con un artículo, y lo que no se explica."""
     ingredient_id: int
     nombre: str
     entrado_kg: float = 0.0
@@ -58,7 +58,7 @@ class Residuo:
 
     @property
     def explicado_kg(self) -> float:
-        """Los kilos que sí tienen explicación: vendidos, tirados, elaborados o movidos.
+        """[01109] Los kilos que sí tienen explicación: vendidos, tirados, elaborados o movidos.
 
         Lo que sobra de aquí es lo que no cuadra, y es el número del cuadre.
         """
@@ -66,7 +66,7 @@ class Residuo:
 
     @property
     def parte(self) -> float | None:
-        """Qué parte de lo que entró no se sabe dónde fue, en tanto por ciento."""
+        """[01110] Qué parte de lo que entró no se sabe dónde fue, en tanto por ciento."""
         if self.entrado_kg <= NADA:
             return None
         return round(abs(self.ajustado_kg) / self.entrado_kg * 100.0, 2)
@@ -80,22 +80,22 @@ class Cuadre:
 
     @property
     def sin_explicar_kg(self) -> float:
-        """Los kilos que no tienen explicación en todo el cuadre."""
+        """[01111] Los kilos que no tienen explicación en todo el cuadre."""
         return round(sum(l.ajustado_kg for l in self.lineas), 3)
 
     @property
     def sin_explicar_eur(self) -> float:
-        """Lo que cuestan esos kilos. Es el número que mira quien lleva la casa."""
+        """[01112] Lo que cuestan esos kilos. Es el número que mira quien lleva la casa."""
         return round(sum(l.ajustado_eur for l in self.lineas), 2)
 
     @property
     def peores(self) -> list[Residuo]:
-        """Los que más kilos se han comido, que son por los que se empieza."""
+        """[01113] Los que más kilos se han comido, que son por los que se empieza."""
         return sorted([l for l in self.lineas if abs(l.ajustado_kg) > NADA],
                       key=lambda l: l.ajustado_kg)
 
 
-# Cada clase de movimiento, a su columna. Lo que no esté aquí no se cuenta:
+# [01118] Cada clase de movimiento, a su columna. Lo que no esté aquí no se cuenta:
 # más vale una columna de menos que un kilo contado dos veces.
 _COLUMNAS = {
     MovementKind.IN: "entrado_kg",
@@ -108,7 +108,7 @@ _COLUMNAS = {
 
 
 def cuadre(session: Session, restaurant_id: int, desde: date, hasta: date) -> Cuadre:
-    """Lo que entró, por dónde salió, y lo que no se sabe."""
+    """[01096] Lo que entró, por dónde salió, y lo que no se sabe."""
     nombres = {i.id: i.name for i in
                session.query(Ingredient).filter_by(restaurant_id=restaurant_id)}
     por_articulo: dict[int, Residuo] = {}
@@ -125,13 +125,13 @@ def cuadre(session: Session, restaurant_id: int, desde: date, hasta: date) -> Cu
             linea = por_articulo[mv.ingredient_id] = Residuo(
                 ingredient_id=mv.ingredient_id,
                 nombre=nombres.get(mv.ingredient_id, f"#{mv.ingredient_id}"))
-        # Las salidas vienen en negativo en el libro. Aquí se cuentan en
+        # [01119] Las salidas vienen en negativo en el libro. Aquí se cuentan en
         # positivo porque lo que se lee es «cuántos kilos se fueron por ahí»,
         # y un número con signo en una tabla de cocina se lee mal.
         cuanto = mv.qty or 0.0
         valor = round(cuanto if columna == "entrado_kg" else -cuanto, 6)
         if columna == "ajustado_kg":
-            # El ajuste sí lleva signo: negativo falta, positivo sobra. Esa es
+            # [01120] El ajuste sí lleva signo: negativo falta, positivo sobra. Esa es
             # justo la información, y esconderla sería mentir.
             valor = round(cuanto, 6)
             linea.ajustado_eur = round(linea.ajustado_eur + (mv.cost or 0.0), 6)
@@ -140,7 +140,7 @@ def cuadre(session: Session, restaurant_id: int, desde: date, hasta: date) -> Cu
 
 
 def del_mes(session: Session, restaurant_id: int, on: date | None = None) -> Cuadre:
-    """El cuadre del mes que corre, que es el que se mira."""
+    """[01097] El cuadre del mes que corre, que es el que se mira."""
     on = on or jornada.hoy(session, restaurant_id)
     return cuadre(session, restaurant_id, on.replace(day=1), on)
 
@@ -148,7 +148,7 @@ def del_mes(session: Session, restaurant_id: int, on: date | None = None) -> Cua
 # ====================================================== 2. la banda del corte
 @dataclass
 class Banda:
-    """Lo normal para ese corte en esta casa, con su mediana y su MAD."""
+    """[01098] Lo normal para ese corte en esta casa, con su mediana y su MAD."""
     que: str
     n: int
     mediana: float
@@ -157,18 +157,18 @@ class Banda:
     alto: float
 
     def raro(self, valor: float) -> bool:
-        """Si ese valor se sale de lo normal por arriba o por abajo."""
+        """[01114] Si ese valor se sale de lo normal por arriba o por abajo."""
         return valor < self.bajo or valor > self.alto
 
     def cuanto_se_sale(self, valor: float) -> float:
-        """Cuántos MAD de distancia. Cero es justo la mediana."""
+        """[01115] Cuántos MAD de distancia. Cero es justo la mediana."""
         if self.mad <= 1e-9:
             return 0.0
         return round(abs(valor - self.mediana) / self.mad, 1)
 
 
 def mediana(valores: list[float]) -> float:
-    """El valor de en medio. Sin nada que ordenar, cero.
+    """[01099] El valor de en medio. Sin nada que ordenar, cero.
 
     La mediana y no la media: un día con una merma de cuarenta kilos por una
     cámara que se paró tira de la media de todo el mes y hace que ningún otro
@@ -184,14 +184,14 @@ def mediana(valores: list[float]) -> float:
 
 
 def mad(valores: list[float], centro: float | None = None) -> float:
-    """Desviación absoluta mediana: la desviación que no se traga los bichos."""
+    """[01100] Desviación absoluta mediana: la desviación que no se traga los bichos."""
     if not valores:
         return 0.0
     centro = mediana(valores) if centro is None else centro
     return mediana([abs(v - centro) for v in valores])
 
 
-# Con 1,4826 el MAD de una campana coincide con su desviación típica, así que
+# [01121] Con 1,4826 el MAD de una campana coincide con su desviación típica, así que
 # «tres MAD» se lee igual que «tres sigmas» de toda la vida.
 A_SIGMA = 1.4826
 MINIMO = 8          # con menos piezas no hay historia: no se dice nada
@@ -200,14 +200,14 @@ K = 3.0             # tres desviaciones: lo raro de verdad, no lo poco común
 
 def banda(valores: list[float], que: str = "", k: float = K,
           minimo: int = MINIMO) -> Banda | None:
-    """La banda de lo normal, o nada si no hay historia suficiente."""
+    """[01101] La banda de lo normal, o nada si no hay historia suficiente."""
     limpios = [v for v in valores if v is not None and v > 0]
     if len(limpios) < minimo:
         return None
     centro = mediana(limpios)
     dispersion = mad(limpios, centro) * A_SIGMA
     if dispersion <= 1e-9:
-        # Todas iguales: cualquier cosa distinta es rara, pero no por poco.
+        # [01122] Todas iguales: cualquier cosa distinta es rara, pero no por poco.
         dispersion = max(centro * 0.05, 1e-6)
     return Banda(que=que, n=len(limpios), mediana=round(centro, 4),
                  mad=round(dispersion, 4),
@@ -217,7 +217,7 @@ def banda(valores: list[float], que: str = "", k: float = K,
 
 def banda_del_corte(session: Session, restaurant_id: int, sku: str,
                     k: float = K) -> Banda | None:
-    """Lo que pesa normalmente una pieza de ese corte en esta casa."""
+    """[01102] Lo que pesa normalmente una pieza de ese corte en esta casa."""
     pesos = [p.received_kg or p.weight_kg for p in
              session.query(Primal).filter_by(restaurant_id=restaurant_id, sku=sku)]
     return banda([p for p in pesos if p], que=sku, k=k)
@@ -225,7 +225,7 @@ def banda_del_corte(session: Session, restaurant_id: int, sku: str,
 
 def peso_raro(session: Session, restaurant_id: int, sku: str, kg: float,
               k: float = K) -> Banda | None:
-    """La banda si ese peso se sale de ella; nada si es normal o no hay historia.
+    """[01103] La banda si ese peso se sale de ella; nada si es normal o no hay historia.
 
     Esto es lo que tiene que saltar con la bolsa todavía en la báscula, no tres
     meses después: una pieza de 84 kg entre hermanas de 10,4 es una coma mal
@@ -240,7 +240,7 @@ def peso_raro(session: Session, restaurant_id: int, sku: str, kg: float,
 # ============================================================== 3. el dedo
 @dataclass
 class Dedo:
-    """Si esa persona pesa o calcula a ojo, según el último dígito."""
+    """[01104] Si esa persona pesa o calcula a ojo, según el último dígito."""
     user_id: int
     nombre: str
     n: int
@@ -251,18 +251,18 @@ class Dedo:
 
     @property
     def sospechoso(self) -> bool:
-        """Si ese número no parece pesado, sino escrito a ojo."""
+        """[01116] Si ese número no parece pesado, sino escrito a ojo."""
         return self.veredicto != "pesa"
 
 
-# Chi cuadrado con nueve grados de libertad —diez dígitos menos uno—. Por
+# [01123] Chi cuadrado con nueve grados de libertad —diez dígitos menos uno—. Por
 # encima del 99,9 % es que no es casualidad: nadie tiene esa suerte.
 CHI_95, CHI_999 = 16.919, 27.877
 DIGITOS_MINIMOS = 30
 
 
 def _resolucion(valores: list[float]) -> float:
-    """Hasta dónde llega la báscula de esa persona, mirando lo que escribe.
+    """[01105] Hasta dónde llega la báscula de esa persona, mirando lo que escribe.
 
     Sin esto se acusa a quien tiene una báscula de cien gramos: sus pesos
     acaban todos en cero porque su aparato no da más, no porque no pese.
@@ -279,7 +279,7 @@ def _resolucion(valores: list[float]) -> float:
 
 
 def _ultimo_digito(valor: float, resolucion: float) -> int:
-    """El último dígito de un peso, a la resolución de la báscula.
+    """[01106] El último dígito de un peso, a la resolución de la báscula.
 
     Una báscula que pesa de cinco en cinco gramos reparte los dígitos sola. Una
     persona que escribe a ojo, no: le salen ceros y cincos de más. Eso es lo
@@ -289,7 +289,7 @@ def _ultimo_digito(valor: float, resolucion: float) -> int:
 
 
 def dedo(valores: list[float], user_id: int = 0, nombre: str = "") -> Dedo | None:
-    """El veredicto de una persona, o nada si no ha pesado lo bastante."""
+    """[01107] El veredicto de una persona, o nada si no ha pesado lo bastante."""
     limpios = [v for v in valores if v and v > 0]
     if len(limpios) < DIGITOS_MINIMOS:
         return None
@@ -312,7 +312,7 @@ def dedo(valores: list[float], user_id: int = 0, nombre: str = "") -> Dedo | Non
 
 def dedos(session: Session, restaurant_id: int, desde: date | None = None,
           hasta: date | None = None) -> list[Dedo]:
-    """Quién pesa y quién calcula a ojo, de las pesadas de piezas enteras."""
+    """[01108] Quién pesa y quién calcula a ojo, de las pesadas de piezas enteras."""
     hasta = hasta or jornada.hoy(session, restaurant_id)
     desde = desde or (hasta - timedelta(days=90))
     nombres = {u.id: u.name for u in
@@ -328,5 +328,5 @@ def dedos(session: Session, restaurant_id: int, desde: date | None = None,
         veredicto = dedo(valores, user_id, nombres.get(user_id, f"#{user_id}"))
         if veredicto is not None:
             salida.append(veredicto)
-    # Primero el que más canta: es por quien hay que empezar a preguntar.
+    # [01124] Primero el que más canta: es por quien hay que empezar a preguntar.
     return sorted(salida, key=lambda d: -d.chi2)

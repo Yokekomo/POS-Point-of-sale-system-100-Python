@@ -1,4 +1,4 @@
-"""Plantillas de registro por defecto, válidas para cualquier restaurante.
+"""[01368] Plantillas de registro por defecto, válidas para cualquier restaurante.
 
 Un restaurante nuevo arranca con estas y el manager las edita, desactiva o
 añade las suyas. Nada aquí es específico de una cocina concreta.
@@ -114,7 +114,7 @@ FIELD_KEYS = {"label_key": "label", "options_key": "options", "help_key": "help_
 
 
 def _materialize(spec: dict, mapping: dict[str, str], lang: str) -> dict:
-    """Convierte las claves de traducción en el texto del idioma pedido."""
+    """[01369] Convierte las claves de traducción en el texto del idioma pedido."""
     out = {k: v for k, v in spec.items() if k not in mapping and k != "fields"}
     for key_field, target in mapping.items():
         if key_field in spec:
@@ -124,7 +124,7 @@ def _materialize(spec: dict, mapping: dict[str, str], lang: str) -> dict:
 
 def seed_templates(session: Session, restaurant_id: int,
                    lang: str = DEFAULT_LANG) -> list[RecordTemplate]:
-    """Crea las plantillas por defecto en `lang`. Idempotente: no duplica por código."""
+    """[01370] Crea las plantillas por defecto en `lang`. Idempotente: no duplica por código."""
     created = []
     existing = {row.code for row in
                 session.query(RecordTemplate).filter_by(restaurant_id=restaurant_id)}

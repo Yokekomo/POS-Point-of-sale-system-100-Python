@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block title %}{{ t("m.ag.page") }}{% endblock %}
 {% from "_peso.html" import peso %}
 
-{# Las listas de piezas se agrupan por dónde está cada una, y cada línea dice
+{# [01537] Las listas de piezas se agrupan por dónde está cada una, y cada línea dice
    lo que la distingue de la de al lado: sus kilos y, si madura, los días que
    lleva dentro. Repetir «Maduración» en todas las líneas de una lista donde
    todo madura no ayuda a encontrar nada; el encabezado del grupo lo dice una
@@ -24,7 +24,7 @@
 {% endmacro %}
 
 {% block body %}
-{# La pantalla no es solo la maduración: es todo lo que se le hace a una pieza
+{# [01538] La pantalla no es solo la maduración: es todo lo que se le hace a una pieza
    entera mientras no se despieza. Llamarla «Maduración» y meter dentro el
    mover, el pesar o el limpiar dejaba media pantalla donde nadie la buscaba.
    El nombre dice lo que hay, y cada parte lleva su título. #}
@@ -110,7 +110,7 @@
 {% if rows %}
 <div class="card scroll">
 <table>
-{# Trece columnas no caben en una pantalla, y lo que no cabe se mira con la
+{# [01539] Trece columnas no caben en una pantalla, y lo que no cabe se mira con la
    barra de abajo o no se mira. Lo que va junto se enseña junto: los dos pesos
    en una columna, el agua y el cuchillo en otra, y el dinero en la suya. #}
 <tr><th>{{ t("m.rec.serial") }}</th><th>{{ t("m.ag.where") }}</th>
@@ -130,12 +130,12 @@
       {% if r.target_days %}<div class="muted">
         {% if r.ready %}{{ t("m.ag.is_ready") }}{% else %}{{ t("m.ag.days_left", n=r.days_left) }}{% endif %}
       </div>{% endif %}</td>
-  {# Lo que pesa hoy manda; lo que pesaba al entrar va debajo, que es contra
+  {# [01540] Lo que pesa hoy manda; lo que pesaba al entrar va debajo, que es contra
      lo que se lee la pérdida. #}
   <td class="num">{{ "%.3f"|format(r.kg) }}
       {% if r.start_kg %}<div class="muted">{{ t("m.ag.from_kg",
         kg="%.3f"|format(r.start_kg)) }}</div>{% endif %}</td>
-  {# El agua y el cuchillo son dos maneras de perder kilos y se leen juntas. #}
+  {# [01541] El agua y el cuchillo son dos maneras de perder kilos y se leen juntas. #}
   <td class="num">{% if r.loss_kg %}-{{ "%.3f"|format(r.loss_kg) }}
       <span class="muted">{{ "%.1f"|format(r.loss_pct) }} %</span>{% endif %}
       {% if r.trim_kg %}<div class="muted">-{{ "%.3f"|format(r.trim_kg) }}

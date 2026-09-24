@@ -1,4 +1,4 @@
-"""Banco de pruebas: una casa de mentira, un auditor y un martillo.
+"""[00002] Banco de pruebas: una casa de mentira, un auditor y un martillo.
 
 Las pruebas de siempre comprueban lo que alguien pensó comprobar. Esto es lo
 otro: montar una casa entera —obrador, dos locales, su gente, su carta— y
@@ -40,19 +40,19 @@ TOLERANCE = 0.005          # cinco gramos: el redondeo de una balanza, no un agu
 
 @dataclass
 class Finding:
-    """Algo que no se sostiene. Con su número, que es lo que se busca luego."""
+    """[00003] Algo que no se sostiene. Con su número, que es lo que se busca luego."""
     rule: str
     what: str
     detail: str
 
     def __str__(self) -> str:
-        """El hallazgo en una línea, como sale en el informe."""
+        """[00020] El hallazgo en una línea, como sale en el informe."""
         return f"[{self.rule}] {self.what}: {self.detail}"
 
 
 @dataclass
 class Bench:
-    """La casa de mentira, ya montada."""
+    """[00004] La casa de mentira, ya montada."""
     restaurant_id: int
     warehouse_id: int
     name: str = ""
@@ -70,28 +70,28 @@ class Bench:
 
 @dataclass
 class Population:
-    """Un barrio entero de casas: unas con varias sedes y otras con una."""
+    """[00005] Un barrio entero de casas: unas con varias sedes y otras con una."""
     houses: list[Bench] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
     @property
     def multisite(self) -> int:
-        """Cuántas casas del banco de pruebas tienen más de una sede."""
+        """[00021] Cuántas casas del banco de pruebas tienen más de una sede."""
         return len([h for h in self.houses if h.multisite])
 
     @property
     def sales(self) -> int:
-        """Todas las ventas del banco de pruebas."""
+        """[00022] Todas las ventas del banco de pruebas."""
         return sum(h.sales for h in self.houses)
 
     @property
     def counts(self) -> int:
-        """Todos los recuentos del banco de pruebas."""
+        """[00023] Todos los recuentos del banco de pruebas."""
         return sum(h.counts for h in self.houses)
 
 
-# ===================================================================== montar
+# [00025] ===================================================================== montar
 # Las casas no se llaman todas igual, y así se leen los fallos.
 NAMES = ["Marina", "Sierra", "Puerto", "Robles", "Alameda", "Duero", "Cala", "Pinar",
          "Ribera", "Faro", "Molino", "Encina", "Lagar", "Dehesa", "Muelle", "Olmo",
@@ -101,7 +101,7 @@ NAMES = ["Marina", "Sierra", "Puerto", "Robles", "Alameda", "Duero", "Cala", "Pi
 
 def population(session: Session, houses: int = 50, days: int = 30, seed: int = 1,
                until: date | None = None) -> Population:
-    """Cincuenta casas distintas trabajando un mes, la mitad con varias sedes.
+    """[00006] Cincuenta casas distintas trabajando un mes, la mitad con varias sedes.
 
     Un fallo que no sale en una casa sale en la número treinta y siete: cada
     una recibe otras piezas, corta otros días y cuenta a otras horas, porque la
@@ -125,7 +125,7 @@ DEMO_PASSWORD = "demo-2026"      # para probar, no para trabajar
 
 @dataclass
 class Account:
-    """Una cuenta de la demo, tal y como hay que escribirla para entrar."""
+    """[00007] Una cuenta de la demo, tal y como hay que escribirla para entrar."""
     who: str
     email: str
     password: str
@@ -134,7 +134,7 @@ class Account:
 
 def demo(session: Session, days: int = 30, seed: int = 21,
          until: date | None = None) -> list[Account]:
-    """Dos casas con un mes de trabajo dentro y las claves para entrar.
+    """[00008] Dos casas con un mes de trabajo dentro y las claves para entrar.
 
     Una con obrador y dos locales, para ver los traslados y el conteo de cada
     sede; otra de un solo local, que es como trabaja la mayoría. Las
@@ -154,7 +154,7 @@ def demo(session: Session, days: int = 30, seed: int = 21,
                 who=f"{user.name} · {user.role.value.lower()} · {casa.name}",
                 email=user.email, password=DEMO_PASSWORD,
                 sees=(f"{etiqueta}: {sede}" if sede else f"{etiqueta}: la casa entera")))
-    # El camión de esta mañana: entra con la etiqueta del proveedor y sin
+    # [00026] El camión de esta mañana: entra con la etiqueta del proveedor y sin
     # precio, que es como entra de verdad. Así la demo abre con algo que hacer
     # —piezas esperando que dirección las active— y con una ficha que se puede
     # abrir para ver de dónde viene la carne.
@@ -171,7 +171,7 @@ def demo(session: Session, days: int = 30, seed: int = 21,
     return gente
 
 
-# Etiquetas de proveedor verosímiles: cada pieza de un sitio, con su número de
+# [00027] Etiquetas de proveedor verosímiles: cada pieza de un sitio, con su número de
 # canal y su día de sacrificio, que es lo que de verdad llega en una caja.
 ETIQUETAS = [
     ("Teys Biloela", "AUS 1234", "AUS", "Angus", "CUBE ROLL GF YG", "Ribeye AUS MB7", "MB7"),
@@ -181,7 +181,7 @@ ETIQUETAS = [
 
 
 def _camion_de_hoy(session: Session, casa: "Bench", hoy: date) -> None:
-    """Una recepción de hoy, con etiqueta y sin precio. Como en el muelle."""
+    """[00009] Una recepción de hoy, con etiqueta y sin precio. Como en el muelle."""
     quien = (session.query(User)
              .filter_by(restaurant_id=casa.restaurant_id, role=Role.BUTCHER)
              .order_by(User.id).first())
@@ -204,7 +204,7 @@ def _camion_de_hoy(session: Session, casa: "Bench", hoy: date) -> None:
 
 
 def demo_accounts(session: Session) -> list[Account]:
-    """Las cuentas de una demo ya montada, para volver a decir las claves."""
+    """[00010] Las cuentas de una demo ya montada, para volver a decir las claves."""
     gente = []
     dueno = session.query(User).filter_by(role=Role.OWNER).first()
     if dueno is not None:
@@ -226,7 +226,7 @@ def demo_accounts(session: Session) -> list[Account]:
 
 
 def of_site(session: Session, user: User) -> str:
-    """El nombre de la sede donde trabaja esa persona. Sin sede, vacío."""
+    """[00011] El nombre de la sede donde trabaja esa persona. Sin sede, vacío."""
     sede = sites.of_user(session, user)
     return sede.name if sede else ""
 
@@ -234,7 +234,7 @@ def of_site(session: Session, user: User) -> str:
 def build(session: Session, days: int = 30, seed: int = 7, until: date | None = None,
           multisite: bool = True, index: int = 0, password: str = PASSWORD,
           domain: str = "banco") -> Bench:
-    """Levanta una casa y la hace trabajar. Misma semilla, mismo mes.
+    """[00012] Levanta una casa y la hace trabajar. Misma semilla, mismo mes.
 
     Cinco personas, como en una casa de verdad: dos managers —el que abre la
     cuenta y el segundo, que cierra los domingos— y tres más, el carnicero y
@@ -261,7 +261,7 @@ def build(session: Session, days: int = 30, seed: int = 7, until: date | None = 
     sedes = ([sites.create(session, manager, "Playa"),
               sites.create(session, manager, "Sierra")] if multisite else [])
 
-    # El segundo manager: la casa no la lleva una sola persona.
+    # [00028] El segundo manager: la casa no la lleva una sola persona.
     segundo = billing.create_user(session, manager, name="Marta", email=correo("marta"),
                                   password=password, role=Role.BUTCHER)
     segundo.role = Role.MANAGER
@@ -286,7 +286,7 @@ def build(session: Session, days: int = 30, seed: int = 7, until: date | None = 
     numero = 8000
     for paso in range(days):
         hoy = start + timedelta(days=paso)
-        # El segundo manager cierra los domingos, que es como se reparte.
+        # [00029] El segundo manager cierra los domingos, que es como se reparte.
         quien_manda = segundo if hoy.weekday() == 6 else manager
         numero = _one_day(session, bench, quien_manda, carnicero, gente, cortes, hoy, rnd,
                           numero, last=paso == days - 1)
@@ -296,7 +296,7 @@ def build(session: Session, days: int = 30, seed: int = 7, until: date | None = 
 
 
 def _catalogue(session: Session, manager: User) -> list:
-    """Los cortes, sus artículos y los platos que los venden."""
+    """[00013] Los cortes, sus artículos y los platos que los venden."""
     salida = []
     for nombre, gramos, precio, peso in (("Entrecot", 300, 28.0, False),
                                          ("Solomillo", 220, 32.0, False),
@@ -315,16 +315,16 @@ def _catalogue(session: Session, manager: User) -> list:
 def _one_day(session: Session, bench: Bench, manager: User, carnicero: User, gente: list,
              cortes: list, hoy: date, rnd: random.Random, numero: int,
              last: bool = False) -> int:
-    """Un día de trabajo, con lo que pasa de verdad y en desorden."""
+    """[00014] Un día de trabajo, con lo que pasa de verdad y en desorden."""
     def intenta(fn, *args, **kwargs):
-        """Lo que el programa rechace se apunta, no se traga."""
+        """[00024] Lo que el programa rechace se apunta, no se traga."""
         try:
             return fn(*args, **kwargs)
         except Exception as e:                       # noqa: BLE001 — es lo que se quiere ver
             bench.errors.append(f"{hoy} {fn.__name__}: {e}")
             return None
 
-    # 1. Llega mercancía al obrador, dos de cada tres días. Una de cada tres
+    # [00030] 1. Llega mercancía al obrador, dos de cada tres días. Una de cada tres
     # descargas la recibe el carnicero y entra **sin precio**, como en el
     # muelle de verdad: se queda esperando a que dirección la active, y el
     # banco la activa un día de estos. Así el mes de mentira pasa también por
@@ -353,7 +353,7 @@ def _one_day(session: Session, bench: Bench, manager: User, carnicero: User, gen
         intenta(meat.receive_primals, session, quien, lot=f"L-{hoy:%m%d}", rows=filas,
                 received=hoy, chamber=rnd.choice(["Cámara 1", "Cámara 2", ""]))
 
-    # 1.b Dirección activa lo que lleve esperando precio: es lo que desatasca
+    # [00031] 1.b Dirección activa lo que lleve esperando precio: es lo que desatasca
     # el muelle, y si no se hace la carne se queda parada y no se despieza.
     for pieza in meat.awaiting_price(session, bench.restaurant_id)[:4]:
         intenta(meat.set_price, session, manager, pieza.serial,
@@ -363,14 +363,14 @@ def _one_day(session: Session, bench: Bench, manager: User, carnicero: User, gen
                                                 site_id=bench.warehouse_id)
                if aging.where(p) == Storage.CHILLED]
 
-    # 2. Unas a madurar, otras al congelador.
+    # [00032] 2. Unas a madurar, otras al congelador.
     for pieza in frescas[:2]:
         if rnd.random() < 0.35:
             intenta(aging.move, session, manager, pieza.serial,
                     rnd.choice([Storage.AGING, Storage.FROZEN]), target_days=45,
                     use_by=hoy + timedelta(days=180), on=hoy)
 
-    # 3. Se despieza lo que queda fresco.
+    # [00033] 3. Se despieza lo que queda fresco.
     frescas = [p for p in meat.primals_in_stock(session, bench.restaurant_id,
                                                 site_id=bench.warehouse_id)
                if aging.where(p) == Storage.CHILLED]
@@ -386,13 +386,13 @@ def _one_day(session: Session, bench: Bench, manager: User, carnicero: User, gen
                 rows=[meat.CutRow(name=corte.name, item_id=articulo.id, pieces=piezas,
                                   grams=round((kilos - merma) * 1000 / piezas, 1))])
 
-    # Dónde se sirve: los locales, o la misma casa cuando no hay más que una.
+    # [00034] Dónde se sirve: los locales, o la misma casa cuando no hay más que una.
     barras = (list(zip(bench.outlets, gente)) if bench.outlets
               else [(bench.warehouse_id, gente[0]), (bench.warehouse_id, gente[1])])
     camaras = ([(bench.warehouse_id, manager), *zip(bench.outlets, gente)]
                if bench.outlets else [(bench.warehouse_id, manager)])
 
-    # 4. El conteo diario de la maduración, sede a sede.
+    # [00035] 4. El conteo diario de la maduración, sede a sede.
     for sede, quien in camaras:
         lecturas = [(l.serial, round(l.yesterday_kg * rnd.uniform(0.993, 0.999), 3))
                     for l in aging.to_count(session, bench.restaurant_id, hoy, sede)
@@ -401,7 +401,7 @@ def _one_day(session: Session, bench: Bench, manager: User, carnicero: User, gen
             intenta(aging.count_day, session, quien, lecturas, on=hoy, lang="es",
                     site_id=sede)
 
-    # 5. Se limpia alguna pieza madurada.
+    # [00036] 5. Se limpia alguna pieza madurada.
     tabla = aging.board(session, bench.restaurant_id, storage=Storage.AGING, on=hoy)
     if tabla and rnd.random() < 0.2:
         fila = rnd.choice(tabla)
@@ -411,7 +411,7 @@ def _one_day(session: Session, bench: Bench, manager: User, carnicero: User, gen
                 parts=[aging.TrimPart(item_id=articulo.id, kg=round(quita * 0.4, 3))],
                 waste_kg=round(quita * 0.6, 3), on=hoy, lang="es")
 
-    # 6. Traslados a los locales: piezas enteras y cortes.
+    # [00037] 6. Traslados a los locales: piezas enteras y cortes.
     for sede in bench.outlets:
         if rnd.random() < 0.3:
             candidatas = meat.primals_in_stock(session, bench.restaurant_id,
@@ -429,7 +429,7 @@ def _one_day(session: Session, bench: Bench, manager: User, carnicero: User, gen
                 intenta(sites.send_cut, session, manager, lote.serial,
                         round(lote.qty_remaining * rnd.uniform(0.2, 1.0), 3), sede, on=hoy)
 
-    # 7. En cada barra: sacar del arcón, vender, contar y cerrar el turno.
+    # [00038] 7. En cada barra: sacar del arcón, vender, contar y cerrar el turno.
     for sede, quien in barras:
         congelados = [l for l in session.query(IngredientLot)
                       .filter(IngredientLot.restaurant_id == bench.restaurant_id,
@@ -461,7 +461,7 @@ def _one_day(session: Session, bench: Bench, manager: User, carnicero: User, gen
 
         intenta(defrost.close, session, quien, on=hoy, shift="noche", lang="es")
 
-    # 8. El inventario del mes, cada sede el suyo. Y si el mes se acaba sin
+    # [00039] 8. El inventario del mes, cada sede el suyo. Y si el mes se acaba sin
     #    haberlo hecho, se hace el último día: la obligación es mensual.
     pendiente = not inventory.monthly_status(session, bench.restaurant_id, on=hoy).done
     if hoy.day == 28 or (last and pendiente):
@@ -479,21 +479,21 @@ def _one_day(session: Session, bench: Bench, manager: User, carnicero: User, gen
 
 # ==================================================================== auditar
 def carnicero_de(session: Session, restaurant_id: int) -> User | None:
-    """El que descarga. El precio no es suyo y no lo pone."""
+    """[00015] El que descarga. El precio no es suyo y no lo pone."""
     return (session.query(User)
             .filter_by(restaurant_id=restaurant_id, role=Role.BUTCHER, active=True)
             .order_by(User.id).first())
 
 
 def audit(session: Session, restaurant_id: int) -> list[Finding]:
-    """Lo que nunca puede pasar. Si pasa, sale con su número y su cifra."""
+    """[00016] Lo que nunca puede pasar. Si pasa, sale con su número y su cifra."""
     out: list[Finding] = []
     principal = sites.main(session, restaurant_id).id
     lotes = (session.query(IngredientLot)
              .filter_by(restaurant_id=restaurant_id).all())
     piezas = session.query(Primal).filter_by(restaurant_id=restaurant_id).all()
 
-    # --- kilos
+    # [00040] --- kilos
     for lote in lotes:
         if lote.qty_remaining < -EPSILON:
             out.append(Finding("kilos_negativos", lote.serial or str(lote.id),
@@ -509,7 +509,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
             out.append(Finding("kilos_negativos", pieza.serial,
                                f"pesa {pieza.weight_kg:.6g} kg"))
 
-    # --- dinero: nunca en blanco, y el kilo de lo que madura no baja
+    # [00041] --- dinero: nunca en blanco, y el kilo de lo que madura no baja
     #
     # Una pieza recién descargada **puede** estar sin precio: el muelle apunta
     # lo que llega y dirección le pone el suyo con la factura delante. Eso no
@@ -531,7 +531,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
             out.append(Finding("cortada_sin_precio", pieza.serial,
                                "despiezada sin haber tenido coste"))
 
-    # --- lo que llegó congelado, y lo que se congeló al entrar, está en el arcón
+    # [00042] --- lo que llegó congelado, y lo que se congeló al entrar, está en el arcón
     for pieza in piezas:
         al_arcon = pieza.arrival == Storage.FROZEN or pieza.frozen_on_arrival
         if al_arcon and pieza.status == PrimalStatus.IN_STOCK and pieza.storage is None:
@@ -544,7 +544,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
                 out.append(Finding("kilo_abaratado", pesada.serial,
                                    f"{pesada.cost_per_kg_before:.4f} → {pesada.cost_per_kg:.4f}"))
 
-    # --- la carne congelada no se vende
+    # [00043] --- la carne congelada no se vende
     por_id = {l.id: l for l in lotes}
     for mv in (session.query(IngredientMovement)
                .filter_by(restaurant_id=restaurant_id, kind=MovementKind.SALE)):
@@ -553,7 +553,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
             out.append(Finding("venta_congelada", lote.serial or str(lote.id),
                                f"{-mv.qty:.6g} kg vendidos estando en el arcón"))
 
-    # --- cada lote cuadra con su libro: lo que queda es lo que entró menos lo apuntado
+    # [00044] --- cada lote cuadra con su libro: lo que queda es lo que entró menos lo apuntado
     movidos: dict[int, float] = {}
     for mv in (session.query(IngredientMovement).filter_by(restaurant_id=restaurant_id)):
         if mv.kind != MovementKind.IN and mv.lot_id:
@@ -565,7 +565,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
                                f"quedan {lote.qty_remaining:.6g} y el libro dice "
                                f"{esperado:.6g}"))
 
-    # --- todo lo que está en stock está en una sede que existe
+    # [00045] --- todo lo que está en stock está en una sede que existe
     sedes = {s.id for s in sites.all_sites(session, restaurant_id, active=False)}
     for lote in lotes:
         if lote.qty_remaining > EPSILON and (lote.site_id or principal) not in sedes:
@@ -575,7 +575,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
         if pieza.status == PrimalStatus.IN_STOCK and (pieza.site_id or principal) not in sedes:
             out.append(Finding("sede_fantasma", pieza.serial, f"sede {pieza.site_id}"))
 
-    # --- dos números iguales en la misma casa: la trazabilidad mentiría
+    # [00046] --- dos números iguales en la misma casa: la trazabilidad mentiría
     vistos: dict[str, int] = {}
     for lote in lotes:
         if lote.serial:
@@ -584,7 +584,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
         if veces > 1:
             out.append(Finding("numero_repetido", serial, f"{veces} lotes con el mismo número"))
 
-    # --- la casa de al lado no existe: ni un lote, ni un artículo, ni una sede
+    # [00047] --- la casa de al lado no existe: ni un lote, ni un artículo, ni una sede
     ajenos = {i.id for i in session.query(Ingredient)
               .filter(Ingredient.restaurant_id != restaurant_id)}
     for lote in lotes:
@@ -596,7 +596,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
             out.append(Finding("casa_ajena", f"sede {sede.id}",
                                "hay carne de esta casa en la sede de otra"))
 
-    # --- lo que sale de un lote sale valorado. Lo que se vende sin haberlo
+    # [00048] --- lo que sale de un lote sale valorado. Lo que se vende sin haberlo
     #     tenido nunca —el faltante— se apunta aparte y ya tiene su aviso: ahí
     #     no hay precio que poner, y decir uno sería inventarlo.
     for mv in (session.query(IngredientMovement)
@@ -605,7 +605,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
             out.append(Finding("venta_sin_coste", mv.source_ref or str(mv.id),
                                f"{-mv.qty:.6g} kg de un lote, sin valorar"))
 
-    # --- lo que salió de una pieza vale lo que valía la pieza. Los lotes
+    # [00049] --- lo que salió de una pieza vale lo que valía la pieza. Los lotes
     #     partidos —un traslado, una salida del arcón— no son carne nueva: son
     #     el mismo kilo con otro número, y contarlos otra vez duplicaría.
     for pieza in piezas:
@@ -613,7 +613,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
                    and "·T" not in (l.serial or "") and "·D" not in (l.serial or "")]
         if not salidos or pieza.piece_cost_usd is None:
             continue
-        # Lo que valían al nacer, no lo que valen hoy: el kilo de un lote sube
+        # [00050] Lo que valían al nacer, no lo que valen hoy: el kilo de un lote sube
         # cuando se tira parte de él, y eso no es dinero nuevo.
         nacidos = {l.id for l in salidos}
         repartido = round(sum(mv.cost or 0.0 for mv in
@@ -625,7 +625,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
                                f"la pieza costó {pieza.piece_cost_usd:.2f} y sus cortes "
                                f"suman {repartido:.2f}"))
 
-    # --- una pieza se despieza una vez: si sale en dos, alguien la cortó dos
+    # [00051] --- una pieza se despieza una vez: si sale en dos, alguien la cortó dos
     # veces y en cámara hay kilos que nunca existieron
     de_quien: dict[str, list[str]] = {}
     for despiece in session.query(Despiece).filter_by(restaurant_id=restaurant_id):
@@ -637,7 +637,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
             out.append(Finding("pieza_despiezada_dos_veces", serial,
                                f"sale en {', '.join(sorted(cuales))}"))
 
-    # --- un turno, un cuadre: dos filas del mismo turno doblan el mes
+    # [00052] --- un turno, un cuadre: dos filas del mismo turno doblan el mes
     turnos: dict[tuple, int] = {}
     for fila in session.query(ShiftClosure).filter_by(restaurant_id=restaurant_id):
         clave = (fila.date, fila.shift or "", fila.site_id or 0)
@@ -647,7 +647,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
             out.append(Finding("turno_cerrado_dos_veces", f"{dia} {turno}".strip(),
                                f"{veces} cuadres en la sede {sede}"))
 
-    # --- lo que madura tiene contra qué medirse
+    # [00053] --- lo que madura tiene contra qué medirse
     for pieza in piezas:
         if pieza.status == PrimalStatus.IN_STOCK and aging.where(pieza) == Storage.AGING:
             if not pieza.aging_start_kg or not pieza.storage_since:
@@ -656,7 +656,7 @@ def audit(session: Session, restaurant_id: int) -> list[Finding]:
     return out
 
 
-# =================================================================== la ronda
+# [00054] =================================================================== la ronda
 # Lo que se mira en cada pantalla: que abra, que no se quede en inglés de
 # claves y que el dinero no se le escape a quien no puede verlo.
 KEY_PATTERN = r"(?<![\w.])(?:m\.[a-z]{2,6}|alert|inv|waste|trace|sale|acct|team|pass|tfa)" \
@@ -666,7 +666,7 @@ MONEY_KEYS = ("m.home.stock_value", "trace.cost", "rec.food_cost", "m.df.loss")
 
 def crawl(client, lang: str = "es", money: bool = True, extra: dict | None = None
           ) -> list[Finding]:
-    """Pasa por todas las pantallas con la sesión que se le dé.
+    """[00017] Pasa por todas las pantallas con la sesión que se le dé.
 
     Una pantalla que revienta, una clave sin traducir o un coste enseñado a
     quien no puede verlo son errores que no salen en las pruebas de motor,
@@ -701,7 +701,7 @@ def crawl(client, lang: str = "es", money: bool = True, extra: dict | None = Non
             if filtradas:
                 out.append(Finding("dinero_a_la_vista", ruta,
                                    ", ".join(t(lang, k) for k in filtradas)))
-        # El móvil es el sitio donde más se usa esto: cada pantalla tiene que
+        # [00055] El móvil es el sitio donde más se usa esto: cada pantalla tiene que
         # declararse para pantalla pequeña y no puede prohibir el zoom, que es
         # lo que necesita quien no ve de cerca.
         meta = re.search(r'<meta name="viewport" content="([^"]+)"', response.text)
@@ -713,7 +713,7 @@ def crawl(client, lang: str = "es", money: bool = True, extra: dict | None = Non
 
 
 def _paths(app, extra: dict) -> list[str]:
-    """Las direcciones que se pueden abrir de un tirón, con sus huecos rellenos."""
+    """[00018] Las direcciones que se pueden abrir de un tirón, con sus huecos rellenos."""
     import re
 
     rutas = []
@@ -734,7 +734,7 @@ def _paths(app, extra: dict) -> list[str]:
 
 # ==================================================================== martillo
 def hammer(session: Session, bench: Bench, rounds: int = 200, seed: int = 11) -> list[str]:
-    """Operaciones al azar, incluidas las que tienen que fallar.
+    """[00019] Operaciones al azar, incluidas las que tienen que fallar.
 
     Lo interesante no es que funcione: es que lo que el programa rechace lo
     rechace por su motivo y deje la casa igual que estaba.

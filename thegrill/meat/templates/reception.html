@@ -7,16 +7,16 @@
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 
 <div class="card">
-{# Multipart: la foto de la etiqueta viaja con la pieza, en el mismo envío. #}
+{# [01577] Multipart: la foto de la etiqueta viaja con la pieza, en el mismo envío. #}
 <form method="post" action="/recepcion" data-cola enctype="multipart/form-data">
   <input type="hidden" name="csrf" value="{{ csrf }}">
 
-  {# 1. El lote. Lo primero de todo: se abre la descarga —de dónde viene, qué
+  {# [01578] 1. El lote. Lo primero de todo: se abre la descarga —de dónde viene, qué
      trae— y luego se le van metiendo bolsas. Se escribe una vez y se queda
      puesto, así que a partir de la segunda pieza viene plegado y no estorba. #}
   <details class="masetq" data-tour="lote" {% if not previo.get("lot") %}open{% endif %}
            style="margin-top:0">
-    {# Plegado dice cuál es: se configura una vez y luego se le van subiendo
+    {# [01579] Plegado dice cuál es: se configura una vez y luego se le van subiendo
        piezas, y hay que poder ver de un vistazo que sigues en el lote bueno. #}
     <summary><b>{{ t("m.rec.lot_step") }}</b>{% if previo.get("lot") %}
       <span class="muted">· {{ previo.get("lot") }}{% if previo.get("sku") %}
@@ -73,7 +73,7 @@
     </div>
   </details>
 
-  {# 2. La pieza que tienes en la mano, con su etiqueta dentro: la etiqueta no
+  {# [01580] 2. La pieza que tienes en la mano, con su etiqueta dentro: la etiqueta no
      es un paso aparte, es de esta bolsa. Se coge la bolsa, se le hace la foto
      a la etiqueta y se escriben sus números, todo en el mismo sitio. #}
   <h2>{{ t("m.rec.piece_step") }}</h2>
@@ -96,7 +96,7 @@
                value="{{ previo.get('serial:0','') }}"
                title="{{ t('m.rec.serial_help') }}"></label>
       <label>{{ t("m.rec.kg_g") }}
-        {# El cursor va al peso solo cuando el lote ya está puesto, que es de la
+        {# [01581] El cursor va al peso solo cuando el lote ya está puesto, que es de la
          segunda bolsa en adelante y es cuando se agradece. Con el bloque del lote
          abierto —la primera pieza de la descarga— esta casilla está mil píxeles
          más abajo, y el `autofocus` abría la pantalla ahí: en el móvil se veía
@@ -114,7 +114,7 @@
                title="{{ t('m.rec.price_help') }}"></label>
       {% endif %}
     </div>
-    {# Cómo bajó del camión **esta** bolsa. Se mide caja por caja: en el mismo
+    {# [01582] Cómo bajó del camión **esta** bolsa. Se mide caja por caja: en el mismo
        camión una viene a dos grados y otra a seis, y el día que una pieza sale
        mal lo que se pregunta es a cuánto llegó esa. Viene puesto lo de la
        anterior, que casi siempre vale, y se cambia el día que no.
@@ -137,7 +137,7 @@
                value="{{ previo.get('arrival_c','') }}"></label>
     </div>
     <div class="help">{{ t("m.rec.arrival_c_help") }}</div>
-    {# Solo tiene sentido si llega fresca: lo que ya viene congelado no se
+    {# [01583] Solo tiene sentido si llega fresca: lo que ya viene congelado no se
        vuelve a congelar. El guion de abajo lo esconde cuando no toca. #}
     <div id="alarcon" style="margin-top:12px">
       <label class="casilla" for="frozen_on_arrival">
@@ -165,7 +165,7 @@
                  title="{{ t('m.rec.row_slaughter_help') }}"></label>
       </div>
     </details>
-    {# Lo que pasa fuera del programa y sin lo cual nada de esto sirve: el
+    {# [01584] Lo que pasa fuera del programa y sin lo cual nada de esto sirve: el
        número tiene que estar encima de la carne. En la cámara nadie abre el
        móvil para saber qué bolsa tiene en la mano. #}
     <p class="help" style="margin:10px 0 0">{{ t("m.rec.write_on_it") }}</p>
@@ -236,12 +236,12 @@
     {% if p.origin %}{% set _ = datos.append(p.origin) %}{% endif %}
     {% if p.lot %}{% set _ = datos.append(p.lot) %}{% endif %}
     {% if p.supplier_lot %}{% set _ = datos.append(p.supplier_lot) %}{% endif %}
-    {# El dinero va con su nombre delante: un número suelto en una línea gris
+    {# [01585] El dinero va con su nombre delante: un número suelto en una línea gris
        no dice si son kilos, euros o el coste de la pieza. #}
     {% if can("money") and p.piece_cost_usd %}{% set _ = datos.append(t("m.rec.cost") ~ " " ~ "%.2f"|format(p.piece_cost_usd) ~ " " ~ moneda) %}{% endif %}
     {{ datos | join(" · ") }}
   </div>
-  {# Una foto por pieza. El fichero no cabe en la cola de sin cobertura, así
+  {# [01586] Una foto por pieza. El fichero no cabe en la cola de sin cobertura, así
      que esto es su propio envío: lo escrito ya está guardado pase lo que pase
      con la foto. #}
   <div class="acciones">

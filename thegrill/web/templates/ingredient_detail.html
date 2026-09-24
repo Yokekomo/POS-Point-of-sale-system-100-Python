@@ -7,7 +7,7 @@
   {{ t("ing.avg_cost") }}:
   {% if costs.get(ing.id) %}<b>{{ "%.4f"|format(costs[ing.id]) }}</b>{% else %}{{ t("ing.no_price") }}{% endif %}</p>
 
-{# El número que permite escribirlo todo en gramos. Va arriba del todo y
+{# [01592] El número que permite escribirlo todo en gramos. Va arriba del todo y
    antes que nada porque cambia cómo se escribe el resto de la pantalla.
 
    En un ingrediente que ya va en kilos no se pregunta: un kilo pesa mil
@@ -84,7 +84,7 @@
   <select id="item_id" name="item_id">
     {% for it in ing.items %}<option value="{{ it.id }}">{{ it.brand or it.name }}</option>{% endfor %}
   </select>
-  {# Lo que se pesa se escribe en gramos. Lo que se cuenta —tres huevos son
+  {# [01593] Lo que se pesa se escribe en gramos. Lo que se cuenta —tres huevos son
      tres huevos— se queda como está, porque ahí no hay báscula que valga. Y a
      lo que está en litros se le dice: también se pesa. #}
   {% if se_pesa %}

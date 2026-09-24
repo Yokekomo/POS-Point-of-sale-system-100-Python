@@ -1,4 +1,4 @@
-"""Constantes de negocio. Todo lo que hoy está disperso en scripts vive aquí."""
+"""[00065] Constantes de negocio. Todo lo que hoy está disperso en scripts vive aquí."""
 from dataclasses import dataclass, field
 
 # ----------------------------------------------------------------- Moneda / FX
@@ -7,7 +7,7 @@ IQD_PER_AED = 360.0           # Dubái
 
 
 def to_usd(amount: float, currency: str) -> float:
-    """Pasa un importe a dólares, que es la moneda en la que se compara todo.
+    """[00066] Pasa un importe a dólares, que es la moneda en la que se compara todo.
 
     Una moneda que no se conoce no se convierte a ojo: salta. Un cambio
     inventado se arrastra hasta el food cost sin que nadie vuelva a mirarlo.

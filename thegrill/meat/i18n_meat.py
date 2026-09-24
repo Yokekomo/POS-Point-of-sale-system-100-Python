@@ -1,4 +1,4 @@
-"""Textos propios de la edición de carne, en los mismos siete idiomas.
+"""[00476] Textos propios de la edición de carne, en los mismos siete idiomas.
 
 Lo que ya dice la plataforma de cocina se reutiliza tal cual (`meat.*`,
 `trace.*`, `inv.*`, `waste.*`, `common.*`…). Aquí solo están las pantallas que
@@ -15,7 +15,7 @@ ES = {
     "m.app.title": "Control de carnes",
     "m.app.tagline": "Del primal al plato, pieza a pieza",
     "m.nav.today": "Hoy",
-    # ---- los tutoriales guiados, uno por pantalla
+    # [00478] ---- los tutoriales guiados, uno por pantalla
     "m.tour.next": "Siguiente",
     "m.tour.back": "Atrás",
     "m.tour.skip": "Saltar",
@@ -78,7 +78,7 @@ ES = {
     "m.nav.defrost": "Descongelado",
     "m.nav.cuts": "Cortes",
     "m.nav.menu": "Carta",
-    # --- Hoy
+    # [00479] --- Hoy
     "m.home.title": "Hoy",
     "m.home.sub": "Lo que está pendiente en la carne y lo que queda en cámara.",
     "m.home.todo": "Pendiente",
@@ -101,7 +101,7 @@ ES = {
     "m.home.unposted#1": "1 despiece empezado y sin volcar a cámara.",
     "m.home.shortcuts": "Atajos",
     "m.home.stock_value": "Valor en cámara",
-    # --- Recepción
+    # [00480] --- Recepción
     "m.rec.title": "Recepción de primales",
     "m.rec.sub": "Los primales llegan en grupo, con un lote común. Cada primal recibe su número y su etiqueta —de dónde viene—, y ya no se pierde. El precio lo pone dirección después, con la factura delante.",
     "m.rec.lot": "Lote de recepción",
@@ -122,7 +122,7 @@ ES = {
     "m.rec.dup": "El número {serial} ya existe: cada primal lleva el suyo.",
     "m.rec.needs": "Cada primal necesita número y peso.",
     "m.rec.empty": "No has puesto ningún primal.",
-    # --- Despiece
+    # [00481] --- Despiece
     "m.tg.title": "Despiece",
     "m.tg.sub": "El primal se convierte en cortes, partes para reusar y merma. Cada corte sale con su serial y entra en cámara con su coste.",
     "m.tg.number": "Número de despiece",
@@ -150,7 +150,7 @@ ES = {
     "m.tg.need_article": "Cada corte necesita su artículo de cámara.",
     "m.tg.need_cuts": "Un despiece necesita al menos un corte.",
     "m.tg.need_primals": "Un despiece necesita al menos un primal.",
-    # --- Descongelado
+    # [00482] --- Descongelado
     "m.df.title": "Descongelado",
     "m.df.sub": "Lo que sale a descongelar y lo que queda al cerrar el turno. La diferencia es lo vendido de verdad, y con ella el peso real por pieza.",
     "m.df.intake": "Sale a descongelar",
@@ -251,7 +251,7 @@ ES = {
     "m.home.aging_ready#1": "1 primal ha cumplido sus días de maduración.",
     "m.home.aging_unweighed": "{n} primales madurando sin pesar hoy.",
     "m.home.aging_unweighed#1": "1 primal madurando sin pesar hoy.",
-    # --- Cortes
+    # [00483] --- Cortes
     "m.cut.title": "Cortes",
     "m.cut.sub": "El corte es lo que se cuenta, se vende y se descuenta. Los artículos de distintas procedencias cuelgan del mismo corte y se gastan en una sola cola.",
     "m.cut.new": "Nuevo corte",
@@ -261,7 +261,7 @@ ES = {
     "m.cut.articles": "Artículos",
     "m.cut.none": "Todavía no hay cortes dados de alta.",
     "m.cut.no_articles": "Sin artículos. Un despiece necesita al menos uno.",
-    # --- Carta
+    # [00484] --- Carta
     "m.menu.title": "Carta de carnes",
     "m.menu.sub": "Cada plato se ata a su producto del POS y dice qué corte lleva y cuántos gramos. De ahí salen el food cost y el descuento de cámara.",
     "m.menu.new": "Nuevo plato",
@@ -685,7 +685,7 @@ ES = {
     "m.tg.total_help": "Los kilos de los {n} primales juntos, que es lo que dice la báscula. El peso de cada uno sale solo.",
     "m.tg.per_piece_out": '{g} g por pieza',
 
-    # ---- el cuadre: el residuo, la banda de cada corte y el dedo
+    # [00485] ---- el cuadre: el residuo, la banda de cada corte y el dedo
     "m.nav.cuadre": "El cuadre",
     "m.cu.title": "El cuadre",
     "m.cu.sub": "Los kilos que no se sabe dónde han ido, lo normal de cada corte en esta casa, y quién pesa de verdad.",
@@ -719,7 +719,7 @@ ES = {
     "m.cu.finger_fair": "Esto no acusa a nadie: dice que unos números no salen del azar. Antes de hablar con alguien, mira si su báscula funciona y si tiene una donde trabaja.",
     "m.cu.finger_none": "Aún no hay pesadas suficientes para decir nada de nadie.",
     "m.ag.trim_needs_price": "El primal {serial} todavía no tiene precio, así que sus recortes entrarían a cero euros y eso se llevaría por delante el coste de los platos. Ponle precio primero.",
-    # --- Rangos de proceso y control de llegada (HACCP)
+    # [00486] --- Rangos de proceso y control de llegada (HACCP)
     "alert.haccp_title": "{n} pieza(s) han llegado fuera de temperatura",
     "rango.peso": "El peso de {serial} no puede ser {kg} kg. Una pieza pesa entre {min} y {max} kg: mira si se ha colado un cero.",
     "rango.peso_corte": "{kg} kg no puede ser. Aquí se escriben entre {min} y {max} kg.",
@@ -736,7 +736,7 @@ EN = {
     "m.app.title": "Meat control",
     "m.app.tagline": "From primal to plate, piece by piece",
     "m.nav.today": "Today",
-    # ---- los tutoriales guiados, uno por pantalla
+    # [00487] ---- los tutoriales guiados, uno por pantalla
     "m.tour.next": "Next",
     "m.tour.back": "Back",
     "m.tour.skip": "Skip",
@@ -1400,7 +1400,7 @@ EN = {
     "m.tg.total_help": "The kilos of all {n} primals together, which is what the scale says. The weight of each one comes out on its own.",
     "m.tg.per_piece_out": '{g} g per piece',
 
-    # ---- el cuadre: el residuo, la banda de cada corte y el dedo
+    # [00488] ---- el cuadre: el residuo, la banda de cada corte y el dedo
     "m.nav.cuadre": "Squaring up",
     "m.cu.title": "Squaring up",
     "m.cu.sub": "The kilos nobody can account for, what is normal for each cut in this house, and who actually weighs.",
@@ -1434,7 +1434,7 @@ EN = {
     "m.cu.finger_fair": "This accuses nobody: it says some numbers do not come from chance. Before talking to anyone, check that their scale works and that they have one where they work.",
     "m.cu.finger_none": "Not enough weighings yet to say anything about anyone.",
     "m.ag.trim_needs_price": "Primal {serial} has no price yet, so its trimmings would come in at zero and that would wreck the cost of every dish using them. Price it first.",
-    # --- Rangos de proceso y control de llegada (HACCP)
+    # [00489] --- Rangos de proceso y control de llegada (HACCP)
     "alert.haccp_title": "{n} piece(s) arrived out of temperature",
     "rango.peso": "{serial} cannot weigh {kg} kg. A piece weighs between {min} and {max} kg: check for a stray zero.",
     "rango.peso_corte": "{kg} kg cannot be right. This field takes between {min} and {max} kg.",
@@ -1451,7 +1451,7 @@ FR = {
     "m.app.title": "Contrôle des viandes",
     "m.app.tagline": "Du primal à l'assiette, pièce par pièce",
     "m.nav.today": "Aujourd'hui",
-    # ---- los tutoriales guiados, uno por pantalla
+    # [00490] ---- los tutoriales guiados, uno por pantalla
     "m.tour.next": "Suivant",
     "m.tour.back": "Retour",
     "m.tour.skip": "Passer",
@@ -2115,7 +2115,7 @@ FR = {
     "m.tg.total_help": "Les kilos des {n} primales ensemble, c'est ce que dit la balance. Le poids de chacune sort tout seul.",
     "m.tg.per_piece_out": '{g} g par pièce',
 
-    # ---- el cuadre: el residuo, la banda de cada corte y el dedo
+    # [00491] ---- el cuadre: el residuo, la banda de cada corte y el dedo
     "m.nav.cuadre": "Le rapprochement",
     "m.cu.title": "Le rapprochement",
     "m.cu.sub": "Les kilos dont personne ne sait où ils sont partis, ce qui est normal pour chaque découpe dans cette maison, et qui pèse vraiment.",
@@ -2149,7 +2149,7 @@ FR = {
     "m.cu.finger_fair": "Cela n'accuse personne : cela dit que certains chiffres ne viennent pas du hasard. Avant de parler à quelqu'un, vérifie que sa balance marche et qu'il en a une là où il travaille.",
     "m.cu.finger_none": "Pas encore assez de pesées pour dire quoi que ce soit de quiconque.",
     "m.ag.trim_needs_price": "La primale {serial} n'a pas encore de prix : ses parures entreraient à zéro euro et cela fausserait le coût de tous les plats qui en contiennent. Mets-lui un prix d'abord.",
-    # --- Rangos de proceso y control de llegada (HACCP)
+    # [00492] --- Rangos de proceso y control de llegada (HACCP)
     "alert.haccp_title": "{n} pièce(s) arrivées hors température",
     "rango.peso": "{serial} ne peut pas peser {kg} kg. Une pièce pèse entre {min} et {max} kg : vérifiez s'il y a un zéro en trop.",
     "rango.peso_corte": "{kg} kg, ce n'est pas possible. Ici on écrit entre {min} et {max} kg.",
@@ -2166,7 +2166,7 @@ DE = {
     "m.app.title": "Fleischkontrolle",
     "m.app.tagline": "Vom Primal auf den Teller, Stück für Stück",
     "m.nav.today": "Heute",
-    # ---- los tutoriales guiados, uno por pantalla
+    # [00493] ---- los tutoriales guiados, uno por pantalla
     "m.tour.next": "Weiter",
     "m.tour.back": "Zurück",
     "m.tour.skip": "Überspringen",
@@ -2830,7 +2830,7 @@ DE = {
     "m.tg.total_help": "Die Kilos aller {n} Primals zusammen — das, was die Waage sagt. Das Gewicht je Primal kommt von selbst heraus.",
     "m.tg.per_piece_out": '{g} g je Stück',
 
-    # ---- el cuadre: el residuo, la banda de cada corte y el dedo
+    # [00494] ---- el cuadre: el residuo, la banda de cada corte y el dedo
     "m.nav.cuadre": "Der Abgleich",
     "m.cu.title": "Der Abgleich",
     "m.cu.sub": "Die Kilos, von denen niemand weiß, wo sie geblieben sind, was für jeden Zuschnitt in diesem Haus normal ist, und wer wirklich wiegt.",
@@ -2864,7 +2864,7 @@ DE = {
     "m.cu.finger_fair": "Das beschuldigt niemanden: es sagt, dass manche Zahlen nicht vom Zufall kommen. Bevor du jemanden ansprichst, sieh nach, ob seine Waage funktioniert und ob er überhaupt eine hat, wo er arbeitet.",
     "m.cu.finger_none": "Noch nicht genug Wiegungen, um über jemanden etwas zu sagen.",
     "m.ag.trim_needs_price": "Das Primal {serial} hat noch keinen Preis, also kämen seine Parüren mit null Euro herein und das würde die Kosten jedes Gerichts damit ruinieren. Zuerst bepreisen.",
-    # --- Rangos de proceso y control de llegada (HACCP)
+    # [00495] --- Rangos de proceso y control de llegada (HACCP)
     "alert.haccp_title": "{n} Stück außerhalb der Temperatur angekommen",
     "rango.peso": "{serial} kann nicht {kg} kg wiegen. Ein Stück wiegt zwischen {min} und {max} kg: Prüfe, ob eine Null zu viel ist.",
     "rango.peso_corte": "{kg} kg kann nicht sein. Hier stehen zwischen {min} und {max} kg.",
@@ -2881,7 +2881,7 @@ NL = {
     "m.app.title": "Vleescontrole",
     "m.app.tagline": "Van primal tot bord, stuk voor stuk",
     "m.nav.today": "Vandaag",
-    # ---- los tutoriales guiados, uno por pantalla
+    # [00496] ---- los tutoriales guiados, uno por pantalla
     "m.tour.next": "Volgende",
     "m.tour.back": "Terug",
     "m.tour.skip": "Overslaan",
@@ -3545,7 +3545,7 @@ NL = {
     "m.tg.total_help": "De kilo’s van alle {n} stuks samen, dat is wat de weegschaal zegt. Het gewicht per primal komt er vanzelf uit.",
     "m.tg.per_piece_out": '{g} g per stuk',
 
-    # ---- el cuadre: el residuo, la banda de cada corte y el dedo
+    # [00497] ---- el cuadre: el residuo, la banda de cada corte y el dedo
     "m.nav.cuadre": "De afstemming",
     "m.cu.title": "De afstemming",
     "m.cu.sub": "De kilo's waarvan niemand weet waar ze zijn gebleven, wat normaal is voor elk deelstuk in dit huis, en wie er echt weegt.",
@@ -3579,7 +3579,7 @@ NL = {
     "m.cu.finger_fair": "Dit beschuldigt niemand: het zegt dat sommige cijfers niet van toeval komen. Voordat je iemand aanspreekt, kijk of zijn weegschaal werkt en of hij er wel een heeft waar hij werkt.",
     "m.cu.finger_none": "Nog niet genoeg wegingen om iets over iemand te zeggen.",
     "m.ag.trim_needs_price": "Primal {serial} heeft nog geen prijs, dus zijn afsnijdsels komen op nul binnen en dat sloopt de kostprijs van elk gerecht ermee. Geef er eerst een prijs aan.",
-    # --- Rangos de proceso y control de llegada (HACCP)
+    # [00498] --- Rangos de proceso y control de llegada (HACCP)
     "alert.haccp_title": "{n} stuk(s) buiten temperatuur aangekomen",
     "rango.peso": "{serial} kan geen {kg} kg wegen. Een stuk weegt tussen {min} en {max} kg: kijk of er een nul te veel staat.",
     "rango.peso_corte": "{kg} kg kan niet. Hier staat tussen {min} en {max} kg.",
@@ -3596,7 +3596,7 @@ AR = {
     "m.app.title": "مراقبة اللحوم",
     "m.app.tagline": "من القطعة الكبيرة إلى الطبق، قطعةً قطعة",
     "m.nav.today": "اليوم",
-    # ---- los tutoriales guiados, uno por pantalla
+    # [00499] ---- los tutoriales guiados, uno por pantalla
     "m.tour.next": "التالي",
     "m.tour.back": "السابق",
     "m.tour.skip": "تخطَّ",
@@ -4260,7 +4260,7 @@ AR = {
     "m.tg.total_help": 'كيلوغرامات القطع الـ{n} مجتمعة، وهو ما يقوله الميزان. ووزن كل واحدة يخرج وحده.',
     "m.tg.per_piece_out": '{g} غ للقطعة',
 
-    # ---- el cuadre: el residuo, la banda de cada corte y el dedo
+    # [00500] ---- el cuadre: el residuo, la banda de cada corte y el dedo
     "m.nav.cuadre": "المطابقة",
     "m.cu.title": "المطابقة",
     "m.cu.sub": "الكيلوغرامات التي لا يُعرف أين ذهبت، وما هو الطبيعي لكل قطعة في هذا المطعم، ومن يزن فعلاً.",
@@ -4294,7 +4294,7 @@ AR = {
     "m.cu.finger_fair": "هذا لا يتهم أحداً: يقول إن بعض الأرقام لا تأتي من الصدفة. قبل الحديث مع أحد، تحقّق من أن ميزانه يعمل وأن لديه ميزاناً حيث يعمل.",
     "m.cu.finger_none": "لا توجد بعد عمليات وزن كافية لقول شيء عن أحد.",
     "m.ag.trim_needs_price": "القطعة {serial} بلا سعر بعد، فتدخل قصاصاتها بصفر وهذا يُفسد تكلفة كل طبق يستعملها. ضع لها سعراً أولاً.",
-    # --- Rangos de proceso y control de llegada (HACCP)
+    # [00501] --- Rangos de proceso y control de llegada (HACCP)
     "alert.haccp_title": "وصلت {n} قطعة خارج نطاق الحرارة",
     "rango.peso": "لا يمكن أن يزن {serial} مقدار {kg} كجم. القطعة تزن بين {min} و{max} كجم: تحقق من صفر زائد.",
     "rango.peso_corte": "{kg} كجم غير ممكن. هنا تُكتب بين {min} و{max} كجم.",
@@ -4313,7 +4313,7 @@ HU = {
     "m.app.title": 'Húskontroll',
     "m.app.tagline": 'Az egész darabtól a tányérig, darabról darabra',
     "m.nav.today": 'Ma',
-    # ---- los tutoriales guiados, uno por pantalla
+    # [00502] ---- los tutoriales guiados, uno por pantalla
     "m.tour.next": "Tovább",
     "m.tour.back": "Vissza",
     "m.tour.skip": "Kihagyom",
@@ -4977,7 +4977,7 @@ HU = {
     "m.tg.total_help": 'A(z) {n} darab együttes kilói — ezt mondja a mérleg. Az egyes darabok súlya magától kijön.',
     "m.tg.per_piece_out": '{g} g darabonként',
 
-    # ---- el cuadre: el residuo, la banda de cada corte y el dedo
+    # [00503] ---- el cuadre: el residuo, la banda de cada corte y el dedo
     "m.nav.cuadre": "Az egyeztetés",
     "m.cu.title": "Az egyeztetés",
     "m.cu.sub": "A kilók, amikről senki nem tudja, hová lettek, hogy mi a szokásos az egyes szeleteknél ebben a házban, és ki mér valóban.",
@@ -5011,7 +5011,7 @@ HU = {
     "m.cu.finger_fair": "Ez senkit nem vádol: azt mondja, hogy egyes számok nem a véletlenből jönnek. Mielőtt bárkivel beszélnél, nézd meg, működik-e a mérlege, és van-e egyáltalán ott, ahol dolgozik.",
     "m.cu.finger_none": "Még nincs elég mérés ahhoz, hogy bárkiről bármit mondjunk.",
     "m.ag.trim_needs_price": "A(z) {serial} darabnak még nincs ára, így a nyesedéke nulla forinton kerülne be, és ez tönkretenné minden vele készülő étel költségét. Előbb árazd be.",
-    # --- Rangos de proceso y control de llegada (HACCP)
+    # [00504] --- Rangos de proceso y control de llegada (HACCP)
     "alert.haccp_title": "{n} darab a hőmérsékleti tartományon kívül érkezett",
     "rango.peso": "{serial} nem lehet {kg} kg. Egy darab {min} és {max} kg között van: nézd meg, nem csúszott-e be egy nulla.",
     "rango.peso_corte": "{kg} kg nem lehet. Ide {min} és {max} kg közötti érték kerül.",
@@ -5028,7 +5028,7 @@ CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": 
 
 
 def install() -> None:
-    """Añade los textos de carne al catálogo general. Idempotente."""
+    """[00477] Añade los textos de carne al catálogo general. Idempotente."""
     for code, table in CATALOGUES.items():
         i18n.TRANSLATIONS.setdefault(code, {}).update(table)
 

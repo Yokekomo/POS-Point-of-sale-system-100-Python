@@ -1,4 +1,4 @@
-"""Descongelado: apuntes, recuento de cierre y cuadre del turno.
+"""[01125] Descongelado: apuntes, recuento de cierre y cuadre del turno.
 
 Lo que la cocina hace de verdad con la carne al corte:
 
@@ -32,7 +32,7 @@ EPSILON = 1e-6
 
 
 class DefrostError(ValueError):
-    """El apunte de descongelado no se puede registrar tal y como está."""
+    """[01126] El apunte de descongelado no se puede registrar tal y como está."""
 
 
 @dataclass
@@ -46,33 +46,33 @@ class ShiftClose:
     drip_cost: float = 0.0
     missing_counts: list[str] = field(default_factory=list)
     not_by_count: list[str] = field(default_factory=list)   # cortes que descuentan al vender
-    # Las piezas que maduran y hoy no se han pesado. Maduran en el local, son
+    # [01150] Las piezas que maduran y hoy no se han pesado. Maduran en el local, son
     # carne fresca abierta y se cuentan todas las noches, como lo descongelado.
     aging_pending: list[str] = field(default_factory=list)
-    # Piezas que este turno ya había descontado antes: se vuelven a sumar en el
+    # [01151] Piezas que este turno ya había descontado antes: se vuelven a sumar en el
     # cuadre, pero no se vuelven a sacar de la cámara.
     already: list[str] = field(default_factory=list)
     alerts: list[Alert] = field(default_factory=list)
 
     @property
     def loss_cost(self) -> float:
-        """Lo que se pierde en el día: el desvío contra la carta, en dinero."""
+        """[01145] Lo que se pierde en el día: el desvío contra la carta, en dinero."""
         return round(sum(v.loss_cost for v in self.variances), 4)
 
     @property
     def loss_kg(self) -> float:
-        """Los kilos que faltan al cerrar el turno, sumando todas las diferencias."""
+        """[01146] Los kilos que faltan al cerrar el turno, sumando todas las diferencias."""
         return round(sum(v.gap_kg for v in self.variances), 6)
 
     @property
     def piece_gaps(self) -> list[Consumed]:
-        """Piezas que faltan y las ventas no explican."""
+        """[01147] Piezas que faltan y las ventas no explican."""
         return [c for c in self.consumed if c.counted and c.piece_gap]
 
 
 # ------------------------------------------------------------------ apuntes
 def _lot_by_serial(session: Session, restaurant_id: int, serial: str) -> IngredientLot:
-    """El lote de ese número, o se dice que no existe."""
+    """[01127] El lote de ese número, o se dice que no existe."""
     lot = (session.query(IngredientLot)
            .filter_by(restaurant_id=restaurant_id, serial=serial).first())
     if lot is None:
@@ -81,7 +81,7 @@ def _lot_by_serial(session: Session, restaurant_id: int, serial: str) -> Ingredi
 
 
 def _thaw_serial(session: Session, restaurant_id: int, base: str) -> str:
-    """Un número nuevo para lo que sale del arcón: «8017-01·D1», «·D2»…"""
+    """[01128] Un número nuevo para lo que sale del arcón: «8017-01·D1», «·D2»…"""
     for n in range(1, 100):
         candidate = f"{base}·D{n}"
         if not (session.query(IngredientLot)
@@ -92,7 +92,7 @@ def _thaw_serial(session: Session, restaurant_id: int, base: str) -> str:
 
 def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
          pieces: int = 0, on: date | None = None, lang: str | None = None) -> IngredientLot:
-    """Saca del arcón lo que se va a descongelar, y solo eso.
+    """[01129] Saca del arcón lo que se va a descongelar, y solo eso.
 
     Lo congelado está en espera: no se vende. Lo que lo despierta es esto, que
     es lo que pasa de verdad en la cocina —alguien abre el arcón y saca unas
@@ -112,7 +112,7 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
     casa = caducidad.de_la_casa(session, lot.restaurant_id)
     if kg >= lot.qty_remaining - EPSILON:
         lot.frozen = False                      # sale entero: se despierta entero
-        # Y con la fecha de lo descongelado, no con la del arcón. La del arcón
+        # [01152] Y con la fecha de lo descongelado, no con la del arcón. La del arcón
         # se guarda: sigue siendo verdad y hay que poder enseñarla.
         if lot.frozen_expiry is None:
             lot.frozen_expiry = lot.expiry
@@ -125,7 +125,7 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
     if lot.pieces and lot.qty_remaining > EPSILON:
         salen = min(lot.pieces, salen or max(1, int(round(lot.pieces * movido / lot.qty_remaining))))
 
-    # Primero se sacan los kilos del arcón y solo después nace el número que
+    # [01153] Primero se sacan los kilos del arcón y solo después nace el número que
     # los lleva. Al revés —que es como estaba— el hijo quedaba escrito aunque
     # la resta fallara: la pantalla decía que no quedaban kilos, el de fuera lo
     # leía y se iba, y en la cámara quedaba un número con kilos que no había
@@ -142,7 +142,7 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
         ingredient_id=lot.ingredient_id, lot_code=lot.lot_code,
         serial=_thaw_serial(session, lot.restaurant_id, lot.serial),
         parent_serial=lot.parent_serial or lot.serial, parent_lot=lot.parent_lot,
-        # Lo que sale del arcón caduca como lo descongelado y no como lo
+        # [01154] Lo que sale del arcón caduca como lo descongelado y no como lo
         # congelado, que es lo que decide su sitio en la cola de rotación.
         expiry=caducidad.tras_descongelar(lot.expiry, dia, casa),
         frozen_expiry=lot.frozen_expiry or lot.expiry,
@@ -152,7 +152,7 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
         frozen=False, site_id=lot.site_id, chamber=lot.chamber)
     session.add(hijo)
     session.flush()
-    # Lo que sale del arcón no se ha vendido ni se ha tirado, pero del número
+    # [01155] Lo que sale del arcón no se ha vendido ni se ha tirado, pero del número
     # han salido kilos: quedan apuntados en los dos, o el lote no se explica.
     sites.journal_split(session, user, lot, hijo, movido, dia, "defrost",
                         "descongelado")
@@ -162,7 +162,7 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
 def record(session: Session, user: User, kind: DefrostKind, serial: str, pieces: int,
            total_kg: float, on: date | None = None, shift: str = "",
            note: str | None = None) -> DefrostEntry:
-    """Apunta una salida a descongelar o un recuento de cierre."""
+    """[01130] Apunta una salida a descongelar o un recuento de cierre."""
     if pieces < 0 or total_kg < 0:
         raise DefrostError("Ni las piezas ni el peso pueden ser negativos")
     lot = _lot_by_serial(session, user.restaurant_id, serial)
@@ -171,7 +171,7 @@ def record(session: Session, user: User, kind: DefrostKind, serial: str, pieces:
     except sites.SiteError as e:
         raise DefrostError(str(e)) from None
     if kind == DefrostKind.INTAKE and lot.frozen:
-        # Lo que sale del arcón deja de estar en espera, y lo que se queda no.
+        # [01156] Lo que sale del arcón deja de estar en espera, y lo que se queda no.
         lot = thaw(session, user, lot, total_kg, pieces, on=on or jornada.del_usuario(session, user))
         serial = lot.serial
     entry = DefrostEntry(restaurant_id=user.restaurant_id, date=on or jornada.del_usuario(session, user),
@@ -185,13 +185,13 @@ def record(session: Session, user: User, kind: DefrostKind, serial: str, pieces:
 
 def intake(session: Session, user: User, serial: str, pieces: int, total_kg: float,
            on: date | None = None, shift: str = "", note: str | None = None) -> DefrostEntry:
-    """Lo que se saca del congelador para descongelar: piezas y kilos."""
+    """[01131] Lo que se saca del congelador para descongelar: piezas y kilos."""
     return record(session, user, DefrostKind.INTAKE, serial, pieces, total_kg, on, shift, note)
 
 
 def count(session: Session, user: User, serial: str, pieces: int, total_kg: float,
           on: date | None = None, shift: str = "", note: str | None = None) -> DefrostEntry:
-    """Lo que queda al contar la vitrina: piezas y kilos.
+    """[01132] Lo que queda al contar la vitrina: piezas y kilos.
 
     Con esto y lo que se sacó sale lo que se ha consumido, y comparándolo con
     lo que dice la caja sale lo que falta.
@@ -202,7 +202,7 @@ def count(session: Session, user: User, serial: str, pieces: int, total_kg: floa
 # ------------------------------------------------------------------ cuadre
 def _previous_count(session: Session, restaurant_id: int, serial: str,
                     on: date, shift: str) -> DefrostEntry | None:
-    """El último recuento de esa pieza antes de este turno: lo que había."""
+    """[01133] El último recuento de esa pieza antes de este turno: lo que había."""
     return (session.query(DefrostEntry)
             .filter(DefrostEntry.restaurant_id == restaurant_id,
                     DefrostEntry.lot_serial == serial,
@@ -214,13 +214,13 @@ def _previous_count(session: Session, restaurant_id: int, serial: str,
 
 
 def sold_units(session: Session, restaurant_id: int, on: date) -> dict[int, int]:
-    """Unidades vendidas en el POS ese día, por ingrediente."""
+    """[01134] Unidades vendidas en el POS ese día, por ingrediente."""
     return theoretical_for(session, restaurant_id, on)[1]
 
 
 def shift_states(session: Session, restaurant_id: int, on: date, shift: str = "",
                  site_id: int | None = None) -> list[SerialState]:
-    """Lo que había, lo que se sacó, lo que el POS ha vendido y lo que queda.
+    """[01135] Lo que había, lo que se sacó, lo que el POS ha vendido y lo que queda.
 
     Lo vendido se reparte entre las piezas que están descongeladas, en orden:
     así el recuento de cierre se hace contra un número, no contra el aire.
@@ -260,7 +260,7 @@ def shift_states(session: Session, restaurant_id: int, on: date, shift: str = ""
 
 def _attribute_sales(session: Session, restaurant_id: int, on: date,
                      states: dict[str, SerialState], ingredient_of: dict[str, int]) -> None:
-    """Reparte lo vendido entre las piezas descongeladas de ese corte.
+    """[01136] Reparte lo vendido entre las piezas descongeladas de ese corte.
 
     En orden de serial y sin pasarse de lo que cada pieza tenía fuera: una
     pieza no puede vender más de lo que había descongelado de ella.
@@ -278,7 +278,7 @@ def _attribute_sales(session: Session, restaurant_id: int, on: date,
 
 
 def theoretical_for(session: Session, restaurant_id: int, on: date) -> tuple[dict[int, float], dict[int, int]]:
-    """Lo que las recetas dicen que debería haberse gastado, por lo vendido."""
+    """[01137] Lo que las recetas dicen que debería haberse gastado, por lo vendido."""
     index = costing.pos_index(session, restaurant_id)
     needed: dict[int, float] = {}
     units: dict[int, int] = {}
@@ -295,14 +295,14 @@ def theoretical_for(session: Session, restaurant_id: int, on: date) -> tuple[dic
 
 def _taken_before(session: Session, restaurant_id: int, on: date,
                   shift: str) -> dict[str, dict]:
-    """Lo que este turno ya sacó de la cámara, pieza a pieza.
+    """[01138] Lo que este turno ya sacó de la cámara, pieza a pieza.
 
     Un turno se puede cerrar dos veces —porque faltaba un recuento, o porque
     dos personas le dieron al botón—, y el cuadre se rehace entero. Lo que no
     se puede rehacer es el descuento: la carne solo sale una vez.
     """
     out: dict[str, dict] = {}
-    # Solo lo que escribe el propio cierre: la venta y la merma de goteo. Sacar
+    # [01157] Solo lo que escribe el propio cierre: la venta y la merma de goteo. Sacar
     # del arcón también deja apuntes con `source="defrost"` —el lote se parte y
     # los kilos salen de un número y entran en otro—, y esos son un MOVE y un
     # IN, no un consumo. Contándolos, un turno en el que además se hubiera
@@ -333,7 +333,7 @@ def _taken_before(session: Session, restaurant_id: int, on: date,
 
 def close(session: Session, user: User, on: date | None = None, shift: str = "",
           lang: str | None = None) -> ShiftClose:
-    """Cierra el turno: descuenta lo consumido de verdad y lo compara con lo teórico."""
+    """[01139] Cierra el turno: descuenta lo consumido de verdad y lo compara con lo teórico."""
     on = on or jornada.del_usuario(session, user)
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     result = ShiftClose(date=on, shift=shift or "")
@@ -342,16 +342,16 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
     states = shift_states(session, user.restaurant_id, on, shift,
                           site_id=mia.id if mia else None)
     result.consumed = reconcile(states)
-    # El turno se coge antes de tocar la cámara. Si otra persona le está dando
+    # [01158] El turno se coge antes de tocar la cámara. Si otra persona le está dando
     # a cerrar en este mismo momento, una de las dos escribe y la otra se
     # entera; lo que no pasa es que las dos descuenten los mismos kilos.
     cuadre = _claim_shift(session, user, result, mia.id if mia else None, lang)
-    # Y lo que ya había salido se mira **después** de coger el turno: si se
+    # [01159] Y lo que ya había salido se mira **después** de coger el turno: si se
     # mirara antes, la que llega segunda habría leído la cámara cuando la otra
     # todavía no había guardado, y volvería a sacar los mismos kilos.
     taken = _taken_before(session, user.restaurant_id, on, shift or "")
 
-    # Lo que la carta dice que debería haberse gastado por lo vendido. Hace
+    # [01160] Lo que la carta dice que debería haberse gastado por lo vendido. Hace
     # falta antes de tocar el almacén: lo que sobre de ahí es merma, no venta.
     needed, units = theoretical_for(session, user.restaurant_id, on)
     per_unit = {ingredient_id: needed[ingredient_id] / units[ingredient_id]
@@ -369,13 +369,13 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
         lot = _lot_by_serial(session, user.restaurant_id, row.serial)
         ingredient = session.get(Ingredient, lot.ingredient_id)
         if ingredient is not None and ingredient.consumption != ConsumptionMode.COUNT:
-            # Ese corte ya se descuenta al vender. Descontarlo otra vez aquí
+            # [01161] Ese corte ya se descuenta al vender. Descontarlo otra vez aquí
             # sería gastar dos veces la misma carne.
             result.not_by_count.append(row.serial)
             continue
         cost_by_name.setdefault(row.ingredient, lot.unit_cost)
 
-        # ¿Esta pieza ya se descontó en este mismo turno? Pasa más de lo que
+        # [01162] ¿Esta pieza ya se descontó en este mismo turno? Pasa más de lo que
         # parece: dos personas le dan a cerrar a la vez, o el móvil se queda
         # pensando y el cocinero pulsa otra vez. Sin esto, los mismos ocho
         # kilos salen dos veces de la cámara y el stock se queda a cero solo.
@@ -391,7 +391,7 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
                 real_by_name.get(row.ingredient, 0.0) + row.kg, 6)
             continue
 
-        # Y se sacan con la resta metida en la propia orden: si otra persona se
+        # [01163] Y se sacan con la resta metida en la propia orden: si otra persona se
         # llevó esos kilos mientras tanto, la cámara no se queda en negativo.
         take = min(row.kg, lot.qty_remaining)
         if take > EPSILON and not locking.take(session, IngredientLot, lot.id,
@@ -403,7 +403,7 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
         cost = round(take * lot.unit_cost, 6)
         result.cost = round(result.cost + cost, 6)
 
-        # Lo que se vendió de verdad, al peso de la carta, y lo que se fue por
+        # [01164] Lo que se vendió de verdad, al peso de la carta, y lo que se fue por
         # el camino: la carne pierde agua al descongelar y el corte nunca sale
         # exacto. Esa diferencia no es una venta, es merma de descongelado, y
         # se apunta como tal para que se pueda mirar y sumar.
@@ -428,7 +428,7 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
                 source_ref=f"{ref} · {t(lang, 'defrost.drip')}"[:96], created_by=user.id))
         real_by_name[row.ingredient] = round(real_by_name.get(row.ingredient, 0.0) + row.kg, 6)
 
-    # comparación con lo que dicen las recetas de lo vendido ese día
+    # [01165] comparación con lo que dicen las recetas de lo vendido ese día
     names = {i.id: i.name for i in session.query(Ingredient)
              .filter_by(restaurant_id=user.restaurant_id,
                         consumption=ConsumptionMode.COUNT)}
@@ -438,7 +438,7 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
     result.variances = variances(real_by_name, theoretical_by_name, units_by_name,
                                  cost_by_name)
 
-    # El turno no está contado del todo si quedan piezas madurando sin pesar:
+    # [01166] El turno no está contado del todo si quedan piezas madurando sin pesar:
     # esa agua es merma del día, y mañana ya no se sabe de qué día era.
     result.aging_pending = aging.pending_today(session, user.restaurant_id, on,
                                                site_id=mia.id if mia else None)
@@ -451,7 +451,7 @@ def close(session: Session, user: User, on: date | None = None, shift: str = "",
 
 def _claim_shift(session: Session, user: User, result: ShiftClose,
                  site_id: int | None, lang: str) -> ShiftClosure:
-    """Coge el cuadre de este turno, o dice quién lo tiene cogido.
+    """[01140] Coge el cuadre de este turno, o dice quién lo tiene cogido.
 
     La primera vez es una fila nueva, y la regla de la base de datos —un turno,
     una fila— decide quién la escribe si son dos a la vez. Cuando el turno ya
@@ -475,7 +475,7 @@ def _claim_shift(session: Session, user: User, result: ShiftClose,
         session.add(row)
         session.flush()
     except IntegrityError:
-        # La otra persona escribió su cuadre mientras montábamos el nuestro.
+        # [01167] La otra persona escribió su cuadre mientras montábamos el nuestro.
         # Se deshace lo de aquí entero —que no había tocado la cámara todavía—
         # y se le dice que mire cómo ha quedado el turno.
         session.rollback()
@@ -485,7 +485,7 @@ def _claim_shift(session: Session, user: User, result: ShiftClose,
 
 def _save_closure(session: Session, user: User, result: ShiftClose,
                   site_id: int | None, row: ShiftClosure | None = None) -> ShiftClosure:
-    """Deja escrito el cuadre del turno, para que el mes se sume solo.
+    """[01141] Deja escrito el cuadre del turno, para que el mes se sume solo.
 
     Si el mismo turno se vuelve a cerrar, se pisa la fila: un turno tiene un
     cuadre, el último, y no tres versiones de lo mismo.
@@ -516,7 +516,7 @@ def _save_closure(session: Session, user: User, result: ShiftClose,
 
 @dataclass
 class MonthSoFar:
-    """Lo que llevamos del mes, sumando los turnos ya cerrados."""
+    """[01142] Lo que llevamos del mes, sumando los turnos ya cerrados."""
     year: int
     month: int
     shifts: int = 0
@@ -529,7 +529,7 @@ class MonthSoFar:
 
     @property
     def total_loss(self) -> float:
-        """Lo que se ha ido en el mes, en dinero. Una sola vez.
+        """[01148] Lo que se ha ido en el mes, en dinero. Una sola vez.
 
         Sumaba el desvío y el agua, y son **la misma cifra contada dos veces**.
         El desvío es lo consumido menos lo que dice la carta; el agua del
@@ -544,7 +544,7 @@ class MonthSoFar:
 
     @property
     def drip_share(self) -> float | None:
-        """Qué parte del desvío es agua del descongelado, en tanto por ciento."""
+        """[01149] Qué parte del desvío es agua del descongelado, en tanto por ciento."""
         if abs(self.loss_cost) < 0.005:
             return None
         return round(self.drip_cost / self.loss_cost * 100, 1)
@@ -552,7 +552,7 @@ class MonthSoFar:
 
 def month_so_far(session: Session, restaurant_id: int, on: date | None = None,
                  site_id: int | None = None) -> MonthSoFar:
-    """El mes en curso, turno a turno. Sin ir aviso por aviso."""
+    """[01143] El mes en curso, turno a turno. Sin ir aviso por aviso."""
     on = on or jornada.hoy(session, restaurant_id)
     first = date(on.year, on.month, 1)
     query = (session.query(ShiftClosure)
@@ -572,7 +572,7 @@ def month_so_far(session: Session, restaurant_id: int, on: date | None = None,
 
 
 def _raise_alerts(session: Session, user: User, result: ShiftClose, lang: str) -> None:
-    """Los avisos que deja un turno cerrado, y a quién le llegan.
+    """[01144] Los avisos que deja un turno cerrado, y a quién le llegan.
 
     Tres cosas: lo imposible —se ha consumido más de lo que se sacó, que es un
     número mal metido o carne que apareció de la nada—, las piezas que no
@@ -589,7 +589,7 @@ def _raise_alerts(session: Session, user: User, result: ShiftClose, lang: str) -
                 message=t(lang, "alert.defrost_impossible", serial=row.serial),
                 severity=AlertSeverity.WARNING, created_at=now))
     for row in result.piece_gaps:
-        # El POS dice lo que salió a la mesa; la cámara, lo que falta. Si no
+        # [01168] El POS dice lo que salió a la mesa; la cámara, lo que falta. Si no
         # cuadran, alguien tiene que mirarlo hoy, no a fin de mes.
         result.alerts.append(Alert(
             restaurant_id=user.restaurant_id, code="defrost.pieces",
@@ -598,7 +598,7 @@ def _raise_alerts(session: Session, user: User, result: ShiftClose, lang: str) -
                       sold=row.sold_pieces, out=row.pieces),
             severity=AlertSeverity.WARNING, created_at=now))
     if result.aging_pending:
-        # Lo que madura se pesa cada noche: si el turno se cierra sin eso, la
+        # [01169] Lo que madura se pesa cada noche: si el turno se cierra sin eso, la
         # merma de hoy se pierde y mañana no se sabe de qué día era.
         result.alerts.append(Alert(
             restaurant_id=user.restaurant_id, code="aging.uncounted",

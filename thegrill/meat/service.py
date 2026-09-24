@@ -1,4 +1,4 @@
-"""Lo que la edición de carne hace y la plataforma de cocina no tenía pantalla.
+"""[00561] Lo que la edición de carne hace y la plataforma de cocina no tenía pantalla.
 
 El motor no cambia: despiece, reparto de coste, FEFO, descongelado, inventario,
 trazabilidad y merma son los mismos de siempre. Aquí está lo que faltaba para
@@ -32,7 +32,7 @@ from thegrill.web import butchery, costing, defrost, inventory, jornada, locking
 from thegrill.web.i18n import t
 
 MAX_CUTS = 10
-# En cocina se habla en gramos, no en kilos. Cada unidad base tiene su unidad
+# [00621] En cocina se habla en gramos, no en kilos. Cada unidad base tiene su unidad
 # pequeña, que es la que se escribe y la que se lee.
 SMALL = {Unit.KG: ("g", 1000.0), Unit.L: ("ml", 1000.0), Unit.UNIT: ("", 1.0)}
 CATEGORY = "carne"      # lo que se despieza, se cuenta y se descuenta
@@ -44,7 +44,7 @@ TIPOS_FOTO = {v: k for k, v in plataforma.ALLOWED_IMAGE_TYPES.items()}
 
 
 class MeatError(ValueError):
-    """Lo que se ha metido no se puede dar de alta tal y como está."""
+    """[00562] Lo que se ha metido no se puede dar de alta tal y como está."""
 
 
 # ===================================================== recepción de primales
@@ -57,7 +57,7 @@ class PrimalRow:
     grade: str | None = None
     origin: str | None = None
     use_by: date | None = None
-    # ---- la etiqueta del proveedor, la de esta pieza.
+    # [00622] ---- la etiqueta del proveedor, la de esta pieza.
     # Lo que es igual para todo el camión se escribe una vez arriba y se copia
     # a cada línea; lo que cambia de una bolsa a otra —el número de canal, la
     # fecha de sacrificio, la calificación— se escribe en su línea.
@@ -69,18 +69,18 @@ class PrimalRow:
     pack_date: date | None = None
     label_product: str | None = None
     halal: bool | None = None
-    # Cómo bajó del camión: refrigerada o congelada, a cuántos grados, y —si
+    # [00623] Cómo bajó del camión: refrigerada o congelada, a cuántos grados, y —si
     # llegó fresca— si va derecha al arcón sin pasar por la cámara.
     arrival: Storage | None = None
     arrival_c: float | None = None
     frozen_on_arrival: bool | None = None
-    # El número lo ha puesto la casa, no el proveedor: si otra recepción se
+    # [00624] El número lo ha puesto la casa, no el proveedor: si otra recepción se
     # adelanta con ese mismo número, este se puede cambiar sin preguntar.
     auto: bool = False
 
 
 def next_lot(session: Session, restaurant_id: int, on: date | None = None) -> str:
-    """El número del próximo lote de recepción: la fecha y un orden del día.
+    """[00563] El número del próximo lote de recepción: la fecha y un orden del día.
 
     Nadie tiene que inventarse un código en el muelle con el camión esperando.
     Se propone uno —`L-260921-1`— y se confirma al dar de alta: hasta entonces
@@ -99,7 +99,7 @@ def next_lot(session: Session, restaurant_id: int, on: date | None = None) -> st
 
 
 def next_serials(session: Session, restaurant_id: int, count: int = 1) -> list[str]:
-    """Los próximos números de pieza, siguiendo por donde iba la casa.
+    """[00564] Los próximos números de pieza, siguiendo por donde iba la casa.
 
     Si los que hay son números, se sigue contando; si no lo son —porque el
     proveedor los trae con letras—, se empieza una serie propia. Se proponen,
@@ -118,20 +118,20 @@ def next_serials(session: Session, restaurant_id: int, count: int = 1) -> list[s
 def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow],
                     received: date | None = None, lang: str = "es",
                     chamber: str | None = None) -> list[Primal]:
-    """Da de alta un grupo de primales bajo un lote de recepción común.
+    """[00565] Da de alta un grupo de primales bajo un lote de recepción común.
 
     Cada pieza lleva su número y su coste: ese coste es el que luego reparte el
     despiece entre los cortes, así que no se pierde por el camino.
     """
     rows = [r for r in rows if r.serial.strip() or r.kg]
-    # La carne entra donde está quien la recibe: el obrador, casi siempre.
+    # [00625] La carne entra donde está quien la recibe: el obrador, casi siempre.
     destino = sites.of_user(session, user) or sites.main(session, user.restaurant_id)
     if not rows:
         raise MeatError(t(lang, "m.rec.empty"))
     received = received or jornada.del_usuario(session, user)
     lot = (lot or "").strip() or next_lot(session, user.restaurant_id, received)
 
-    # Los números que no se hayan escrito se ponen aquí, al dar de alta, y no
+    # [00626] Los números que no se hayan escrito se ponen aquí, al dar de alta, y no
     # al abrir la pantalla: dos personas recibiendo a la vez no se pisan, y el
     # que abre y cierra no deja un hueco en la serie.
     faltan = [r for r in rows if not r.serial.strip()]
@@ -159,7 +159,7 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
         if serial in seen:
             raise MeatError(t(lang, "m.rec.dup", serial=serial))
         seen.add(serial)
-        # Al número que ha escrito una persona se le dice aquí que ya existe,
+        # [00627] Al número que ha escrito una persona se le dice aquí que ya existe,
         # que es lo que quiere oír: se ha equivocado de pieza. Al que ha puesto
         # la casa no se le dice nada —lo elegimos nosotros—: si justo lo acaba
         # de coger otra recepción, se cambia al guardar y nadie se entera.
@@ -172,7 +172,7 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
         _check_label(row, received, lang)
 
     created = _save_primals(session, user, rows, lot, received, destino, chamber, lang)
-    # Que se entere el que está en otra pantalla: en la cámara hay carne que
+    # [00628] Que se entere el que está en otra pantalla: en la cámara hay carne que
     # hace un minuto no estaba, y contar sin ella deja el inventario corto.
     novedades.anotar(session, user, novedades.RECEPCION, ref=lot,
                      label=_lo_que_mas_entro(created), pieces=len(created),
@@ -185,7 +185,7 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
 
 def _haccp_de_llegada(session: Session, user: User, created: list[Primal],
                       lang: str) -> list[Alert]:
-    """Lo que bajó del camión fuera de norma: guardado, y en los avisos de hoy.
+    """[00566] Lo que bajó del camión fuera de norma: guardado, y en los avisos de hoy.
 
     La pieza entra igual. Una carne que llega a doce grados es carne que ha
     llegado a doce grados, y borrarla del sistema no la enfría: lo único que
@@ -225,7 +225,7 @@ def _haccp_de_llegada(session: Session, user: User, created: list[Primal],
 
 def _ask_for_prices(session: Session, user: User, created: list[Primal], lot: str,
                     lang: str) -> None:
-    """Si han entrado piezas sin precio, se le dice a dirección.
+    """[00567] Si han entrado piezas sin precio, se le dice a dirección.
 
     Sin esto, la pieza se queda en la cámara esperando un precio que nadie sabe
     que hace falta: no se puede despiezar, y el día que alguien va a cortarla se
@@ -248,7 +248,7 @@ def _ask_for_prices(session: Session, user: User, created: list[Primal], lot: st
 
 
 def _lo_que_mas_entro(created: list[Primal]) -> str:
-    """De lo que ha entrado, lo que más: el aviso dice una cosa, no seis.
+    """[00568] De lo que ha entrado, lo que más: el aviso dice una cosa, no seis.
 
     Una recepción normal es un lote de lo mismo. Cuando trae dos artículos, el
     aviso nombra el que más piezas trae —que es el que cambia la cámara— y el
@@ -261,14 +261,14 @@ def _lo_que_mas_entro(created: list[Primal]) -> str:
 
 
 def _check_label(row: PrimalRow, received: date, lang: str) -> None:
-    """Las fechas de la etiqueta tienen que poder haber pasado, y en orden.
+    """[00569] Las fechas de la etiqueta tienen que poder haber pasado, y en orden.
 
     Un dato de etiqueta mal tecleado es peor que no tenerlo: se guarda, nadie
     lo vuelve a mirar, y el día que hay que contestar de dónde salió la pieza
     se contesta mal. Una fecha de sacrificio de la semana que viene, o una
     carne envasada antes de sacrificarla, es un dedo en el teclado.
     """
-    # Un peso o una temperatura que no pueden ser son lo mismo que una fecha
+    # [00629] Un peso o una temperatura que no pueden ser son lo mismo que una fecha
     # que no puede ser: el dedo en la tecla de al lado. Se paran aquí, antes de
     # que el registro sanitario quede completo y falso.
     rangos.peso_pieza(row.kg, lang, serial=row.serial.strip() or "—")
@@ -288,7 +288,7 @@ def _check_label(row: PrimalRow, received: date, lang: str) -> None:
 def _save_primals(session: Session, user: User, rows: list[PrimalRow], lot: str,
                   received: date, destino, chamber: str | None, lang: str,
                   intentos: int = 3) -> list[Primal]:
-    """Escribe las piezas. Si dos muelles dan de alta a la vez, se renumera.
+    """[00570] Escribe las piezas. Si dos muelles dan de alta a la vez, se renumera.
 
     Los números automáticos se piden justo antes de guardar, pero entre pedirlos
     y guardarlos cabe otra recepción: los dos piden el 8016 y el segundo se
@@ -299,7 +299,7 @@ def _save_primals(session: Session, user: User, rows: list[PrimalRow], lot: str,
     automaticos = [r for r in rows if getattr(r, "auto", False)]
 
     def otros_numeros():
-        """Qué hacer cuando el número ya está cogido: renumerar, o parar.
+        """[00611] Qué hacer cuando el número ya está cogido: renumerar, o parar.
 
         Solo se renumera lo que puso la máquina. Un número que escribió una
         persona no se toca: si lo ha repetido, lo tiene que ver.
@@ -309,7 +309,7 @@ def _save_primals(session: Session, user: User, rows: list[PrimalRow], lot: str,
         _renumber(session, user.restaurant_id, rows, automaticos, lang)
 
     def escribir():
-        """Mete las piezas. Se llama otra vez si hubo que renumerar."""
+        """[00612] Mete las piezas. Se llama otra vez si hubo que renumerar."""
         return _insert_primals(session, user, rows, lot, received, destino, chamber)
 
     try:
@@ -320,7 +320,7 @@ def _save_primals(session: Session, user: User, rows: list[PrimalRow], lot: str,
 
 def _renumber(session: Session, restaurant_id: int, rows: list[PrimalRow],
               automaticos: list[PrimalRow], lang: str) -> None:
-    """Vuelve a repartir los números que había puesto la casa."""
+    """[00571] Vuelve a repartir los números que había puesto la casa."""
     libres = next_serials(session, restaurant_id, len(automaticos) + len(rows) + 4)
     ocupados = {r.serial.strip() for r in rows if r not in automaticos}
     for row in automaticos:
@@ -336,7 +336,7 @@ def _renumber(session: Session, restaurant_id: int, rows: list[PrimalRow],
 
 def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: str,
                     received: date, destino, chamber: str | None) -> list[Primal]:
-    """Da de alta las piezas de una recepción, una fila por pieza.
+    """[00572] Da de alta las piezas de una recepción, una fila por pieza.
 
     Cada una se queda con todo lo que venía en la etiqueta del proveedor —lote,
     matadero, registro sanitario, raza, sacrificio— porque el día que hay que
@@ -361,7 +361,7 @@ def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: st
             label_product=(row.label_product or None), halal=row.halal,
             arrival=row.arrival, arrival_c=row.arrival_c,
             frozen_on_arrival=row.frozen_on_arrival or None,
-            # Y dónde queda: lo que llega congelado, y lo que llega fresco y se
+            # [00630] Y dónde queda: lo que llega congelado, y lo que llega fresco y se
             # mete al arcón, están en el congelador desde el primer día. Si no,
             # el programa las cuenta como frescas y les pone el reloj que no es.
             storage=(Storage.FROZEN
@@ -377,7 +377,7 @@ def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: st
 def primals_in_stock(session: Session, restaurant_id: int,
                      site_id: int | None = None,
                      priced_only: bool = False) -> list[Primal]:
-    """Las piezas enteras que todavía se pueden despiezar.
+    """[00573] Las piezas enteras que todavía se pueden despiezar.
 
     Con sede, las que están en esa sede: el local corta lo suyo, no lo que
     está colgado en el obrador.
@@ -400,7 +400,7 @@ def primals_in_stock(session: Session, restaurant_id: int,
 
 def awaiting_price(session: Session, restaurant_id: int,
                    site_id: int | None = None) -> list[Primal]:
-    """Las piezas que han entrado y todavía no valen nada.
+    """[00574] Las piezas que han entrado y todavía no valen nada.
 
     En el muelle se apunta lo que llega: qué es, cuánto pesa, de qué calidad y
     de dónde viene. El precio no lo sabe quien descarga —ni tiene por qué: el
@@ -420,7 +420,7 @@ def awaiting_price(session: Session, restaurant_id: int,
 
 def set_price(session: Session, user: User, serial: str, price_kg: float,
               lang: str = "es") -> Primal:
-    """Activa una pieza: le pone el precio del kilo y con él su coste.
+    """[00575] Activa una pieza: le pone el precio del kilo y con él su coste.
 
     Ese coste es el que el despiece reparte después entre los cortes, así que
     ponerlo mal aquí desordena el dinero de todo lo que salga de la pieza. Por
@@ -433,13 +433,13 @@ def set_price(session: Session, user: User, serial: str, price_kg: float,
         raise MeatError(t(lang, "m.rec.no_piece", serial=serial))
     if price_kg is None or price_kg <= 0:
         raise MeatError(t(lang, "m.rec.price_needed", serial=pieza.serial))
-    # El coste sale del peso de la factura —los kilos que se pagaron— y al
+    # [00631] El coste sale del peso de la factura —los kilos que se pagaron— y al
     # céntimo: si la pieza arrastra milésimas, todo lo que se reparta luego a
     # partir de ella las arrastra también.
     recibido = pieza.received_kg or pieza.weight_kg or 0.0
     pieza.piece_cost_usd = round(recibido * price_kg, 2)
 
-    # Y el precio del kilo se calcula contra el peso de HOY, no contra el de la
+    # [00632] Y el precio del kilo se calcula contra el peso de HOY, no contra el de la
     # factura. Aquí se perdía el dinero: el carnicero recibe sin precio y
     # dirección lo pone después, a veces días después, y para entonces la pieza
     # lleva una semana madurando y pesa menos. Poniendo el del albarán, una
@@ -458,13 +458,13 @@ def set_price(session: Session, user: User, serial: str, price_kg: float,
 
 
 def photo_type(path: str) -> str:
-    """El tipo de la foto, por su extensión: es la que pusimos al guardarla."""
+    """[00576] El tipo de la foto, por su extensión: es la que pusimos al guardarla."""
     return TIPOS_FOTO.get(os.path.splitext(path)[1].lower(), "application/octet-stream")
 
 
 def store_label_photo(session: Session, primal: Primal, content_type: str,
                       payload: bytes, upload_dir: str, lang: str = "es") -> Primal:
-    """Guarda la foto de la etiqueta de una pieza y la cuelga de ella.
+    """[00577] Guarda la foto de la etiqueta de una pieza y la cuelga de ella.
 
     Una sola por pieza: la etiqueta es una. Si se vuelve a hacer —porque la
     primera salió movida, que en una cámara pasa— la nueva sustituye a la
@@ -497,7 +497,7 @@ def store_label_photo(session: Session, primal: Primal, content_type: str,
 
 
 def recent_primals(session: Session, restaurant_id: int, limit: int = 50) -> list[Primal]:
-    """Las últimas piezas que entraron, de la más nueva a la más vieja."""
+    """[00578] Las últimas piezas que entraron, de la más nueva a la más vieja."""
     return (session.query(Primal).filter_by(restaurant_id=restaurant_id)
             .order_by(Primal.received_date.desc(), Primal.id.desc()).limit(limit).all())
 
@@ -507,7 +507,7 @@ def create_cut(session: Session, user: User, name: str, min_stock: float | None 
                rotation: Rotation = Rotation.FEFO,
                consumption: ConsumptionMode = ConsumptionMode.RECIPE,
                sold_by_weight: bool = False) -> Ingredient:
-    """Un corte es un ingrediente madre de carne: lo que se cuenta y se vende.
+    """[00579] Un corte es un ingrediente madre de carne: lo que se cuenta y se vende.
 
     `consumption` dice de dónde sale el consumo: de la venta en el POS, o del
     recuento de descongelado al cerrar el turno. Las dos cosas a la vez
@@ -534,7 +534,7 @@ def create_cut(session: Session, user: User, name: str, min_stock: float | None 
 
 def add_article(session: Session, user: User, cut: Ingredient, name: str,
                 supplier: str | None = None) -> IngredientItem:
-    """Una procedencia concreta del mismo corte. Todas se gastan en una cola."""
+    """[00580] Una procedencia concreta del mismo corte. Todas se gastan en una cola."""
     name = name.strip()
     if not name:
         raise MeatError("El artículo necesita un nombre")
@@ -546,7 +546,7 @@ def add_article(session: Session, user: User, cut: Ingredient, name: str,
 
 
 def cuts(session: Session, restaurant_id: int) -> list[Ingredient]:
-    """Los cortes de carne. La guarnición no se cuenta ni se despieza."""
+    """[00581] Los cortes de carne. La guarnición no se cuenta ni se despieza."""
     return (session.query(Ingredient)
             .filter(Ingredient.restaurant_id == restaurant_id, Ingredient.active.is_(True),
                     (Ingredient.category == CATEGORY) | (Ingredient.category.is_(None)))
@@ -555,23 +555,23 @@ def cuts(session: Session, restaurant_id: int) -> list[Ingredient]:
 
 # ================================================== otros ingredientes del plato
 def small_unit(unit: Unit, lang: str = "es") -> str:
-    """Cómo se llama la unidad pequeña: gramos, mililitros o unidades."""
+    """[00582] Cómo se llama la unidad pequeña: gramos, mililitros o unidades."""
     label = SMALL.get(unit, ("", 1.0))[0]
     return label or t(lang, "m.unit.piece")
 
 
 def to_base(unit: Unit, qty_small: float) -> float:
-    """De gramos a kilos, de mililitros a litros. Las unidades no se tocan."""
+    """[00583] De gramos a kilos, de mililitros a litros. Las unidades no se tocan."""
     return round(qty_small / SMALL.get(unit, ("", 1.0))[1], 6)
 
 
 def to_small(unit: Unit, qty_base: float) -> float:
-    """Pasa de la unidad de la base a la de la mano: kilos a gramos, litros a mililitros."""
+    """[00584] Pasa de la unidad de la base a la de la mano: kilos a gramos, litros a mililitros."""
     return round(qty_base * SMALL.get(unit, ("", 1.0))[1], 4)
 
 
 def portion_cost(extra: Ingredient) -> float | None:
-    """A cuánto sale la ración: el precio por kilo por lo que lleva el plato."""
+    """[00585] A cuánto sale la ración: el precio por kilo por lo que lleva el plato."""
     cost = extra_cost(extra)
     if cost is None or not extra.portion_g:
         return None
@@ -580,7 +580,7 @@ def portion_cost(extra: Ingredient) -> float | None:
 
 def create_extra(session: Session, user: User, name: str, unit: Unit = Unit.KG,
                  cost: float | None = None, portion_g: float | None = None) -> Ingredient:
-    """Lo que acompaña a la carne: guarnición, salsa, pan.
+    """[00586] Lo que acompaña a la carne: guarnición, salsa, pan.
 
     De esto no se lleva stock —aquí no se cuentan patatas—, pero su coste sí
     cuenta: sin él, el food cost del emplatado se queda corto. Por eso se marca
@@ -609,7 +609,7 @@ def create_extra(session: Session, user: User, name: str, unit: Unit = Unit.KG,
 
 def set_extra_cost(session: Session, user: User, ingredient_id: int, cost: float,
                    portion_g: float | None = None) -> Ingredient:
-    """Cambia el coste configurado y su porción. Se aplica a los platos desde ya."""
+    """[00587] Cambia el coste configurado y su porción. Se aplica a los platos desde ya."""
     extra = session.get(Ingredient, ingredient_id)
     if extra is None or extra.restaurant_id != user.restaurant_id:
         raise MeatError("Ese ingrediente no es de este restaurante")
@@ -630,19 +630,19 @@ def set_extra_cost(session: Session, user: User, ingredient_id: int, cost: float
 
 
 def extras(session: Session, restaurant_id: int) -> list[Ingredient]:
-    """Los acompañamientos que se pueden poner en un plato."""
+    """[00588] Los acompañamientos que se pueden poner en un plato."""
     return (session.query(Ingredient)
             .filter_by(restaurant_id=restaurant_id, active=True, category=EXTRA)
             .order_by(Ingredient.name).all())
 
 
 def extra_cost(extra: Ingredient) -> float | None:
-    """Lo que costó la última vez ese acompañamiento, si consta."""
+    """[00589] Lo que costó la última vez ese acompañamiento, si consta."""
     return extra.items[0].last_cost if extra.items else None
 
 
 def extras_usage(session: Session, restaurant_id: int) -> dict[int, int]:
-    """En cuántos platos entra cada ingrediente. Cambiar su coste los mueve todos."""
+    """[00590] En cuántos platos entra cada ingrediente. Cambiar su coste los mueve todos."""
     counts: dict[int, int] = {}
     for line in (session.query(RecipeLine)
                  .join(Recipe, RecipeLine.recipe_id == Recipe.id)
@@ -655,7 +655,7 @@ def extras_usage(session: Session, restaurant_id: int) -> dict[int, int]:
 
 
 def articles(session: Session, restaurant_id: int) -> list[IngredientItem]:
-    """Los artículos de compra que están de alta, por nombre."""
+    """[00591] Los artículos de compra que están de alta, por nombre."""
     return (session.query(IngredientItem)
             .filter_by(restaurant_id=restaurant_id, active=True)
             .order_by(IngredientItem.name).all())
@@ -679,8 +679,8 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
                   on: date | None = None, staff: str | None = None,
                   country: str | None = None, grade: str | None = None,
                   lang: str = "es") -> tuple[Despiece, butchery.PostResult]:
-    """Monta el despiece con lo que se ha escrito y lo vuelca a cámara."""
-    # Una fila vale si dice cuántas piezas y de cuántos gramos, o —si sale a
+    """[00592] Monta el despiece con lo que se ha escrito y lo vuelca a cámara."""
+    # [00633] Una fila vale si dice cuántas piezas y de cuántos gramos, o —si sale a
     # peso— cuántos kilos entran enteros en cámara.
     rows = [r for r in rows if r.name.strip()
             and ((r.by_weight and r.kg) or (not r.by_weight and r.pieces and r.grams))]
@@ -691,19 +691,19 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
         raise MeatError(t(lang, "m.tg.need_cuts"))
     if any(not r.item_id for r in rows):
         raise MeatError(t(lang, "m.tg.need_article"))
-    # El artículo tiene que ser de esta casa. Si no se comprueba, un formulario
+    # [00634] El artículo tiene que ser de esta casa. Si no se comprueba, un formulario
     # manipulado mete un lote de este restaurante colgando del corte de otro.
     mine = {i.id for i in session.query(IngredientItem.id)
             .filter_by(restaurant_id=user.restaurant_id)}
     if any(r.item_id not in mine for r in rows):
         raise MeatError(t(lang, "m.tg.need_article"))
-    # Todas las piezas de un despiece tienen que estar donde se despieza: un
+    # [00635] Todas las piezas de un despiece tienen que estar donde se despieza: un
     # despiece que mezcla la cámara del obrador con la del local no ha pasado
     # por ninguna mesa, y los cortes que salen no sabrían de dónde son.
     piezas = (session.query(Primal)
               .filter(Primal.restaurant_id == user.restaurant_id,
                       Primal.serial.in_(serials)).all())
-    # Una pieza sin precio no se despieza. El despiece reparte el coste del
+    # [00636] Una pieza sin precio no se despieza. El despiece reparte el coste del
     # primal entre los cortes por su índice de valor; si la pieza vale cero,
     # todos los cortes salen a cero y el rastro del dinero se pierde ahí, sin
     # que nada avise. Se para aquí y no solo en la lista de la pantalla, porque
@@ -725,7 +725,7 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
     if not tg:
         raise MeatError("El despiece necesita su número")
     if session.query(Despiece).filter_by(restaurant_id=user.restaurant_id, tg=tg).first():
-        # Si el número lo puso la casa —TG-0007, el que propone la pantalla—,
+        # [00637] Si el número lo puso la casa —TG-0007, el que propone la pantalla—,
         # dos carniceros que abren la hoja a la vez traen el mismo y el segundo
         # perdía el despiece entero por un número. Se le da el siguiente libre.
         # Si el número lo escribió una persona, no se toca: ahí sí hay que
@@ -738,7 +738,7 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
     numero = {"tg": tg}
 
     def otro_numero():
-        """Busca el siguiente número de despiece libre, si el número lo puso la máquina.
+        """[00613] Busca el siguiente número de despiece libre, si el número lo puso la máquina.
 
         Uno escrito a mano no se cambia: que se vea que está repetido.
         """
@@ -749,18 +749,18 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
         numero["tg"] = libre
 
     def montar():
-        """Escribe el despiece. Se llama otra vez si hubo que cambiarle el número."""
+        """[00614] Escribe el despiece. Se llama otra vez si hubo que cambiarle el número."""
         return _write_despiece(session, user, numero["tg"], serials, before_kg, rows,
                                waste_kg, on, staff, country, grade)
 
-    # El nombre de la pieza, cogido ahora: si hay que reintentar, la sesión se
+    # [00638] El nombre de la pieza, cogido ahora: si hay que reintentar, la sesión se
     # deshace y los objetos de antes ya no se pueden preguntar.
     etiqueta = (piezas[0].sku if piezas else "") or _primer_corte(rows)
-    # Y dónde ha pasado: donde estaban las piezas. Un encargado sin sede que
+    # [00639] Y dónde ha pasado: donde estaban las piezas. Un encargado sin sede que
     # despieza en el obrador lo anuncia en el obrador, no en ningún sitio.
     donde_id = mia.id if mia else (next(iter(donde)) if donde else None)
     despiece, result = locking.retry(session, montar, otro_numero)
-    # La carne despiezada es carne nueva en cámara: el que cuenta tiene que
+    # [00640] La carne despiezada es carne nueva en cámara: el que cuenta tiene que
     # saber que ya no hay una pieza entera, sino cinco cortes con su peso.
     novedades.anotar(session, user, novedades.DESPIECE, ref=result.tg, label=etiqueta,
                      pieces=len(result.lots), kg=sum(l.qty for l in result.lots),
@@ -769,7 +769,7 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
 
 
 def _primer_corte(rows: list[CutRow]) -> str:
-    """Si la pieza no tiene nombre, sirve el del primer corte que sale."""
+    """[00593] Si la pieza no tiene nombre, sirve el del primer corte que sale."""
     return next((r.name.strip() for r in rows if r.name.strip()), "")
 
 
@@ -777,7 +777,7 @@ def _write_despiece(session: Session, user: User, tg: str, serials: list[str],
                     before_kg: float, rows: list[CutRow], waste_kg: float,
                     on: date | None, staff: str | None, country: str | None,
                     grade: str | None) -> tuple[Despiece, butchery.PostResult]:
-    """Escribe el despiece entero. Se monta de cero en cada intento."""
+    """[00594] Escribe el despiece entero. Se monta de cero en cada intento."""
     despiece = Despiece(restaurant_id=user.restaurant_id, tg=tg, date=on or jornada.del_usuario(session, user),
                         staff=(staff or None), weight_before_kg=before_kg,
                         waste_kg=waste_kg, country=(country or None), grade=(grade or None))
@@ -805,19 +805,19 @@ def _write_despiece(session: Session, user: User, tg: str, serials: list[str],
 
 
 def recent_butchery(session: Session, restaurant_id: int, limit: int = 30) -> list[Despiece]:
-    """Los últimos despieces, del más nuevo al más viejo."""
+    """[00595] Los últimos despieces, del más nuevo al más viejo."""
     return (session.query(Despiece).filter_by(restaurant_id=restaurant_id)
             .order_by(Despiece.date.desc(), Despiece.id.desc()).limit(limit).all())
 
 
 def next_tg(session: Session, restaurant_id: int) -> str:
-    """El siguiente número de despiece, para no tener que acordarse."""
+    """[00596] El siguiente número de despiece, para no tener que acordarse."""
     n = session.query(Despiece).filter_by(restaurant_id=restaurant_id).count()
     return f"TG-{n + 1:04d}"
 
 
 def _free_tg(session: Session, restaurant_id: int) -> str | None:
-    """Un número de despiece que no esté cogido, empezando por el siguiente."""
+    """[00597] Un número de despiece que no esté cogido, empezando por el siguiente."""
     usados = {d.tg for d in session.query(Despiece.tg)
               .filter(Despiece.restaurant_id == restaurant_id)}
     n = len(usados) + 1
@@ -835,7 +835,7 @@ def add_dish(session: Session, user: User, name: str, cut_id: int, grams: float,
              pos_code: str | None = None, pos_name: str | None = None,
              by_weight: bool = False, price_per_kg: float | None = None,
              lang: str = "es") -> Recipe:
-    """Un plato de carne: un corte, unos gramos y su producto del POS.
+    """[00598] Un plato de carne: un corte, unos gramos y su producto del POS.
 
     Por dentro es una receta de una línea, así que el food cost, el descuento
     de cámara y el reparto del ingreso salen del mismo motor que ya está
@@ -862,7 +862,7 @@ def add_dish(session: Session, user: User, name: str, cut_id: int, grams: float,
     if by_weight and not price_per_kg:
         raise MeatError(t(lang, "m.menu.need_price_kg"))
     if by_weight and sale_price is None:
-        # El PVP de la ración de referencia, para que la carta sepa comparar.
+        # [00641] El PVP de la ración de referencia, para que la carta sepa comparar.
         sale_price = round(price_per_kg * grams / 1000, 4)
 
     dish = Recipe(restaurant_id=user.restaurant_id, code=code, name=name,
@@ -890,7 +890,7 @@ class MenuRow:
     food_cost_pct: float | None
     pos_code: str | None
     pos_name: str
-    # Si el plato está emparejado de verdad con un producto del POS. Sin esto
+    # [00642] Si el plato está emparejado de verdad con un producto del POS. Sin esto
     # no hay forma de distinguir un plato atado a su artículo de uno que
     # todavía no lo está: el nombre se enseñaba igual en los dos casos, porque
     # cuando faltaba se caía al nombre del propio plato.
@@ -898,7 +898,7 @@ class MenuRow:
 
 
 def menu(session: Session, restaurant_id: int) -> list[MenuRow]:
-    """La carta de carnes, del peor food cost al mejor."""
+    """[00599] La carta de carnes, del peor food cost al mejor."""
     costs = costing.unit_costs(session, restaurant_id)
     products = {p.recipe_id: p for p in
                 session.query(PosProduct).filter_by(restaurant_id=restaurant_id)}
@@ -923,7 +923,7 @@ def menu(session: Session, restaurant_id: int) -> list[MenuRow]:
 
 # =============================================================== emplatado
 def meat_line(dish: Recipe, session: Session) -> RecipeLine | None:
-    """La línea de carne del plato: la que manda y la que se descuenta."""
+    """[00600] La línea de carne del plato: la que manda y la que se descuenta."""
     for line in dish.lines:
         if not line.ingredient_id:
             continue
@@ -935,7 +935,7 @@ def meat_line(dish: Recipe, session: Session) -> RecipeLine | None:
 
 def add_plate_line(session: Session, user: User, dish: Recipe, ingredient_id: int,
                    qty_small: float, waste_pct: float = 0.0, lang: str = "es") -> RecipeLine:
-    """Añade al plato algo que no es la carne. La cantidad, en gramos."""
+    """[00601] Añade al plato algo que no es la carne. La cantidad, en gramos."""
     ingredient = session.get(Ingredient, ingredient_id)
     if ingredient is None or ingredient.restaurant_id != user.restaurant_id:
         raise MeatError("Ese ingrediente no es de este restaurante")
@@ -944,7 +944,7 @@ def add_plate_line(session: Session, user: User, dish: Recipe, ingredient_id: in
     qty = to_base(ingredient.unit, qty_small)
     if not 0 <= waste_pct < 100:
         raise MeatError("La merma de limpieza va entre 0 y 100")
-    # Detrás de lo que ya hay, para que la carne siga la primera y el orden del
+    # [00643] Detrás de lo que ya hay, para que la carne siga la primera y el orden del
     # plato sea el orden en que se fue montando.
     last = max((l.sort_order for l in dish.lines), default=0)
     line = RecipeLine(recipe_id=dish.id, ingredient_id=ingredient.id, qty=qty,
@@ -956,7 +956,7 @@ def add_plate_line(session: Session, user: User, dish: Recipe, ingredient_id: in
 
 def remove_plate_line(session: Session, user: User, dish: Recipe, line_id: int,
                       lang: str = "es") -> None:
-    """Quita del plato una línea. La de carne no se quita: el plato es de carne."""
+    """[00602] Quita del plato una línea. La de carne no se quita: el plato es de carne."""
     line = session.get(RecipeLine, line_id)
     if line is None or line.recipe_id != dish.id:
         raise MeatError("Esa línea no es de este plato")
@@ -969,7 +969,7 @@ def remove_plate_line(session: Session, user: User, dish: Recipe, line_id: int,
 
 def set_plate_grams(session: Session, user: User, dish: Recipe, grams: float,
                     lang: str = "es") -> None:
-    """Cambia el gramaje de carne del plato, que es lo que se descuenta."""
+    """[00603] Cambia el gramaje de carne del plato, que es lo que se descuenta."""
     if grams <= 0:
         raise MeatError(t(lang, "m.menu.need_cut"))
     line = meat_line(dish, session)
@@ -1010,17 +1010,17 @@ class Plate:
 
     @property
     def meat(self) -> PlateLine | None:
-        """La línea de carne del plato. Es la que manda en el escandallo."""
+        """[00615] La línea de carne del plato. Es la que manda en el escandallo."""
         return next((l for l in self.lines if l.is_meat), None)
 
     @property
     def extras(self) -> list[PlateLine]:
-        """Todo lo demás del plato: guarnición, salsa, pan."""
+        """[00616] Todo lo demás del plato: guarnición, salsa, pan."""
         return [l for l in self.lines if not l.is_meat]
 
 
 def plate(session: Session, restaurant_id: int, dish: Recipe, lang: str = "es") -> Plate:
-    """El emplatado entero: qué lleva, qué cuesta cada cosa y su food cost."""
+    """[00604] El emplatado entero: qué lleva, qué cuesta cada cosa y su food cost."""
     costs = costing.unit_costs(session, restaurant_id)
     detail = costing.cost_of(session, dish, costs)
     carne = meat_line(dish, session)
@@ -1048,7 +1048,7 @@ def plate(session: Session, restaurant_id: int, dish: Recipe, lang: str = "es") 
 # ============================================================ parte del día
 @dataclass
 class DailyReport:
-    """El parte de carne de un día, para el pase y para la carpeta.
+    """[00605] El parte de carne de un día, para el pase y para la carpeta.
 
     Es la foto que se cuelga: lo que hay, lo que se ha ido y lo que queda
     pendiente. Se imprime desde el navegador, que es lo que hay en una cocina,
@@ -1070,28 +1070,28 @@ class DailyReport:
 
     @property
     def waste_kg(self) -> float:
-        """Los kilos tirados en el día."""
+        """[00617] Los kilos tirados en el día."""
         return round(sum(w.kg for w in self.waste), 3)
 
     @property
     def waste_cost(self) -> float:
-        """Lo que costó lo que se tiró."""
+        """[00618] Lo que costó lo que se tiró."""
         return round(sum(w.cost or 0.0 for w in self.waste), 2)
 
     @property
     def day_loss(self) -> float:
-        """Lo que se ha ido hoy en dinero: el desvío del turno, el agua y la merma."""
+        """[00619] Lo que se ha ido hoy en dinero: el desvío del turno, el agua y la merma."""
         return round(sum((c.loss_cost or 0.0) + (c.drip_cost or 0.0) for c in self.shifts)
                      + self.waste_cost, 2)
 
 
 def daily_report(session: Session, restaurant_id: int, on: date | None = None,
                  lang: str = "es", site_id: int | None = None) -> DailyReport:
-    """El parte del día: lo que hay, lo que se ha ido y lo que falta por hacer."""
+    """[00606] El parte del día: lo que hay, lo que se ha ido y lo que falta por hacer."""
     from thegrill.models import SalesByProduct, ShiftClosure, Site
 
     on = on or jornada.hoy(session, restaurant_id)
-    # Una lectura de las pesadas y una de la pizarra para todo el parte: antes
+    # [00644] Una lectura de las pesadas y una de la pizarra para todo el parte: antes
     # el parte pedía lo mismo cinco veces —la portada por dentro, y otras dos
     # para saber qué falta por pesar— y tardaba el doble que la pantalla más
     # lenta de la casa.
@@ -1127,7 +1127,7 @@ def daily_report(session: Session, restaurant_id: int, on: date | None = None,
 # ==================================================================== hoy
 @dataclass
 class PendingThing:
-    """Una de las cosas concretas de las que habla una línea de lo pendiente.
+    """[00607] Una de las cosas concretas de las que habla una línea de lo pendiente.
 
     «2 cortes por debajo del mínimo» no dice cuáles son ni dónde están, así que
     hay que ir a buscarlos a mano por otra pantalla. Cada cosa viene con su
@@ -1140,7 +1140,7 @@ class PendingThing:
 
 @dataclass
 class PendingLine:
-    """Una línea de lo pendiente, con lo que hay detrás."""
+    """[00608] Una línea de lo pendiente, con lo que hay detrás."""
     text: str
     where: str                       # la pantalla de la línea entera
     where_label: str = ""            # cómo se llama esa pantalla
@@ -1148,14 +1148,14 @@ class PendingLine:
     more: int = 0                    # las que no caben en la lista
 
 
-# Lo pendiente se enseña con nombres, pero una casa grande puede tener
+# [00645] Lo pendiente se enseña con nombres, pero una casa grande puede tener
 # cincuenta piezas sin pesar y esa lista tapa la portada entera. Se enseñan las
 # primeras y la línea dice cuántas quedan.
 A_LA_VISTA = 12
 
 
 def _cuanto_falta(lang: str, dias: int | None) -> str:
-    """Lo que le queda a un lote. Si ya pasó, se dice así y no «en -7 días»."""
+    """[00609] Lo que le queda a un lote. Si ya pasó, se dice así y no «en -7 días»."""
     if dias is None:
         return ""
     if dias < 0:
@@ -1179,7 +1179,7 @@ class Today:
 def today(session: Session, restaurant_id: int, on: date | None = None,
           lang: str = "es", site_id: int | None = None,
           history: aging_mod.History | None = None, rows: list | None = None) -> Today:
-    """Lo que está pendiente en la carne, en una pantalla.
+    """[00610] Lo que está pendiente en la carne, en una pantalla.
 
     Con sede, lo pendiente de esa sede: el del local no arregla la cámara del
     obrador, y las piezas que maduran en su local las pesa él.
@@ -1190,7 +1190,7 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
     Quien ya las tenga leídas las pasa y aquí no se vuelven a pedir.
     """
     on = on or jornada.hoy(session, restaurant_id)
-    # De la cámara de ahora: la portada habla de lo que hay, no de lo que hubo.
+    # [00646] De la cámara de ahora: la portada habla de lo que hay, no de lo que hubo.
     history = history or aging_mod.history_of(session, restaurant_id, in_stock_only=True)
     status = butchery.status(session, restaurant_id, on=on, site_id=site_id)
     value = round(sum(lot.qty_remaining * lot.unit_cost for lot in
@@ -1201,15 +1201,15 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
 
     states = defrost.shift_states(session, restaurant_id, on)
     thawing = [s for s in states if s.opening_pieces or s.intake_pieces]
-    # Salió a descongelar y nadie ha contado lo que quedaba: sin eso no hay cierre.
+    # [00647] Salió a descongelar y nadie ha contado lo que quedaba: sin eso no hay cierre.
     uncounted = [s for s in thawing if s.closing_pieces is None]
 
-    # Lo que madura: las que ya han cumplido sus días y las que llevan una
+    # [00648] Lo que madura: las que ya han cumplido sus días y las que llevan una
     # semana sin pesar, que es cuando la merma deja de estar controlada.
     aging_rows = rows if rows is not None else aging_mod.board(
         session, restaurant_id, on=on, site_id=site_id, history=history)
     ready = [r for r in aging_rows if r.storage == Storage.AGING and r.ready]
-    # Lo que madura está fresco y abierto: se pesa todos los días, como se
+    # [00649] Lo que madura está fresco y abierto: se pesa todos los días, como se
     # cuenta lo descongelado. Sin ese peso, la merma del día no existe.
     stale = [r for r in aging_rows if r.storage == Storage.AGING and r.last_weighed != on]
 
@@ -1220,17 +1220,17 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
                   .order_by(Despiece.date.desc()).limit(A_LA_VISTA + 1).all())
     unposted = (session.query(Despiece)
                 .filter_by(restaurant_id=restaurant_id, posted=False).count())
-    # Piezas en la cámara que todavía no valen nada: no se pueden despiezar y
+    # [00650] Piezas en la cámara que todavía no valen nada: no se pueden despiezar y
     # nadie se entera hasta que alguien va a cortarlas y no están en la lista.
     sin_precio = awaiting_price(session, restaurant_id, site_id=site_id)
 
-    # Cada línea se lleva las cosas de las que habla y la pantalla donde se
+    # [00651] Cada línea se lleva las cosas de las que habla y la pantalla donde se
     # arreglan: un número suelto obliga a ir a buscarlas a mano.
     pending: list[PendingLine] = []
 
     def anotar(clave: str, cuantas: int, donde: str, nombre: str,
                cosas: list[PendingThing]) -> None:
-        """Añade una línea al parte de pendientes, con unos pocos ejemplos.
+        """[00620] Añade una línea al parte de pendientes, con unos pocos ejemplos.
 
         Se enseñan los primeros y se dice cuántos más quedan: una lista de
         cuarenta piezas sin pesar no la lee nadie, y el número sí se ve.

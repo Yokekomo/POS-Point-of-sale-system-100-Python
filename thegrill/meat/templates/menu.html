@@ -18,7 +18,7 @@
   <td>{{ r.cut }}</td>
   <td class="num">{{ "%.0f"|format(r.grams) }}{% if r.extras %} <span class="muted">+{{ r.extras }}</span>{% endif %}
       {% if r.dish.by_weight %}<div class="muted">{{ t("m.menu.by_weight") }}</div>{% endif %}</td>
-  {# Lo del POS, junto: su número y el nombre exacto con el que llega. Antes
+  {# [01570] Lo del POS, junto: su número y el nombre exacto con el que llega. Antes
      el nombre salía debajo del plato aunque no hubiera emparejamiento —se
      caía al nombre del propio plato— y no había forma de saber cuáles
      estaban atadas de verdad y cuáles se iban a quedar sin descontar. #}

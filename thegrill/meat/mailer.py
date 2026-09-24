@@ -1,4 +1,4 @@
-"""El correo que sale de la web pública.
+"""[00505] El correo que sale de la web pública.
 
 Una solicitud de acceso se guarda siempre, salga el correo o no: una solicitud
 perdida es un cliente que no vuelve. El correo es el aviso, no el registro.
@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 
 
 def settings() -> dict[str, str]:
-    """La configuración del correo, leída del entorno."""
+    """[00506] La configuración del correo, leída del entorno."""
     return {
         "host": os.environ.get("GRILL_SMTP_HOST", ""),
         "port": os.environ.get("GRILL_SMTP_PORT", "587"),
@@ -37,13 +37,13 @@ def settings() -> dict[str, str]:
 
 
 def configured() -> bool:
-    """Si hay correo configurado: servidor, remitente y destinatario."""
+    """[00507] Si hay correo configurado: servidor, remitente y destinatario."""
     cfg = settings()
     return bool(cfg["host"] and cfg["sender"] and cfg["to"])
 
 
 def send(subject: str, body: str, reply_to: str | None = None) -> bool:
-    """Manda el aviso. Devuelve si salió; nunca revienta la petición web."""
+    """[00508] Manda el aviso. Devuelve si salió; nunca revienta la petición web."""
     if not configured():
         log.info("correo sin configurar; la solicitud queda solo en la bandeja")
         return False

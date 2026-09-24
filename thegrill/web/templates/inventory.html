@@ -12,7 +12,7 @@
 {% endif %}
 <p class="muted">{{ t("inv.monthly_help") }}</p>
 {% if recuperada %}<div class="banner ok">{{ t("inv.recovered") }}</div>{% endif %}
-{# El recado de lo último que se hizo. Antes esta pantalla usaba `done` como
+{# [01594] El recado de lo último que se hizo. Antes esta pantalla usaba `done` como
    interruptor con texto fijo, así que cualquier mensaje que llegara aquí
    —«no se apuntaron dos líneas del recuento»— salía convertido en «pieza
    recuperada», que dice otra cosa. #}
@@ -169,7 +169,7 @@
       data-unidad="{{ it.ingredient.unit.value if it.ingredient else 'KG' }}"
       >{{ it.name }}</option>{% endfor %}
   </select>
-  {# La cantidad va en gramos si el artículo se pesa, y en su unidad si se
+  {# [01595] La cantidad va en gramos si el artículo se pesa, y en su unidad si se
      cuenta. Cuál es depende del artículo que se elija, así que la casilla
      cambia de nombre al elegirlo: el nombre es lo que dice la unidad. #}
   <div class="banner warn" id="altaliquidos" hidden>{{ t("ing.liquids_weigh") }}</div>

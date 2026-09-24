@@ -1,4 +1,4 @@
-"""Maduración, congelador y venta a peso.
+"""[00828] Maduración, congelador y venta a peso.
 
 Una pieza entera puede estar en tres sitios, y en cada uno le pasa algo
 distinto:
@@ -38,7 +38,7 @@ from thegrill.web.i18n import t
 
 EPSILON = 1e-9
 
-# Una pieza que madura pierde agua, y eso es normal. Lo que no es normal es
+# [00882] Una pieza que madura pierde agua, y eso es normal. Lo que no es normal es
 # cuánto: por encima de estos números alguien tiene que mirarla.
 SINGLE_LOSS_PCT = 10.0      # de una pesada a la siguiente
 TOTAL_LOSS_PCT = 20.0       # desde que entró a madurar
@@ -49,7 +49,7 @@ MAX_TRIM_PARTS = 3          # lo que sale aprovechable de una limpieza, en la pr
 
 
 class AgingError(ValueError):
-    """Lo que se pide hacer con la pieza no se puede hacer."""
+    """[00829] Lo que se pide hacer con la pieza no se puede hacer."""
 
 
 @dataclass
@@ -81,7 +81,7 @@ class WeighResult:
 
     @property
     def cost_rise_pct(self) -> float | None:
-        """Cuánto sube el kilo, que es lo que hay que llevar a la carta."""
+        """[00868] Cuánto sube el kilo, que es lo que hay que llevar a la carta."""
         if not self.cost_per_kg_before or not self.cost_per_kg:
             return None
         return round((self.cost_per_kg - self.cost_per_kg_before)
@@ -90,7 +90,7 @@ class WeighResult:
 
 @dataclass
 class TrimPart:
-    """Un trozo de la limpieza que se aprovecha: adónde va y cuánto vale."""
+    """[00830] Un trozo de la limpieza que se aprovecha: adónde va y cuánto vale."""
     item_id: int
     kg: float
     value_index: float = 0.25
@@ -100,7 +100,7 @@ class TrimPart:
 
 @dataclass
 class TrimResult:
-    """Una limpieza: lo que se le ha quitado a la pieza y adónde ha ido."""
+    """[00831] Una limpieza: lo que se le ha quitado a la pieza y adónde ha ido."""
     serial: str
     sku: str
     storage: Storage
@@ -116,25 +116,25 @@ class TrimResult:
 
     @property
     def trim_serial(self) -> str | None:
-        """Los números que se le dieron a lo que se quitó, separados por comas."""
+        """[00869] Los números que se le dieron a lo que se quitó, separados por comas."""
         seriales = [p.serial for p in self.parts if p.serial]
         return ", ".join(seriales) if seriales else None
 
     @property
     def waste_pct(self) -> float:
-        """De lo que se quitó, qué parte fue a la basura y no se guardó."""
+        """[00870] De lo que se quitó, qué parte fue a la basura y no se guardó."""
         return 0.0 if self.removed_kg <= EPSILON else round(
             self.waste_kg / self.removed_kg * 100, 1)
 
     @property
     def removed_pct(self) -> float:
-        """Qué parte de la pieza entera se quitó al limpiarla."""
+        """[00871] Qué parte de la pieza entera se quitó al limpiarla."""
         whole = self.kg + self.removed_kg
         return 0.0 if whole <= EPSILON else round(self.removed_kg / whole * 100, 2)
 
     @property
     def cost_rise_pct(self) -> float | None:
-        """Cuánto sube el kilo al limpiar la pieza.
+        """[00872] Cuánto sube el kilo al limpiar la pieza.
 
         La grasa y el hueso que salen no devuelven su dinero: lo que costó la pieza
         entera se queda sobre los kilos que quedan. Limpiar un 20 % sube el kilo
@@ -148,7 +148,7 @@ class TrimResult:
 
 @dataclass
 class BoardRow:
-    """Una pieza en la nevera de maduración o en el congelador."""
+    """[00832] Una pieza en la nevera de maduración o en el congelador."""
     serial: str
     sku: str
     storage: Storage
@@ -174,14 +174,14 @@ class BoardRow:
 
     @property
     def yield_pct(self) -> float | None:
-        """De lo que entró, cuánto queda. Es la pregunta de la maduración."""
+        """[00873] De lo que entró, cuánto queda. Es la pregunta de la maduración."""
         if not self.received_kg:
             return None
         return round((self.kg + self.sold_kg) / self.received_kg * 100, 1)
 
     @property
     def ready_on(self) -> date | None:
-        """El día en que la pieza cumple los días de maduración pedidos.
+        """[00874] El día en que la pieza cumple los días de maduración pedidos.
 
         Solo para lo que está madurando: en el congelador el reloj está parado y
         en cámara no hay cuenta atrás que llevar.
@@ -192,12 +192,12 @@ class BoardRow:
 
     @property
     def ready(self) -> bool:
-        """Si ya ha cumplido los días que se le pidieron."""
+        """[00875] Si ya ha cumplido los días que se le pidieron."""
         return bool(self.target_days) and self.days >= (self.target_days or 0)
 
     @property
     def days_left(self) -> int | None:
-        """Días que le faltan. Sin objetivo, no hay cuenta que dar."""
+        """[00876] Días que le faltan. Sin objetivo, no hay cuenta que dar."""
         if not self.target_days:
             return None
         return max(0, self.target_days - self.days)
@@ -216,12 +216,12 @@ class SaleResult:
 
     @property
     def margin(self) -> float:
-        """Lo ganado en ese corte: lo cobrado menos lo que costó la carne."""
+        """[00877] Lo ganado en ese corte: lo cobrado menos lo que costó la carne."""
         return round(self.price - self.cost, 4)
 
     @property
     def food_cost_pct(self) -> float | None:
-        """A qué food cost ha salido el corte. Regalado —precio cero—, ninguno."""
+        """[00878] A qué food cost ha salido el corte. Regalado —precio cero—, ninguno."""
         if self.price <= EPSILON:
             return None
         return round(self.cost / self.price * 100, 2)
@@ -230,7 +230,7 @@ class SaleResult:
 # ------------------------------------------------------------------ piezas
 @dataclass
 class History:
-    """Todo lo que se ha pesado en la casa, leído una sola vez.
+    """[00833] Todo lo que se ha pesado en la casa, leído una sola vez.
 
     Antes cada pantalla lo leía tres o cuatro veces: la del tablero, la del
     resumen y la del conteo del día pedían lo mismo por separado, y con cinco
@@ -241,7 +241,7 @@ class History:
     trimmed: dict[str, list] = field(default_factory=dict)
     sold: dict[str, list] = field(default_factory=dict)
     aging_rows: list = field(default_factory=list)     # las pesadas de maduración
-    # Solo trae lo de las piezas que están ahora en la cámara. Vale para la
+    # [00883] Solo trae lo de las piezas que están ahora en la cámara. Vale para la
     # pizarra y para el conteo del día; no vale para los tramos de
     # rendimiento, que necesitan también las piezas que ya se gastaron.
     partial: bool = False
@@ -249,7 +249,7 @@ class History:
 
 def history_of(session: Session, restaurant_id: int,
                in_stock_only: bool = False) -> History:
-    """Lo pesado y lo vendido al peso, leído de una vez para toda la pantalla.
+    """[00834] Lo pesado y lo vendido al peso, leído de una vez para toda la pantalla.
 
     Se piden las columnas, no las filas enteras: una casa con seis meses dentro
     tiene cinco mil pesadas, y montar cada una como objeto para leerle cinco
@@ -270,7 +270,7 @@ def history_of(session: Session, restaurant_id: int,
     out = History()
     if in_stock_only:
         out.partial = True
-        # Por el número de pieza, no por una lista de seriales: una casa grande
+        # [00884] Por el número de pieza, no por una lista de seriales: una casa grande
         # tiene más piezas de las que caben en una consulta con lista.
         en_camara = (session.query(Primal.id)
                      .filter(Primal.restaurant_id == restaurant_id,
@@ -313,7 +313,7 @@ def history_of(session: Session, restaurant_id: int,
 
 
 def _add_trim(out: History, row) -> None:
-    """Una limpieza: lo que se quitó, lo que se guardó y lo que se tiró."""
+    """[00835] Una limpieza: lo que se quitó, lo que se guardó y lo que se tiró."""
     kept = row.kept_kg or 0.0
     out.trimmed.setdefault(row.serial, []).append(
         (row.date, row.loss_kg, kept,
@@ -321,7 +321,7 @@ def _add_trim(out: History, row) -> None:
 
 
 def find(session: Session, restaurant_id: int, serial: str) -> Primal:
-    """La pieza entera con ese número, si está en la casa y en stock."""
+    """[00836] La pieza entera con ese número, si está en la casa y en stock."""
     primal = (session.query(Primal)
               .filter_by(restaurant_id=restaurant_id, serial=(serial or "").strip()).first())
     if primal is None:
@@ -332,7 +332,7 @@ def find(session: Session, restaurant_id: int, serial: str) -> Primal:
 
 
 def here(session: Session, user: User, primal: Primal) -> Primal:
-    """La pieza tiene que estar donde trabaja quien la va a tocar.
+    """[00837] La pieza tiene que estar donde trabaja quien la va a tocar.
 
     La pantalla ya solo enseña la cámara de cada uno, pero el número se puede
     escribir a mano: esto es lo que cierra la puerta de verdad.
@@ -345,12 +345,12 @@ def here(session: Session, user: User, primal: Primal) -> Primal:
 
 
 def where(primal: Primal) -> Storage:
-    """Dónde está la pieza. Las de antes de esto estaban en cámara."""
+    """[00838] Dónde está la pieza. Las de antes de esto estaban en cámara."""
     return primal.storage or Storage.CHILLED
 
 
 def cost_per_kg(primal: Primal) -> float | None:
-    """A cómo sale el kilo de esta pieza ahora mismo."""
+    """[00839] A cómo sale el kilo de esta pieza ahora mismo."""
     if primal.landed_usd_per_kg is not None:
         return primal.landed_usd_per_kg
     if primal.piece_cost_usd is not None and primal.weight_kg:
@@ -359,7 +359,7 @@ def cost_per_kg(primal: Primal) -> float | None:
 
 
 def total_cost(primal: Primal) -> float | None:
-    """Lo que costó la pieza entera. No cambia porque pierda agua."""
+    """[00840] Lo que costó la pieza entera. No cambia porque pierda agua."""
     if primal.piece_cost_usd is not None:
         return primal.piece_cost_usd
     if primal.landed_usd_per_kg is not None and primal.weight_kg:
@@ -368,7 +368,7 @@ def total_cost(primal: Primal) -> float | None:
 
 
 def days_in(primal: Primal, on: date | None = None) -> int:
-    """Cuántos días lleva la pieza donde está.
+    """[00841] Cuántos días lleva la pieza donde está.
 
     Se cuenta desde que entró, y por eso congelar y descongelar reinicia la
     cuenta: lo que importa no es la edad de la pieza sino el tiempo que lleva
@@ -384,7 +384,7 @@ def days_in(primal: Primal, on: date | None = None) -> int:
 def move(session: Session, user: User, serial: str, storage: Storage,
          target_days: int | None = None, use_by: date | None = None,
          on: date | None = None, note: str | None = None) -> MoveResult:
-    """Lleva una pieza entera a la cámara, al congelador o a madurar.
+    """[00842] Lleva una pieza entera a la cámara, al congelador o a madurar.
 
     Entrar a madurar deja escrito el peso de salida: sin él no hay forma de
     decir después cuánto ha perdido. Congelar pide la fecha de consumo del
@@ -411,7 +411,7 @@ def move(session: Session, user: User, serial: str, storage: Storage,
     if storage == Storage.FROZEN and use_by:
         primal.frozen_use_by = use_by
     if storage != Storage.FROZEN and was == Storage.FROZEN:
-        # Sale del congelador. La fecha del congelador deja de mandar, pero
+        # [00885] Sale del congelador. La fecha del congelador deja de mandar, pero
         # borrarla a secas dejaba a la pieza **sin ninguna fecha**: una que
         # llegó congelada no trae más que esa, y al descongelarla se quedaba
         # sin caducidad, sin aviso y sin sitio en la cola de rotación. Lo que
@@ -431,7 +431,7 @@ def move(session: Session, user: User, serial: str, storage: Storage,
 def weigh(session: Session, user: User, serial: str, kg: float,
           on: date | None = None, source: str = "manual", note: str | None = None,
           lang: str | None = None) -> WeighResult:
-    """Vuelve a pesar una pieza entera y reparte el coste sobre lo que queda.
+    """[00843] Vuelve a pesar una pieza entera y reparte el coste sobre lo que queda.
 
     Los kilos que faltan no se los ha llevado nadie: se han evaporado. Por eso
     el coste de la pieza no baja y el precio del kilo sube.
@@ -449,7 +449,7 @@ def weigh(session: Session, user: User, serial: str, kg: float,
             f"La pieza {primal.serial} pesaba {previous:.10g} kg y no puede pesar "
             f"{kg:.10g}. Una pieza no engorda en la cámara: revisa la báscula o el número.")
 
-    # Dentro del juego de la báscula, una pieza que "engorda" no ha engordado:
+    # [00886] Dentro del juego de la báscula, una pieza que "engorda" no ha engordado:
     # es la balanza. Se apunta lo leído, pero el peso que se guarda es el de
     # antes; si no, el kilo de lo que madura se abarata solo, pesada a pesada,
     # y la carne madurada acaba costando menos que la fresca.
@@ -459,7 +459,7 @@ def weigh(session: Session, user: User, serial: str, kg: float,
 
     cost = total_cost(primal)
     before_per_kg = cost_per_kg(primal)
-    # El coste de la pieza se fija aquí: a partir de ahora el kilo se calcula
+    # [00887] El coste de la pieza se fija aquí: a partir de ahora el kilo se calcula
     # contra el peso de hoy, no contra el del día que llegó.
     if cost is not None:
         primal.piece_cost_usd = cost
@@ -491,14 +491,14 @@ def weigh(session: Session, user: User, serial: str, kg: float,
 
 
 def _pct(part: float, whole: float) -> float:
-    """El tanto por ciento de una parte sobre un total, sin dividir por cero."""
+    """[00844] El tanto por ciento de una parte sobre un total, sin dividir por cero."""
     if whole <= EPSILON:
         return 0.0
     return round(part / whole * 100, 2)
 
 
 def _announce(session: Session, user: User, result: WeighResult, lang: str) -> None:
-    """Avisa cuando la pieza pierde más de lo que una maduración explica."""
+    """[00845] Avisa cuando la pieza pierde más de lo que una maduración explica."""
     if result.storage != Storage.AGING:
         return
     severity = None
@@ -529,7 +529,7 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
          waste_kg: float | None = None, use_by: date | None = None,
          on: date | None = None, note: str | None = None,
          lang: str | None = None) -> TrimResult:
-    """Limpia una pieza entera: lo que se le quita deja de estar en ella.
+    """[00846] Limpia una pieza entera: lo que se le quita deja de estar en ella.
 
     Se limpia dos veces, y no son la misma. Antes de madurar se le quita lo
     que sobra —grasa suelta, telillas— para que entre limpia. Y cuando lleva
@@ -563,7 +563,7 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
             f"{previous:.10g}. Una limpieza no puede dejar la pieza en nada.")
 
     parts = [p for p in (parts or []) if p.kg and p.kg > 0]
-    # Una pieza sin precio no se limpia guardando recortes, por lo mismo que no
+    # [00888] Una pieza sin precio no se limpia guardando recortes, por lo mismo que no
     # se despieza: el recorte entraría en cámara a cero euros, se guardaría como
     # `last_cost` del artículo, y de ahí saldría el coste de todos los platos
     # que lo lleven. Carne gratis en el escandallo. El despiece tiene esa
@@ -592,7 +592,7 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
         part.serial = lot.serial
         lotes.append(lot)
 
-    # Lo que se llevan los recortes se reparte en céntimos enteros, y lo que
+    # [00889] Lo que se llevan los recortes se reparte en céntimos enteros, y lo que
     # queda en la pieza es el resto exacto. Calculando cada parte por su lado
     # —kilos por precio por índice— y restando, la pieza se quedaba con unas
     # milésimas de más o de menos que ya no cuadraban con nada.
@@ -638,7 +638,7 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
 
 def _keep_trim(session: Session, user: User, primal: Primal, kg: float, item_id: int,
                value_index: float, use_by: date | None, on: date) -> IngredientLot:
-    """Mete los recortes en cámara con su propio lote y su parte del coste."""
+    """[00847] Mete los recortes en cámara con su propio lote y su parte del coste."""
     item = session.get(IngredientItem, item_id)
     if item is None or item.restaurant_id != user.restaurant_id:
         raise AgingError("Ese artículo no es de este restaurante")
@@ -660,7 +660,7 @@ def _keep_trim(session: Session, user: User, primal: Primal, kg: float, item_id:
                         grade=primal.grade, origin=primal.origin)
     session.add(lot)
     session.flush()
-    # Un cero no es un precio: si se guarda como referencia del artículo, el
+    # [00890] Un cero no es un precio: si se guarda como referencia del artículo, el
     # escandallo de los platos que lo lleven sale gratis y nadie lo ve.
     if unit_cost > 0:
         item.last_cost = unit_cost
@@ -676,7 +676,7 @@ def _keep_trim(session: Session, user: User, primal: Primal, kg: float, item_id:
 def sell_by_weight(session: Session, user: User, serial: str, grams: float,
                    price: float = 0.0, dish: str | None = None,
                    on: date | None = None, note: str | None = None) -> SaleResult:
-    """Corta y cobra por kilo: lo que se hace con una pieza madurada.
+    """[00848] Corta y cobra por kilo: lo que se hace con una pieza madurada.
 
     Se descuentan los gramos cortados y se lleva con ellos su parte del coste,
     de manera que el kilo de lo que queda sigue valiendo lo mismo.
@@ -689,7 +689,7 @@ def sell_by_weight(session: Session, user: User, serial: str, grams: float,
 
     primal = here(session, user, find(session, user.restaurant_id, serial))
     if where(primal) == Storage.FROZEN:
-        # Lo congelado está en espera: no se corta al peso ni se cobra. Primero
+        # [00891] Lo congelado está en espera: no se corta al peso ni se cobra. Primero
         # sale del arcón, y cuando esté descongelado se vende.
         raise AgingError(
             f"La pieza {primal.serial} está congelada: hay que sacarla a descongelar "
@@ -706,7 +706,7 @@ def sell_by_weight(session: Session, user: User, serial: str, grams: float,
     whole = total_cost(primal)
     primal.weight_kg = round(available - kg, 6)
     if whole is not None:
-        # El trozo se lleva su parte: el kilo de lo que queda no se mueve.
+        # [00892] El trozo se lleva su parte: el kilo de lo que queda no se mueve.
         primal.piece_cost_usd = round(max(0.0, whole - cost), 6)
 
     finished = primal.weight_kg <= EPSILON
@@ -730,7 +730,7 @@ def sell_by_weight(session: Session, user: User, serial: str, grams: float,
 # ------------------------------------------------------------ conteo diario
 @dataclass
 class DailyLine:
-    """Una pieza en el conteo del día."""
+    """[00849] Una pieza en el conteo del día."""
     serial: str
     sku: str
     days: int
@@ -744,12 +744,12 @@ class DailyLine:
 
 @dataclass
 class DailyCount:
-    """Lo que ha dejado el conteo de hoy en la nevera de maduración."""
+    """[00850] Lo que ha dejado el conteo de hoy en la nevera de maduración."""
     date: date
     lines: list[DailyLine] = field(default_factory=list)
     alerts: list[Alert] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)      # las que no se han pesado
-    # Las que se intentaron y no entraron, con el motivo. Antes una sola de
+    # [00893] Las que se intentaron y no entraron, con el motivo. Antes una sola de
     # estas tumbaba el conteo entero a mitad: la excepción subía a la ruta, la
     # ruta la enseñaba... y lo ya pesado se quedaba guardado igual, porque la
     # sesión se cierra bien y se confirma. Quien contaba veía un error, volvía
@@ -758,17 +758,17 @@ class DailyCount:
 
     @property
     def loss_kg(self) -> float:
-        """Los kilos que faltan en el recuento del día, sumando todas las líneas."""
+        """[00879] Los kilos que faltan en el recuento del día, sumando todas las líneas."""
         return round(sum(l.loss_kg for l in self.lines), 6)
 
     @property
     def cost(self) -> float:
-        """Lo que cuesta esa falta, en dinero."""
+        """[00880] Lo que cuesta esa falta, en dinero."""
         return round(sum(l.cost or 0.0 for l in self.lines), 4)
 
     @property
     def counted(self) -> int:
-        """Cuántas líneas se han contado de verdad.
+        """[00881] Cuántas líneas se han contado de verdad.
 
         Una línea sin peso no es un cero: es que nadie la ha pesado todavía, y
         contarla como cero convertiría lo que falta por hacer en carne perdida.
@@ -779,7 +779,7 @@ class DailyCount:
 def to_count(session: Session, restaurant_id: int, on: date | None = None,
              site_id: int | None = None, rows: list[BoardRow] | None = None,
              history: History | None = None) -> list[DailyLine]:
-    """Lo que hay que pesar hoy: todo lo que madura, que es producto fresco.
+    """[00851] Lo que hay que pesar hoy: todo lo que madura, que es producto fresco.
 
     Una pieza madurando no está congelada: está en una cámara a dos grados
     perdiendo agua todos los días. Se cuenta como se cuenta lo descongelado,
@@ -807,7 +807,7 @@ def to_count(session: Session, restaurant_id: int, on: date | None = None,
 def pending_today(session: Session, restaurant_id: int, on: date | None = None,
                   site_id: int | None = None,
                   rows: list[BoardRow] | None = None) -> list[str]:
-    """Las piezas que madurando se han quedado hoy sin pesar, sede a sede."""
+    """[00852] Las piezas que madurando se han quedado hoy sin pesar, sede a sede."""
     on = on or jornada.hoy(session, restaurant_id)
     return [l.serial for l in to_count(session, restaurant_id, on, site_id, rows=rows)
             if l.kg is None]
@@ -816,7 +816,7 @@ def pending_today(session: Session, restaurant_id: int, on: date | None = None,
 def count_day(session: Session, user: User, readings: list[tuple[str, float]],
               on: date | None = None, lang: str | None = None,
               site_id: int | None = None) -> DailyCount:
-    """Pesa de una vez todas las piezas que maduran, que es el conteo del día.
+    """[00853] Pesa de una vez todas las piezas que maduran, que es el conteo del día.
 
     Devuelve lo que se ha ido hoy en kilos y en dinero: esos kilos no se van a
     vender, aunque su coste se quede en los que quedan. Y dice cuáles no se han
@@ -840,7 +840,7 @@ def count_day(session: Session, user: User, readings: list[tuple[str, float]],
             pesada = weigh(session, user, line.serial, kg, on=on, source="daily",
                            lang=lang)
         except (AgingError, ValueError) as e:
-            # Una lectura mala no puede llevarse por delante las otras nueve,
+            # [00894] Una lectura mala no puede llevarse por delante las otras nueve,
             # pero tampoco puede callarse: se dice cuál y por qué.
             out.rechazadas.append(f"{line.serial}: {e}")
             out.lines.append(line)
@@ -859,7 +859,7 @@ def count_day(session: Session, user: User, readings: list[tuple[str, float]],
 def board(session: Session, restaurant_id: int, storage: Storage | None = None,
           on: date | None = None, site_id: int | None = None,
           history: History | None = None) -> list[BoardRow]:
-    """Lo que hay madurando y lo que hay congelado, pieza a pieza.
+    """[00854] Lo que hay madurando y lo que hay congelado, pieza a pieza.
 
     Se madura donde se sirve: una pieza puesta a madurar en el local es del
     local, y es el local el que la pesa. Con `site_id` sale solo su cámara.
@@ -884,11 +884,11 @@ def board(session: Session, restaurant_id: int, storage: Storage | None = None,
             continue
         kg = round(primal.weight_kg or 0.0, 6)
         start = primal.aging_start_kg or kg
-        # Lo vendido al corte no es merma: sale de la pieza porque se ha
+        # [00895] Lo vendido al corte no es merma: sale de la pieza porque se ha
         # cobrado. Lo que se ha evaporado es lo otro.
         cut = round(sum(k for when, k in sold.get(primal.serial, [])
                         if not primal.storage_since or when >= primal.storage_since), 6)
-        # Ni lo vendido ni lo limpiado son agua: cada cosa en su columna, que
+        # [00896] Ni lo vendido ni lo limpiado son agua: cada cosa en su columna, que
         # si no la merma de maduración sale inflada y no se parece a nada. El
         # porcentaje de agua se mide contra el peso con el que entró a madurar,
         # que es lo honesto: la costra no evaporó, la cortó alguien.
@@ -917,7 +917,7 @@ def board(session: Session, restaurant_id: int, storage: Storage | None = None,
 
 def _trimmed_kg(session: Session, restaurant_id: int
                 ) -> dict[str, list[tuple[date, float, float, float]]]:
-    """Las limpiezas de cada pieza: lo quitado, lo aprovechado y lo tirado."""
+    """[00855] Las limpiezas de cada pieza: lo quitado, lo aprovechado y lo tirado."""
     found: dict[str, list[tuple[date, float, float, float]]] = {}
     for row in (session.query(PrimalWeighing)
                 .filter_by(restaurant_id=restaurant_id, kind=LossKind.TRIM)):
@@ -929,7 +929,7 @@ def _trimmed_kg(session: Session, restaurant_id: int
 
 
 def _sold_kg(session: Session, restaurant_id: int) -> dict[str, list[tuple[date, float]]]:
-    """Los kilos vendidos al corte de cada pieza, con su día."""
+    """[00856] Los kilos vendidos al corte de cada pieza, con su día."""
     found: dict[str, list[tuple[date, float]]] = {}
     for row in (session.query(WeightSale).filter_by(restaurant_id=restaurant_id)):
         found.setdefault(row.serial, []).append((row.date, round(row.grams / 1000, 6)))
@@ -937,7 +937,7 @@ def _sold_kg(session: Session, restaurant_id: int) -> dict[str, list[tuple[date,
 
 
 def _last_weighings(session: Session, restaurant_id: int) -> dict[str, date]:
-    """El día de la última pesada de cada pieza.
+    """[00857] El día de la última pesada de cada pieza.
 
     Se recorre de la más vieja a la más nueva y cada una pisa a la anterior:
     al acabar, lo que queda es la última. Es lo que dice si una pieza que
@@ -952,7 +952,7 @@ def _last_weighings(session: Session, restaurant_id: int) -> dict[str, date]:
 
 
 def history(session: Session, restaurant_id: int, serial: str) -> list[PrimalWeighing]:
-    """Todas las pesadas de una pieza, de la primera a la última."""
+    """[00858] Todas las pesadas de una pieza, de la primera a la última."""
     return (session.query(PrimalWeighing)
             .filter_by(restaurant_id=restaurant_id, serial=(serial or "").strip())
             .order_by(PrimalWeighing.date.asc(), PrimalWeighing.id.asc()).all())
@@ -960,7 +960,7 @@ def history(session: Session, restaurant_id: int, serial: str) -> list[PrimalWei
 
 def sales(session: Session, restaurant_id: int, serial: str | None = None,
           days: int = 60) -> list[WeightSale]:
-    """Las ventas a peso recientes, o todas las de una pieza."""
+    """[00859] Las ventas a peso recientes, o todas las de una pieza."""
     query = session.query(WeightSale).filter_by(restaurant_id=restaurant_id)
     if serial:
         query = query.filter(WeightSale.serial == serial.strip())
@@ -971,7 +971,7 @@ def sales(session: Session, restaurant_id: int, serial: str | None = None,
 
 @dataclass
 class Summary:
-    """Lo que la maduración y el congelador dejan en números."""
+    """[00860] Lo que la maduración y el congelador dejan en números."""
     aging_pieces: int = 0
     aging_kg: float = 0.0
     aging_value: float = 0.0
@@ -987,7 +987,7 @@ class Summary:
 
 def summary(session: Session, restaurant_id: int, on: date | None = None,
             site_id: int | None = None, rows: list[BoardRow] | None = None) -> Summary:
-    """Los totales del tablero: cuánta carne hay madurando y congelada, y qué vale.
+    """[00861] Los totales del tablero: cuánta carne hay madurando y congelada, y qué vale.
 
     Se cuenta sobre las mismas filas que se pintan —si se las pasan, no se
     vuelve a la base— para que el total y el detalle no puedan decir cosas
@@ -1016,7 +1016,7 @@ def summary(session: Session, restaurant_id: int, on: date | None = None,
 
 @dataclass
 class YieldBand:
-    """El rendimiento medio de las piezas que se maduraron tantos días."""
+    """[00862] El rendimiento medio de las piezas que se maduraron tantos días."""
     days: int                    # el tramo: 30, 45, 60…
     pieces: int
     yield_pct: float             # cuánto queda de lo que entró, de media
@@ -1025,7 +1025,7 @@ class YieldBand:
     kg: float = 0.0              # kilos que han pasado por ahí
 
 
-# Los tramos de rendimiento miran hacia atrás, pero no hasta el principio de
+# [00897] Los tramos de rendimiento miran hacia atrás, pero no hasta el principio de
 # los tiempos: lo que dejó una pieza hace tres años no dice nada de la decisión
 # de hoy —han cambiado el proveedor, la cámara y hasta el carnicero— y en
 # cambio obliga a sumar toda la historia de la casa cada vez que alguien abre
@@ -1034,13 +1034,13 @@ MESES_DE_TRAMOS = 18
 
 
 def _desde_cuando(on: date | None = None) -> date:
-    """El principio de la ventana de los tramos."""
+    """[00863] El principio de la ventana de los tramos."""
     hoy = on or date.today()
     return hoy - timedelta(days=int(MESES_DE_TRAMOS * 30.44))
 
 
 def _aging_totals(session: Session, restaurant_id: int, desde: date):
-    """Por pieza: los días que llegó a madurar y lo que perdió, en dos sumas."""
+    """[00864] Por pieza: los días que llegó a madurar y lo que perdió, en dos sumas."""
     cuchillo = case((PrimalWeighing.kind == LossKind.TRIM, PrimalWeighing.loss_kg),
                     else_=0.0)
     return (session.query(PrimalWeighing.serial,
@@ -1054,7 +1054,7 @@ def _aging_totals(session: Session, restaurant_id: int, desde: date):
 
 
 def _aging_starts(session: Session, restaurant_id: int, desde: date):
-    """Por pieza: lo que pesaba cuando entró a madurar, que es contra lo que se mide."""
+    """[00865] Por pieza: lo que pesaba cuando entró a madurar, que es contra lo que se mide."""
     primeras = (session.query(PrimalWeighing.serial.label("serial"),
                               func.min(PrimalWeighing.id).label("primera"))
                 .filter(PrimalWeighing.restaurant_id == restaurant_id,
@@ -1068,7 +1068,7 @@ def _aging_starts(session: Session, restaurant_id: int, desde: date):
 def yield_by_days(session: Session, restaurant_id: int, minimum: int = 3,
                   band: int = 15, history: History | None = None,
                   on: date | None = None) -> list[YieldBand]:
-    """Qué rendimiento deja cada tramo de días, para decidir cuántos madurar.
+    """[00866] Qué rendimiento deja cada tramo de días, para decidir cuántos madurar.
 
     La pregunta que se hace un asador no es cuánto pierde una pieza, sino si
     los quince días de más le salen a cuenta: la costra crece con el tiempo y
@@ -1078,7 +1078,7 @@ def yield_by_days(session: Session, restaurant_id: int, minimum: int = 3,
     Con menos de `minimum` piezas en un tramo no se dice nada: una media de dos
     piezas no es una media, es una anécdota.
     """
-    # Las cuentas las hace la base de datos: aquí solo llega una fila por pieza.
+    # [00898] Las cuentas las hace la base de datos: aquí solo llega una fila por pieza.
     # Recorrer en Python las cinco mil pesadas de la casa para acabar con
     # cuarenta medias era lo que hacía que esta pantalla fuera a peor cada mes.
     piezas: dict[str, dict] = {}
@@ -1128,7 +1128,7 @@ def yield_by_days(session: Session, restaurant_id: int, minimum: int = 3,
 
 def _audit(session: Session, user: User, serial: str, move: str,
            note: str | None = None) -> None:
-    """Un traslado se firma: quién movió la pieza, de dónde a dónde y por qué."""
+    """[00867] Un traslado se firma: quién movió la pieza, de dónde a dónde y por qué."""
     detail = move if not note else f"{move} · {note}"
     session.add(AuditLog(restaurant_id=user.restaurant_id, actor=user.name,
                          table="primals", key=serial, action="move",

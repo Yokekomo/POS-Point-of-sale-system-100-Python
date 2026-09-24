@@ -1,4 +1,4 @@
-"""Motor FEFO / FIFO (§7.2).
+"""[00106] Motor FEFO / FIFO (§7.2).
 
 Consumo por caducidad más próxima (FEFO); a igual caducidad, el recibido antes
 (FIFO). Toda merma y producción se valora por FEFO: nunca se deja coste en blanco.
@@ -10,7 +10,7 @@ from datetime import date
 
 
 class NoCostBasis(ValueError):
-    """No hay lotes para valorar el consumo: hay que resolverlo, no dejarlo en blanco."""
+    """[00107] No hay lotes para valorar el consumo: hay que resolverlo, no dejarlo en blanco."""
 
 
 @dataclass
@@ -31,7 +31,7 @@ class Consumption:
 
     @property
     def cost_usd(self) -> float:
-        """Lo que cuesta lo que se sacó de ese lote."""
+        """[00113] Lo que cuesta lo que se sacó de ese lote."""
         return round(self.kg * self.unit_cost_usd, 4)
 
 
@@ -43,27 +43,27 @@ class FefoResult:
 
     @property
     def cost_usd(self) -> float:
-        """Lo que cuesta todo lo consumido, lote a lote."""
+        """[00114] Lo que cuesta todo lo consumido, lote a lote."""
         return round(sum(c.cost_usd for c in self.consumptions), 4)
 
     @property
     def kg(self) -> float:
-        """Los kilos consumidos en total."""
+        """[00115] Los kilos consumidos en total."""
         return round(sum(c.kg for c in self.consumptions), 4)
 
 
 def order_fefo(lots: list[Lot]) -> list[Lot]:
-    """Antes lo que antes caduca; a igual caducidad, lo que antes entró."""
+    """[00108] Antes lo que antes caduca; a igual caducidad, lo que antes entró."""
     return sorted(lots, key=lambda l: (l.expiry, l.received or date.min, l.lot_id))
 
 
 def order_fifo(lots: list[Lot]) -> list[Lot]:
-    """Antes lo que antes entró; a igual entrada, lo que antes caduca."""
+    """[00109] Antes lo que antes entró; a igual entrada, lo que antes caduca."""
     return sorted(lots, key=lambda l: (l.received or date.min, l.expiry, l.lot_id))
 
 
 def order_by(lots: list[Lot], rotation: str = "FEFO") -> list[Lot]:
-    """Ordena los lotes según la rotación de la casa: FEFO o FIFO.
+    """[00110] Ordena los lotes según la rotación de la casa: FEFO o FIFO.
 
     No es lo mismo: FEFO saca primero lo que caduca antes, que es lo que
     protege al cliente; FIFO saca lo que entró antes, que es lo que cuadra el
@@ -73,7 +73,7 @@ def order_by(lots: list[Lot], rotation: str = "FEFO") -> list[Lot]:
 
 
 def consume(lots: list[Lot], ingredient: str, kg: float, allow_shortfall: bool = False) -> FefoResult:
-    """Descuenta `kg` del ingrediente por FEFO. Devuelve consumos valorados y stock restante.
+    """[00111] Descuenta `kg` del ingrediente por FEFO. Devuelve consumos valorados y stock restante.
 
     Si no hay lotes del ingrediente => NoCostBasis (regla 5: nunca coste en blanco).
     Si hay lotes pero no llegan, con allow_shortfall=True se registra el faltante
@@ -110,5 +110,5 @@ def consume(lots: list[Lot], ingredient: str, kg: float, allow_shortfall: bool =
 
 
 def expiring(lots: list[Lot], today: date, within_days: int = 3) -> list[Lot]:
-    """Alerta FEFO: lotes que caducan en <= within_days (incluye ya caducados)."""
+    """[00112] Alerta FEFO: lotes que caducan en <= within_days (incluye ya caducados)."""
     return [l for l in order_fefo(lots) if l.kg > 0 and (l.expiry - today).days <= within_days]

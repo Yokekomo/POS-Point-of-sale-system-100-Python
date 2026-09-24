@@ -1,4 +1,4 @@
-"""Escandallo: coste de una receta, food cost y desglose por ingrediente.
+"""[00131] Escandallo: coste de una receta, food cost y desglose por ingrediente.
 
 Modelo de trabajo, el de cualquier cocina:
 
@@ -21,19 +21,19 @@ EPSILON = 1e-9
 
 
 class CircularRecipe(ValueError):
-    """Una receta se incluye a sí misma. Sin esto el cálculo no terminaría."""
+    """[00132] Una receta se incluye a sí misma. Sin esto el cálculo no terminaría."""
 
 
 class UnknownCost(ValueError):
-    """No hay precio para un ingrediente. Se avisa, nunca se cuenta como cero."""
+    """[00133] No hay precio para un ingrediente. Se avisa, nunca se cuenta como cero."""
 
 
 class BadWaste(ValueError):
-    """Una merma del 100 % dejaría el peso bruto en infinito."""
+    """[00134] Una merma del 100 % dejaría el peso bruto en infinito."""
 
 
 def gross_qty(net_qty: float, waste_pct: float) -> float:
-    """Lo que hay que sacar del almacén para que quede `net_qty` en el plato."""
+    """[00135] Lo que hay que sacar del almacén para que quede `net_qty` en el plato."""
     if waste_pct < 0 or waste_pct >= 100:
         raise BadWaste(f"Merma fuera de rango: {waste_pct}%")
     return net_qty / (1 - waste_pct / 100)
@@ -54,7 +54,7 @@ class LineCost:
 
     @property
     def known(self) -> bool:
-        """Si esa línea tiene precio. Sin precio no hay escandallo que valga."""
+        """[00147] Si esa línea tiene precio. Sin precio no hay escandallo que valga."""
         return self.unit_cost is not None
 
 
@@ -71,19 +71,19 @@ class RecipeCost:
 
     @property
     def cost_per_portion(self) -> float:
-        """Lo que cuesta una ración. Sin raciones, lo que cuesta la receta entera."""
+        """[00148] Lo que cuesta una ración. Sin raciones, lo que cuesta la receta entera."""
         return round(self.total_cost / self.portions, 4) if self.portions else self.total_cost
 
     @property
     def net_price(self) -> float | None:
-        """PVP sin impuestos. El food cost se mide contra esto."""
+        """[00149] PVP sin impuestos. El food cost se mide contra esto."""
         if self.sale_price is None:
             return None
         return round(self.sale_price / (1 + self.vat_pct / 100), 4)
 
     @property
     def food_cost_pct(self) -> float | None:
-        """El food cost del plato: lo que cuesta sobre lo que se cobra sin impuestos.
+        """[00150] El food cost del plato: lo que cuesta sobre lo que se cobra sin impuestos.
 
         Sobre el precio sin impuestos y no sobre el de carta: el IVA no es
         ingreso de la casa, y calcularlo sobre él da un food cost más bonito del
@@ -96,28 +96,28 @@ class RecipeCost:
 
     @property
     def margin_per_portion(self) -> float | None:
-        """Lo que deja cada ración en dinero, que es lo que se lleva la casa."""
+        """[00151] Lo que deja cada ración en dinero, que es lo que se lleva la casa."""
         net = self.net_price
         return round(net - self.cost_per_portion, 4) if net is not None else None
 
     @property
     def waste_cost(self) -> float:
-        """Dinero que se va en las mermas de limpieza de esta receta."""
+        """[00152] Dinero que se va en las mermas de limpieza de esta receta."""
         return round(sum(l.waste_cost for l in self.lines), 4)
 
     @property
     def complete(self) -> bool:
-        """Si el escandallo está entero o hay ingredientes sin precio."""
+        """[00153] Si el escandallo está entero o hay ingredientes sin precio."""
         return not self.missing
 
     def worst_lines(self, n: int = 3) -> list[LineCost]:
-        """Dónde se va el dinero: las líneas que más pesan."""
+        """[00154] Dónde se va el dinero: las líneas que más pesan."""
         return self.lines[:n]
 
 
 # --------------------------------------------------------------- explosión
 def explode(recipe, units: float = 1.0, _seen: tuple = ()) -> dict[int, float]:
-    """Cantidades BRUTAS por ingrediente para producir `units` veces la receta.
+    """[00136] Cantidades BRUTAS por ingrediente para producir `units` veces la receta.
 
     Es lo que hay que descontar del almacén. Las sub-recetas se explotan hasta
     llegar a ingredientes base.
@@ -142,7 +142,7 @@ def explode(recipe, units: float = 1.0, _seen: tuple = ()) -> dict[int, float]:
 
 
 def por_raciones(recipe, servings: float = 1.0) -> dict[int, float]:
-    """Lo que hay que descontar por haber vendido `servings` raciones.
+    """[00137] Lo que hay que descontar por haber vendido `servings` raciones.
 
     `explode` reparte «la receta entera, tantas veces», y una receta entera no
     es una ración: la hoja dice cuántas salen. Un plato para cuatro con 1,2 kg
@@ -161,7 +161,7 @@ def por_raciones(recipe, servings: float = 1.0) -> dict[int, float]:
 
 # ------------------------------------------------------------------ coste
 def unit_cost_of(recipe, costs: dict[int, float], _seen: tuple = ()) -> float | None:
-    """Cuánto cuesta una unidad de una elaboración (por kg, litro o unidad)."""
+    """[00138] Cuánto cuesta una unidad de una elaboración (por kg, litro o unidad)."""
     produced = recipe.yield_qty or 0
     if produced <= EPSILON:
         raise UnknownCost(f"La elaboración «{recipe.name}» no dice cuánto produce")
@@ -170,7 +170,7 @@ def unit_cost_of(recipe, costs: dict[int, float], _seen: tuple = ()) -> float | 
 
 
 def cost_recipe(recipe, costs: dict[int, float], _seen: tuple = ()) -> RecipeCost:
-    """Coste de la receta con su desglose línea a línea.
+    """[00139] Coste de la receta con su desglose línea a línea.
 
     `costs` mapea id de ingrediente a precio por unidad base. Un ingrediente que
     no esté ahí sale como precio desconocido y se lista en `missing`.
@@ -228,7 +228,7 @@ class MenuLine:
 
 
 def menu_ranking(costed: list[RecipeCost]) -> list[MenuLine]:
-    """La carta ordenada por food cost: arriba lo que peor margen deja."""
+    """[00140] La carta ordenada por food cost: arriba lo que peor margen deja."""
     rows = [MenuLine(c.code, c.name, c.cost_per_portion, c.sale_price,
                      c.food_cost_pct, c.margin_per_portion, c.complete)
             for c in costed]
@@ -239,7 +239,7 @@ def menu_ranking(costed: list[RecipeCost]) -> list[MenuLine]:
 # ================================================== árbol completo de costes
 @dataclass
 class TreeNode:
-    """Un nodo del escandallo desplegado, con lo que cuesta dentro del plato.
+    """[00141] Un nodo del escandallo desplegado, con lo que cuesta dentro del plato.
 
     Ejemplo real: Cheese burger → Burger → Burger patty → Beef for burger.
     Cada nivel dice lo que aporta al plato, hasta llegar al ingrediente madre.
@@ -258,11 +258,11 @@ class TreeNode:
 
     @property
     def is_leaf(self) -> bool:
-        """Si de aquí no cuelga nada: un ingrediente, no una subreceta."""
+        """[00155] Si de aquí no cuelga nada: un ingrediente, no una subreceta."""
         return not self.children
 
     def walk(self):
-        """Recorre el árbol de arriba abajo, en orden de lectura."""
+        """[00156] Recorre el árbol de arriba abajo, en orden de lectura."""
         yield self
         for child in self.children:
             yield from child.walk()
@@ -270,7 +270,7 @@ class TreeNode:
 
 def cost_tree(recipe, costs: dict[int, float], units: float = 1.0,
               _seen: tuple = (), _depth: int = 0) -> TreeNode:
-    """Despliega la receta entera con el coste de cada nivel."""
+    """[00142] Despliega la receta entera con el coste de cada nivel."""
     if recipe.id in _seen:
         raise CircularRecipe(f"La receta «{recipe.name}» se incluye a sí misma")
     chain = _seen + (recipe.id,)
@@ -313,7 +313,7 @@ def cost_tree(recipe, costs: dict[int, float], units: float = 1.0,
 
 
 def _assign_shares(node: TreeNode, total: float) -> None:
-    """Reparte el peso de cada rama sobre el total, en tanto por ciento.
+    """[00143] Reparte el peso de cada rama sobre el total, en tanto por ciento.
 
     Es lo que dice dónde está el dinero de un plato: el 70 % en la carne y el
     4 % en la salsa, para no perder la tarde afinando la salsa.
@@ -324,7 +324,7 @@ def _assign_shares(node: TreeNode, total: float) -> None:
 
 @dataclass
 class RollupLine:
-    """Un ingrediente madre sumado por todos los caminos por los que entra."""
+    """[00144] Un ingrediente madre sumado por todos los caminos por los que entra."""
     name: str
     unit: str
     gross_qty: float
@@ -335,7 +335,7 @@ class RollupLine:
 
 
 def ingredient_rollup(root: TreeNode) -> list[RollupLine]:
-    """Coste total por ingrediente madre en todo el árbol, de mayor a menor.
+    """[00145] Coste total por ingrediente madre en todo el árbol, de mayor a menor.
 
     Es la respuesta a «dónde se pierde el dinero»: si la carne entra por la
     hamburguesa y otra vez por la salsa, aquí sale sumada una sola vez.
@@ -363,6 +363,6 @@ def ingredient_rollup(root: TreeNode) -> list[RollupLine]:
 
 
 def prep_costs(root: TreeNode) -> list[TreeNode]:
-    """Las elaboraciones que intervienen, de la más cara a la más barata."""
+    """[00146] Las elaboraciones que intervienen, de la más cara a la más barata."""
     preps = [n for n in root.walk() if n.kind == "prep"]
     return sorted(preps, key=lambda n: (-n.cost, n.label))

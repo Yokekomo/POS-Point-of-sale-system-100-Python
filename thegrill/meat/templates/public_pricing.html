@@ -6,7 +6,7 @@
 <div class="banner ok"><b>{{ t("price.trial", days=trial_days) }}</b> ·
   {{ t("price.trial_help") }}</div>
 
-{# El precio sale de la consola, no del código: una rebaja de fundador tiene
+{# [01573] El precio sale de la consola, no del código: una rebaja de fundador tiene
    que poder encenderse y apagarse el día que haga falta, y eso no puede
    depender de un despliegue. #}
 {% set mon = moneda_de(precio.currency) %}
@@ -40,7 +40,7 @@
 </div>
 
 {% if precio.yearly %}
-{# Pagar el año por adelantado sale más barato y además evita la baja de
+{# [01574] Pagar el año por adelantado sale más barato y además evita la baja de
    febrero: quien ha pagado doce meses no se va en el segundo. #}
 <div class="card anual">
   <b>{{ t("price.yearly") }}</b>

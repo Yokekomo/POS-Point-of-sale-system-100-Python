@@ -509,6 +509,29 @@ En producción hay que servir por HTTPS, porque la cookie de sesión se marca
 como segura salvo que se defina `GRILL_INSECURE_COOKIE=1`, que es solo para
 desarrollo. Las fotos se guardan en la ruta de `GRILL_UPLOAD_DIR`.
 
+## Buscar una explicación por lo que uno recuerda
+
+Los comentarios del código llevan número —`[00423]`— y hay un índice en
+`COMENTARIOS.xlsx` con los 1.612: fichero, línea, qué explica, el resumen y el
+texto entero. Se busca en el Excel por lo que uno recuerda —«aquello del
+reparto por restos mayores»—, sale el número, y ese número se busca en el
+código y cae en el sitio exacto.
+
+```bash
+python -m scripts.comentarios            # numera lo nuevo y rehace el Excel
+python -m scripts.comentarios --mirar    # solo mira: no toca ni un fichero
+```
+
+El número vive **dentro del propio comentario**, y por eso volver a pasarlo no
+renumera nada: lo que ya tiene el suyo se lo queda y solo lo nuevo coge el
+siguiente libre. Una lista aparte se desincronizaría el primer día que alguien
+mueve una función de sitio; un número escrito dentro se mueve con ella.
+
+Se numeran los docstrings de módulo, clase y función, los bloques de
+comentario —que son los que suelen llevar el aviso que salva— y los de las
+plantillas, entre `{#` y `#}`. No se numeran los `# noqa` ni los rótulos de
+sección: un `# ------- cámaras` dice dónde estás, no por qué está hecho así.
+
 ## Reglas del módulo de carne y dónde viven
 
 | Regla | Función | Test |

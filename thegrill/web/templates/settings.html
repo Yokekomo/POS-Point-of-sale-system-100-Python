@@ -2,7 +2,7 @@
 {% block body %}
 <h1>{{ t("settings.title") }}</h1>
 <p class="sub">{{ t("settings.sub") }}</p>
-{# Qué versión es esta. Cuando alguien dice que un arreglo no está, lo primero
+{# [01597] Qué versión es esta. Cuando alguien dice que un arreglo no está, lo primero
    que hay que saber es si lo que tiene delante lo lleva dentro: sin esto, un
    arreglo que no se ha bajado y un arreglo que no funciona se parecen
    demasiado. #}
@@ -38,7 +38,7 @@
   </select>
   <div class="help">{{ t("settings.restaurant_language_help") }}</div>
 
-  {# En qué moneda trabaja la casa. No se convierte nada: se cobra y se paga
+  {# [01598] En qué moneda trabaja la casa. No se convierte nada: se cobra y se paga
      en una, y es la que se enseña al lado de cada cifra. #}
   <label for="currency">{{ t("settings.currency") }}</label>
   <select id="currency" name="currency">
@@ -49,7 +49,7 @@
   </select>
   <div class="help">{{ t("settings.currency_help") }}</div>
 
-  {# Dónde está la casa y a qué hora cierra el día. Las dos cosas juntas son
+  {# [01599] Dónde está la casa y a qué hora cierra el día. Las dos cosas juntas son
      las que deciden a qué día va lo que se apunta: a las dos y media de la
      mañana se sigue sirviendo, y eso es del servicio de anoche. #}
   <label for="timezone">{{ t("settings.timezone") }}</label>
@@ -69,14 +69,14 @@
   </select>
   <div class="help">{{ t("settings.day_cut_help", hora="%02d:00"|format(cierre)) }}</div>
 
-  {# Cuánto dura lo descongelado. Lo pone el plan de autocontrol de la casa, no
+  {# [01600] Cuánto dura lo descongelado. Lo pone el plan de autocontrol de la casa, no
      el programa: aquí solo se guarda y se usa para la rotación. #}
   <label for="thaw_days">{{ t("settings.thaw_days") }}</label>
   <input id="thaw_days" name="thaw_days" inputmode="numeric" style="max-width:110px"
          value="{{ dias_descongelado }}">
   <div class="help">{{ t("settings.thaw_days_help", n=dias_descongelado) }}</div>
 
-  {# A cuánto tiene que bajar del camión cada cosa. Lo pone el plan de
+  {# [01601] A cuánto tiene que bajar del camión cada cosa. Lo pone el plan de
      autocontrol de la casa, no el programa: la norma es el mínimo, y una casa
      que se exige más no tiene por qué renunciar a que se lo controlen. #}
   <label>{{ t("settings.bands") }}</label>

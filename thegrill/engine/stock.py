@@ -1,4 +1,4 @@
-"""Motor de stock de carne (§7.1), versión v4 sobre base de datos.
+"""[00157] Motor de stock de carne (§7.1), versión v4 sobre base de datos.
 
 Reconstruye el stock desde cero en cada corrida:
     IN (recepciones) + cortes de despiece - OUT (ventas vía Portion_Map)
@@ -18,7 +18,7 @@ from datetime import date
 from thegrill import config
 from thegrill.models import MovementType
 
-# Ruta corte -> pool de primal. Un hueco aquí = stock fantasma (el corte no drena el primal).
+# [00169] Ruta corte -> pool de primal. Un hueco aquí = stock fantasma (el corte no drena el primal).
 PRIMAL_SKU_MAP: dict[str, str] = {
     "STRIPLOIN_AUS_MB3": "STRIPLOIN_BONELESS_AUS",
     "STRIPLOIN_USA_PRIME": "STRIPLOIN_BONELESS_USA",
@@ -31,11 +31,11 @@ PRIMAL_SKU_MAP: dict[str, str] = {
 
 
 class MappingGap(KeyError):
-    """Corte sin ruta a primal: hay que cubrirlo, no ignorarlo."""
+    """[00158] Corte sin ruta a primal: hay que cubrirlo, no ignorarlo."""
 
 
 def primal_sku(cut_sku: str, mapping: dict[str, str] | None = None) -> str:
-    """De qué pieza sale ese corte.
+    """[00159] De qué pieza sale ese corte.
 
     Un corte sin ruta de vuelta a su pieza es stock fantasma: sale de la cámara
     sin descontar de nada, y la pieza se queda para siempre con kilos que ya no
@@ -49,7 +49,7 @@ def primal_sku(cut_sku: str, mapping: dict[str, str] | None = None) -> str:
 
 
 def mapping_gaps(cut_skus: set[str], mapping: dict[str, str] | None = None) -> set[str]:
-    """Los cortes que no saben de qué pieza vienen. Es lo que hay que mapear."""
+    """[00160] Los cortes que no saben de qué pieza vienen. Es lo que hay que mapear."""
     m = mapping if mapping is not None else PRIMAL_SKU_MAP
     return {c for c in cut_skus if c not in m}
 
@@ -82,12 +82,12 @@ class StockResult:
     floored: list[str]
 
     def kg(self, sku: str) -> float:
-        """Los kilos que quedan de ese artículo. Lo que no está, cero."""
+        """[00168] Los kilos que quedan de ese artículo. Lo que no está, cero."""
         return round(self.balances[sku].kg, 3) if sku in self.balances else 0.0
 
 
 def rebuild(movements: list[Movement], physical_base: set[str] | None = None) -> StockResult:
-    """Reconstruye el stock por SKU en orden cronológico.
+    """[00161] Reconstruye el stock por SKU en orden cronológico.
 
     - READJUST fija el saldo al valor del conteo (re-ancla), no suma.
     - v4 floors: al final, un saldo negativo sube a 0 solo si sku ∈ physical_base.
@@ -122,8 +122,8 @@ def rebuild(movements: list[Movement], physical_base: set[str] | None = None) ->
 
 
 def _order(t: MovementType) -> int:
-    # dentro de un mismo día: entradas, luego salidas, y el conteo re-ancla al final
-    """En qué orden se aplican los movimientos de un mismo día.
+    # [00170] dentro de un mismo día: entradas, luego salidas, y el conteo re-ancla al final
+    """[00162] En qué orden se aplican los movimientos de un mismo día.
 
     Primero lo que entra y después lo que sale, porque al revés un artículo que
     entra y sale el mismo día se queda un rato en negativo. El recuento, el
@@ -146,7 +146,7 @@ class MassCheck:
 
 def mass_balance(tg: str, weight_before_kg: float, total_cuts_kg: float, waste_kg: float,
                  trim_kg: float, tolerance_pct: float = config.MASS_DRIFT_TOLERANCE_PCT) -> MassCheck:
-    """Conservación de masa: in = cortes + merma + trim ± drift."""
+    """[00163] Conservación de masa: in = cortes + merma + trim ± drift."""
     out = total_cuts_kg + waste_kg + trim_kg
     drift = round(weight_before_kg - out, 3)
     pct = abs(drift) / weight_before_kg * 100 if weight_before_kg else 0.0
@@ -154,7 +154,7 @@ def mass_balance(tg: str, weight_before_kg: float, total_cuts_kg: float, waste_k
 
 
 def yield_pct(weight_before_kg: float, total_cuts_kg: float) -> float:
-    """Qué parte de la pieza sale en cortes aprovechables.
+    """[00164] Qué parte de la pieza sale en cortes aprovechables.
 
     Es el número con el que se juzga un despiece y a quien lo hizo: de nueve
     kilos salieron seis y medio, un 72 %.
@@ -164,7 +164,7 @@ def yield_pct(weight_before_kg: float, total_cuts_kg: float) -> float:
 
 def sales_to_movements(sales_lines: list[dict], portion_map: dict[str, tuple[str, float]],
                        op_date: date) -> tuple[list[Movement], list[str]]:
-    """Ventas POS -> OUT de carne vía Portion_Map. Devuelve movimientos y platos sin mapa."""
+    """[00165] Ventas POS -> OUT de carne vía Portion_Map. Devuelve movimientos y platos sin mapa."""
     out, unmapped = [], []
     agg: dict[str, float] = defaultdict(float)
     for line in sales_lines:
@@ -181,7 +181,7 @@ def sales_to_movements(sales_lines: list[dict], portion_map: dict[str, tuple[str
 
 # ---------------------------------------------------------- Primales / fantasmas
 def drain_primals(primals: dict[str, dict], consumed: list[tuple[str, str, date]]) -> list[str]:
-    """Marca CUT por serial a partir de despiece_primals (tg, serial, fecha).
+    """[00166] Marca CUT por serial a partir de despiece_primals (tg, serial, fecha).
 
     Es la ÚNICA vía para pasar un primal a CUT (junto con conteo físico).
     Devuelve seriales referenciados que no existen en el registro.
@@ -200,7 +200,7 @@ def drain_primals(primals: dict[str, dict], consumed: list[tuple[str, str, date]
 
 def suspect_phantoms(primals: dict[str, dict], last_count_serials: set[str],
                      last_count_date: date | None) -> list[str]:
-    """IN_STOCK que no apareció en el último conteo físico completo => SUSPECT PHANTOM.
+    """[00167] IN_STOCK que no apareció en el último conteo físico completo => SUSPECT PHANTOM.
     Sin conteo no se puede sospechar de nadie (regla 3: no inferir)."""
     if last_count_date is None:
         return []

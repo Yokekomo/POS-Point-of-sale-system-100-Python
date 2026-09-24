@@ -1,4 +1,4 @@
-"""Lo que la pasarela de pago cuenta, y qué se hace con ello.
+"""[00457] Lo que la pasarela de pago cuenta, y qué se hace con ello.
 
 El cobro del mes lo hace la pasarela: ella tiene la tarjeta, ella la pasa y
 ella reintenta cuando falla. Lo que hace falta aquí es enterarse, porque de
@@ -38,12 +38,12 @@ PROVIDER = "stripe"
 
 
 class GatewayError(ValueError):
-    """El evento no se puede aceptar, y se dice por qué."""
+    """[00458] El evento no se puede aceptar, y se dice por qué."""
 
 
 @dataclass
 class Applied:
-    """Lo que ha hecho un evento."""
+    """[00459] Lo que ha hecho un evento."""
     event_id: str
     kind: str
     restaurant: Restaurant | None = None
@@ -55,12 +55,12 @@ class Applied:
 
     @property
     def changed(self) -> bool:
-        """Si el aviso del banco cambió de verdad el estado de la cuenta."""
+        """[00474] Si el aviso del banco cambió de verdad el estado de la cuenta."""
         return self.now is not None and self.now != self.was
 
 
 def secret() -> str | None:
-    """La clave con la que se firman los avisos del banco, si está puesta.
+    """[00460] La clave con la que se firman los avisos del banco, si está puesta.
 
     Sin clave no se puede comprobar quién manda el aviso, y ahí no se cobra ni
     se bloquea a nadie por lo que diga un mensaje que puede mandar cualquiera.
@@ -71,7 +71,7 @@ def secret() -> str | None:
 # ------------------------------------------------------------------- firma
 def check_signature(payload: bytes, header: str, key: str | None = None,
                     now: float | None = None) -> None:
-    """La firma de la pasarela, comprobada como manda su documentación.
+    """[00461] La firma de la pasarela, comprobada como manda su documentación.
 
     La cabecera trae la hora y una o varias firmas: `t=1699999999,v1=abc…`. Se
     firma «hora.cuerpo» con el secreto y se compara en tiempo constante. Una
@@ -98,7 +98,7 @@ def check_signature(payload: bytes, header: str, key: str | None = None,
 
 
 def sign(payload: bytes, key: str, now: float | None = None) -> str:
-    """La cabecera que mandaría la pasarela. Sirve para las pruebas y para probar el enganche."""
+    """[00462] La cabecera que mandaría la pasarela. Sirve para las pruebas y para probar el enganche."""
     marca = int(time.time() if now is None else now)
     firma = hmac.new(key.encode(), f"{marca}.".encode() + payload, hashlib.sha256).hexdigest()
     return f"t={marca},v1={firma}"
@@ -107,7 +107,7 @@ def sign(payload: bytes, key: str, now: float | None = None) -> str:
 # ------------------------------------------------------------------ evento
 def apply(session: Session, payload: bytes, header: str, key: str | None = None,
           now: float | None = None) -> Applied:
-    """Comprueba el evento y lo aplica una sola vez."""
+    """[00463] Comprueba el evento y lo aplica una sola vez."""
     check_signature(payload, header, key=key, now=now)
     try:
         event = json.loads(payload.decode("utf-8"))
@@ -119,7 +119,7 @@ def apply(session: Session, payload: bytes, header: str, key: str | None = None,
     if not event_id or not kind:
         raise GatewayError("El evento no dice ni qué es ni cuál es")
 
-    # La pasarela reintenta hasta que le contestas bien, así que el mismo
+    # [00475] La pasarela reintenta hasta que le contestas bien, así que el mismo
     # evento llega varias veces: se aplica una.
     if session.query(GatewayEvent).filter_by(provider=PROVIDER, event_id=event_id).first():
         return Applied(event_id=event_id, kind=kind, ignored="repetido")
@@ -149,7 +149,7 @@ def apply(session: Session, payload: bytes, header: str, key: str | None = None,
 
 
 def _whose(session: Session, data: dict) -> Restaurant | None:
-    """De qué casa habla el evento: por su referencia o por lo que lleve escrito."""
+    """[00464] De qué casa habla el evento: por su referencia o por lo que lleve escrito."""
     query = session.query(Restaurant)
     metadata = data.get("metadata") or {}
     for campo in ("restaurant_id", "house_id"):
@@ -168,7 +168,7 @@ def _whose(session: Session, data: dict) -> Restaurant | None:
 
 
 def _int(value) -> int:
-    """Un número entero de lo que venga, y cero de lo que no lo sea."""
+    """[00465] Un número entero de lo que venga, y cero de lo que no lo sea."""
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -177,7 +177,7 @@ def _int(value) -> int:
 
 # ------------------------------------------------------- qué hace cada uno
 def _paid(session: Session, restaurant: Restaurant, data: dict, result: Applied) -> None:
-    """Recibo cobrado: la cuenta queda al día hasta el final del periodo."""
+    """[00466] Recibo cobrado: la cuenta queda al día hasta el final del periodo."""
     hasta = _period_end(data)
     billing.mark_paid(session, _platform(session), restaurant, until=hasta,
                       note=f"{PROVIDER}: {data.get('number') or data.get('id') or ''}".strip())
@@ -185,20 +185,20 @@ def _paid(session: Session, restaurant: Restaurant, data: dict, result: Applied)
 
 
 def _failed(session: Session, restaurant: Restaurant, data: dict, result: Applied) -> None:
-    """Recibo fallado: avisa, pero deja trabajar. Bloquear es otra decisión."""
+    """[00467] Recibo fallado: avisa, pero deja trabajar. Bloquear es otra decisión."""
     billing.mark_unpaid(session, _platform(session), restaurant,
                         note=f"{PROVIDER}: {data.get('id') or ''}".strip())
 
 
 def _cancelled(session: Session, restaurant: Restaurant, data: dict, result: Applied) -> None:
-    """La casa ha cancelado: se apunta el día y se deja de cobrar."""
+    """[00468] La casa ha cancelado: se apunta el día y se deja de cobrar."""
     restaurant.billing = Billing.CANCELLED
     restaurant.cancelled_at = datetime.utcnow()
     restaurant.billing_note = f"{PROVIDER}: suscripción cancelada"
 
 
 def _subscription(session: Session, restaurant: Restaurant, data: dict, result: Applied) -> None:
-    """La suscripción cambia de estado: se sigue lo que diga la pasarela."""
+    """[00469] La suscripción cambia de estado: se sigue lo que diga la pasarela."""
     estado = str(data.get("status") or "").lower()
     if estado in ("active", "trialing"):
         if restaurant.billing in (Billing.PAST_DUE, Billing.BLOCKED, None, Billing.SETUP):
@@ -213,7 +213,7 @@ def _subscription(session: Session, restaurant: Restaurant, data: dict, result: 
 
 
 def _method(session: Session, restaurant: Restaurant, data: dict, result: Applied) -> None:
-    """La tarjeta ya está puesta en la pasarela: se apunta y arranca la prueba."""
+    """[00470] La tarjeta ya está puesta en la pasarela: se apunta y arranca la prueba."""
     tarjeta = ((data.get("payment_method_details") or {}).get("card")
                or (data.get("card") or {}))
     referencia = str(data.get("customer") or restaurant.payment_ref or "").strip()
@@ -241,7 +241,7 @@ HANDLERS = {
 
 
 def _period_end(data: dict) -> date | None:
-    """Hasta cuándo está pagado el mes, según el aviso del banco.
+    """[00471] Hasta cuándo está pagado el mes, según el aviso del banco.
 
     El proveedor lo manda en dos sitios distintos según el tipo de aviso, y en
     segundos desde 1970. Si no viene en ninguno, no se inventa una fecha: una
@@ -265,7 +265,7 @@ def _period_end(data: dict) -> date | None:
 
 
 def _platform(session: Session) -> User:
-    """Quien firma estos cambios es la plataforma, no una persona."""
+    """[00472] Quien firma estos cambios es la plataforma, no una persona."""
     owner = session.query(User).filter_by(role=Role.OWNER).first()
     if owner is not None:
         return owner
@@ -275,7 +275,7 @@ def _platform(session: Session) -> User:
 
 
 def _announce(session: Session, restaurant: Restaurant, result: Applied) -> None:
-    """Al manager de la casa se le dice, porque le cambia el día."""
+    """[00473] Al manager de la casa se le dice, porque le cambia el día."""
     lang = restaurant.language or "es"
     severity = (AlertSeverity.CRITICAL if result.now in (Billing.BLOCKED, Billing.PAST_DUE)
                 else AlertSeverity.INFO)

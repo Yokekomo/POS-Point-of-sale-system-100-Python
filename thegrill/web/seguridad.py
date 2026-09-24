@@ -1,4 +1,4 @@
-"""Las cabeceras que el navegador tiene que recibir, en las dos ediciones.
+"""[01371] Las cabeceras que el navegador tiene que recibir, en las dos ediciones.
 
 Estaban solo en la edición de carne. La de cocina no mandaba ninguna: ni
 política de contenido, ni «no adivines el tipo», ni «no te dejes embeber». Y
@@ -26,12 +26,12 @@ CABECERAS = {
 
 
 def nuevo_nonce() -> str:
-    """Un número distinto en cada respuesta para marcar nuestros guiones."""
+    """[01372] Un número distinto en cada respuesta para marcar nuestros guiones."""
     return secrets.token_urlsafe(16)
 
 
 def politica(nonce: str) -> str:
-    """Qué puede cargar y ejecutar el navegador en esta página.
+    """[01373] Qué puede cargar y ejecutar el navegador en esta página.
 
     Los guiones se marcan con el número de esta respuesta: así el navegador
     ejecuta los nuestros y no uno que alguien consiga colar. Con
@@ -52,17 +52,17 @@ def politica(nonce: str) -> str:
 
 
 def por_https(request: Request) -> bool:
-    """Si la petición llegó por HTTPS, mirando también lo que dice el proxy."""
+    """[01374] Si la petición llegó por HTTPS, mirando también lo que dice el proxy."""
     if request.url.scheme == "https":
         return True
     return request.headers.get("x-forwarded-proto", "").split(",")[0].strip() == "https"
 
 
 def enganchar(app) -> None:
-    """Pone las cabeceras en todas las respuestas, también en las de error."""
+    """[01375] Pone las cabeceras en todas las respuestas, también en las de error."""
     @app.middleware("http")
     async def _cabeceras(request: Request, call_next):        # noqa: ANN001
-        """Pone las cabeceras de seguridad en todas las respuestas.
+        """[01376] Pone las cabeceras de seguridad en todas las respuestas.
 
         Un nonce distinto por petición para que solo corra el javascript nuestro, y
         HSTS solo cuando se entra por https: ponerlo en una prueba local dejaría el

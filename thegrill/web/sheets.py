@@ -1,4 +1,4 @@
-"""Hojas de registro en Excel, listas para imprimir y rellenar a mano.
+"""[01397] Hojas de registro en Excel, listas para imprimir y rellenar a mano.
 
 Son el respaldo de papel: se imprimen, se cuelgan en cocina y se rellenan con
 bolígrafo cuando no hay móvil a mano o se cae la conexión. Cada hoja sale de la
@@ -35,7 +35,7 @@ WRITE_LINE = Border(bottom=Side(style="thin", color=INK))
 
 
 def sheet_title(name: str, used: set[str]) -> str:
-    """Excel limita el nombre de pestaña a 31 caracteres y prohíbe : \\ / ? * [ ]"""
+    """[01398] Excel limita el nombre de pestaña a 31 caracteres y prohíbe : \\ / ? * [ ]"""
     clean = re.sub(r"[:\\/?*\[\]]", " ", name).strip()[:31] or "Hoja"
     candidate, n = clean, 1
     while candidate.lower() in used:
@@ -47,7 +47,7 @@ def sheet_title(name: str, used: set[str]) -> str:
 
 
 def column_header(field, lang: str) -> str:
-    """Etiqueta del campo con su unidad, sus límites y si es obligatorio."""
+    """[01399] Etiqueta del campo con su unidad, sus límites y si es obligatorio."""
     parts = [field.label]
     if field.unit:
         parts.append(f"({field.unit})")
@@ -62,12 +62,12 @@ def column_header(field, lang: str) -> str:
 
 
 def _num(value: float) -> str:
-    """Un número para la hoja de cálculo, sin ceros de adorno detrás."""
+    """[01400] Un número para la hoja de cálculo, sin ceros de adorno detrás."""
     return f"{value:.10g}"
 
 
 def example_value(field, lang: str) -> str:
-    """Un valor realista por campo, para que se vea el formato esperado."""
+    """[01401] Un valor realista por campo, para que se vea el formato esperado."""
     if field.type == FieldType.SELECT:
         options = [o.strip() for o in (field.options or "").split("|") if o.strip()]
         return options[0] if options else ""
@@ -88,9 +88,9 @@ def example_value(field, lang: str) -> str:
 
 def build_sheet(ws: Worksheet, template: RecordTemplate, restaurant: Restaurant,
                 lang: str = DEFAULT_LANG, blank_rows: int = BLANK_ROWS) -> Worksheet:
-    """Monta una hoja imprimible a partir de una plantilla de registro."""
+    """[01402] Monta una hoja imprimible a partir de una plantilla de registro."""
     fields = list(template.fields)
-    # Nº + Fecha + Hora + un campo por columna
+    # [01405] Nº + Fecha + Hora + un campo por columna
     headers = ["Nº", t(lang, "common.date"), t(lang, "sheet.time")] + \
               [column_header(f, lang) for f in fields]
     last_col = len(headers)
@@ -99,7 +99,7 @@ def build_sheet(ws: Worksheet, template: RecordTemplate, restaurant: Restaurant,
     ws.sheet_view.rightToLeft = direction(lang) == "rtl"
     ws.sheet_view.showGridLines = False
 
-    # --- cabecera del documento
+    # [01406] --- cabecera del documento
     ws.merge_cells(span)
     cell = ws["A1"]
     cell.value = template.name
@@ -112,7 +112,7 @@ def build_sheet(ws: Worksheet, template: RecordTemplate, restaurant: Restaurant,
     subtitle.value = " · ".join(x for x in (restaurant.name, template.description) if x)
     subtitle.font = Font(name=FONT, size=10, color=MUTED)
 
-    # --- datos de la hoja que se escriben a mano
+    # [01407] --- datos de la hoja que se escriben a mano
     row = 4
     pairs = [(t(lang, "sheet.restaurant"), restaurant.name),
              (t(lang, "sheet.shift"), ""),
@@ -127,14 +127,14 @@ def build_sheet(ws: Worksheet, template: RecordTemplate, restaurant: Restaurant,
         col += 2
     ws.row_dimensions[row].height = 20
 
-    # --- leyenda: qué se rellena y qué no
+    # [01408] --- leyenda: qué se rellena y qué no
     ws.merge_cells(f"A6:{get_column_letter(last_col)}6")
     legend = ws["A6"]
     legend.value = f"{t(lang, 'sheet.legend')}  {t(lang, 'sheet.required_mark')}"
     legend.font = Font(name=FONT, size=9, italic=True, color=MUTED)
     ws.row_dimensions[6].height = 16
 
-    # --- fila de encabezados
+    # [01409] --- fila de encabezados
     head_row = 8
     for i, text in enumerate(headers, start=1):
         c = ws.cell(row=head_row, column=i, value=text)
@@ -144,7 +144,7 @@ def build_sheet(ws: Worksheet, template: RecordTemplate, restaurant: Restaurant,
         c.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center")
     ws.row_dimensions[head_row].height = 34
 
-    # --- fila de ejemplo, en gris, para que se vea el formato
+    # [01410] --- fila de ejemplo, en gris, para que se vea el formato
     example_row = head_row + 1
     example = [t(lang, "sheet.example"), date.today().isoformat(), "08:30"] + \
               [example_value(f, lang) for f in fields]
@@ -156,7 +156,7 @@ def build_sheet(ws: Worksheet, template: RecordTemplate, restaurant: Restaurant,
         c.alignment = Alignment(horizontal="center" if i <= 3 else "left")
     ws.row_dimensions[example_row].height = 18
 
-    # --- rejilla en blanco
+    # [01411] --- rejilla en blanco
     first_blank = example_row + 1
     for n in range(blank_rows):
         r = first_blank + n
@@ -169,7 +169,7 @@ def build_sheet(ws: Worksheet, template: RecordTemplate, restaurant: Restaurant,
                 c.alignment = Alignment(horizontal="center")
         ws.row_dimensions[r].height = 22
 
-    # --- firma
+    # [01412] --- firma
     sign_row = first_blank + blank_rows + 1
     sign = ws.cell(row=sign_row, column=1, value=f"{t(lang, 'sheet.signature')}:")
     sign.font = Font(name=FONT, size=10, bold=True, color=INK)
@@ -177,7 +177,7 @@ def build_sheet(ws: Worksheet, template: RecordTemplate, restaurant: Restaurant,
         ws.cell(row=sign_row, column=i).border = WRITE_LINE
     ws.row_dimensions[sign_row].height = 26
 
-    # --- anchos: generosos, porque se escribe a mano
+    # [01413] --- anchos: generosos, porque se escribe a mano
     ws.column_dimensions["A"].width = 6
     ws.column_dimensions["B"].width = 13
     ws.column_dimensions["C"].width = 9
@@ -187,7 +187,7 @@ def build_sheet(ws: Worksheet, template: RecordTemplate, restaurant: Restaurant,
         ws.column_dimensions[get_column_letter(i)].width = width
         total_width += width
 
-    # --- impresión: A4, todo a lo ancho de una página, encabezado en cada hoja
+    # [01414] --- impresión: A4, todo a lo ancho de una página, encabezado en cada hoja
     # Vertical mientras quepa: así entran más filas por página. En vertical caben
     # unos 90 caracteres de ancho; pasado eso, apaisado.
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
@@ -208,7 +208,7 @@ def build_sheet(ws: Worksheet, template: RecordTemplate, restaurant: Restaurant,
 
 def workbook_for(templates: list[RecordTemplate], restaurant: Restaurant,
                  lang: str = DEFAULT_LANG, blank_rows: int = BLANK_ROWS) -> bytes:
-    """Un libro con una pestaña por plantilla."""
+    """[01403] Un libro con una pestaña por plantilla."""
     wb = Workbook()
     wb.remove(wb.active)
     used: set[str] = set()
@@ -223,6 +223,6 @@ def workbook_for(templates: list[RecordTemplate], restaurant: Restaurant,
 
 
 def filename_for(name: str, lang: str = DEFAULT_LANG) -> str:
-    """Nombre de archivo seguro; si el nombre no tiene letras latinas usa el código."""
+    """[01404] Nombre de archivo seguro; si el nombre no tiene letras latinas usa el código."""
     clean = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("_")
     return f"{clean or 'hoja'}.xlsx"

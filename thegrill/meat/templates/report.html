@@ -41,7 +41,7 @@
 {% if report.pending %}
 <div class="card">
   <b>{{ t("m.home.todo") }}</b>
-  {# En papel no se pulsa nada: la línea va entera, con los nombres detrás. #}
+  {# [01587] En papel no se pulsa nada: la línea va entera, con los nombres detrás. #}
   <ul>{% for p in report.pending %}<li>{{ p.text }}
     {% if p.things %}<div class="muted">{{ p.things | map(attribute="label") | join(" · ") }}{%
       if p.more %} · {{ t("m.home.and_more", n=p.more) }}{% endif %}</div>{% endif %}</li>{% endfor %}</ul>

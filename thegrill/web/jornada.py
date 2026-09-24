@@ -1,4 +1,4 @@
-"""Cuándo es hoy. Que no es lo mismo que qué día es.
+"""[01287] Cuándo es hoy. Que no es lo mismo que qué día es.
 
 Una cocina no cierra a medianoche. A la una y media se sigue sirviendo, a las
 dos se cierra la caja y a las dos y media alguien apunta la merma del
@@ -30,17 +30,17 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone, tzinfo
 from zoneinfo import ZoneInfo
 
-# La hora de cierre de una casa que no ha dicho la suya. Es un valor de
+# [01296] La hora de cierre de una casa que no ha dicho la suya. Es un valor de
 # módulo y no una constante escrita en el modelo para que la casa que viene de
 # antes —la que tiene la columna a vacío— no cambie de día de repente el día
 # que se actualiza el programa: se decide aquí, en un sitio, y se ve.
 POR_DEFECTO = 3
 
-# Más allá del mediodía ya no es «la noche anterior», es otra cosa. El tope
+# [01297] Más allá del mediodía ya no es «la noche anterior», es otra cosa. El tope
 # está para que un dedo no convierta un turno de mañana en el día de ayer.
 MAXIMO = 11
 
-# El UTC de la biblioteca estándar, no `ZoneInfo("UTC")`. Parecen lo mismo y
+# [01298] El UTC de la biblioteca estándar, no `ZoneInfo("UTC")`. Parecen lo mismo y
 # no lo son: `ZoneInfo` va a buscar la base de datos de zonas horarias del
 # sistema, y Windows no tiene ninguna. Con `ZoneInfo` aquí, la aplicación
 # entera se caía al importar este fichero —ni siquiera llegaba a arrancar— en
@@ -56,7 +56,7 @@ UTC = timezone.utc
 
 
 def zona(nombre: str | None) -> tzinfo:
-    """La zona horaria de la casa. Si el nombre no existe, UTC y a seguir.
+    """[01288] La zona horaria de la casa. Si el nombre no existe, UTC y a seguir.
 
     También se cae en UTC cuando el sistema no tiene la base de datos de
     zonas: es mejor que la casa trabaje con la hora corrida que no que no
@@ -69,7 +69,7 @@ def zona(nombre: str | None) -> tzinfo:
 
 
 def corte(restaurant) -> int:
-    """A qué hora cierra el día esta casa."""
+    """[01289] A qué hora cierra el día esta casa."""
     if restaurant is None:
         return POR_DEFECTO
     hora = getattr(restaurant, "day_cut_hour", None)
@@ -82,7 +82,7 @@ def corte(restaurant) -> int:
 
 
 def ahora(restaurant, momento: datetime | None = None) -> datetime:
-    """Qué hora es en la casa, no en el servidor."""
+    """[01290] Qué hora es en la casa, no en el servidor."""
     momento = momento or datetime.now(timezone.utc)
     if momento.tzinfo is None:
         momento = momento.replace(tzinfo=timezone.utc)
@@ -90,23 +90,23 @@ def ahora(restaurant, momento: datetime | None = None) -> datetime:
 
 
 def de(restaurant, momento: datetime | None = None) -> date:
-    """El día de trabajo al que pertenece ese instante."""
+    """[01291] El día de trabajo al que pertenece ese instante."""
     return (ahora(restaurant, momento) - timedelta(hours=corte(restaurant))).date()
 
 
 def hoy(session, restaurant_id: int | None, momento: datetime | None = None) -> date:
-    """El día de trabajo de esa casa ahora mismo. Es lo que se usa por ahí."""
+    """[01292] El día de trabajo de esa casa ahora mismo. Es lo que se usa por ahí."""
     from thegrill.models import Restaurant
     restaurant = session.get(Restaurant, restaurant_id) if restaurant_id else None
     return de(restaurant, momento)
 
 
 def del_usuario(session, user, momento: datetime | None = None) -> date:
-    """Lo mismo, cuando lo que hay a mano es la persona."""
+    """[01293] Lo mismo, cuando lo que hay a mano es la persona."""
     return hoy(session, getattr(user, "restaurant_id", None), momento)
 
 
-# Lo que puede haber esperado un apunte en la cola de un teléfono. La cola
+# [01299] Lo que puede haber esperado un apunte en la cola de un teléfono. La cola
 # reintenta cada pocos segundos y en cada pantalla que se abre, así que una
 # semana es holgadísimo: lo que venga fechado más atrás no es un turno que
 # tardó en salir, es un reloj mal puesto.
@@ -114,7 +114,7 @@ MARGEN = timedelta(days=7)
 
 
 def apuntado(session, user, cuando: str | None, ahora: datetime | None = None) -> date:
-    """El día de trabajo del instante en que se **escribió**, no del envío.
+    """[01294] El día de trabajo del instante en que se **escribió**, no del envío.
 
     Un recuento apuntado a las 23:50 dentro de la cámara y mandado a las 00:10,
     cuando el teléfono vuelve a tener señal, quedaba fechado al día siguiente.
@@ -143,5 +143,5 @@ def apuntado(session, user, cuando: str | None, ahora: datetime | None = None) -
 
 
 def etiqueta(restaurant) -> str:
-    """«03:00», para enseñarlo en la configuración."""
+    """[01295] «03:00», para enseñarlo en la configuración."""
     return f"{corte(restaurant):02d}:00"

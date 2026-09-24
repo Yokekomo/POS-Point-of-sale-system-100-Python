@@ -1,4 +1,4 @@
-"""Idiomas de la plataforma.
+"""[01210] Idiomas de la plataforma.
 
 Cada idioma es un diccionario plano con las mismas claves. Añadir uno nuevo es
 copiar `ES`, traducir los valores y registrarlo en `LANGUAGES`: un test
@@ -43,12 +43,12 @@ LANGUAGES: dict[str, Language] = {
 
 
 def is_supported(code: str | None) -> bool:
-    """Si ese idioma está traducido."""
+    """[01211] Si ese idioma está traducido."""
     return bool(code) and code in LANGUAGES
 
 
 def direction(code: str) -> str:
-    """Si el idioma se escribe de izquierda a derecha o al revés.
+    """[01212] Si el idioma se escribe de izquierda a derecha o al revés.
 
     El árabe va al revés, y la pantalla entera se da la vuelta con él.
     """
@@ -56,7 +56,7 @@ def direction(code: str) -> str:
 
 
 def from_accept_language(header: str | None) -> str | None:
-    """Primer idioma aceptado por el navegador que sepamos hablar."""
+    """[01213] Primer idioma aceptado por el navegador que sepamos hablar."""
     if not header:
         return None
     entries = []
@@ -78,7 +78,7 @@ def from_accept_language(header: str | None) -> str | None:
 
 def resolve(user_lang: str | None = None, cookie: str | None = None,
             accept_header: str | None = None, restaurant_lang: str | None = None) -> str:
-    """En qué idioma se le habla a quien está delante.
+    """[01214] En qué idioma se le habla a quien está delante.
 
     Por orden: lo que eligió esa persona, lo que dejó en la cookie, lo que pide
     el navegador y lo que habla la casa. Si nada de eso está traducido, el de
@@ -90,14 +90,14 @@ def resolve(user_lang: str | None = None, cookie: str | None = None,
     return VISITOR_LANG
 
 
-# Cuando la frase habla de una sola cosa, su texto vive en la misma clave con
+# [01219] Cuando la frase habla de una sola cosa, su texto vive en la misma clave con
 # esto detrás. «1 cortes por debajo del mínimo» lo escribe un programa, no una
 # persona, y en un programa que se vende se nota.
 UNA = "#1"
 
 
 def t(lang: str, key: str, **kw) -> str:
-    """Texto traducido. Si falta la clave cae al español y, en último término,
+    """[01215] Texto traducido. Si falta la clave cae al español y, en último término,
     devuelve la propia clave: nunca revienta una pantalla por un texto.
 
     Si la frase lleva un número y ese número es uno, se busca primero su
@@ -121,7 +121,7 @@ def t(lang: str, key: str, **kw) -> str:
 
 
 def _es_una(n) -> bool:
-    """Si el número de la frase es exactamente uno."""
+    """[01216] Si el número de la frase es exactamente uno."""
     try:
         return int(n) == 1
     except (TypeError, ValueError):
@@ -129,16 +129,16 @@ def _es_una(n) -> bool:
 
 
 def translator(lang: str):
-    """Versión atada a un idioma, que es lo que reciben las plantillas."""
+    """[01217] Versión atada a un idioma, que es lo que reciben las plantillas."""
     def _t(key: str, **kw) -> str:
-        """Traduce en el idioma ya elegido, sin repetirlo en cada llamada."""
+        """[01218] Traduce en el idioma ya elegido, sin repetirlo en cada llamada."""
         return t(lang, key, **kw)
     return _t
 
 
 # =========================================================== Español (referencia)
 ES = {
-    # --- navegación y estructura
+    # [01220] --- navegación y estructura
     "app.title": "Gestión de cocina",
     "role.MANAGER": "Manager",
     "role.EMPLOYEE": 'Ayudante',
@@ -174,7 +174,7 @@ ES = {
     "severity.WARNING": "Aviso",
     "severity.INFO": "Información",
 
-    # --- acceso
+    # [01221] --- acceso
     "login.title": "Entrar",
     "login.sub": "Gestión de cocina: registros, trazabilidad y control.",
     "login.submit": "Entrar",
@@ -235,7 +235,7 @@ ES = {
     "tfa.clear": 'Quitar 2 pasos',
     "tfa.cleared": '{name} vuelve a entrar solo con su contraseña.',
 
-    # --- configuración
+    # [01222] --- configuración
     "settings.title": "Configuración",
     "settings.sub": "Tus preferencias en esta plataforma.",
     "settings.your_language": "Tu idioma",
@@ -244,7 +244,7 @@ ES = {
     "settings.restaurant_language_help": "Idioma por defecto de quien entra nuevo, y en el que se guardan las alertas que lee todo el equipo.",
     "settings.saved": "Preferencias guardadas.",
 
-    # --- captura
+    # [01223] --- captura
     "capture.title": "¿Qué vas a registrar?",
     "capture.sub": "{restaurant} · toca un registro para rellenarlo.",
     "capture.needs_photo": "Pide foto",
@@ -263,7 +263,7 @@ ES = {
     "form.immutable_note": "La hora la pone el sistema. Un registro enviado no se borra: si te equivocas, avisa a tu manager.",
     "form.photo_missing": "Esta plantilla pide foto: el registro se guardó sin ella",
 
-    # --- listados
+    # [01224] --- listados
     "records.all": "Todos los registros",
     "records.mine": "Mis registros",
     "records.who": "Quién",
@@ -274,7 +274,7 @@ ES = {
     "records.photo": "Foto {n}",
     "records.empty": "Todavía no hay registros en este periodo.",
 
-    # --- panel
+    # [01225] --- panel
     "dash.range": "Del {since} al {until} · código de acceso del equipo",
     "dash.compliance": "Cumplimiento",
     "dash.records": "Registros",
@@ -295,7 +295,7 @@ ES = {
     "dash.no_open_alerts": "Ninguna alerta abierta.",
     "dash.top_contributors": "Quién registra más",
 
-    # --- alertas
+    # [01226] --- alertas
     "alerts.title": "Incidencias",
     "alerts.sub": "Cerrar una alerta exige escribir la acción correctiva. Queda registrado quién y cuándo.",
     "alerts.open": "Abiertas",
@@ -307,7 +307,7 @@ ES = {
     "alerts.empty": "No hay alertas.",
     "alerts.need_resolution": "Escribe qué acción correctiva se tomó",
 
-    # --- plantillas
+    # [01227] --- plantillas
     "tpl.title": "Plantillas de registro",
     "tpl.sub": "Define qué captura tu equipo. Un mínimo y un máximo en un campo numérico generan alerta automática.",
     "tpl.fields": "Campos",
@@ -332,7 +332,7 @@ ES = {
     "cat.count": "Inventario",
     "cat.other": "Otro",
 
-    # --- equipo
+    # [01228] --- equipo
     "team.title": "Equipo",
     "team.sub": "Comparte este código para que tu gente cree su cuenta:",
     "team.role": "Rol",
@@ -344,7 +344,7 @@ ES = {
     "team.reactivate": "Reactivar",
     "team.note": "Un empleado solo puede registrar datos y ver lo que él mismo envió. Un manager ve y configura todo.",
 
-    # --- avisos
+    # [01229] --- avisos
     "notif.title": "Avisos",
     "notif.sub": "Lo que necesita tu atención. Al abrir esta página quedan marcados como vistos, con la hora.",
     "notif.browser": "Avisos del navegador",
@@ -362,7 +362,7 @@ ES = {
     "notif.resolution_title": "Alerta resuelta",
     "notif.resolution_body": "{message} · {who}: {resolution}",
 
-    # --- validación y alertas automáticas
+    # [01230] --- validación y alertas automáticas
     "valid.required": "«{label}» es obligatorio",
     "valid.not_a_number_value": "«{value}» no es un número. Escribe solo la cifra, sin letras ni unidades.",
     "valid.grams_have_no_decimals": "«{value}» en gramos no existe. Si son {kg} kg, escribe {g}.",
@@ -390,7 +390,7 @@ ES = {
     "alert.expires_soon": "{label}: {date}, caduca en {n} día(s)",
     "alert.marked_no": "{label}: marcado como NO",
 
-    # --- errores
+    # [01231] --- errores
     "error.title": "Error {code}",
     "error.bad_request": "Algo de lo que has escrito no vale. Vuelve y míralo antes de guardar.",
     "error.forbidden": "Esta pantalla no es de tu nivel de acceso. Habla con dirección si la necesitas.",
@@ -415,7 +415,7 @@ ES = {
     "error.no_self_role": "No puedes cambiar tu propio rol",
     "error.no_self_disable": "No puedes desactivarte a ti mismo",
 
-    # --- plantillas por defecto (datos que se crean al dar de alta el restaurante)
+    # [01232] --- plantillas por defecto (datos que se crean al dar de alta el restaurante)
     "nav.downloads": 'Descargas',
     "dl.title": 'Hojas para imprimir',
     "dl.sub": 'Descarga la hoja en Excel, imprímela y cuélgala en la cocina. Se rellena a mano y sirve de respaldo cuando no hay móvil a mano o se cae la conexión.',
@@ -544,7 +544,7 @@ ES = {
     "settings.currency": 'Moneda de la casa',
     "settings.currency_help": 'En la que se cobra y se paga. Su símbolo sale al lado de cada cifra de dinero. Aquí no se convierte nada de una moneda a otra: un cambio viejo miente más que no poner nada.',
     "settings.pos_match": 'Identificación del POS',
-    # --- La jornada: dónde está la casa y a qué hora cierra el día
+    # [01233] --- La jornada: dónde está la casa y a qué hora cierra el día
     "settings.timezone": "Zona horaria de la casa",
     "settings.timezone_help": "Dónde está el local. De aquí sale la hora que se apunta en cada registro; sin esto, el programa usa la del servidor, que puede estar en otro continente.",
     "settings.day_cut": "Hora de cierre del día",
@@ -815,13 +815,13 @@ ES = {
     "off.noted": 'Apuntado. Se manda solo.',
     "off.waiting": 'esperando señal',
     "off.retrying": 'reintentando',
-    # Lo que acaba de pasar en la casa, para el que está en otra pantalla.
+    # [01234] Lo que acaba de pasar en la casa, para el que está en otra pantalla.
     "new.recepcion": 'Han entrado {n} × {label}',
     "new.recepcion.det": '{kg} kg · lote {ref} · {who}',
     "new.despiece": 'Despiezado {label}',
     "new.despiece.det": '{kg} kg en cámara · {ref} · {who}',
     "new.close": 'Quitar el aviso',
-    # ---- la etiqueta del proveedor: de dónde viene cada pieza
+    # [01235] ---- la etiqueta del proveedor: de dónde viene cada pieza
     "m.rec.label": 'La etiqueta del proveedor',
     "m.rec.label_sub": "De dónde viene la carne. Lo que sea igual para todo el camión se escribe aquí una vez; lo que cambie de un primal a otro va en su línea.",
     "m.rec.plant": 'Matadero o productor',
@@ -844,7 +844,7 @@ ES = {
     "m.rec.pack_before_slaughter": "El primal {serial} dice que se envasó antes de sacrificarlo. Mira esas dos fechas.",
     "trace.origin": 'De dónde viene',
     "trace.no_label": "Este primal entró sin la etiqueta del proveedor.",
-    # ---- la pieza no vale nada hasta que dirección le pone precio
+    # [01236] ---- la pieza no vale nada hasta que dirección le pone precio
     "m.price.title": "Primales esperando precio",
     "m.price.sub": "Han entrado y están en la cámara, pero todavía no valen nada: sin precio no se pueden despiezar, porque el despiece reparte el coste del primal entre los cortes. Ponles el suyo y quedan activos.",
     "m.price.all": 'El mismo precio para todas',
@@ -879,7 +879,7 @@ ES = {
     "trace.went_to": 'Dónde ha ido',
     "trace.sale_days": 'Las ventas, día a día',
 
-    # ---- la cola: volver a entrar, reintentar, tirar
+    # [01237] ---- la cola: volver a entrar, reintentar, tirar
     "off.login_again": "Hay que volver a entrar: lo apuntado sigue aquí y se manda solo en cuanto entres.",
     "off.resend": "Volver a mandar",
     "off.discard": "Tirar",
@@ -1281,7 +1281,7 @@ EN = {
     "settings.currency": 'House currency',
     "settings.currency_help": 'The one you charge and pay in. Its symbol shows next to every money figure. Nothing is converted here: a stale exchange rate lies more than showing nothing.',
     "settings.pos_match": 'POS identification',
-    # --- La jornada: dónde está la casa y a qué hora cierra el día
+    # [01238] --- La jornada: dónde está la casa y a qué hora cierra el día
     "settings.timezone": "Time zone of the house",
     "settings.timezone_help": "Where the place is. Every entry is timed from here; without it the program uses the server's clock, which may be on another continent.",
     "settings.day_cut": "Hour the day closes",
@@ -1612,7 +1612,7 @@ EN = {
     "trace.went_to": 'Where it went',
     "trace.sale_days": 'The sales, day by day',
 
-    # ---- la cola: volver a entrar, reintentar, tirar
+    # [01239] ---- la cola: volver a entrar, reintentar, tirar
     "off.login_again": "You have to sign in again: what you noted is still here and goes on its own once you do.",
     "off.resend": "Send again",
     "off.discard": "Discard",
@@ -2014,7 +2014,7 @@ FR = {
     "settings.currency": 'Monnaie de la maison',
     "settings.currency_help": "Celle dans laquelle on encaisse et on paie. Son symbole apparaît à côté de chaque montant. Rien n'est converti ici : un taux périmé ment plus que de ne rien afficher.",
     "settings.pos_match": 'Identification du POS',
-    # --- La jornada: dónde está la casa y a qué hora cierra el día
+    # [01240] --- La jornada: dónde está la casa y a qué hora cierra el día
     "settings.timezone": "Fuseau horaire de la maison",
     "settings.timezone_help": "Où se trouve l'établissement. C'est de là que vient l'heure de chaque saisie ; sans ça, le programme prend celle du serveur, qui peut être sur un autre continent.",
     "settings.day_cut": "Heure de clôture de la journée",
@@ -2345,7 +2345,7 @@ FR = {
     "trace.went_to": 'Où elle est allée',
     "trace.sale_days": 'Les ventes, jour par jour',
 
-    # ---- la cola: volver a entrar, reintentar, tirar
+    # [01241] ---- la cola: volver a entrar, reintentar, tirar
     "off.login_again": "Il faut se reconnecter : ce qui est noté reste ici et part tout seul dès que tu entres.",
     "off.resend": "Renvoyer",
     "off.discard": "Jeter",
@@ -2747,7 +2747,7 @@ DE = {
     "settings.currency": 'Währung des Hauses',
     "settings.currency_help": 'Die, in der kassiert und bezahlt wird. Ihr Zeichen steht neben jedem Geldbetrag. Hier wird nichts umgerechnet: ein alter Kurs lügt mehr, als gar nichts anzuzeigen.',
     "settings.pos_match": 'Kassenidentifikation',
-    # --- La jornada: dónde está la casa y a qué hora cierra el día
+    # [01242] --- La jornada: dónde está la casa y a qué hora cierra el día
     "settings.timezone": "Zeitzone des Hauses",
     "settings.timezone_help": "Wo der Betrieb steht. Daher kommt die Uhrzeit jeder Eintragung; ohne das nimmt das Programm die des Servers, der auf einem anderen Kontinent stehen kann.",
     "settings.day_cut": "Uhrzeit, zu der der Tag schließt",
@@ -3078,7 +3078,7 @@ DE = {
     "trace.went_to": 'Wohin es ging',
     "trace.sale_days": 'Die Verkäufe, Tag für Tag',
 
-    # ---- la cola: volver a entrar, reintentar, tirar
+    # [01243] ---- la cola: volver a entrar, reintentar, tirar
     "off.login_again": "Du musst dich neu anmelden: Das Notierte bleibt hier und geht von allein raus, sobald du drin bist.",
     "off.resend": "Nochmal senden",
     "off.discard": "Verwerfen",
@@ -3480,7 +3480,7 @@ NL = {
     "settings.currency": 'Valuta van het huis',
     "settings.currency_help": 'Die waarin wordt afgerekend en betaald. Het teken staat naast elk bedrag. Hier wordt niets omgerekend: een oude koers liegt meer dan helemaal niets tonen.',
     "settings.pos_match": 'Kassa-identificatie',
-    # --- La jornada: dónde está la casa y a qué hora cierra el día
+    # [01244] --- La jornada: dónde está la casa y a qué hora cierra el día
     "settings.timezone": "Tijdzone van het huis",
     "settings.timezone_help": "Waar de zaak staat. Daar komt de tijd van elke invoer vandaan; zonder dit gebruikt het programma die van de server, die op een ander continent kan staan.",
     "settings.day_cut": "Uur waarop de dag sluit",
@@ -3811,7 +3811,7 @@ NL = {
     "trace.went_to": 'Waar het heen is gegaan',
     "trace.sale_days": 'De verkopen, dag voor dag',
 
-    # ---- la cola: volver a entrar, reintentar, tirar
+    # [01245] ---- la cola: volver a entrar, reintentar, tirar
     "off.login_again": "Je moet opnieuw inloggen: wat je noteerde staat er nog en gaat vanzelf weg zodra je binnen bent.",
     "off.resend": "Opnieuw versturen",
     "off.discard": "Weggooien",
@@ -4213,7 +4213,7 @@ AR = {
     "settings.currency": 'عملة البيت',
     "settings.currency_help": 'التي يُقبض ويُدفع بها. رمزها يظهر بجانب كل مبلغ. لا يُحوَّل هنا شيء: سعر صرف قديم يكذب أكثر من ألا تكتب شيئًا.',
     "settings.pos_match": 'تعريف نظام البيع',
-    # --- La jornada: dónde está la casa y a qué hora cierra el día
+    # [01246] --- La jornada: dónde está la casa y a qué hora cierra el día
     "settings.timezone": "المنطقة الزمنية للمنشأة",
     "settings.timezone_help": "أين يقع المحل. من هنا يأتي وقت كل تسجيل؛ بدونها يستخدم البرنامج ساعة الخادم، وقد تكون في قارة أخرى.",
     "settings.day_cut": "ساعة إقفال اليوم",
@@ -4544,7 +4544,7 @@ AR = {
     "trace.went_to": 'إلى أين ذهب',
     "trace.sale_days": 'المبيعات، يوماً بيوم',
 
-    # ---- la cola: volver a entrar, reintentar, tirar
+    # [01247] ---- la cola: volver a entrar, reintentar, tirar
     "off.login_again": "عليك تسجيل الدخول من جديد: ما سجّلته باقٍ هنا ويُرسَل وحده بمجرد دخولك.",
     "off.resend": "إعادة الإرسال",
     "off.discard": "تجاهل",
@@ -4934,7 +4934,7 @@ HU = {
     "settings.currency": 'A ház pénzneme',
     "settings.currency_help": 'Amiben bevételezel és fizetsz. A jele minden összeg mellett ott van. Itt semmit nem váltunk át: egy régi árfolyam jobban hazudik, mint ha semmit nem írnánk ki.',
     "settings.pos_match": 'Pénztárgépi azonosítás',
-    # --- La jornada: dónde está la casa y a qué hora cierra el día
+    # [01248] --- La jornada: dónde está la casa y a qué hora cierra el día
     "settings.timezone": "A ház időzónája",
     "settings.timezone_help": "Hol van az üzlet. Innen jön minden bejegyzés időpontja; enélkül a program a szerver óráját használja, ami akár másik földrészen is lehet.",
     "settings.day_cut": "A nap zárásának órája",
@@ -5265,7 +5265,7 @@ HU = {
     "trace.went_to": 'Hová került',
     "trace.sale_days": 'Az eladások, naponként',
 
-    # ---- la cola: volver a entrar, reintentar, tirar
+    # [01249] ---- la cola: volver a entrar, reintentar, tirar
     "off.login_again": "Újra be kell lépned: amit felírtál, itt marad, és magától elmegy, amint belépsz.",
     "off.resend": "Újraküldés",
     "off.discard": "Eldobás",

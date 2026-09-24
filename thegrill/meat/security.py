@@ -1,4 +1,4 @@
-"""Lo que protege la puerta.
+"""[00545] Lo que protege la puerta.
 
 Tres cosas, y ninguna es decorativa:
 
@@ -25,16 +25,16 @@ import time
 from datetime import datetime
 from collections import defaultdict, deque
 
-# Intentos de acceso: cuántos fallos seguidos se aguantan y cuánto se espera.
+# [00556] Intentos de acceso: cuántos fallos seguidos se aguantan y cuánto se espera.
 LOGIN_ATTEMPTS = 8
 LOGIN_WINDOW_SECONDS = 300
 LOGIN_LOCK_SECONDS = 300
 
-# Formulario público: cuántas solicitudes por dirección y en cuánto tiempo.
+# [00557] Formulario público: cuántas solicitudes por dirección y en cuánto tiempo.
 FORM_ATTEMPTS = 5
 FORM_WINDOW_SECONDS = 3600
 
-# Las cabeceras y la política viven en el motor compartido, que es donde
+# [00558] Las cabeceras y la política viven en el motor compartido, que es donde
 # tienen que estar: la otra edición se había quedado sin ellas justamente por
 # estar aquí. Se reexportan para no tocar las catorce referencias de siempre.
 from thegrill.web.seguridad import CABECERAS as SECURITY_HEADERS  # noqa: E402
@@ -44,7 +44,7 @@ from thegrill.web.seguridad import nuevo_nonce as new_nonce       # noqa: E402
 from thegrill.web.seguridad import politica as content_policy  # noqa: E402
 
 
-# El freno vive en la base de datos cuando hay una a mano, porque si vive en la
+# [00559] El freno vive en la base de datos cuando hay una a mano, porque si vive en la
 # memoria de un proceso deja de frenar en cuanto hay más de uno: cinco intentos
 # por trabajador son veinte para quien prueba contraseñas. La memoria se queda
 # como respaldo para lo que corre sin base de datos.
@@ -53,13 +53,13 @@ _forms: dict[str, deque] = defaultdict(deque)
 
 
 def _prune(marks: deque, window: float, now: float) -> None:
-    """Tira los intentos que ya quedan fuera de la ventana de tiempo."""
+    """[00546] Tira los intentos que ya quedan fuera de la ventana de tiempo."""
     while marks and now - marks[0] > window:
         marks.popleft()
 
 
 def _marks(session, kind: str, key: str, window: float, now: float) -> list[float]:
-    """Los fallos de esa llave dentro de la ventana, y de paso barre los viejos."""
+    """[00547] Los fallos de esa llave dentro de la ventana, y de paso barre los viejos."""
     from thegrill.models import AccessBrake
     session.query(AccessBrake).filter(AccessBrake.ts < now - max(window, LOGIN_LOCK_SECONDS) * 4
                                       ).delete(synchronize_session=False)
@@ -71,7 +71,7 @@ def _marks(session, kind: str, key: str, window: float, now: float) -> list[floa
 
 
 def locked_for(key: str, now: float | None = None, session=None) -> int:
-    """Segundos que faltan para poder volver a intentarlo. Cero si se puede."""
+    """[00548] Segundos que faltan para poder volver a intentarlo. Cero si se puede."""
     now = time.time() if now is None else now
     if session is not None:
         marks = _marks(session, "login", key, LOGIN_WINDOW_SECONDS, now)
@@ -80,12 +80,12 @@ def locked_for(key: str, now: float | None = None, session=None) -> int:
         _prune(marks, LOGIN_WINDOW_SECONDS, now)
     if len(marks) < LOGIN_ATTEMPTS:
         return 0
-    # La espera cuenta desde el último fallo: insistir alarga el castigo.
+    # [00560] La espera cuenta desde el último fallo: insistir alarga el castigo.
     return max(0, int(marks[-1] + LOGIN_LOCK_SECONDS - now))
 
 
 def note_failure(key: str, now: float | None = None, session=None) -> None:
-    """Apunta un intento de entrar fallido, para frenar a quien prueba contraseñas.
+    """[00549] Apunta un intento de entrar fallido, para frenar a quien prueba contraseñas.
 
     En memoria mientras hay un solo proceso; en la base cuando hay varios, que
     es lo que hay en un servidor de verdad: si cada proceso lleva su cuenta
@@ -103,7 +103,7 @@ def note_failure(key: str, now: float | None = None, session=None) -> None:
 
 
 def clear(key: str, session=None) -> None:
-    """Un acceso bueno borra la cuenta de fallos."""
+    """[00550] Un acceso bueno borra la cuenta de fallos."""
     if session is not None:
         from thegrill.models import AccessBrake
         session.query(AccessBrake).filter_by(kind="login", key=key[:160]).delete(
@@ -114,7 +114,7 @@ def clear(key: str, session=None) -> None:
 
 
 def form_allowed(key: str, now: float | None = None, session=None) -> bool:
-    """Si esa dirección puede mandar otra solicitud."""
+    """[00551] Si esa dirección puede mandar otra solicitud."""
     now = time.time() if now is None else now
     if session is not None:
         from thegrill.models import AccessBrake
@@ -133,7 +133,7 @@ def form_allowed(key: str, now: float | None = None, session=None) -> bool:
 
 
 def reset(session=None) -> None:
-    """Para las pruebas: empezar de cero."""
+    """[00552] Para las pruebas: empezar de cero."""
     _failures.clear()
     _forms.clear()
     if session is not None:
@@ -144,12 +144,12 @@ def reset(session=None) -> None:
 
 # ------------------------------------------------- envíos que llegan dos veces
 class AlreadyDone(Exception):
-    """Ese envío ya se aplicó: no se vuelve a tocar nada."""
+    """[00553] Ese envío ya se aplicó: no se vuelve a tocar nada."""
 
 
 def first_time(session, key: str, restaurant_id: int | None = None,
                user_id: int | None = None, path: str | None = None) -> bool:
-    """Apunta el envío y dice si es la primera vez que llega.
+    """[00554] Apunta el envío y dice si es la primera vez que llega.
 
     Un teléfono sin cobertura reintenta, y a veces el primer intento sí había
     llegado —se cayó la respuesta, no la escritura—. Aquí se decide con la
@@ -174,7 +174,7 @@ def first_time(session, key: str, restaurant_id: int | None = None,
 
 
 def forget_old_submissions(session, days: int = 30) -> int:
-    """Los números viejos ya no hacen falta: ningún teléfono guarda un mes."""
+    """[00555] Los números viejos ya no hacen falta: ningún teléfono guarda un mes."""
     from datetime import timedelta
 
     from thegrill.models import Submission

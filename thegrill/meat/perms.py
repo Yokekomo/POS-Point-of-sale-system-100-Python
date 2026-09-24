@@ -1,4 +1,4 @@
-"""Quién puede hacer qué.
+"""[00519] Quién puede hacer qué.
 
 Tres niveles, pensados desde el trabajo y no desde el organigrama:
 
@@ -56,22 +56,22 @@ CAPS: dict[Role, frozenset[str]] = {
 
 
 def caps_for(role: Role) -> frozenset[str]:
-    """Lo que puede hacer ese nivel. Un nivel que no consta, lo mínimo."""
+    """[00520] Lo que puede hacer ese nivel. Un nivel que no consta, lo mínimo."""
     return CAPS.get(role, EMPLOYEE_CAPS)
 
 
 def can(user, capability: str) -> bool:
-    """Si esta persona puede hacer eso. Sin usuario, no."""
+    """[00521] Si esta persona puede hacer eso. Sin usuario, no."""
     return bool(user) and capability in caps_for(user.role)
 
 
 def checker(user):
-    """La versión que reciben las plantillas: `can("money")`."""
+    """[00522] La versión que reciben las plantillas: `can("money")`."""
     allowed = caps_for(user.role) if user else frozenset()
     return lambda capability: capability in allowed
 
 
-# ==================================================== quién manda sobre quién
+# [00526] ==================================================== quién manda sobre quién
 # Un grupo con obrador y tres locales no lo lleva una sola persona. El manager
 # general —el que no tiene sede— es el de la casa entera y da de alta a los
 # managers de cada local; el manager de un local lleva el suyo y su gente, y
@@ -83,12 +83,12 @@ def checker(user):
 # desplegable no es una puerta cerrada, porque el formulario se puede mandar
 # a mano.
 def is_general_manager(user) -> bool:
-    """El manager de la casa entera: el que no está atado a una sede."""
+    """[00523] El manager de la casa entera: el que no está atado a una sede."""
     return bool(user) and user.role == Role.MANAGER and not getattr(user, "site_id", None)
 
 
 def can_manage(actor, target) -> bool:
-    """Si `actor` puede tocar la cuenta de `target`: su nivel, su clave, su alta.
+    """[00524] Si `actor` puede tocar la cuenta de `target`: su nivel, su clave, su alta.
 
     Nadie toca al dueño de la plataforma salvo él mismo, y nadie toca a un
     igual: dos managers generales de la misma casa no se dan de baja el uno al
@@ -101,11 +101,11 @@ def can_manage(actor, target) -> bool:
     if target.role == Role.OWNER:
         return False                       # la plataforma no la toca la casa
     if target.role == Role.MANAGER:
-        # A un manager solo le entra el general, y solo si el otro es de local.
+        # [00527] A un manager solo le entra el general, y solo si el otro es de local.
         return is_general_manager(actor) and not is_general_manager(target)
     if actor.role != Role.MANAGER:
         return False
-    # Y el de un local, solo a los suyos. Estaba escrito arriba —«no toca al
+    # [00528] Y el de un local, solo a los suyos. Estaba escrito arriba —«no toca al
     # de al lado»— y no se comprobaba: el encargado de Playa podía cambiarle
     # la contraseña a la carnicera de Sierra y entrar como ella. En un grupo
     # con cuatro locales eso son cuatro puertas abiertas entre sí, y el rastro
@@ -118,7 +118,7 @@ def can_manage(actor, target) -> bool:
 
 
 def grantable_roles(actor) -> list:
-    """Los niveles que esa persona puede repartir. Nunca uno por encima suyo."""
+    """[00525] Los niveles que esa persona puede repartir. Nunca uno por encima suyo."""
     if not actor:
         return []
     if actor.role == Role.OWNER:

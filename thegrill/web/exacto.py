@@ -1,4 +1,4 @@
-"""Repartir sin perder un céntimo ni un gramo. Nunca, ni en el peor caso.
+"""[01170] Repartir sin perder un céntimo ni un gramo. Nunca, ni en el peor caso.
 
 Repartir el coste de un primal entre sus cortes es una división, y una
 división casi nunca cae exacta: 300,80 € entre tres cortes son 100,2666… cada
@@ -36,17 +36,17 @@ CENTIMOS_DECIMALES = 2  # las que da el dinero
 
 
 def a_enteros(valor: float, por: int = CENTIMOS) -> int:
-    """De euros a céntimos, o de kilos a gramos. Con redondeo al más cercano."""
+    """[01171] De euros a céntimos, o de kilos a gramos. Con redondeo al más cercano."""
     return int(round((valor or 0.0) * por))
 
 
 def a_decimal(entero: int, por: int = CENTIMOS) -> float:
-    """De vuelta. Se divide una sola vez y al final, no por el camino."""
+    """[01172] De vuelta. Se divide una sola vez y al final, no por el camino."""
     return entero / por
 
 
 def repartir(total: int, pesos: list[float]) -> list[int]:
-    """Reparte `total` unidades entre los pesos dados, sin perder ninguna.
+    """[01173] Reparte `total` unidades entre los pesos dados, sin perder ninguna.
 
     Devuelve enteros cuya suma es **exactamente** `total`. Si todos los pesos
     son cero, se reparte a partes iguales, que es lo único razonable cuando no
@@ -60,7 +60,7 @@ def repartir(total: int, pesos: list[float]) -> list[int]:
         return []
     suma = sum(pesos)
     if suma <= 0:
-        # Sin pesos, a partes iguales y el resto a los primeros.
+        # [01187] Sin pesos, a partes iguales y el resto a los primeros.
         base, sobra = divmod(total, len(pesos))
         return [base + (1 if i < sobra else 0) for i in range(len(pesos))]
 
@@ -68,7 +68,7 @@ def repartir(total: int, pesos: list[float]) -> list[int]:
     partes = [int(x) if x >= 0 else -int(-x) for x in exactos]   # hacia cero
     sobra = total - sum(partes)
     if sobra:
-        # Quien más parte decimal tiene, primero. El signo importa: repartiendo
+        # [01188] Quien más parte decimal tiene, primero. El signo importa: repartiendo
         # un número negativo —una devolución, un ajuste a la baja— lo que sobra
         # también es negativo y va a quien menos le falta.
         orden = sorted(range(len(pesos)),
@@ -81,38 +81,38 @@ def repartir(total: int, pesos: list[float]) -> list[int]:
 
 
 def repartir_dinero(total_eur: float, pesos: list[float]) -> list[float]:
-    """El coste de una pieza entre sus cortes, al céntimo y sin perder nada."""
+    """[01174] El coste de una pieza entre sus cortes, al céntimo y sin perder nada."""
     centimos = repartir(a_enteros(total_eur, CENTIMOS), pesos)
     return [a_decimal(c, CENTIMOS) for c in centimos]
 
 
 def repartir_kilos(total_kg: float, pesos: list[float]) -> list[float]:
-    """Unos kilos entre varias partes, al gramo y sin perder ninguno."""
+    """[01175] Unos kilos entre varias partes, al gramo y sin perder ninguno."""
     gramos = repartir(a_enteros(total_kg, GRAMOS), pesos)
     return [a_decimal(g, GRAMOS) for g in gramos]
 
 
 def cuadra(partes: list[float], total: float, por: int = CENTIMOS) -> bool:
-    """¿Suman las partes exactamente el total, en su unidad más pequeña?"""
+    """[01176] ¿Suman las partes exactamente el total, en su unidad más pequeña?"""
     return sum(a_enteros(p, por) for p in partes) == a_enteros(total, por)
 
 
 # ------------------------------------------------------- guardar sin milésimas
 def euros(valor: float | None) -> float | None:
-    """Deja un importe en céntimos justos. Una factura no dice 543,3701."""
+    """[01177] Deja un importe en céntimos justos. Una factura no dice 543,3701."""
     if valor is None:
         return None
     return a_decimal(a_enteros(valor, CENTIMOS), CENTIMOS)
 
 
 def kilos(valor: float | None) -> float | None:
-    """Deja un peso en gramos justos. Una báscula no da milésimas de gramo."""
+    """[01178] Deja un peso en gramos justos. Una báscula no da milésimas de gramo."""
     if valor is None:
         return None
     return a_decimal(a_enteros(valor, GRAMOS), GRAMOS)
 
 
-# ----------------------------------------------------- leer lo que escriben
+# [01189] ----------------------------------------------------- leer lo que escriben
 # Un número escrito a mano no viene en un solo idioma. El mismo peso se teclea
 # «1,250» en Madrid, «1.250» en Londres y «1 250» en Budapest, y el teclado
 # del móvil pone el separador que le da la gana. Leerlo con un
@@ -141,18 +141,18 @@ _ESPACIOS = re.compile(r"[\s\u00a0\u202f\u2009\u2007']")
 
 
 class NoEsUnNumero(ValueError):
-    """Ahí no hay un número. Lleva escrito lo que había, que es lo único que
+    """[01179] Ahí no hay un número. Lleva escrito lo que había, que es lo único que
     le sirve a quien lo escribió: «4 C» se arregla mirando la C."""
 
     def __init__(self, escrito: str):
-        """Guarda lo que se escribió, para poder enseñarlo tal cual."""
+        """[01185] Guarda lo que se escribió, para poder enseñarlo tal cual."""
         self.escrito = escrito
         super().__init__(f"no es un número: {escrito!r}")
 
 
 def leer(raw: object, default: float | None = None,
          decimales: int = GRAMOS_DECIMALES) -> float | None:
-    """El número que quiso escribir quien lo escribió, venga como venga.
+    """[01180] El número que quiso escribir quien lo escribió, venga como venga.
 
     `decimales` es la resolución del campo: 3 para kilos, 2 para dinero, 0
     para contar unidades. Solo se usa para resolver el caso dudoso.
@@ -202,7 +202,7 @@ def leer(raw: object, default: float | None = None,
 
 
 def es_justo(valor: float | None, por: int = CENTIMOS) -> bool:
-    """¿Es ese número un múltiplo exacto de su unidad más pequeña?
+    """[01181] ¿Es ese número un múltiplo exacto de su unidad más pequeña?
 
     Se compara con margen porque la coma flotante no guarda 300,80 sino
     300,79999999999998863… Lo que se pregunta no es si el número es bonito,
@@ -214,7 +214,7 @@ def es_justo(valor: float | None, por: int = CENTIMOS) -> bool:
     return abs(valor * por - round(valor * por)) < 1e-6
 
 
-# Qué se guarda en cada tabla y con qué unidad. Escrito a mano: una lista
+# [01190] Qué se guarda en cada tabla y con qué unidad. Escrito a mano: una lista
 # adivinada por el nombre de la columna deja fuera justo la que falla.
 #
 # Aquí solo van los **importes**: lo que alguien paga, cobra o apunta en el
@@ -232,7 +232,7 @@ def es_justo(valor: float | None, por: int = CENTIMOS) -> bool:
 A_CENTIMOS = {
     "primals": ("piece_cost_usd",),
 }
-# Y en los pesos, la misma distinción que en el dinero, por el mismo motivo.
+# [01191] Y en los pesos, la misma distinción que en el dinero, por el mismo motivo.
 #
 # Aquí van los pesos **medidos**: lo que ha dicho una báscula. Una báscula da
 # gramos, así que una pieza no pesa 8,4295 kg ni lo ha pesado nunca nadie.
@@ -252,7 +252,7 @@ A_GRAMOS = {
 
 
 def revisar(session, restaurant_id: int | None = None, tope: int = 40) -> list[str]:
-    """Busca en la base de datos números que no caen en céntimo ni en gramo.
+    """[01182] Busca en la base de datos números que no caen en céntimo ni en gramo.
 
     Es el vigilante de la exactitud: si algún camino nuevo guarda 8,4295 kg o
     12,3456 €, aquí sale con su tabla, su columna y su valor. Un número así no
@@ -280,9 +280,9 @@ def revisar(session, restaurant_id: int | None = None, tope: int = 40) -> list[s
     return fallos
 
 
-# ------------------------------------------------- que no se pueda guardar mal
+# [01192] ------------------------------------------------- que no se pueda guardar mal
 def _cuadrar(objeto) -> None:
-    """Deja los importes de ese objeto en céntimos y sus pesos en gramos."""
+    """[01183] Deja los importes de ese objeto en céntimos y sus pesos en gramos."""
     tabla = getattr(objeto, "__tablename__", None)
     if tabla is None:
         return
@@ -300,7 +300,7 @@ _enganchado = False
 
 
 def enganchar(session_class) -> None:
-    """Hace imposible guardar un importe con milésimas o un peso con miligramos.
+    """[01184] Hace imposible guardar un importe con milésimas o un peso con miligramos.
 
     Podría redondearse en los trece sitios donde hoy se escribe un apunte, pero
     entonces el catorceavo —el que se escriba el mes que viene— volvería a
@@ -313,7 +313,7 @@ def enganchar(session_class) -> None:
     """
     global _enganchado
     if _enganchado:
-        # Se llama una vez por arranque de motor, y en las pruebas eso son
+        # [01193] Se llama una vez por arranque de motor, y en las pruebas eso son
         # cientos: sin esto se apilaría un vigilante por cada uno y el mismo
         # objeto se repasaría cien veces antes de cada guardado.
         return
@@ -323,7 +323,7 @@ def enganchar(session_class) -> None:
 
     @event.listens_for(session_class, "before_flush")
     def _antes_de_guardar(session, _contexto, _instancias):   # noqa: ANN001
-        """Redondea lo que va a la base justo antes de escribirlo.
+        """[01186] Redondea lo que va a la base justo antes de escribirlo.
 
         Todo lo que se guarda pasa por aquí: lo nuevo y lo que se ha tocado. Es el
         último sitio donde se puede evitar que un importe con milésimas o un peso

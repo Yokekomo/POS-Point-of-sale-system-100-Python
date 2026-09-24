@@ -2,7 +2,7 @@
 {% block body %}
 <h1>{{ plate.dish.name }}</h1>
 <p class="sub">{{ t("m.plate.sub") }}</p>
-{# Si este plato está atado a su artículo del POS, y a cuál. Sin emparejar,
+{# [01571] Si este plato está atado a su artículo del POS, y a cuál. Sin emparejar,
    lo que se venda no descuenta de la cámara y nadie se entera. #}
 <p class="help">{{ t("m.menu.pos") }}:
   {% if plate.paired %}{% if plate.pos_code %}<b>{{ plate.pos_code }}</b> ·

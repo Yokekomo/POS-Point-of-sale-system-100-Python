@@ -1,4 +1,4 @@
-"""Control de carnes. Una sola puerta: la carne.
+"""[00173] Control de carnes. Una sola puerta: la carne.
 
 Misma casa que la plataforma de cocina y el mismo motor probado, pero con las
 pantallas que una cocina de carne necesita y sin nada más: recepción de
@@ -48,7 +48,7 @@ MEAT_TEMPLATES = os.path.join(os.path.dirname(__file__), "templates")
 KITCHEN_TEMPLATES = os.path.join(os.path.dirname(os.path.dirname(__file__)),
                                  "web", "templates")
 XLSX_MEDIA = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-# El aviso de cookies se recuerda en una cookie técnica, no en el navegador: el
+# [00341] El aviso de cookies se recuerda en una cookie técnica, no en el navegador: el
 # almacenamiento del navegador se borra al cerrar, se bloquea en algunas
 # configuraciones y no viaja entre ventanas, así que el aviso volvía a salir una
 # y otra vez. Una cookie de un año, sin nada dentro más que un uno.
@@ -56,27 +56,27 @@ COOKIE_NOTICE = "grill_cookies"
 NOTICE_YEAR = 365 * 24 * 3600
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 PHOTO_DIR = os.path.join(STATIC_DIR, "fotos")
-# Las fotos de las etiquetas no van en /static: ahí las vería cualquiera que
+# [00342] Las fotos de las etiquetas no van en /static: ahí las vería cualquiera que
 # acertara la dirección. Se guardan fuera y se sirven por una ruta que primero
 # mira de qué casa es quien las pide.
 UPLOAD_DIR = os.environ.get("GRILL_UPLOAD_DIR", "uploads")
 
-# Las zonas horarias que existen, para el desplegable de la configuración y
+# [00343] Las zonas horarias que existen, para el desplegable de la configuración y
 # para comprobar lo que llega. Se calcula una vez al arrancar: son unas
 # seiscientas y no cambian mientras el programa está en marcha.
 ZONAS = sorted(zoneinfo.available_timezones())
-# Las fotos de la portada. Se llaman así y se dejan caer en esa carpeta; la
+# [00344] Las fotos de la portada. Se llaman así y se dejan caer en esa carpeta; la
 # portada usa las que encuentre y se arregla sin las que falten.
 PHOTO_SLOTS = ("primal", "cortes", "plato")
 
-# Las plantillas propias mandan; lo que no esté aquí se hereda de la cocina.
+# [00345] Las plantillas propias mandan; lo que no esté aquí se hereda de la cocina.
 templates = Jinja2Templates(directory=[MEAT_TEMPLATES, KITCHEN_TEMPLATES])
 templates.env.filters["ceil_pct"] = butchery.ceil_pct
-# Los decimales, con el separador del idioma de la casa: «9,400 kg» en
+# [00346] Los decimales, con el separador del idioma de la casa: «9,400 kg» en
 # español y «9.400 kg» en inglés, en las doscientas y pico cifras que salen
 # por pantalla, sin tocar ninguna plantilla.
 cifras.enganchar(templates.env)
-# Sin documentación automática: /docs y /openapi.json enseñaban el mapa entero
+# [00347] Sin documentación automática: /docs y /openapi.json enseñaban el mapa entero
 # de la aplicación a cualquiera que pasara por ahí.
 app = FastAPI(title="Control de carnes", docs_url=None, redoc_url=None, openapi_url=None)
 os.makedirs(PHOTO_DIR, exist_ok=True)
@@ -85,18 +85,18 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # --------------------------------------------------------------- utilidades
 def get_db():
-    """Una sesión con la base para cada petición, que se cierra al acabar."""
+    """[00174] Una sesión con la base para cada petición, que se cierra al acabar."""
     with db.session_scope() as session:
         yield session
 
 
 def current(request: Request, session: Session):
-    """Quién está dentro, según la cookie. Nadie, si no hay sesión válida."""
+    """[00175] Quién está dentro, según la cookie. Nadie, si no hay sesión válida."""
     return auth.resolve_session(session, request.cookies.get(auth.COOKIE_NAME))
 
 
 def lang_for(request: Request, session: Session | None = None, user: User | None = None) -> str:
-    """En qué idioma se le contesta a esta petición.
+    """[00176] En qué idioma se le contesta a esta petición.
 
     Por orden: lo que eligió esa persona, la cookie, lo que pide el navegador y
     el idioma de la casa.
@@ -111,7 +111,7 @@ def lang_for(request: Request, session: Session | None = None, user: User | None
                         restaurant_lang=restaurant_lang)
 
 
-# La cola del teléfono manda esta cabecera en todo lo que reenvía. A ella hay
+# [00348] La cola del teléfono manda esta cabecera en todo lo que reenvía. A ella hay
 # que contestarle con un número, no con una redirección: un `fetch` sigue la
 # redirección solo, recibe el 200 de la pantalla de entrar y da por guardado lo
 # que no se guardó. Así se perdían recuentos enteros sin que nadie se enterara.
@@ -119,7 +119,7 @@ CABECERA_COLA = "x-cola"
 
 
 def _de_la_cola(request: Request) -> bool:
-    """Si esto viene de la cola del teléfono y no de alguien mirando la pantalla.
+    """[00177] Si esto viene de la cola del teléfono y no de alguien mirando la pantalla.
 
     Se contesta distinto: a una persona se la manda a entrar; a la cola, un
     error seco, que no hay pantalla que enseñar.
@@ -128,7 +128,7 @@ def _de_la_cola(request: Request) -> bool:
 
 
 def require_user(request: Request, session: Session = Depends(get_db)):
-    """La puerta: hay que estar dentro, y la casa no puede estar bloqueada.
+    """[00178] La puerta: hay que estar dentro, y la casa no puede estar bloqueada.
 
     Una cuenta bloqueada puede entrar, ver por qué y salir, y nada más. El
     dueño de la plataforma entra siempre: es quien lo tiene que desbloquear.
@@ -140,7 +140,7 @@ def require_user(request: Request, session: Session = Depends(get_db)):
         raise HTTPException(status_code=303, headers={"Location": "/login"})
     user, _ = found
     restaurant = session.get(Restaurant, user.restaurant_id)
-    # Una cuenta bloqueada no trabaja. Se puede entrar, ver por qué y salir.
+    # [00349] Una cuenta bloqueada no trabaja. Se puede entrar, ver por qué y salir.
     if restaurant is not None and restaurant.blocked and user.role != Role.OWNER:
         if _de_la_cola(request):
             raise HTTPException(status_code=402, detail="")
@@ -149,7 +149,7 @@ def require_user(request: Request, session: Session = Depends(get_db)):
 
 
 def require_manager_user(request: Request, session: Session = Depends(get_db)):
-    """Solo para quien lleva la casa."""
+    """[00179] Solo para quien lleva la casa."""
     user, auth_session = require_user(request, session)
     if user.role != Role.MANAGER:
         raise HTTPException(status_code=403,
@@ -158,7 +158,7 @@ def require_manager_user(request: Request, session: Session = Depends(get_db)):
 
 
 def require_owner(request: Request, session: Session = Depends(get_db)):
-    """Solo para el dueño de la plataforma.
+    """[00180] Solo para el dueño de la plataforma.
 
     A los demás se les contesta que no existe, no que no pueden: ni se insinúa
     que haya una pantalla ahí detrás.
@@ -173,13 +173,13 @@ def require_owner(request: Request, session: Session = Depends(get_db)):
 
 
 def needs(capability: str):
-    """Depende de poder hacer eso. La puerta se cierra aquí, no en la plantilla.
+    """[00181] Depende de poder hacer eso. La puerta se cierra aquí, no en la plantilla.
 
     Una barra sin enlace no es una puerta cerrada: si no se comprueba en la
     ruta, basta escribir la dirección a mano para entrar.
     """
     def dependency(request: Request, session: Session = Depends(get_db)):
-        """Comprueba que esa persona puede hacer eso antes de dejarla pasar."""
+        """[00338] Comprueba que esa persona puede hacer eso antes de dejarla pasar."""
         user, auth_session = require_user(request, session)
         if not perms.can(user, capability):
             raise HTTPException(
@@ -191,7 +191,7 @@ def needs(capability: str):
 
 def page(request: Request, name: str, user: User | None = None, auth_session=None,
          session: Session | None = None, **ctx):
-    """Pinta una pantalla con todo lo que las plantillas dan por hecho.
+    """[00182] Pinta una pantalla con todo lo que las plantillas dan por hecho.
 
     El usuario, el testigo del formulario, el idioma, lo que puede hacer y —lo
     que más se olvida— el día de trabajo de la casa, que no es el del
@@ -200,7 +200,7 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
     lang = ctx.pop("lang", None) or lang_for(request, session, user)
     base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
             "cookies_seen": bool(request.cookies.get(COOKIE_NOTICE)),
-            # El día de trabajo de la casa, no el del servidor: es lo que se
+            # [00350] El día de trabajo de la casa, no el del servidor: es lo que se
             # propone en cada campo de fecha y lo que se pinta en cada pantalla.
             "today": jornada.hoy(session, user.restaurant_id if user else None).isoformat(),
             "can": perms.checker(user),
@@ -209,18 +209,18 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
             "unread": service.unread_count(session, user.id) if (user and session) else 0,
             "t": i18n.translator(lang), "lang": lang, "dir": i18n.direction(lang),
             "languages": i18n.LANGUAGES,
-            # El símbolo de la moneda de la casa. Va en el nombre de cada
+            # [00351] El símbolo de la moneda de la casa. Va en el nombre de cada
             # columna y de cada recuadro de dinero, igual que los kilos: un
             # número suelto no dice si son euros o dólares.
             "moneda": money.simbolo(_moneda_de(session, user)),
-            # El tutorial de esta pantalla, si toca. Los pasos vienen ya
+            # [00352] El tutorial de esta pantalla, si toca. Los pasos vienen ya
             # traducidos y ya filtrados por nivel: lo que no le toca a esta
             # persona no llega al navegador.
             "tour": tutorial.para(session, user, request.url.path, lang,
                                   forzar=request.query_params.get("tour") == "1"),
             "tour_aqui": tours.RUTAS.get(request.url.path.rstrip("/") or "/")}
     base.update(ctx)
-    # El recado de lo último que se guardó, si lo hay. Se enseña una vez y se
+    # [00353] El recado de lo último que se guardó, si lo hay. Se enseña una vez y se
     # borra: la pantalla que lo enseña es una de verdad —se llegó a ella con
     # una redirección— y recargarla no vuelve a mandar nada.
     if auth_session is not None and (getattr(auth_session, "flash", None)
@@ -229,7 +229,7 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
             guardado = json.loads(auth_session.flash_data or "{}")
         except ValueError:                                   # pragma: no cover
             guardado = {}
-        # Y solo en la pantalla a la que iba. Si de la recepción se salta al
+        # [00354] Y solo en la pantalla a la que iba. Si de la recepción se salta al
         # despiece sin pasar por la recepción, el recado de la pieza que se
         # acaba de dar de alta no tiene nada que hacer en la hoja del
         # despiece: se tira. Enseñarlo donde caiga es peor que perderlo.
@@ -246,7 +246,7 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
 
 
 def _moneda_de(session: Session | None, user: User | None) -> str | None:
-    """En qué moneda trabaja esta casa. Sin casa, la de por defecto."""
+    """[00183] En qué moneda trabaja esta casa. Sin casa, la de por defecto."""
     if not (session and user):
         return None
     restaurant = session.get(Restaurant, user.restaurant_id)
@@ -254,20 +254,20 @@ def _moneda_de(session: Session | None, user: User | None) -> str | None:
 
 
 def is_https(request: Request) -> bool:
-    """Si la petición llegó por HTTPS, mirando también lo que dice el proxy."""
+    """[00184] Si la petición llegó por HTTPS, mirando también lo que dice el proxy."""
     if request.url.scheme == "https":
         return True
     return request.headers.get("x-forwarded-proto", "").split(",")[0].strip() == "https"
 
 
 def set_session_cookie(response: Response, token: str) -> Response:
-    """Deja la cookie de sesión, cerrada a cal y canto.
+    """[00185] Deja la cookie de sesión, cerrada a cal y canto.
 
     No la lee el javascript, no viaja desde otra página y solo va por https.
     Esto es un programa de trabajo: nadie llega aquí desde fuera.
     """
     secure = os.environ.get("GRILL_INSECURE_COOKIE") != "1"
-    # `strict`: la cookie no viaja en peticiones que vengan de otro sitio, ni
+    # [00355] `strict`: la cookie no viaja en peticiones que vengan de otro sitio, ni
     # siquiera al pinchar un enlace. Es un programa de trabajo, no una red
     # social: nadie llega aquí desde fuera y necesita estar dentro al llegar.
     response.set_cookie(auth.COOKIE_NAME, token, httponly=True, samesite="strict",
@@ -276,14 +276,14 @@ def set_session_cookie(response: Response, token: str) -> Response:
 
 
 def set_lang_cookie(response: Response, lang: str) -> Response:
-    """Recuerda el idioma elegido durante un año."""
+    """[00186] Recuerda el idioma elegido durante un año."""
     response.set_cookie(i18n.COOKIE_NAME, lang, httponly=False, samesite="lax",
                         max_age=365 * 86400, path="/")
     return response
 
 
 def _guard(request, session, user, auth_session, csrf: str) -> None:
-    """Comprueba que el formulario salió de nuestra pantalla. Si no, no pasa."""
+    """[00187] Comprueba que el formulario salió de nuestra pantalla. Si no, no pasa."""
     try:
         auth.check_csrf(auth_session, csrf, lang_for(request, session, user))
     except auth.PermissionDenied as e:
@@ -291,7 +291,7 @@ def _guard(request, session, user, auth_session, csrf: str) -> None:
 
 
 def _ya_estaba(request, session, user, envio: str, destino: str):
-    """Si este envío ya se aplicó, se contesta que sí y no se toca nada.
+    """[00188] Si este envío ya se aplicó, se contesta que sí y no se toca nada.
 
     El teléfono que estuvo sin cobertura reintenta, y a veces el intento de
     antes sí había entrado: se perdió la respuesta, no la escritura. Devolver
@@ -306,7 +306,7 @@ def _ya_estaba(request, session, user, envio: str, destino: str):
 
 
 def _own(session: Session, user: User, model, obj_id: int, request: Request):
-    """Trae una fila comprobando que es de esta casa.
+    """[00189] Trae una fila comprobando que es de esta casa.
 
     Sin esto, cambiar un número en la dirección enseña —o borra— lo del
     vecino. Y se contesta «no existe», que es lo que tiene que parecer.
@@ -320,7 +320,7 @@ def _own(session: Session, user: User, model, obj_id: int, request: Request):
 
 def _num(raw: str | None, default: float | None = None,
          decimales: int = exacto.GRAMOS_DECIMALES) -> float | None:
-    """Los teclados de cocina escriben comas, y a veces escriben los miles.
+    """[00190] Los teclados de cocina escriben comas, y a veces escriben los miles.
 
     `decimales` dice qué mide el campo: 3 un peso, 2 un precio. Con eso
     `exacto.leer` sabe si «1.250» es kilo y cuarto o mil doscientos cincuenta,
@@ -329,13 +329,13 @@ def _num(raw: str | None, default: float | None = None,
     return exacto.leer(raw, default, decimales)
 
 
-# La marca con la que un objeto viaja como texto sin dejar de ser un objeto.
+# [00356] La marca con la que un objeto viaja como texto sin dejar de ser un objeto.
 CAMPOS_DE_UN_OBJETO = "__campos__"
 DONDE_IBA = "__pantalla__"
 
 
 def _en_texto(valor):
-    """Un resultado entero, para que viaje de una pantalla a la siguiente.
+    """[00191] Un resultado entero, para que viaje de una pantalla a la siguiente.
 
     Sus campos y **también lo que calcula**. Copiar solo los campos guardados
     deja fuera lo que la clase saca al vuelo —el margen de una venta, los
@@ -343,7 +343,7 @@ def _en_texto(valor):
     van los dos, porque lo que se enseña es el conjunto.
     """
     if is_dataclass(valor) and not isinstance(valor, type):
-        # La marca dice «esto era un objeto»: al volver hay que montarlo como
+        # [00357] La marca dice «esto era un objeto»: al volver hay que montarlo como
         # tal, porque la pantalla le pide sus campos con un punto. Un
         # diccionario de los de siempre —lo del camión, por ejemplo— viaja
         # como diccionario y se pide con `.get`, y confundir los dos rompe la
@@ -368,7 +368,7 @@ def _en_texto(valor):
 
 
 def _objeto(valor):
-    """Vuelve a montar lo que viajó como texto, para que la plantilla no note nada.
+    """[00192] Vuelve a montar lo que viajó como texto, para que la plantilla no note nada.
 
     Un diccionario se convierte en algo a lo que se le pueden pedir sus campos
     con un punto —`pesada.kg`— porque es así como están escritas las
@@ -384,7 +384,7 @@ def _objeto(valor):
 
 def _hecho(auth_session, destino: str, recado: str = "",
            **estado) -> RedirectResponse:
-    """Guardado: se deja el recado y se manda a la pantalla, que es otra cosa.
+    """[00193] Guardado: se deja el recado y se manda a la pantalla, que es otra cosa.
 
     Contestar a un POST con la pantalla entera parece lo más corto y es lo que
     hace que recargar vuelva a mandar el formulario: el navegador pregunta si
@@ -395,7 +395,7 @@ def _hecho(auth_session, destino: str, recado: str = "",
     """
     if auth_session is not None:
         auth_session.flash = recado or None
-        # Lo que no cabe en una frase viaja aparte. `default=str` es para las
+        # [00358] Lo que no cabe en una frase viaja aparte. `default=str` es para las
         # fechas: van y vuelven como texto, que es como las pinta la pantalla.
         # Y con ello va a qué pantalla iba, para que no se enseñe en otra.
         estado[DONDE_IBA] = urlsplit(destino).path
@@ -404,7 +404,7 @@ def _hecho(auth_session, destino: str, recado: str = "",
 
 
 def _cuando(form, session, user) -> date:
-    """El día de trabajo del momento en que se **escribió** el apunte.
+    """[00194] El día de trabajo del momento en que se **escribió** el apunte.
 
     La cola del teléfono sella cada cosa con la hora a la que se tecleó. Sin
     leer ese sello, un recuento apuntado a las 23:50 dentro de la cámara y
@@ -419,13 +419,13 @@ def _cuando(form, session, user) -> date:
 
 
 def _eur(raw: str | None, default: float | None = None) -> float | None:
-    """Un precio. Como el dinero lleva dos decimales y no tres, «1.250» aquí
+    """[00195] Un precio. Como el dinero lleva dos decimales y no tres, «1.250» aquí
     son mil doscientos cincuenta euros y no un euro con veinticinco."""
     return _num(raw, default, exacto.CENTIMOS_DECIMALES)
 
 
 def _dicho(e: Exception, lang: str = "es") -> str:
-    """Lo que se le enseña a quien acaba de escribir algo que no se entiende.
+    """[00196] Lo que se le enseña a quien acaba de escribir algo que no se entiende.
 
     Un «4 C» en la casilla de la temperatura tumbaba la recepción entera con
     un error 500 y una pantalla en blanco en inglés, con el camión en el muelle
@@ -434,7 +434,7 @@ def _dicho(e: Exception, lang: str = "es") -> str:
     escribió y en el idioma de la casa.
     """
     if isinstance(e, pesos.ConDecimales):
-        # El aviso trae la cifra que hay que escribir, no solo la queja: quien
+        # [00359] El aviso trae la cifra que hay que escribir, no solo la queja: quien
         # está delante tiene la pieza en la mano y no va a echar la cuenta.
         return i18n.t(lang, "valid.grams_have_no_decimals", value=e.escrito,
                       kg=f"{e.como_kilos:.10g}", g=e.gramos)
@@ -444,14 +444,14 @@ def _dicho(e: Exception, lang: str = "es") -> str:
 
 
 def _g(raw: str | None, default: float | None = None) -> float | None:
-    """Gramos y unidades: no llevan decimales, así que «1.250» son mil
+    """[00197] Gramos y unidades: no llevan decimales, así que «1.250» son mil
     doscientos cincuenta gramos y no un gramo y cuarto."""
     return _num(raw, default, 0)
 
 
 @app.middleware("http")
 async def respuestas_para_la_cola(request: Request, call_next):
-    """A la cola del teléfono se le contesta con números, no con redirecciones.
+    """[00198] A la cola del teléfono se le contesta con números, no con redirecciones.
 
     Casi todas las rutas acaban en un 303 a la pantalla siguiente, que es lo
     correcto para un navegador. Para un `fetch` es un problema: si lo sigue,
@@ -478,7 +478,7 @@ async def respuestas_para_la_cola(request: Request, call_next):
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
-    """Las cabeceras van en todas las respuestas, también en las de error."""
+    """[00199] Las cabeceras van en todas las respuestas, también en las de error."""
     request.state.nonce = security.new_nonce()
     response = await call_next(request)
     for header, value in security.SECURITY_HEADERS.items():
@@ -492,11 +492,11 @@ async def security_headers(request: Request, call_next):
 
 
 def client_ip(request: Request) -> str:
-    """De qué dirección viene la petición, para frenar a quien prueba contraseñas."""
+    """[00200] De qué dirección viene la petición, para frenar a quien prueba contraseñas."""
     return (request.client.host if request.client else "") or "desconocido"
 
 
-# Lo que se dice cuando el error no trae texto. «Error 400» y una pantalla en
+# [00360] Lo que se dice cuando el error no trae texto. «Error 400» y una pantalla en
 # blanco no le dicen nada a nadie: quien está delante necesita saber si se ha
 # equivocado él, si no le toca, o si eso ya no está.
 SIN_TEXTO = {400: "error.bad_request", 403: "error.forbidden",
@@ -506,14 +506,14 @@ SIN_TEXTO = {400: "error.bad_request", 403: "error.forbidden",
 
 @app.exception_handler(HTTPException)
 async def redirect_handler(request: Request, exc: HTTPException):
-    """Pinta los errores en pantalla, en el idioma de quien está delante.
+    """[00201] Pinta los errores en pantalla, en el idioma de quien está delante.
 
     La pantalla de error se pintaba sin mirar quién era, así que una casa
     española que se equivocaba en una casilla recibía el aviso en inglés.
     """
     if exc.status_code == 303 and "Location" in (exc.headers or {}):
         return RedirectResponse(exc.headers["Location"], status_code=303)
-    # En el idioma de quien está delante, no en el del navegador. La pantalla
+    # [00361] En el idioma de quien está delante, no en el del navegador. La pantalla
     # de error se pintaba sin mirar quién era, así que una casa española que
     # se equivocaba en una casilla recibía el aviso en inglés.
     user = None
@@ -530,7 +530,7 @@ async def redirect_handler(request: Request, exc: HTTPException):
     detalle = exc.detail or ""
     if not str(detalle).strip():
         detalle = i18n.t(lang, SIN_TEXTO.get(exc.status_code, "error.other"))
-    # Volver a donde se estaba, no a la portada: el que se equivoca en una
+    # [00362] Volver a donde se estaba, no a la portada: el que se equivoca en una
     # casilla quiere la misma pantalla, no empezar de cero.
     volver = request.headers.get("referer") or ""
     if not volver.startswith(str(request.base_url).rstrip("/")):
@@ -550,7 +550,7 @@ async def redirect_handler(request: Request, exc: HTTPException):
 # ============================================================== ACCESO
 @app.get("/idioma/{lang}")
 def choose_language(lang: str, next: str = "/login"):
-    """Cambia el idioma y devuelve a donde estaba.
+    """[00202] Cambia el idioma y devuelve a donde estaba.
 
     Solo a una dirección de aquí: sin esa comprobación, un enlace preparado
     lleva a quien lo pincha a otra web con nuestra cara.
@@ -562,7 +562,7 @@ def choose_language(lang: str, next: str = "/login"):
 
 
 def landing_photos() -> dict[str, str]:
-    """Las fotos que hay puestas, por su sitio en la portada.
+    """[00203] Las fotos que hay puestas, por su sitio en la portada.
 
     No hay foto que buscar en internet ni foto de relleno: si el archivo está,
     se usa; si no está, la portada se ve igual de terminada sin él.
@@ -579,7 +579,7 @@ def landing_photos() -> dict[str, str]:
 
 @app.get("/", response_class=HTMLResponse)
 def root(request: Request, session: Session = Depends(get_db)):
-    """La portada: quien ya tiene cuenta entra, quien no, se entera de qué es."""
+    """[00204] La portada: quien ya tiene cuenta entra, quien no, se entera de qué es."""
     if current(request, session):
         return RedirectResponse("/hoy", status_code=303)
     return page(request, "public_home.html", lang=lang_for(request, session),
@@ -589,7 +589,7 @@ def root(request: Request, session: Session = Depends(get_db)):
 
 @app.post("/pasarela/stripe")
 async def gateway_webhook(request: Request, session: Session = Depends(get_db)):
-    """Lo que cuenta la pasarela de pago: recibos cobrados, fallados y bajas.
+    """[00205] Lo que cuenta la pasarela de pago: recibos cobrados, fallados y bajas.
 
     Es pública porque la llama la pasarela, así que aquí no manda la sesión
     sino la firma: sin firma buena no se toca nada. Y cada evento se aplica una
@@ -610,7 +610,7 @@ async def gateway_webhook(request: Request, session: Session = Depends(get_db)):
 
 @app.post("/cookies/visto")
 def cookie_notice_seen(request: Request, next: str = Form("/")):
-    """«Entendido»: se apunta que ya se ha leído y se vuelve a donde estabas.
+    """[00206] «Entendido»: se apunta que ya se ha leído y se vuelve a donde estabas.
 
     Sin JavaScript a propósito: así funciona igual en un teléfono viejo, con el
     navegador en modo estricto o con los guiones desactivados.
@@ -625,14 +625,14 @@ def cookie_notice_seen(request: Request, next: str = Form("/")):
 
 @app.get("/cookies", response_class=HTMLResponse)
 def cookies_page(request: Request, session: Session = Depends(get_db)):
-    """Qué cookies hay, para qué y cuánto duran. Solo técnicas."""
+    """[00207] Qué cookies hay, para qué y cuánto duran. Solo técnicas."""
     return page(request, "public_cookies.html", lang=lang_for(request, session),
                 retention_days=privacy.RETENTION_DAYS)
 
 
 @app.get("/precios", response_class=HTMLResponse)
 def pricing(request: Request, session: Session = Depends(get_db)):
-    """La pantalla de precios, para quien todavía no es cliente."""
+    """[00208] La pantalla de precios, para quien todavía no es cliente."""
     return page(request, "public_pricing.html", lang=lang_for(request, session),
                 precio=tarifa.publicada(session), moneda_de=money.simbolo,
                 trial_days=billing.TRIAL_DAYS, retention_days=privacy.RETENTION_DAYS)
@@ -640,7 +640,7 @@ def pricing(request: Request, session: Session = Depends(get_db)):
 
 @app.get("/solicitar", response_class=HTMLResponse)
 def request_form(request: Request, session: Session = Depends(get_db), sent: int = 0):
-    """El formulario para pedir acceso al programa."""
+    """[00209] El formulario para pedir acceso al programa."""
     return page(request, "public_request.html", lang=lang_for(request, session),
                 sent=bool(sent), error="", plans=list(Plan), sub={},
                 trial_days=billing.TRIAL_DAYS, retention_days=privacy.RETENTION_DAYS)
@@ -648,7 +648,7 @@ def request_form(request: Request, session: Session = Depends(get_db), sent: int
 
 @app.post("/solicitar", response_class=HTMLResponse)
 async def submit_request(request: Request, session: Session = Depends(get_db)):
-    """La única puerta abierta a internet. Con freno y sin datos de pago."""
+    """[00210] La única puerta abierta a internet. Con freno y sin datos de pago."""
     form = await request.form()
     lang = lang_for(request, session)
     data = {k: (form.get(k) or "").strip() for k in
@@ -656,7 +656,7 @@ async def submit_request(request: Request, session: Session = Depends(get_db)):
              "contact_name", "contact_role", "email", "phone", "message")}
 
     def again(error: str):
-        """Vuelve a pintar el formulario con lo que ya se había escrito.
+        """[00339] Vuelve a pintar el formulario con lo que ya se había escrito.
 
         Un fallo en una casilla no puede costar volver a escribir las doce.
         """
@@ -680,7 +680,7 @@ async def submit_request(request: Request, session: Session = Depends(get_db)):
 
 @app.get("/cuenta", response_class=HTMLResponse)
 def account_notice(request: Request, session: Session = Depends(get_db)):
-    """Lo que ve cada quien cuando la cuenta está parada."""
+    """[00211] Lo que ve cada quien cuando la cuenta está parada."""
     found = current(request, session)
     if found is None:
         return RedirectResponse("/login", status_code=303)
@@ -694,7 +694,7 @@ def account_notice(request: Request, session: Session = Depends(get_db)):
 
 @app.get("/login", response_class=HTMLResponse)
 def login_form(request: Request, session: Session = Depends(get_db)):
-    """La pantalla de entrar. Quien ya está dentro, adentro."""
+    """[00212] La pantalla de entrar. Quien ya está dentro, adentro."""
     if current(request, session):
         return RedirectResponse("/hoy", status_code=303)
     return page(request, "login.html", error="")
@@ -703,13 +703,13 @@ def login_form(request: Request, session: Session = Depends(get_db)):
 @app.post("/login")
 def login(request: Request, email: str = Form(...), password: str = Form(...),
           session: Session = Depends(get_db)):
-    """Entrar. Con freno para quien prueba contraseñas.
+    """[00213] Entrar. Con freno para quien prueba contraseñas.
 
     El freno va por correo **y** por dirección: ni se castiga a una casa entera
     por una dirección, ni se dejan probar mil contraseñas desde la misma.
     """
     lang = lang_for(request, session)
-    # El freno va por correo y por dirección: ni se castiga a una casa entera
+    # [00363] El freno va por correo y por dirección: ni se castiga a una casa entera
     # por una dirección, ni se prueban mil contraseñas desde la misma.
     key = f"{(email or '').strip().lower()}|{client_ip(request)}"
     espera = security.locked_for(key, session=session)
@@ -724,7 +724,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...),
                     client_ip(request))
         return page(request, "login.html", error=str(e), lang=lang)
     security.clear(key, session=session)
-    # Con dos pasos, la contraseña solo abre la puerta de los seis dígitos: la
+    # [00364] Con dos pasos, la contraseña solo abre la puerta de los seis dígitos: la
     # sesión queda a medias hasta que se teclean.
     pendiente = auth.needs_second_step(user)
     token, _ = auth.start_session(session, user, pending_2fa=pendiente)
@@ -736,7 +736,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...),
 
 
 def _pending(request: Request, session: Session):
-    """La sesión que ha pasado la contraseña y espera los seis dígitos."""
+    """[00214] La sesión que ha pasado la contraseña y espera los seis dígitos."""
     found = auth.resolve_session(session, request.cookies.get(auth.COOKIE_NAME),
                                  allow_pending=True)
     if found is None or not found[1].pending_2fa:
@@ -746,7 +746,7 @@ def _pending(request: Request, session: Session):
 
 @app.get("/acceso/verificacion", response_class=HTMLResponse)
 def second_step_form(request: Request, session: Session = Depends(get_db), error: str = ""):
-    """Los seis dígitos del teléfono, después de la contraseña."""
+    """[00215] Los seis dígitos del teléfono, después de la contraseña."""
     found = _pending(request, session)
     if found is None:
         return RedirectResponse("/login", status_code=303)
@@ -759,7 +759,7 @@ def second_step_form(request: Request, session: Session = Depends(get_db), error
 @app.post("/acceso/verificacion", response_class=HTMLResponse)
 def second_step(request: Request, code: str = Form(...), csrf: str = Form(""),
                 session: Session = Depends(get_db)):
-    """El segundo paso: el código del teléfono, o uno de repuesto."""
+    """[00216] El segundo paso: el código del teléfono, o uno de repuesto."""
     user_and_session = _pending(request, session)
     if user_and_session is None:
         return RedirectResponse("/login", status_code=303)
@@ -770,7 +770,7 @@ def second_step(request: Request, code: str = Form(...), csrf: str = Form(""),
     except auth.PermissionDenied as e:
         raise HTTPException(status_code=403, detail=str(e)) from None
 
-    # El freno también aquí: seis dígitos se prueban muy deprisa.
+    # [00365] El freno también aquí: seis dígitos se prueban muy deprisa.
     key = f"2fa:{user.id}|{client_ip(request)}"
     espera = security.locked_for(key, session=session)
     if espera:
@@ -796,7 +796,7 @@ def second_step(request: Request, code: str = Form(...), csrf: str = Form(""),
 
 @app.post("/logout")
 def logout(request: Request, session: Session = Depends(get_db)):
-    """Salir: se cierra la sesión y se borra la cookie."""
+    """[00217] Salir: se cierra la sesión y se borra la cookie."""
     auth.end_session(session, request.cookies.get(auth.COOKIE_NAME))
     response = RedirectResponse("/login", status_code=303)
     response.delete_cookie(auth.COOKIE_NAME, path="/")
@@ -805,32 +805,32 @@ def logout(request: Request, session: Session = Depends(get_db)):
 
 @app.get("/signup")
 def signup_form():
-    """Aquí no hay registro abierto: las cuentas las crea la plataforma."""
+    """[00218] Aquí no hay registro abierto: las cuentas las crea la plataforma."""
     return RedirectResponse("/solicitar", status_code=303)
 
 
 @app.post("/signup")
 def signup_closed():
-    """Aquí no se da de alta nadie solo: se pide acceso."""
+    """[00219] Aquí no se da de alta nadie solo: se pide acceso."""
     return RedirectResponse("/solicitar", status_code=303)
 
 
 @app.get("/join")
 def join_form():
-    """Las cuentas de la casa las crea su manager, una a una y con su nivel."""
+    """[00220] Las cuentas de la casa las crea su manager, una a una y con su nivel."""
     return RedirectResponse("/login", status_code=303)
 
 
 @app.post("/join")
 def join_closed():
-    """Tampoco se entra en una casa por un enlace: la da de alta quien la lleva."""
+    """[00221] Tampoco se entra en una casa por un enlace: la da de alta quien la lleva."""
     return RedirectResponse("/login", status_code=303)
 
 
 # ================================================================= HOY
 @app.get("/hoy", response_class=HTMLResponse)
 def home(request: Request, ctx=Depends(require_user), session: Session = Depends(get_db)):
-    """Lo que está pendiente en la carne, en una pantalla."""
+    """[00222] Lo que está pendiente en la carne, en una pantalla."""
     user, auth_session = ctx
     lang = lang_for(request, session, user)
     restaurant = session.get(Restaurant, user.restaurant_id)
@@ -845,7 +845,7 @@ def home(request: Request, ctx=Depends(require_user), session: Session = Depends
 @app.post("/cuenta/cancelar")
 def cancel_own_account(request: Request, reason: str = Form(""), csrf: str = Form(""),
                        ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
-    """La casa cancela su cuenta. En prueba y antes de tiempo, sin pagar nada.
+    """[00223] La casa cancela su cuenta. En prueba y antes de tiempo, sin pagar nada.
 
     Es la acción más cara del programa, y la pedía cualquier manager —también
     el de un local— porque `TEAM` lo tienen todos. Un viernes por la noche el
@@ -864,7 +864,7 @@ def cancel_own_account(request: Request, reason: str = Form(""), csrf: str = For
     return RedirectResponse("/cuenta", status_code=303)
 
 
-# ========================================================== RECEPCIÓN
+# [00366] ========================================================== RECEPCIÓN
 # Un lote de recepción puede traer muchas piezas del mismo corte. Ocho líneas
 # es lo que se ve de una vez sin marear; las demás se añaden en la propia
 # La pantalla da de alta **una pieza cada vez**: se coge la bolsa, se le hace
@@ -878,7 +878,7 @@ def cancel_own_account(request: Request, reason: str = Form(""), csrf: str = For
 FILAS_RECEPCION = 1
 MAX_RECEPCION = 60
 
-# Lo que vale para todo el camión y no se vuelve a teclear pieza a pieza.
+# [00367] Lo que vale para todo el camión y no se vuelve a teclear pieza a pieza.
 DEL_CAMION = ("lot", "sku", "chamber", "grade", "origin", "use_by", "price_kg",
               "producer_plant", "est_code", "breed", "pack_date", "slaughter_date",
               "label_product", "halal", "arrival", "arrival_c", "frozen_on_arrival")
@@ -887,15 +887,15 @@ DEL_CAMION = ("lot", "sku", "chamber", "grade", "origin", "use_by", "price_kg",
 @app.get("/recepcion", response_class=HTMLResponse)
 def reception_page(request: Request, ctx=Depends(needs(perms.RECEIVE)),
                    session: Session = Depends(get_db), foto: str = ""):
-    """El muelle: lo que llega del camión."""
+    """[00224] El muelle: lo que llega del camión."""
     user, auth_session = ctx
     return _reception(request, user, auth_session, session, foto=foto)
 
 
 def _reception(request, user, auth_session, session, *, done=None, error="",
                foto: str = "", previo=None):
-    # Se proponen el lote y el número; se cogen de verdad al dar de alta.
-    """Pinta el muelle, proponiendo el lote y el número de la pieza.
+    # [00368] Se proponen el lote y el número; se cogen de verdad al dar de alta.
+    """[00225] Pinta el muelle, proponiendo el lote y el número de la pieza.
 
     Se proponen; se cogen de verdad al dar de alta, que es cuando se sabe si
     otro se ha adelantado.
@@ -910,7 +910,7 @@ def _reception(request, user, auth_session, session, *, done=None, error="",
 @app.post("/recepcion", response_class=HTMLResponse)
 async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
                   session: Session = Depends(get_db)):
-    """Un lote de recepción: cada pieza con su número, su peso y su precio."""
+    """[00226] Un lote de recepción: cada pieza con su número, su peso y su precio."""
     user, auth_session = ctx
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
@@ -919,7 +919,7 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
     if repetido is not None:
         return repetido
 
-    # Todo lo que se lee del formulario va dentro del `try`. La temperatura se
+    # [00369] Todo lo que se lee del formulario va dentro del `try`. La temperatura se
     # leía una línea por encima, y un «4 C» —la tecla de al lado— reventaba la
     # pantalla entera con un 500 en vez de contestar «ahí va un número».
     try:
@@ -930,7 +930,7 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
 
 
 async def _recibir(request, user, auth_session, session, form, lang):
-    """Lee el formulario del muelle y da de alta lo que ha llegado.
+    """[00227] Lee el formulario del muelle y da de alta lo que ha llegado.
 
     El precio no lo pone el muelle: quien descarga apunta qué es, cuánto pesa,
     de qué calidad y de dónde viene. El dinero es de dirección y además llega
@@ -941,13 +941,13 @@ async def _recibir(request, user, auth_session, session, form, lang):
     grade = (form.get("grade") or "").strip() or None
     origin = (form.get("origin") or "").strip() or None
     use_by = (form.get("use_by") or "").strip()
-    # El precio no lo pone el muelle. Quien descarga apunta lo que llega —qué
+    # [00370] El precio no lo pone el muelle. Quien descarga apunta lo que llega —qué
     # es, cuánto pesa, de qué calidad y de dónde viene—; el dinero es de
     # dirección y además llega después, en la factura. Si quien recibe es el
     # manager, lo pone de una vez y se ahorra el segundo paso.
     puede_dinero = perms.can(user, perms.MONEY)
     price = form.get("price_kg") if puede_dinero else None
-    # La etiqueta del proveedor: lo que es igual para todo el camión se escribe
+    # [00371] La etiqueta del proveedor: lo que es igual para todo el camión se escribe
     # una vez aquí arriba y se copia a cada pieza. Lo que cambia de una bolsa a
     # otra se escribe en su línea y manda sobre esto.
     planta = (form.get("producer_plant") or "").strip() or None
@@ -957,7 +957,7 @@ async def _recibir(request, user, auth_session, session, form, lang):
     halal = True if form.get("halal") else None
     envasado = (form.get("pack_date") or "").strip()
     sacrificio = (form.get("slaughter_date") or "").strip()
-    # Cómo bajó del camión. Va con la pieza, no con el camión: se abre su caja,
+    # [00372] Cómo bajó del camión. Va con la pieza, no con el camión: se abre su caja,
     # se clava el termómetro y ese número es suyo. En la misma descarga una
     # viene a dos grados y otra a seis, y el día que sale mal se pregunta por
     # esa. Se arrastra de la anterior para no teclearlo veinte veces, pero cada
@@ -968,7 +968,7 @@ async def _recibir(request, user, auth_session, session, form, lang):
     rows = []
     for i in range(MAX_RECEPCION):
         serial = (form.get(f"serial:{i}") or "").strip()
-        # El peso se escribe en gramos; `kg:` es el nombre de antes y solo
+        # [00373] El peso se escribe en gramos; `kg:` es el nombre de antes y solo
         # puede venir de la cola de un teléfono que se quedó sin cobertura
         # con la pantalla vieja abierta. Ahí significaba kilos y se lee como
         # kilos: esa pieza queda bien apuntada y no mil veces más ligera.
@@ -993,7 +993,7 @@ async def _recibir(request, user, auth_session, session, form, lang):
             pack_date=date.fromisoformat(envasado) if envasado else None))
     created = meat.receive_primals(session, user, lot, rows, lang=lang,
                                    received=_cuando(form, session, user))
-    # La foto de la etiqueta viaja con la pieza, en el mismo envío: se hace
+    # [00374] La foto de la etiqueta viaja con la pieza, en el mismo envío: se hace
     # al coger la bolsa, antes de teclear nada, que es cuando la etiqueta
     # está delante. Va aparte del texto solo cuando no hay cobertura, y
     # entonces no viaja: lo escrito se guarda igual y la foto se hace luego.
@@ -1002,19 +1002,19 @@ async def _recibir(request, user, auth_session, session, form, lang):
         meat.store_label_photo(session, created[0], subida.content_type or "",
                                await _leer_foto(request, subida, lang),
                                UPLOAD_DIR, lang=lang)
-    # Lo del camión se queda escrito: la siguiente pieza es de la misma caja y
+    # [00375] Lo del camión se queda escrito: la siguiente pieza es de la misma caja y
     # nadie vuelve a teclear el matadero veinte veces.
     # Una pieza cada vez es lo normal; varias, solo cuando vuelve la cola de un
     # teléfono que estuvo sin cobertura. «1 primales» no lo dice nadie.
     if len(created) == 1:
-        # Y con el número delante, que es el momento de coger el rotulador.
+        # [00376] Y con el número delante, que es el momento de coger el rotulador.
         hecho = (i18n.t(lang, "m.rec.done_one", serial=created[0].serial,
                         kg=f"{created[0].weight_kg:.10g}", lot=lot or "—")
                  + " " + i18n.t(lang, "m.rec.write_now", serial=created[0].serial,
                                     kg=f"{created[0].weight_kg:.10g}"))
     else:
         hecho = i18n.t(lang, "m.rec.done", n=len(created), lot=lot or "—")
-    # Salió bien: se queda lo del camión y **solo** lo del camión. La siguiente
+    # [00377] Salió bien: se queda lo del camión y **solo** lo del camión. La siguiente
     # bolsa es de la misma caja pero no es la misma pieza: dejarle puestos el
     # número y los kilos de la anterior es la manera de dar de alta dos veces
     # lo mismo. Lo escrito entero se devuelve cuando algo falla, que es cuando
@@ -1023,7 +1023,7 @@ async def _recibir(request, user, auth_session, session, form, lang):
 
 
 async def _leer_foto(request: Request, subida, lang: str = "es") -> bytes:
-    """Lee una foto sin meterse en memoria lo que no cabe.
+    """[00228] Lee una foto sin meterse en memoria lo que no cabe.
 
     Antes se leía entera y después se miraba si pasaba del tope: un envío de
     trescientos megas eran trescientos megas dentro del proceso para acabar
@@ -1035,7 +1035,7 @@ async def _leer_foto(request: Request, subida, lang: str = "es") -> bytes:
     tope = service.MAX_UPLOAD_BYTES
     demasiado = meat.MeatError(i18n.t(lang, "valid.photo_too_big",
                                       n=tope // (1024 * 1024)))
-    # La cabecera puede mentir, pero cuando dice la verdad ahorra la lectura
+    # [00378] La cabecera puede mentir, pero cuando dice la verdad ahorra la lectura
     # entera. El doble del tope deja sitio al resto del formulario.
     dicho = request.headers.get("content-length")
     if dicho and dicho.isdigit() and int(dicho) > tope * 2:
@@ -1050,7 +1050,7 @@ async def _leer_foto(request: Request, subida, lang: str = "es") -> bytes:
 
 
 def _lo_escrito(form) -> dict:
-    """Todo lo que había escrito, para devolverlo puesto.
+    """[00229] Todo lo que había escrito, para devolverlo puesto.
 
     Antes solo se devolvía lo del camión y las líneas de las piezas —el número,
     los kilos, el precio, el lote del proveedor— se borraban: un error en una
@@ -1064,20 +1064,20 @@ def _lo_escrito(form) -> dict:
 
 
 def _del_camion(form) -> dict:
-    """Lo que vale para toda la descarga, para devolverlo escrito."""
+    """[00230] Lo que vale para toda la descarga, para devolverlo escrito."""
     return {clave: str(form.get(clave) or "") for clave in DEL_CAMION}
 
 
 @app.get("/recepcion/precios", response_class=HTMLResponse)
 def prices_page(request: Request, ctx=Depends(needs(perms.MONEY)),
                 session: Session = Depends(get_db)):
-    """Las piezas que esperan precio para poder trabajarse."""
+    """[00231] Las piezas que esperan precio para poder trabajarse."""
     user, auth_session = ctx
     return _prices(request, user, auth_session, session)
 
 
 def _prices(request, user, auth_session, session, *, done="", error="", previo=None):
-    """La pantalla de poner precio a lo que entró sin él."""
+    """[00232] La pantalla de poner precio a lo que entró sin él."""
     mia = sites.of_user(session, user)
     return page(request, "prices.html", user, auth_session, session, done=done,
                 error=error, site=mia, previo=(previo or {}),
@@ -1088,7 +1088,7 @@ def _prices(request, user, auth_session, session, *, done="", error="", previo=N
 @app.post("/recepcion/precios", response_class=HTMLResponse)
 async def save_prices(request: Request, ctx=Depends(needs(perms.MONEY)),
                       session: Session = Depends(get_db)):
-    """Activa las piezas: a cada una su precio, o el mismo a todas."""
+    """[00233] Activa las piezas: a cada una su precio, o el mismo a todas."""
     user, auth_session = ctx
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
@@ -1100,7 +1100,7 @@ async def save_prices(request: Request, ctx=Depends(needs(perms.MONEY)),
 
     puestas = 0
     try:
-        # «El mismo a todas» es lo normal: un albarán trae un precio por
+        # [00379] «El mismo a todas» es lo normal: un albarán trae un precio por
         # artículo. Lo que se escriba en la línea de una pieza manda sobre eso.
         # Se lee aquí dentro: un «32 eur» en esa casilla tumbaba la pantalla.
         todas = _eur(form.get("all_price"))
@@ -1127,17 +1127,17 @@ CORTES_A_LA_VISTA = 3
 @app.get("/despiece", response_class=HTMLResponse)
 def butchery_page(request: Request, ctx=Depends(needs(perms.BUTCHER)),
                   session: Session = Depends(get_db), cortes: int = CORTES_A_LA_VISTA):
-    """La mesa de despiece."""
+    """[00234] La mesa de despiece."""
     user, auth_session = ctx
     return _butchery(request, user, auth_session, session, cortes=cortes)
 
 
 def _butchery(request, user, auth_session, session, *, done=None, issues=(), error="",
               cortes: int = CORTES_A_LA_VISTA, previo=None):
-    # Tres bloques a la vista y los demás se añaden. Diez huecos vacíos de
+    # [00380] Tres bloques a la vista y los demás se añaden. Diez huecos vacíos de
     # golpe son un muro: casi ningún despiece saca diez cortes, y el que los
     # saca los pide.
-    """Pinta el despiece, con tres huecos de corte a la vista.
+    """[00235] Pinta el despiece, con tres huecos de corte a la vista.
 
     Diez huecos vacíos de golpe son un muro: casi ningún despiece saca diez
     cortes, y el que los saca los pide.
@@ -1160,12 +1160,12 @@ def _butchery(request, user, auth_session, session, *, done=None, issues=(), err
 @app.post("/despiece", response_class=HTMLResponse)
 async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
                         session: Session = Depends(get_db)):
-    """Vuelca el despiece a cámara: cada corte, con su serial y su coste."""
+    """[00236] Vuelca el despiece a cámara: cada corte, con su serial y su coste."""
     user, auth_session = ctx
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
-    # Ahora la hoja se puede apuntar sin señal, así que el teléfono reintenta:
+    # [00381] Ahora la hoja se puede apuntar sin señal, así que el teléfono reintenta:
     # sin esto, un despiece volcado dos veces mete los cortes dos veces.
     repetido = _ya_estaba(request, session, user, str(form.get("envio") or ""), "/despiece")
     if repetido is not None:
@@ -1176,14 +1176,14 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
             name = (form.get(f"cut:{i}") or "").strip()
             pieces = form.get(f"pieces:{i}")
             grams = form.get(f"grams:{i}")
-            # `kg:` es el nombre de antes, de cuando el corte que sale a peso
+            # [00382] `kg:` es el nombre de antes, de cuando el corte que sale a peso
             # se escribía en kilos. Solo puede llegar de la cola de un
             # teléfono con la pantalla vieja abierta, y ahí significaba kilos.
             pesado = form.get(f"g:{i}") or form.get(f"kg:{i}")
             by_weight = bool(form.get(f"weight:{i}"))
             if not name and not (pieces or "").strip() and not (pesado or "").strip():
                 continue
-            # En la mesa se pesa la bandeja entera, no filete a filete: se
+            # [00383] En la mesa se pesa la bandeja entera, no filete a filete: se
             # escriben los gramos de las piezas juntas y el peso de cada una
             # sale de ahí. Los gramos por pieza se siguen aceptando —la hoja de
             # papel los pide así, y la cola de un teléfono puede traerlos—,
@@ -1209,13 +1209,13 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
             rows=rows,
             waste_kg=pesos.del_formulario(form, "waste_g", "waste_kg",
                                           default=0.0) or 0.0,
-            # La fecha escrita en la hoja manda; si no la hay, la del momento
+            # [00384] La fecha escrita en la hoja manda; si no la hay, la del momento
             # en que se apuntó, que no es la misma que la del envío cuando la
             # hoja ha esperado en la cola del teléfono.
             on=(date.fromisoformat(on) if on else _cuando(form, session, user)),
             staff=(form.get("staff") or "").strip() or None, lang=lang)
     except (meat.MeatError, ValueError) as e:
-        # Con la hoja entera puesta: un despiece son diez líneas de números y
+        # [00385] Con la hoja entera puesta: un despiece son diez líneas de números y
         # un error en una no puede obligar a escribirlas todas otra vez.
         return _butchery(request, user, auth_session, session,
                          error=_dicho(e, lang_for(request, session, user)),
@@ -1231,7 +1231,7 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
 async def upload_label_photo(serial: str, request: Request,
                              ctx=Depends(needs(perms.RECEIVE)),
                              session: Session = Depends(get_db)):
-    """La foto de la etiqueta de una pieza.
+    """[00237] La foto de la etiqueta de una pieza.
 
     Va aparte del formulario de recepción y no por la cola de sin cobertura: en
     la cola caben textos, no ficheros, y meter ahí una foto de tres megas por
@@ -1265,7 +1265,7 @@ async def upload_label_photo(serial: str, request: Request,
 @app.get("/carne/{serial}/etiqueta")
 def label_photo(serial: str, request: Request, ctx=Depends(needs(perms.STOCK)),
                 session: Session = Depends(get_db)):
-    """La foto guardada, solo para gente de esta casa."""
+    """[00238] La foto guardada, solo para gente de esta casa."""
     user, _ = ctx
     lang = lang_for(request, session, user)
     pieza = (session.query(Primal)
@@ -1281,7 +1281,7 @@ def label_photo(serial: str, request: Request, ctx=Depends(needs(perms.STOCK)),
 @app.get("/carne", response_class=HTMLResponse)
 def chamber(request: Request, ctx=Depends(needs(perms.STOCK)),
             session: Session = Depends(get_db), closed: str = "", error: str = ""):
-    """Lo que queda: cortes en cámara y primales sin despiezar, en su sede."""
+    """[00239] Lo que queda: cortes en cámara y primales sin despiezar, en su sede."""
     user, auth_session = ctx
     mia = sites.of_user(session, user)
     return page(request, "chamber.html", user, auth_session, session, closed=closed,
@@ -1305,7 +1305,7 @@ def chamber(request: Request, ctx=Depends(needs(perms.STOCK)),
 def set_chamber(request: Request, serial: str = Form(...), chamber: str = Form(""),
                 csrf: str = Form(""), ctx=Depends(needs(perms.STOCK)),
                 session: Session = Depends(get_db)):
-    """Dice en qué cámara de la sede está esa pieza o ese lote."""
+    """[00240] Dice en qué cámara de la sede está esa pieza o ese lote."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -1321,14 +1321,14 @@ def set_chamber(request: Request, serial: str = Form(...), chamber: str = Form("
 @app.post("/carne/cierre")
 def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(needs(perms.STOCK)),
                    session: Session = Depends(get_db)):
-    """Cierra el día de la carne y deja los avisos de lo que no cuadró."""
+    """[00241] Cierra el día de la carne y deja los avisos de lo que no cuadró."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     result = butchery.close_day(session, user)
     return RedirectResponse(f"/carne?closed={len(result.alerts)}", status_code=303)
 
 
-# ======================================================== DESCONGELADO
+# [00386] ======================================================== DESCONGELADO
 # El descongelado tiene dos momentos que no se parecen en nada: sacar carne a
 # descongelar —a media mañana, con la cámara abierta— y contar lo que ha
 # sobrado al cerrar. Juntar los dos formularios en una pantalla los hacía
@@ -1337,7 +1337,7 @@ def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(needs(per
 @app.get("/descongelado", response_class=HTMLResponse)
 def defrost_page(request: Request, ctx=Depends(needs(perms.DEFROST)),
                  session: Session = Depends(get_db), shift: str = "", done: str = ""):
-    """La pantalla del descongelado y el conteo de la vitrina."""
+    """[00242] La pantalla del descongelado y el conteo de la vitrina."""
     user, auth_session = ctx
     return _defrost(request, user, auth_session, session, shift=shift, done=done)
 
@@ -1345,7 +1345,7 @@ def defrost_page(request: Request, ctx=Depends(needs(perms.DEFROST)),
 @app.get("/descongelado/recuento", response_class=HTMLResponse)
 def defrost_count_page(request: Request, ctx=Depends(needs(perms.DEFROST)),
                        session: Session = Depends(get_db), shift: str = "", done: str = ""):
-    """El recuento de cierre: lo que ha sobrado y el cuadre del turno."""
+    """[00243] El recuento de cierre: lo que ha sobrado y el cuadre del turno."""
     user, auth_session = ctx
     return _defrost(request, user, auth_session, session, shift=shift, done=done,
                     tab="recuento")
@@ -1353,14 +1353,14 @@ def defrost_count_page(request: Request, ctx=Depends(needs(perms.DEFROST)),
 
 def _defrost(request, user, auth_session, session, *, shift="", done="", error="",
              closed=None, tab="salida"):
-    """Pinta el descongelado con lo que hay en el arcón de **esa** sede.
+    """[00244] Pinta el descongelado con lo que hay en el arcón de **esa** sede.
 
     No se saca a descongelar lo que está en otra sede: ese arcón no se abre
     desde aquí.
     """
     on = jornada.del_usuario(session, user)
     mia = sites.of_user(session, user)
-    # No se saca a descongelar lo que está en otra sede: ese arcón no se abre
+    # [00387] No se saca a descongelar lo que está en otra sede: ese arcón no se abre
     # desde aquí.
     lots = costing.at_site(
         session.query(butchery.IngredientLot)
@@ -1384,7 +1384,7 @@ def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form
                    csrf: str = Form(""), envio: str = Form(""), cuando: str = Form(""),
                    ctx=Depends(needs(perms.DEFROST)),
                    session: Session = Depends(get_db)):
-    """Apunta lo que se saca del congelador: piezas y peso."""
+    """[00245] Apunta lo que se saca del congelador: piezas y peso."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -1392,13 +1392,13 @@ def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form
     if repetido is not None:
         return repetido
     pedido = serial.strip()
-    # Lo congelado está en espera: esta salida es lo que lo pone a la venta,
+    # [00388] Lo congelado está en espera: esta salida es lo que lo pone a la venta,
     # así que conviene decir con qué número sale.
     estaba = (session.query(IngredientLot)
               .filter_by(restaurant_id=user.restaurant_id, serial=pedido).first())
     congelado = bool(estaba and estaba.frozen)
     try:
-        # `total_kg` es el nombre de antes: solo llega de la cola de un
+        # [00389] `total_kg` es el nombre de antes: solo llega de la cola de un
         # teléfono con la pantalla vieja, y ahí significaba kilos.
         entry = defrost.intake(session, user, pedido, pieces,
                                pesos.de_dos(total_g, total_kg, 0.0) or 0.0,
@@ -1425,7 +1425,7 @@ def defrost_count(request: Request, serial: str = Form(...), pieces: int = Form(
                   csrf: str = Form(""), envio: str = Form(""), cuando: str = Form(""),
                   ctx=Depends(needs(perms.DEFROST)),
                   session: Session = Depends(get_db)):
-    """Apunta lo que queda en la vitrina al contar."""
+    """[00246] Apunta lo que queda en la vitrina al contar."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     repetido = _ya_estaba(request, session, user, envio, "/descongelado/recuento")
@@ -1445,7 +1445,7 @@ def defrost_count(request: Request, serial: str = Form(...), pieces: int = Form(
 @app.post("/descongelado/cierre", response_class=HTMLResponse)
 def defrost_close(request: Request, shift: str = Form(""), csrf: str = Form(""),
                   ctx=Depends(needs(perms.CLOSE_SHIFT)), session: Session = Depends(get_db)):
-    """El cierre convierte el recuento en consumo real y lo descuenta."""
+    """[00247] El cierre convierte el recuento en consumo real y lo descuenta."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -1463,16 +1463,16 @@ def defrost_close(request: Request, shift: str = Form(""), csrf: str = Form(""),
 @app.get("/maduracion", response_class=HTMLResponse)
 def aging_page(request: Request, ctx=Depends(needs(perms.STOCK)),
                session: Session = Depends(get_db), done: str = ""):
-    """La nevera de maduración y el congelador, pieza a pieza."""
+    """[00248] La nevera de maduración y el congelador, pieza a pieza."""
     user, auth_session = ctx
     return _aging(request, user, auth_session, session, done=done)
 
 
 def _aging(request, user, auth_session, session, *, done="", error="", weighed=None,
            sold=None, trimmed=None, counted=None):
-    # Se madura donde se sirve: quien tiene sede pesa la suya, que es la cámara
+    # [00390] Se madura donde se sirve: quien tiene sede pesa la suya, que es la cámara
     # que tiene delante.
-    """Pinta la cámara de maduración: la pizarra, el conteo del día y el resumen.
+    """[00249] Pinta la cámara de maduración: la pizarra, el conteo del día y el resumen.
 
     Se madura donde se sirve, así que quien tiene sede pesa la suya. Lo pesado
     se lee una vez y lo usan las tres tablas: leerlo tres veces era medio
@@ -1481,7 +1481,7 @@ def _aging(request, user, auth_session, session, *, done="", error="", weighed=N
     mia = sites.of_user(session, user)
     suya = mia.id if mia else None
     principal = sites.main(session, user.restaurant_id).id
-    # Lo pesado se lee una vez y lo usan las tres tablas de la cámara: la
+    # [00391] Lo pesado se lee una vez y lo usan las tres tablas de la cámara: la
     # pizarra, el conteo del día y el resumen. Leerlo tres veces era medio
     # segundo en una casa con seis meses dentro, y solo por preguntar lo mismo
     # tres veces. Los tramos de rendimiento van aparte: miran las piezas que ya
@@ -1508,7 +1508,7 @@ def aging_move(request: Request, serial: str = Form(...), storage: str = Form(..
                target_days: str = Form(""), use_by: str = Form(""), note: str = Form(""),
                csrf: str = Form(""), ctx=Depends(needs(perms.AGE)),
                session: Session = Depends(get_db)):
-    """Mete una pieza a madurar, la congela o la devuelve a la cámara."""
+    """[00250] Mete una pieza a madurar, la congela o la devuelve a la cámara."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     if storage not in Storage.__members__:
@@ -1529,12 +1529,12 @@ def aging_weigh(request: Request, serial: str = Form(...), g: str = Form(""),
                 kg: str = Form(""),
                 note: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.AGE)), session: Session = Depends(get_db)):
-    """Vuelve a pesar la pieza: lo que ha perdido sube el precio de lo que queda."""
+    """[00251] Vuelve a pesar la pieza: lo que ha perdido sube el precio de lo que queda."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
     try:
-        # `kg` es el nombre de antes: solo llega de la cola de un teléfono
+        # [00392] `kg` es el nombre de antes: solo llega de la cola de un teléfono
         # con la pantalla vieja, donde se escribía en kilos.
         result = aging.weigh(session, user, serial.strip(),
                              pesos.de_dos(g, kg, 0.0) or 0.0,
@@ -1551,7 +1551,7 @@ def aging_weigh(request: Request, serial: str = Form(...), g: str = Form(""),
 @app.post("/maduracion/conteo", response_class=HTMLResponse)
 async def aging_daily_count(request: Request, ctx=Depends(needs(perms.COUNT)),
                             session: Session = Depends(get_db)):
-    """El conteo diario de la nevera de maduración: se pesan todas de una vez."""
+    """[00252] El conteo diario de la nevera de maduración: se pesan todas de una vez."""
     user, auth_session = ctx
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
@@ -1561,7 +1561,7 @@ async def aging_daily_count(request: Request, ctx=Depends(needs(perms.COUNT)),
         return repetido
     lecturas = []
     for key, value in form.multi_items():
-        # `g:` es la casilla de ahora y `kg:` la de antes, que solo puede
+        # [00393] `g:` es la casilla de ahora y `kg:` la de antes, que solo puede
         # venir de la cola de un teléfono con la pantalla vieja abierta.
         en_gramos = key.startswith("g:")
         if not (en_gramos or key.startswith("kg:")) or not str(value).strip():
@@ -1587,7 +1587,7 @@ async def aging_daily_count(request: Request, ctx=Depends(needs(perms.COUNT)),
 @app.post("/maduracion/limpiar", response_class=HTMLResponse)
 async def aging_trim(request: Request, ctx=Depends(needs(perms.AGE)),
                      session: Session = Depends(get_db)):
-    """Limpia la pieza: parte se aprovecha, parte se tira, y el resto sube de precio."""
+    """[00253] Limpia la pieza: parte se aprovecha, parte se tira, y el resto sube de precio."""
     user, auth_session = ctx
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
@@ -1627,7 +1627,7 @@ def aging_sale(request: Request, serial: str = Form(...), grams: str = Form(...)
                price: str = Form("0"), dish: str = Form(""), note: str = Form(""),
                csrf: str = Form(""), ctx=Depends(needs(perms.MENU)),
                session: Session = Depends(get_db)):
-    """Venta a peso: se corta en el momento y se cobra por kilo."""
+    """[00254] Venta a peso: se corta en el momento y se cobra por kilo."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -1648,13 +1648,13 @@ def aging_sale(request: Request, serial: str = Form(...), grams: str = Form(...)
 @app.get("/traslados", response_class=HTMLResponse)
 def transfers_page(request: Request, ctx=Depends(needs(perms.STOCK)),
                    session: Session = Depends(get_db), done: str = "", error: str = ""):
-    """Dónde está la carne y lo que se manda de una sede a otra."""
+    """[00255] Dónde está la carne y lo que se manda de una sede a otra."""
     user, auth_session = ctx
     return _transfers(request, user, auth_session, session, done=done, error=error)
 
 
 def _transfers(request, user, auth_session, session, *, done="", error=""):
-    """Pinta los traslados: dónde está la carne y qué se puede mandar."""
+    """[00256] Pinta los traslados: dónde está la carne y qué se puede mandar."""
     mine = sites.of_user(session, user)
     return page(request, "transfers.html", user, auth_session, session, done=done,
                 error=error, mine=mine,
@@ -1674,7 +1674,7 @@ def _transfers(request, user, auth_session, session, *, done="", error=""):
 
 
 def _donde_se_veia(valor: str) -> tuple[str, int | None]:
-    """Parte «8017|3» en el número de la pieza y la sede donde se la veía.
+    """[00257] Parte «8017|3» en el número de la pieza y la sede donde se la veía.
 
     El desplegable manda las dos cosas juntas porque un `<select>` solo manda
     un valor, y así viaja sin depender de que haya javascript: lo que sale del
@@ -1698,7 +1698,7 @@ def _donde_se_veia(valor: str) -> tuple[str, int | None]:
 def send_primal(request: Request, serial: str = Form(...), site: str = Form(...),
                 note: str = Form(""), csrf: str = Form(""), envio: str = Form(""),
                 ctx=Depends(needs(perms.TRANSFER)), session: Session = Depends(get_db)):
-    """La pieza entera se va a otra sede, con su número y su coste."""
+    """[00258] La pieza entera se va a otra sede, con su número y su coste."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -1722,7 +1722,7 @@ def send_cut(request: Request, serial: str = Form(...), g: str = Form(""),
              site: str = Form(...), note: str = Form(""), csrf: str = Form(""),
              envio: str = Form(""),
              ctx=Depends(needs(perms.TRANSFER)), session: Session = Depends(get_db)):
-    """Cortes a otra sede: el lote entero, o unos kilos partiendo el lote."""
+    """[00259] Cortes a otra sede: el lote entero, o unos kilos partiendo el lote."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -1731,7 +1731,7 @@ def send_cut(request: Request, serial: str = Form(...), g: str = Form(""),
         return repetido
     numero, visto_en = _donde_se_veia(serial)
     try:
-        # `kg` es el nombre de antes: de la cola de un teléfono con la
+        # [00394] `kg` es el nombre de antes: de la cola de un teléfono con la
         # pantalla vieja, donde esa casilla se escribía en kilos.
         sent = sites.send_cut(session, user, numero,
                               pesos.de_dos(g, kg, 0.0) or 0.0,
@@ -1748,7 +1748,7 @@ def send_cut(request: Request, serial: str = Form(...), g: str = Form(""),
 @app.get("/sedes", response_class=HTMLResponse)
 def sites_page(request: Request, ctx=Depends(needs(perms.TEAM)),
                session: Session = Depends(get_db), done: str = "", error: str = ""):
-    """El obrador y los locales de la casa, y quién trabaja en cada uno."""
+    """[00260] El obrador y los locales de la casa, y quién trabaja en cada uno."""
     user, auth_session = ctx
     sites.main(session, user.restaurant_id)      # una casa siempre tiene una sede
     return page(request, "sites.html", user, auth_session, session, done=done, error=error,
@@ -1760,7 +1760,7 @@ def sites_page(request: Request, ctx=Depends(needs(perms.TEAM)),
 def create_site(request: Request, name: str = Form(...), kind: str = Form("OUTLET"),
                 address: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
-    """Abre una sede nueva: un local, o el obrador."""
+    """[00261] Abre una sede nueva: un local, o el obrador."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -1777,7 +1777,7 @@ def create_site(request: Request, name: str = Form(...), kind: str = Form("OUTLE
 @app.post("/sedes/{site_id}/estado")
 def toggle_site(site_id: int, request: Request, csrf: str = Form(""),
                 ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
-    """Abre o cierra una sede."""
+    """[00262] Abre o cierra una sede."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     site = _own(session, user, Site, site_id, request)
@@ -1791,7 +1791,7 @@ def toggle_site(site_id: int, request: Request, csrf: str = Form(""),
 @app.get("/sedes/{site_id}/minimos", response_class=HTMLResponse)
 def site_pars_page(site_id: int, request: Request, ctx=Depends(needs(perms.TEAM)),
                    session: Session = Depends(get_db), done: str = "", error: str = ""):
-    """Los mínimos de esa sede: lo que la casa dice, y lo que allí es distinto."""
+    """[00263] Los mínimos de esa sede: lo que la casa dice, y lo que allí es distinto."""
     user, auth_session = ctx
     site = _own(session, user, Site, site_id, request)
     suyos = sites.pars_of(session, user.restaurant_id, site.id)
@@ -1808,7 +1808,7 @@ def site_pars_page(site_id: int, request: Request, ctx=Depends(needs(perms.TEAM)
 @app.post("/sedes/{site_id}/minimos", response_class=HTMLResponse)
 async def save_site_pars(site_id: int, request: Request, ctx=Depends(needs(perms.TEAM)),
                          session: Session = Depends(get_db)):
-    """Guarda de una vez lo que esa sede quiere tener siempre. Vacío es «lo de la casa»."""
+    """[00264] Guarda de una vez lo que esa sede quiere tener siempre. Vacío es «lo de la casa»."""
     user, auth_session = ctx
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
@@ -1832,7 +1832,7 @@ async def save_site_pars(site_id: int, request: Request, ctx=Depends(needs(perms
 @app.post("/manager/equipo/{user_id}/sede")
 def change_site(user_id: int, request: Request, site: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
-    """A qué sede pertenece esa persona. Sin sede, ve la casa entera.
+    """[00265] A qué sede pertenece esa persona. Sin sede, ve la casa entera.
 
     Y por eso esta ruta manda tanto como la del nivel: «manager general» es un
     manager **sin sede**, así que quitarle la sede a alguien es ascenderlo a
@@ -1857,7 +1857,7 @@ def change_site(user_id: int, request: Request, site: str = Form(""), csrf: str 
 @app.get("/cortes", response_class=HTMLResponse)
 def cuts_page(request: Request, ctx=Depends(needs(perms.STOCK)),
               session: Session = Depends(get_db), error: str = ""):
-    """El catálogo de cortes, con lo que queda de cada uno y a cómo sale."""
+    """[00266] El catálogo de cortes, con lo que queda de cada uno y a cómo sale."""
     user, auth_session = ctx
     return page(request, "cuts.html", user, auth_session, session, error=error,
                 rotations=list(Rotation), modes=list(ConsumptionMode),
@@ -1871,7 +1871,7 @@ def new_cut(request: Request, name: str = Form(...), min_stock: str = Form(""),
             rotation: str = Form("FEFO"), consumption: str = Form("RECIPE"),
             sold_by_weight: str = Form(""), csrf: str = Form(""),
             ctx=Depends(needs(perms.CATALOGUE)), session: Session = Depends(get_db)):
-    """Da de alta un corte nuevo en el catálogo."""
+    """[00267] Da de alta un corte nuevo en el catálogo."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -1891,7 +1891,7 @@ def new_cut(request: Request, name: str = Form(...), min_stock: str = Form(""),
 def new_article(cut_id: int, request: Request, name: str = Form(...),
                 supplier: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.CATALOGUE)), session: Session = Depends(get_db)):
-    """Da de alta un artículo de compra de ese corte."""
+    """[00268] Da de alta un artículo de compra de ese corte."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     cut = _own(session, user, Ingredient, cut_id, request)
@@ -1906,7 +1906,7 @@ def new_article(cut_id: int, request: Request, name: str = Form(...),
 @app.get("/carta", response_class=HTMLResponse)
 def menu_page(request: Request, ctx=Depends(needs(perms.MENU)),
               session: Session = Depends(get_db), error: str = ""):
-    """La carta: los platos y lo que lleva cada uno."""
+    """[00269] La carta: los platos y lo que lleva cada uno."""
     user, auth_session = ctx
     return page(request, "menu.html", user, auth_session, session, error=error,
                 rows=meat.menu(session, user.restaurant_id),
@@ -1919,7 +1919,7 @@ def new_dish(request: Request, name: str = Form(...), cut_id: int = Form(...),
              pos_code: str = Form(""), pos_name: str = Form(""),
              by_weight: str = Form(""), price_per_kg: str = Form(""), csrf: str = Form(""),
              ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
-    """Da de alta un plato, con su corte, sus gramos y su precio."""
+    """[00270] Da de alta un plato, con su corte, sus gramos y su precio."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -1937,7 +1937,7 @@ def new_dish(request: Request, name: str = Form(...), cut_id: int = Form(...),
 @app.get("/ingredientes", response_class=HTMLResponse)
 def extras_page(request: Request, ctx=Depends(needs(perms.MENU)),
                 session: Session = Depends(get_db), saved: int = 0, error: str = ""):
-    """Lo que acompaña a la carne. Aquí solo se configura su coste."""
+    """[00271] Lo que acompaña a la carne. Aquí solo se configura su coste."""
     user, auth_session = ctx
     rows = meat.extras(session, user.restaurant_id)
     used = meat.extras_usage(session, user.restaurant_id)
@@ -1952,7 +1952,7 @@ def extras_page(request: Request, ctx=Depends(needs(perms.MENU)),
 def new_extra(request: Request, name: str = Form(...), unit: str = Form("KG"),
               cost: str = Form(""), portion: str = Form(""), csrf: str = Form(""),
               ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
-    """Da de alta un acompañamiento: guarnición, salsa, pan."""
+    """[00272] Da de alta un acompañamiento: guarnición, salsa, pan."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -1969,7 +1969,7 @@ def update_extra_cost(ingredient_id: int, request: Request, cost: str = Form(...
                       portion: str = Form(""), csrf: str = Form(""),
                       ctx=Depends(needs(perms.MENU)),
                       session: Session = Depends(get_db)):
-    """Cambia lo que cuesta un acompañamiento y lo que se pone por ración."""
+    """[00273] Cambia lo que cuesta un acompañamiento y lo que se pone por ración."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -1982,7 +1982,7 @@ def update_extra_cost(ingredient_id: int, request: Request, cost: str = Form(...
 
 # ============================================================= EMPLATADO
 def _dish(session: Session, user: User, code: str, request: Request) -> Recipe:
-    """Trae un plato por su código, comprobando que es de esta casa."""
+    """[00274] Trae un plato por su código, comprobando que es de esta casa."""
     dish = (session.query(Recipe)
             .filter_by(restaurant_id=user.restaurant_id, code=code).first())
     if dish is None:
@@ -1994,7 +1994,7 @@ def _dish(session: Session, user: User, code: str, request: Request) -> Recipe:
 @app.get("/carta/{code}", response_class=HTMLResponse)
 def plate_page(code: str, request: Request, ctx=Depends(needs(perms.MENU)),
                session: Session = Depends(get_db), error: str = ""):
-    """El emplatado: todo lo que va en el plato y lo que cuesta cada cosa."""
+    """[00275] El emplatado: todo lo que va en el plato y lo que cuesta cada cosa."""
     user, auth_session = ctx
     dish = _dish(session, user, code, request)
     lang = lang_for(request, session, user)
@@ -2009,7 +2009,7 @@ def plate_page(code: str, request: Request, ctx=Depends(needs(perms.MENU)),
 def add_plate_line(code: str, request: Request, ingredient_id: int = Form(...),
                    qty: str = Form(...), waste_pct: str = Form("0"), csrf: str = Form(""),
                    ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
-    """Añade un ingrediente al plato, con su cantidad y su merma."""
+    """[00276] Añade un ingrediente al plato, con su cantidad y su merma."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     dish = _dish(session, user, code, request)
@@ -2025,7 +2025,7 @@ def add_plate_line(code: str, request: Request, ingredient_id: int = Form(...),
 @app.post("/carta/{code}/linea/{line_id}/quitar")
 def remove_plate_line(code: str, line_id: int, request: Request, csrf: str = Form(""),
                       ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
-    """Quita un ingrediente del plato."""
+    """[00277] Quita un ingrediente del plato."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     dish = _dish(session, user, code, request)
@@ -2040,7 +2040,7 @@ def remove_plate_line(code: str, line_id: int, request: Request, csrf: str = For
 @app.post("/carta/{code}/gramos")
 def set_plate_grams(code: str, request: Request, grams: str = Form(...), csrf: str = Form(""),
                     ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
-    """Cambia los gramos de carne del plato.
+    """[00278] Cambia los gramos de carne del plato.
 
     Es el número que más se toca de la carta y el que más manda en el food
     cost: veinte gramos de más en un plato que se vende cien veces al día son
@@ -2061,14 +2061,14 @@ def set_plate_grams(code: str, request: Request, grams: str = Form(...), csrf: s
 @app.get("/ventas", response_class=HTMLResponse)
 def sales_page(request: Request, ctx=Depends(needs(perms.MENU)),
                session: Session = Depends(get_db), done: str = ""):
-    """La pantalla de subir el parte de ventas de la caja."""
+    """[00279] La pantalla de subir el parte de ventas de la caja."""
     user, auth_session = ctx
     return _sales(request, user, auth_session, session, done=done)
 
 
 def _sales(request, user, auth_session, session, *, done="", error="", parsed=None,
            preview=None, business_date="", site=""):
-    """Pinta las ventas, con lo leído del fichero antes de darlo por bueno.
+    """[00280] Pinta las ventas, con lo leído del fichero antes de darlo por bueno.
 
     Sin sede se elige de cuál son estas ventas: el manager sube el fichero de
     cada local desde su despacho.
@@ -2077,7 +2077,7 @@ def _sales(request, user, auth_session, session, *, done="", error="", parsed=No
     return page(request, "sales.html", user, auth_session, session, done=done, error=error,
                 parsed=parsed, preview=preview, business_date=business_date,
                 mine=mia, site=site,
-                # Sin sede se elige de cuál son estas ventas: el manager sube el
+                # [00395] Sin sede se elige de cuál son estas ventas: el manager sube el
                 # fichero de cada local desde su despacho.
                 sites=[] if mia else sites.all_sites(session, user.restaurant_id),
                 rows_json=json.dumps([[p["key"], p["units"], p["kg"]] for p in preview
@@ -2089,7 +2089,7 @@ def _sales(request, user, auth_session, session, *, done="", error="", parsed=No
 @app.post("/ventas/fichero", response_class=HTMLResponse)
 async def read_sales_file(request: Request, ctx=Depends(needs(perms.MENU)),
                           session: Session = Depends(get_db)):
-    """Lee el parte de ventas del POS y enseña lo entendido. No descuenta nada."""
+    """[00281] Lee el parte de ventas del POS y enseña lo entendido. No descuenta nada."""
     user, auth_session = ctx
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
@@ -2120,7 +2120,7 @@ async def read_sales_file(request: Request, ctx=Depends(needs(perms.MENU)),
 @app.post("/ventas")
 async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
                        session: Session = Depends(get_db)):
-    """Lo vendido en el POS descuenta de cámara por rotación, plato a plato."""
+    """[00282] Lo vendido en el POS descuenta de cámara por rotación, plato a plato."""
     user, auth_session = ctx
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
@@ -2129,7 +2129,7 @@ async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
     sales: list[tuple[str, float, float | None]] = []
     confirmed = form.get("rows")
     if confirmed:
-        # Viene de un fichero ya leído y enseñado: se vuelve a validar, que lo
+        # [00396] Viene de un fichero ya leído y enseñado: se vuelve a validar, que lo
         # que llega de un formulario no se cree por venir de nosotros.
         try:
             for line in json.loads(confirmed)[:pos_import.MAX_ROWS]:
@@ -2145,7 +2145,7 @@ async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
         name = key.split(":", 1)[1]
         try:
             units = _g(value, 0.0) or 0.0
-            # Lo que se cobra por kilo llega con su peso: son los gramos que
+            # [00397] Lo que se cobra por kilo llega con su peso: son los gramos que
             # se cortaron, no los de la carta.
             grams = _g(form.get(f"grams:{name}"), None)
         except ValueError:
@@ -2176,13 +2176,13 @@ async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
 @app.get("/inventario", response_class=HTMLResponse)
 def inventory_page(request: Request, ctx=Depends(needs(perms.COUNT)),
                    session: Session = Depends(get_db), done: str = ""):
-    """La hoja de inventario que esté abierta en esa sede.
+    """[00283] La hoja de inventario que esté abierta en esa sede.
 
     Cada cámara se cuenta por su cuenta: la hoja abierta es la de tu sede, no
     la del obrador.
     """
     user, auth_session = ctx
-    # Cada cámara se cuenta por su cuenta: la hoja abierta es la de tu sede.
+    # [00398] Cada cámara se cuenta por su cuenta: la hoja abierta es la de tu sede.
     mia = sites.of_user(session, user)
     suya = mia.id if mia else None
     open_count = inventory.open_now(session, user.restaurant_id, suya)
@@ -2206,7 +2206,7 @@ def inventory_page(request: Request, ctx=Depends(needs(perms.COUNT)),
 def open_inventory(request: Request, period: str = Form("MONTHLY"), site: str = Form(""),
                    csrf: str = Form(""), ctx=Depends(needs(perms.INVENTORY)),
                    session: Session = Depends(get_db)):
-    """Abre una hoja de inventario."""
+    """[00284] Abre una hoja de inventario."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     mia = sites.of_user(session, user)
@@ -2222,7 +2222,7 @@ def open_inventory(request: Request, period: str = Form("MONTHLY"), site: str = 
 
 
 def _open_sheet(session: Session, user, form_id: str = "", lang: str = "es") -> MeatCount:
-    """La hoja de inventario **de tu cámara**, no la primera que aparezca.
+    """[00285] La hoja de inventario **de tu cámara**, no la primera que aparezca.
 
     En una casa con obrador y locales hay varias hojas abiertas a la vez, una
     por cámara. Buscando «la abierta» sin más, el carnicero del local acababa
@@ -2244,7 +2244,7 @@ def _open_sheet(session: Session, user, form_id: str = "", lang: str = "es") -> 
 @app.post("/inventario/contar")
 async def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
                        session: Session = Depends(get_db)):
-    """Contar lo puede hacer cualquiera: se hace en la cámara, con la balanza."""
+    """[00286] Contar lo puede hacer cualquiera: se hace en la cámara, con la balanza."""
     user, auth_session = ctx
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
@@ -2253,14 +2253,14 @@ async def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
     if repetido is not None:
         return repetido
     count = _open_sheet(session, user, str(form.get("hoja") or ""), lang)
-    # Lo que no se pudo apuntar, para decirlo. Una hoja de inventario manda
+    # [00399] Lo que no se pudo apuntar, para decirlo. Una hoja de inventario manda
     # cincuenta líneas de golpe y una mal escrita no puede tumbar las otras
     # cuarenta y nueve; pero callársela es peor que tumbarlas: la pieza se
     # queda «sin contar» y quien la acaba de pesar se ha ido de la cámara
     # convencido de que la contó. En el cierre aparece como que falta.
     mudas: list[str] = []
     for key, value in form.multi_items():
-        # `g:` es la casilla de ahora; `kg:` la de antes, que solo puede venir
+        # [00400] `g:` es la casilla de ahora; `kg:` la de antes, que solo puede venir
         # de la cola de un teléfono con la pantalla vieja abierta.
         en_gramos = key.startswith("g:")
         if not (en_gramos or key.startswith("kg:")) or not str(value).strip():
@@ -2285,7 +2285,7 @@ async def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
 def close_inventory(request: Request, csrf: str = Form(""), hoja: str = Form(""),
                     ctx=Depends(needs(perms.INVENTORY)),
                     session: Session = Depends(get_db)):
-    """Cierra el inventario: lo contado pasa a ser lo que hay."""
+    """[00287] Cierra el inventario: lo contado pasa a ser lo que hay."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     count = _open_sheet(session, user, hoja, lang_for(request, session, user))
@@ -2300,7 +2300,7 @@ def close_inventory(request: Request, csrf: str = Form(""), hoja: str = Form("")
 def cancel_inventory(request: Request, reason: str = Form(""), csrf: str = Form(""),
                      hoja: str = Form(""),
                      ctx=Depends(needs(perms.INVENTORY)), session: Session = Depends(get_db)):
-    """Cancela un inventario a medias, diciendo por qué."""
+    """[00288] Cancela un inventario a medias, diciendo por qué."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     count = _open_sheet(session, user, hoja, lang_for(request, session, user))
@@ -2316,7 +2316,7 @@ def recover_piece(request: Request, serial: str = Form(...), g: str = Form(""),
                   kg: str = Form(""),
                   note: str = Form(""), csrf: str = Form(""),
                   ctx=Depends(needs(perms.FIX)), session: Session = Depends(get_db)):
-    """La pieza ha aparecido: vuelve al stock, con quién y por qué."""
+    """[00289] La pieza ha aparecido: vuelve al stock, con quién y por qué."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -2335,11 +2335,11 @@ def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(.
                 unit_cost: float = Form(...), expiry: str = Form(...),
                 note: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.FIX)), session: Session = Depends(get_db)):
-    """Da de alta algo que apareció y no constaba en ninguna parte."""
+    """[00290] Da de alta algo que apareció y no constaba en ninguna parte."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
-        # `g` son gramos; `kg` es el nombre de antes, y la unidad del
+        # [00401] `g` son gramos; `kg` es el nombre de antes, y la unidad del
         # artículo cuando ese artículo no se pesa.
         inventory.adopt(session, user, serial.strip(), item_id,
                         kg=pesos.de_dos(g, kg, 0.0) or 0.0, unit_cost=unit_cost,
@@ -2353,7 +2353,7 @@ def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(.
 # ================================================================ MERMA
 def _waste_page(request, user, auth_session, session, *, result=None, error="",
                 serial="", previo=None, aviso=False):
-    """Todo lo que se tira, junto: lo de cámara y lo que se va limpiando piezas."""
+    """[00291] Todo lo que se tira, junto: lo de cámara y lo que se va limpiando piezas."""
     lines = waste.everything(session, user.restaurant_id)
     return page(request, "waste.html", user, auth_session, session,
                 result=result, error=error, serial=serial, lines=lines,
@@ -2365,7 +2365,7 @@ def _waste_page(request, user, auth_session, session, *, result=None, error="",
 @app.get("/merma", response_class=HTMLResponse)
 def waste_page(request: Request, ctx=Depends(needs(perms.WASTE)),
                session: Session = Depends(get_db), serial: str = "", aviso: int = 0):
-    """La pantalla de apuntar merma."""
+    """[00292] La pantalla de apuntar merma."""
     user, auth_session = ctx
     return _waste_page(request, user, auth_session, session, serial=serial,
                        aviso=bool(aviso))
@@ -2378,7 +2378,7 @@ def record_waste(request: Request, g: str = Form(""), kg: str = Form(""),
                  csrf: str = Form(""), envio: str = Form(""), cuando: str = Form(""),
                  ctx=Depends(needs(perms.WASTE)),
                  session: Session = Depends(get_db)):
-    """Apunta lo que se ha tirado, con su motivo."""
+    """[00293] Apunta lo que se ha tirado, con su motivo."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     repetido = _ya_estaba(request, session, user, envio, "/merma")
@@ -2393,14 +2393,14 @@ def record_waste(request: Request, g: str = Form(""), kg: str = Form(""),
             reason=reason.strip() or None, on=_cuando(cuando, session, user),
             lang=lang_for(request, session, user))
     except (waste.WasteError, ValueError) as e:
-        # Con lo que había escrito puesto otra vez: un error en los kilos no
+        # [00402] Con lo que había escrito puesto otra vez: un error en los kilos no
         # puede obligar a volver a buscar el número de la pieza y el motivo.
         return _waste_page(request, user, auth_session, session,
                            error=_dicho(e, lang_for(request, session, user)),
                            serial=serial.strip(),
                            previo={"g": g, "pieces": pieces, "reason": reason,
                                    "ingredient_id": ingredient_id})
-    # Guardado. Se contesta con una redirección y el recado viaja aparte: así
+    # [00403] Guardado. Se contesta con una redirección y el recado viaja aparte: así
     # la pantalla que se queda delante es una que se puede recargar mil veces
     # sin volver a tirar los mismos kilos.
     lang = lang_for(request, session, user)
@@ -2413,7 +2413,7 @@ def record_waste(request: Request, g: str = Form(""), kg: str = Form(""),
     dicho = " · ".join(partes) + " — " + (
         i18n.t(lang, "waste.absorbed", pct=butchery.ceil_pct(result.cost_increase_pct))
         if result.absorbed else i18n.t(lang, "waste.all_gone"))
-    # Sin nada que absorba el coste el aviso no es una buena noticia: se dice
+    # [00404] Sin nada que absorba el coste el aviso no es una buena noticia: se dice
     # con el color de aviso y no con el de hecho.
     destino = "/merma" if result.absorbed else "/merma?aviso=1"
     return _hecho(auth_session, destino, dicho)
@@ -2423,7 +2423,7 @@ def record_waste(request: Request, g: str = Form(""), kg: str = Form(""),
 @app.get("/trazabilidad", response_class=HTMLResponse)
 def tracing_page(request: Request, ctx=Depends(needs(perms.STOCK)),
                  session: Session = Depends(get_db), serial: str = ""):
-    """La historia de una pieza, de la recepción al plato."""
+    """[00294] La historia de una pieza, de la recepción al plato."""
     user, auth_session = ctx
     history = error = None
     matches = []
@@ -2442,7 +2442,7 @@ def tracing_page(request: Request, ctx=Depends(needs(perms.STOCK)),
 @app.get("/admin", response_class=HTMLResponse)
 def admin_home(request: Request, ctx=Depends(require_owner),
                session: Session = Depends(get_db), done: str = "", error: str = ""):
-    """La consola del dueño: solicitudes, casas, el recibo del mes y la tarifa."""
+    """[00295] La consola del dueño: solicitudes, casas, el recibo del mes y la tarifa."""
     user, auth_session = ctx
     rows = billing.requests(session)
     privacy.note_access(session, user, len(rows))     # mirar datos deja huella
@@ -2456,7 +2456,7 @@ def admin_home(request: Request, ctx=Depends(require_owner),
                 trial_left=billing.trial_left,
                 mail_ready=mailer.configured(),
                 encryption_on=privacy.encryption_on(),
-                # El parte de la última actualización de la base. Una
+                # [00405] El parte de la última actualización de la base. Una
                 # migración que se calla es peor que una que falla: el
                 # programa arranca, parece que todo está bien, y lo que falta
                 # se descubre semanas después en una pantalla que no tiene
@@ -2469,7 +2469,7 @@ def admin_home(request: Request, ctx=Depends(require_owner),
 def group_payment(request: Request, group: str = Form(...), action: str = Form("paid"),
                   paid_until: str = Form(""), note: str = Form(""), csrf: str = Form(""),
                   ctx=Depends(require_owner), session: Session = Depends(get_db)):
-    """Un grupo se cobra de una vez: es una empresa y un recibo, no cinco."""
+    """[00296] Un grupo se cobra de una vez: es una empresa y un recibo, no cinco."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     casas = (session.query(Restaurant)
@@ -2496,7 +2496,7 @@ def save_pricing(request: Request, currency: str = Form("EUR"),
                  yearly_on: str = Form(""), yearly_months: str = Form("10"),
                  csrf: str = Form(""), ctx=Depends(require_owner),
                  session: Session = Depends(get_db)):
-    """El precio de la web, cambiado sin desplegar nada.
+    """[00297] El precio de la web, cambiado sin desplegar nada.
 
     Es lo que permite salir con una rebaja de fundador y quitarla el día que
     haya clientes suficientes, que es una decisión de negocio y no de código.
@@ -2523,7 +2523,7 @@ def save_pricing(request: Request, currency: str = Form("EUR"),
 @app.post("/admin/solicitud/{request_id}/borrar")
 def erase_request(request_id: int, request: Request, csrf: str = Form(""),
                   ctx=Depends(require_owner), session: Session = Depends(get_db)):
-    """Derecho de supresión: se borra la solicitud y queda que se borró."""
+    """[00298] Derecho de supresión: se borra la solicitud y queda que se borró."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     privacy.erase_request(session, user, request_id)
@@ -2533,7 +2533,7 @@ def erase_request(request_id: int, request: Request, csrf: str = Form(""),
 @app.get("/admin/solicitud/{request_id}/datos")
 def export_request(request_id: int, request: Request, ctx=Depends(require_owner),
                    session: Session = Depends(get_db)):
-    """Derecho de portabilidad: todo lo que guardamos de esa persona."""
+    """[00299] Derecho de portabilidad: todo lo que guardamos de esa persona."""
     user, auth_session = ctx
     row = session.get(AccessRequest, request_id)
     if row is None:
@@ -2545,7 +2545,7 @@ def export_request(request_id: int, request: Request, ctx=Depends(require_owner)
 @app.post("/admin/solicitudes/purgar")
 def purge_requests(request: Request, csrf: str = Form(""), ctx=Depends(require_owner),
                    session: Session = Depends(get_db)):
-    """Lo que no llegó a cuenta no se guarda para siempre."""
+    """[00300] Lo que no llegó a cuenta no se guarda para siempre."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     privacy.purge(session, user)
@@ -2556,7 +2556,7 @@ def purge_requests(request: Request, csrf: str = Form(""), ctx=Depends(require_o
 def set_request_status(request_id: int, request: Request, status: str = Form(...),
                        csrf: str = Form(""), ctx=Depends(require_owner),
                        session: Session = Depends(get_db)):
-    """El dueño de la plataforma atiende o rechaza una solicitud de acceso."""
+    """[00301] El dueño de la plataforma atiende o rechaza una solicitud de acceso."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     if status in RequestStatus.__members__:
@@ -2567,7 +2567,7 @@ def set_request_status(request_id: int, request: Request, status: str = Form(...
 @app.post("/admin/casa")
 async def create_account(request: Request, ctx=Depends(require_owner),
                          session: Session = Depends(get_db)):
-    """Da de alta la casa y la cuenta de su manager. Es el único camino."""
+    """[00302] Da de alta la casa y la cuenta de su manager. Es el único camino."""
     user, auth_session = ctx
     form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
@@ -2602,7 +2602,7 @@ async def create_account(request: Request, ctx=Depends(require_owner),
 def set_billing(restaurant_id: int, request: Request, action: str = Form(...),
                 note: str = Form(""), paid_until: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(require_owner), session: Session = Depends(get_db)):
-    """La pestaña del recibo: pagado, fallado o bloqueado."""
+    """[00303] La pestaña del recibo: pagado, fallado o bloqueado."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     restaurant = session.get(Restaurant, restaurant_id)
@@ -2629,7 +2629,7 @@ def attach_payment(restaurant_id: int, request: Request, provider: str = Form("s
                    reference: str = Form(...), brand: str = Form(""), last4: str = Form(""),
                    expiry: str = Form(""), csrf: str = Form(""),
                    ctx=Depends(require_owner), session: Session = Depends(get_db)):
-    """Apunta el método de pago que devolvió la pasarela y arranca la prueba."""
+    """[00304] Apunta el método de pago que devolvió la pasarela y arranca la prueba."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     restaurant = session.get(Restaurant, restaurant_id)
@@ -2648,7 +2648,7 @@ def attach_payment(restaurant_id: int, request: Request, provider: str = Form("s
 def cancel_account(restaurant_id: int, request: Request, reason: str = Form(""),
                    csrf: str = Form(""), ctx=Depends(require_owner),
                    session: Session = Depends(get_db)):
-    """El dueño de la plataforma cancela una casa, diciendo por qué."""
+    """[00305] El dueño de la plataforma cancela una casa, diciendo por qué."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     restaurant = session.get(Restaurant, restaurant_id)
@@ -2662,7 +2662,7 @@ def cancel_account(restaurant_id: int, request: Request, reason: str = Form(""),
 @app.get("/manager/alertas", response_class=HTMLResponse)
 def alerts_page(request: Request, ctx=Depends(require_manager_user),
                 session: Session = Depends(get_db), show: str = "open"):
-    """Lo que ha salido mal y todavía no ha arreglado nadie.
+    """[00306] Lo que ha salido mal y todavía no ha arreglado nadie.
 
     Esta pantalla estuvo saliendo vacía: la ruta mandaba la lista con un
     nombre y la plantilla la leía con otro, así que no fallaba nada —no había
@@ -2686,7 +2686,7 @@ def alerts_page(request: Request, ctx=Depends(require_manager_user),
 def close_alert(alert_id: int, request: Request, resolution: str = Form(...),
                 csrf: str = Form(""), ctx=Depends(require_manager_user),
                 session: Session = Depends(get_db)):
-    """Cierra un aviso diciendo cómo se resolvió.
+    """[00307] Cierra un aviso diciendo cómo se resolvió.
 
     Un aviso que se cierra sin más vuelve a salir la semana que viene y nadie
     recuerda qué se hizo la vez pasada.
@@ -2704,12 +2704,12 @@ def close_alert(alert_id: int, request: Request, resolution: str = Form(...),
 @app.get("/manager/equipo", response_class=HTMLResponse)
 def team_page(request: Request, ctx=Depends(needs(perms.TEAM)),
               session: Session = Depends(get_db), error: str = "", done: str = ""):
-    """El equipo de la casa: quién es quién y qué puede hacer cada uno."""
+    """[00308] El equipo de la casa: quién es quién y qué puede hacer cada uno."""
     user, auth_session = ctx
     restaurant = session.get(Restaurant, user.restaurant_id)
     rows = (session.query(User).filter_by(restaurant_id=user.restaurant_id)
             .order_by(User.name).all())
-    # Los niveles que esta persona puede repartir, de la misma regla que
+    # [00406] Los niveles que esta persona puede repartir, de la misma regla que
     # comprueba la ruta: el general reparte managers de local, el de local no.
     roles = perms.grantable_roles(user)
     return page(request, "team.html", user, auth_session, session, error=error,
@@ -2721,7 +2721,7 @@ def create_team_user(request: Request, name: str = Form(...), email: str = Form(
                      password: str = Form(...), role: str = Form("BUTCHER"),
                      csrf: str = Form(""), ctx=Depends(needs(perms.TEAM)),
                      session: Session = Depends(get_db)):
-    """El manager da de alta a su gente: una cuenta, un nivel, una contraseña."""
+    """[00309] El manager da de alta a su gente: una cuenta, un nivel, una contraseña."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -2736,7 +2736,7 @@ def create_team_user(request: Request, name: str = Form(...), email: str = Form(
 @app.post("/manager/equipo/{user_id}/rol")
 def change_role(user_id: int, request: Request, role: str = Form(...), csrf: str = Form(""),
                 ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
-    """Cambia el nivel de una persona.
+    """[00310] Cambia el nivel de una persona.
 
     La pantalla no enseña los niveles que no tocan, pero una pantalla sin
     desplegable no es una puerta cerrada: el formulario se manda a mano, y por
@@ -2748,7 +2748,7 @@ def change_role(user_id: int, request: Request, role: str = Form(...), csrf: str
     target = _own(session, user, User, user_id, request)
     if target.id == user.id:
         raise HTTPException(status_code=400, detail=i18n.t(lang, "error.no_self_role"))
-    # La plantilla no enseña los niveles que no tocan, pero una pantalla sin
+    # [00407] La plantilla no enseña los niveles que no tocan, pero una pantalla sin
     # desplegable no es una puerta cerrada: el formulario se manda a mano. Sin
     # esto, un manager se fabricaba un dueño de la plataforma en una línea.
     nuevo = Role[role] if role in Role.__members__ else None
@@ -2762,7 +2762,7 @@ def change_role(user_id: int, request: Request, role: str = Form(...), csrf: str
 @app.post("/manager/equipo/{user_id}/activar")
 def toggle_user(user_id: int, request: Request, csrf: str = Form(""),
                 ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
-    """Da de alta o de baja a una persona. A uno mismo, no."""
+    """[00311] Da de alta o de baja a una persona. A uno mismo, no."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -2778,7 +2778,7 @@ def toggle_user(user_id: int, request: Request, csrf: str = Form(""),
 @app.get("/notificaciones", response_class=HTMLResponse)
 def notifications_page(request: Request, ctx=Depends(require_user),
                        session: Session = Depends(get_db)):
-    """Los avisos de esa persona. Al abrirlos, quedan leídos."""
+    """[00312] Los avisos de esa persona. Al abrirlos, quedan leídos."""
     user, auth_session = ctx
     rows = service.recent_notifications(session, user.id)
     response = page(request, "notifications.html", user, auth_session, session,
@@ -2790,14 +2790,14 @@ def notifications_page(request: Request, ctx=Depends(require_user),
 @app.get("/api/notificaciones")
 def notifications_api(request: Request, ctx=Depends(require_user),
                       session: Session = Depends(get_db)):
-    """Los últimos avisos y cuántos hay sin leer, para la campanita.
+    """[00313] Los últimos avisos y cuántos hay sin leer, para la campanita.
 
     El número va: sin él, la pantalla no sabe cuál es nueva y la alerta crítica
     que debía saltar al teléfono no saltaba nunca.
     """
     user, _ = ctx
     rows = service.recent_notifications(session, user.id, limit=5)
-    # El número va: sin él, la pantalla no sabe cuál es nueva y la alerta
+    # [00408] El número va: sin él, la pantalla no sabe cuál es nueva y la alerta
     # crítica que debía saltar al teléfono no saltaba nunca.
     return JSONResponse({"unread": service.unread_count(session, user.id),
                          "items": [{"id": n.id, "title": n.title, "body": n.body,
@@ -2808,7 +2808,7 @@ def notifications_api(request: Request, ctx=Depends(require_user),
 @app.get("/api/novedades")
 def news_api(request: Request, desde: int = 0, ctx=Depends(require_user),
              session: Session = Depends(get_db)):
-    """Lo que ha pasado en la casa desde la última vez que este aparato miró.
+    """[00314] Lo que ha pasado en la casa desde la última vez que este aparato miró.
 
     Lo suyo no se le cuenta —quien acaba de recibir ya sabe que ha recibido— y
     lo de otra sede tampoco. `ultimo` es el número de la última novedad haya
@@ -2822,7 +2822,7 @@ def news_api(request: Request, desde: int = 0, ctx=Depends(require_user),
                                 site_id=mia.id if mia else None, salvo_user=user.id)
 
     def contar(n):
-        """Una novedad contada en el idioma de la casa, con su hora."""
+        """[00340] Una novedad contada en el idioma de la casa, con su hora."""
         titulo, detalle = novedades.frase(lang, n)
         return {"id": n.id, "kind": n.kind, "titulo": titulo, "detalle": detalle,
                 "texto": f"{titulo} · {detalle}",
@@ -2838,15 +2838,15 @@ def news_api(request: Request, desde: int = 0, ctx=Depends(require_user),
 def settings_page(request: Request, ctx=Depends(require_user),
                   session: Session = Depends(get_db), saved: int = 0, changed: int = 0,
                   off: int = 0, error: str = ""):
-    # Sin `codes`: por la barra de direcciones no entran ni salen los códigos
+    # [00409] Sin `codes`: por la barra de direcciones no entran ni salen los códigos
     # de repuesto. Los pinta el POST que los crea, una vez y ahí se acabó.
-    """La configuración de la casa: idioma, moneda, horario y temperaturas.
+    """[00315] La configuración de la casa: idioma, moneda, horario y temperaturas.
 
     Los códigos de repuesto no salen por la barra de direcciones: los pinta una
     sola vez el formulario que los crea.
     """
     user, auth_session = ctx
-    # Si aún no la tiene puesta, se le propone un secreto para que lo meta en
+    # [00410] Si aún no la tiene puesta, se le propone un secreto para que lo meta en
     # el teléfono. Hasta que teclee un código no queda activada.
     if not user.totp_enabled and not user.totp_secret:
         user.totp_secret = twofactor.new_secret()
@@ -2858,7 +2858,7 @@ def settings_page(request: Request, ctx=Depends(require_user),
 def _settings(request: Request, user, auth_session, session, saved: bool = False,
               changed: bool = False, off: bool = False, error: str = "",
               codes: list | None = None):
-    """La pantalla de configuración, que se pinta desde el GET y desde el POST."""
+    """[00316] La pantalla de configuración, que se pinta desde el GET y desde el POST."""
     restaurant = session.get(Restaurant, user.restaurant_id)
     return page(request, "settings.html", user, auth_session, session,
                 restaurant=restaurant, saved=saved, changed=changed,
@@ -2886,7 +2886,7 @@ def save_settings(request: Request, language: str = Form(...),
                   frozen_min_c: str = Form(""), frozen_max_c: str = Form(""),
                   csrf: str = Form(""),
                   ctx=Depends(require_user), session: Session = Depends(get_db)):
-    """Guarda la configuración de la casa y la de la persona."""
+    """[00317] Guarda la configuración de la casa y la de la persona."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     if i18n.is_supported(language):
@@ -2900,7 +2900,7 @@ def save_settings(request: Request, language: str = Form(...),
                 restaurant.pos_match = PosMatch[pos_match]
             if money.es_valida(currency):
                 restaurant.currency = currency.upper()
-            # La zona se guarda solo si existe de verdad. Una mal escrita no
+            # [00411] La zona se guarda solo si existe de verdad. Una mal escrita no
             # rompe nada —se lee como UTC— pero deja a la casa creyendo que ha
             # puesto la suya, y eso es peor que no haberla puesto.
             if timezone_name.strip() and timezone_name.strip() in ZONAS:
@@ -2917,7 +2917,7 @@ def save_settings(request: Request, language: str = Form(...),
                                                       int(thaw_days)))
                 except ValueError:
                     pass
-            # Las bandas de llegada, límite a límite: quien aprieta solo el
+            # [00412] Las bandas de llegada, límite a límite: quien aprieta solo el
             # máximo no tiene que volver a escribir el mínimo. Un número que no
             # es un número deja el que había, que es lo prudente con algo que
             # decide si una carne se devuelve o se acepta.
@@ -2942,7 +2942,7 @@ def save_settings(request: Request, language: str = Form(...),
 def change_my_password(request: Request, current: str = Form(...), new: str = Form(...),
                        repeat: str = Form(""), csrf: str = Form(""),
                        ctx=Depends(require_user), session: Session = Depends(get_db)):
-    """Uno cambia la suya: hay que saber la de antes."""
+    """[00318] Uno cambia la suya: hay que saber la de antes."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -2960,7 +2960,7 @@ def change_my_password(request: Request, current: str = Form(...), new: str = Fo
 @app.post("/configuracion/2fa/activar")
 def enable_second_step(request: Request, code: str = Form(...), csrf: str = Form(""),
                        ctx=Depends(require_user), session: Session = Depends(get_db)):
-    """Se activa tecleando un código: así se sabe que el teléfono ya lo tiene."""
+    """[00319] Se activa tecleando un código: así se sabe que el teléfono ya lo tiene."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -2971,7 +2971,7 @@ def enable_second_step(request: Request, code: str = Form(...), csrf: str = Form
     user.totp_enabled = True
     user.recovery_codes = twofactor.store_recovery(codigos)
     session.flush()
-    # Los códigos NO viajan en la barra de direcciones. Cada uno vale como
+    # [00413] Los códigos NO viajan en la barra de direcciones. Cada uno vale como
     # segundo factor entero, y por ahí acababan en el historial de la tablet
     # de cocina y en el registro del proxy, en claro y para siempre. Se pinta
     # la pantalla aquí mismo: se ven una vez, se apuntan, y no quedan escritos
@@ -2982,7 +2982,7 @@ def enable_second_step(request: Request, code: str = Form(...), csrf: str = Form
 @app.post("/configuracion/2fa/quitar")
 def disable_second_step(request: Request, password: str = Form(...), csrf: str = Form(""),
                         ctx=Depends(require_user), session: Session = Depends(get_db)):
-    """Quitarla pide la contraseña: si alguien te deja la sesión abierta, no basta."""
+    """[00320] Quitarla pide la contraseña: si alguien te deja la sesión abierta, no basta."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -2999,12 +2999,12 @@ def disable_second_step(request: Request, password: str = Form(...), csrf: str =
 @app.post("/manager/equipo/{user_id}/2fa")
 def clear_team_second_step(user_id: int, request: Request, csrf: str = Form(""),
                            ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
-    """Quien pierde el teléfono no puede quedarse fuera para siempre."""
+    """[00321] Quien pierde el teléfono no puede quedarse fuera para siempre."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
     target = _own(session, user, User, user_id, request)
-    # Uno sobre sí mismo no es el caso fácil, es el peligroso: por aquí se
+    # [00414] Uno sobre sí mismo no es el caso fácil, es el peligroso: por aquí se
     # quitaba el segundo factor sin saber la contraseña de antes. Una tablet
     # olvidada encima del pase es la cuenta entera. Para lo de uno mismo está
     # `/configuracion`, que sí la pide.
@@ -3023,12 +3023,12 @@ def clear_team_second_step(user_id: int, request: Request, csrf: str = Form(""),
 def reset_team_password(user_id: int, request: Request, password: str = Form(...),
                         csrf: str = Form(""), ctx=Depends(needs(perms.TEAM)),
                         session: Session = Depends(get_db)):
-    """El manager le pone una nueva a su gente, que es quien la ha olvidado."""
+    """[00322] El manager le pone una nueva a su gente, que es quien la ha olvidado."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
     target = _own(session, user, User, user_id, request)
-    # Al dueño de la plataforma no lo toca la casa, y a un manager solo le
+    # [00415] Al dueño de la plataforma no lo toca la casa, y a un manager solo le
     # entra el general —y solo si el otro lleva un local—. Y uno sobre sí
     # mismo, tampoco: aquí no se pide la contraseña de antes, así que por aquí
     # se cambiaba la propia sin saberla. Eso va por `/configuracion`.
@@ -3043,12 +3043,12 @@ def reset_team_password(user_id: int, request: Request, password: str = Form(...
         status_code=303)
 
 
-# ============================================================ DESCARGAS
+# [00416] ============================================================ DESCARGAS
 # ============================================================== FALLOS
 @app.get("/fallo", response_class=HTMLResponse)
 def bug_page(request: Request, ctx=Depends(require_user), session: Session = Depends(get_db),
              desde: str = "", done: str = "", error: str = ""):
-    """Contar un fallo sin salir del programa ni escribir un correo."""
+    """[00323] Contar un fallo sin salir del programa ni escribir un correo."""
     user, auth_session = ctx
     return page(request, "bug.html", user, auth_session, session, done=done, error=error,
                 desde=desde or "/hoy", kinds=bugs.KINDS,
@@ -3060,7 +3060,7 @@ def bug_page(request: Request, ctx=Depends(require_user), session: Session = Dep
 def report_bug(request: Request, message: str = Form(...), kind: str = Form("fallo"),
                screen: str = Form(""), email: str = Form(""), csrf: str = Form(""),
                ctx=Depends(require_user), session: Session = Depends(get_db)):
-    """Lo guarda siempre, y lo manda si hay correo puesto."""
+    """[00324] Lo guarda siempre, y lo manda si hay correo puesto."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -3078,7 +3078,7 @@ def report_bug(request: Request, message: str = Form(...), kind: str = Form("fal
 @app.get("/admin/fallos", response_class=HTMLResponse)
 def bugs_page(request: Request, ctx=Depends(needs(perms.PLATFORM)),
               session: Session = Depends(get_db), estado: str = ""):
-    """Lo que cuentan las casas, para la plataforma."""
+    """[00325] Lo que cuentan las casas, para la plataforma."""
     user, auth_session = ctx
     filtro = BugStatus[estado] if estado in BugStatus.__members__ else None
     return page(request, "bugs.html", user, auth_session, session, estado=estado,
@@ -3090,7 +3090,7 @@ def bugs_page(request: Request, ctx=Depends(needs(perms.PLATFORM)),
 def set_bug_status(report_id: int, request: Request, estado: str = Form(...),
                    note: str = Form(""), csrf: str = Form(""),
                    ctx=Depends(needs(perms.PLATFORM)), session: Session = Depends(get_db)):
-    """El dueño de la plataforma marca en qué anda un parte de fallo."""
+    """[00326] El dueño de la plataforma marca en qué anda un parte de fallo."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -3105,7 +3105,7 @@ def set_bug_status(report_id: int, request: Request, estado: str = Form(...),
 @app.get("/cuadre", response_class=HTMLResponse)
 def cuadre_page(request: Request, ctx=Depends(needs(perms.MONEY)),
                 session: Session = Depends(get_db), meses: str = "1"):
-    """El cuadre: los kilos que no se sabe dónde han ido, y por qué.
+    """[00327] El cuadre: los kilos que no se sabe dónde han ido, y por qué.
 
     Es la pantalla que se abre cuando el mes no sale. Solo dirección: enseña
     dinero y, en la última parte, dice quién pesa y quién calcula a ojo, que
@@ -3129,7 +3129,7 @@ def cuadre_page(request: Request, ctx=Depends(needs(perms.MONEY)),
 
 
 def _cortes_de_la_casa(session: Session, restaurant_id: int) -> list[str]:
-    """Los cortes de primal que esta casa recibe, sin repetir."""
+    """[00328] Los cortes de primal que esta casa recibe, sin repetir."""
     return sorted({p.sku for p in session.query(Primal)
                    .filter_by(restaurant_id=restaurant_id) if p.sku})
 
@@ -3137,7 +3137,7 @@ def _cortes_de_la_casa(session: Session, restaurant_id: int) -> list[str]:
 @app.get("/parte", response_class=HTMLResponse)
 def daily_report_page(request: Request, ctx=Depends(needs(perms.STOCK)),
                       session: Session = Depends(get_db), fecha: str = ""):
-    """El parte de carne del día, hecho para imprimirlo y colgarlo."""
+    """[00329] El parte de carne del día, hecho para imprimirlo y colgarlo."""
     user, auth_session = ctx
     lang = lang_for(request, session, user)
     mia = sites.of_user(session, user)
@@ -3155,7 +3155,7 @@ def daily_report_page(request: Request, ctx=Depends(needs(perms.STOCK)),
 @app.get("/descargas", response_class=HTMLResponse)
 def downloads_page(request: Request, ctx=Depends(require_user),
                    session: Session = Depends(get_db)):
-    """Las hojas que se pueden descargar para llevar a mano."""
+    """[00330] Las hojas que se pueden descargar para llevar a mano."""
     user, auth_session = ctx
     return page(request, "downloads_meat.html", user, auth_session, session,
                 sheets=sheets_meat.SHEETS, site=sites.of_user(session, user))
@@ -3164,7 +3164,7 @@ def downloads_page(request: Request, ctx=Depends(require_user),
 @app.get("/descargas/etiquetas", response_class=HTMLResponse)
 def label_sheet(request: Request, ctx=Depends(require_user),
                 session: Session = Depends(get_db), recortar: int = 0):
-    """Una hoja A4 de etiquetas en blanco para pegar en la pieza.
+    """[00331] Una hoja A4 de etiquetas en blanco para pegar en la pieza.
 
     No sustituye a escribir el número en el envoltorio con rotulador —eso se
     sigue pidiendo en la recepción y es lo que hay cuando no hay hoja a mano—:
@@ -3178,7 +3178,7 @@ def label_sheet(request: Request, ctx=Depends(require_user),
 @app.get("/descargas/{code}.xlsx")
 def download_sheet(code: str, request: Request, ctx=Depends(require_user),
                    session: Session = Depends(get_db)):
-    """Descarga una hoja en Excel, en el idioma de la casa."""
+    """[00332] Descarga una hoja en Excel, en el idioma de la casa."""
     user, auth_session = ctx
     restaurant = session.get(Restaurant, user.restaurant_id)
     lang = lang_for(request, session, user)
@@ -3193,7 +3193,7 @@ def download_sheet(code: str, request: Request, ctx=Depends(require_user),
 
 @app.get("/sw.js")
 def service_worker(request: Request, idioma: str = ""):
-    """El ayudante que hace que la pantalla cargue dentro de la cámara.
+    """[00333] El ayudante que hace que la pantalla cargue dentro de la cámara.
 
     Guarda una copia de cada pantalla que se visita. Si luego no hay señal
     —o el móvil se ha bloqueado y el navegador ha tirado la pestaña—, se sirve
@@ -3203,7 +3203,7 @@ def service_worker(request: Request, idioma: str = ""):
     Lo que se manda no se toca nunca: un POST sin red falla como siempre y lo
     recoge el guardado del propio formulario.
     """
-    # El idioma lo dice la propia pantalla que lo registra, no la cabecera del
+    # [00417] El idioma lo dice la propia pantalla que lo registra, no la cabecera del
     # navegador: en un Windows en inglés con la casa en español, adivinarlo
     # dejaba la pantalla de «sin conexión» escrita en inglés, que es justo
     # cuando menos ganas hay de traducir nada.
@@ -3371,7 +3371,7 @@ button:hover{filter:brightness(1.08)}</style></head><body><div>
 def tour_seen(request: Request, pantalla: str = Form(...), completo: str = Form("1"),
               csrf: str = Form(""), ctx=Depends(require_user),
               session: Session = Depends(get_db)):
-    """«Ya he visto el tutorial de esta pantalla».
+    """[00334] «Ya he visto el tutorial de esta pantalla».
 
     Se marca para quien lo pide y para nadie más: el usuario sale de la
     sesión, no de lo que mande el navegador. Y la pantalla tiene que existir
@@ -3388,7 +3388,7 @@ def tour_seen(request: Request, pantalla: str = Form(...), completo: str = Form(
 
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
-    """El icono de la casa.
+    """[00335] El icono de la casa.
 
     Las pantallas ya lo dicen con una etiqueta, pero Safari y los buscadores
     lo piden aquí de todas formas. Sin esto son un 404 por visita: no rompe
@@ -3401,12 +3401,12 @@ def favicon():
 
 @app.get("/healthz")
 def healthz():
-    """Contesta que está viva. Lo pregunta el servidor, no una persona."""
+    """[00336] Contesta que está viva. Lo pregunta el servidor, no una persona."""
     return {"status": "ok", "edition": "meat"}
 
 
 def create_app(database_url: str = "sqlite:///carnes.db") -> FastAPI:
-    """Arranca la edición de carne: abre la base y deja las tablas al día."""
+    """[00337] Arranca la edición de carne: abre la base y deja las tablas al día."""
     db.init_engine(database_url)
     db.create_all()
     return app

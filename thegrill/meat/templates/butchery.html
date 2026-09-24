@@ -17,7 +17,7 @@
 {% endif %}
 
 <div class="card">
-{# La hoja más cara de rellenar del programa —peso de antes, merma y hasta
+{# [01554] La hoja más cara de rellenar del programa —peso de antes, merma y hasta
    diez cortes con sus kilos— y se hace justo donde no hay señal. Sin cola
    se perdía entera; la segunda vez que pasa, el carnicero coge un papel. #}
 <form method="post" action="/despiece" data-cola data-keep="despiece">
@@ -38,7 +38,7 @@
   </div>
 
   <h2 data-tour="piezas">{{ t("m.tg.primals") }}</h2>
-  {# Las que están en la cámara pero todavía no valen nada no salen en la
+  {# [01555] Las que están en la cámara pero todavía no valen nada no salen en la
      lista. Decirlo evita el rato de buscar una pieza que sabes que entró. #}
   {% if sin_precio %}
   <div class="banner warn">{{ t("m.home.no_price", n=sin_precio) }}{% if can("money") %}
@@ -69,7 +69,7 @@
   {% endif %}
 
   <h2>{{ t("m.tg.cuts") }}</h2>
-  {# Un bloque por corte, no una rejilla de diez filas por ocho columnas. Lo
+  {# [01556] Un bloque por corte, no una rejilla de diez filas por ocho columnas. Lo
      que se rellena aquí sale de la mesa de despiece con las manos ocupadas:
      una tabla ancha obliga a arrastrar de lado y no se sabe en qué corte estás
      escribiendo. Y «a peso» era una casilla en medio de la fila con dos
@@ -97,7 +97,7 @@
           <option value="piezas">{{ t("m.tg.in_portions") }}</option>
           <option value="peso">{{ t("m.tg.by_kilo") }}</option>
         </select></label>
-      {# La casilla de verdad, la que viaja: el desplegable solo la mueve. #}
+      {# [01557] La casilla de verdad, la que viaja: el desplegable solo la mueve. #}
       <input type="checkbox" name="weight:{{ i }}" value="1" class="espeso" hidden>
       <label class="enpiezas">{{ t("meat.pieces") }}
         <input name="pieces:{{ i }}" inputmode="numeric" value="{{ previo.get('pieces:' ~ i, '') if previo is defined else '' }}"
@@ -113,7 +113,7 @@
                title="{{ t('m.tg.h_kg') }}">
         <small class="eco muted" data-eco aria-live="polite"></small></label>
     </div>
-    {# Lo que sale de dividir: se enseña mientras se escribe, que es lo que
+    {# [01558] Lo que sale de dividir: se enseña mientras se escribe, que es lo que
        deja ver de un vistazo si el corte va ancho o estrecho. #}
     <div class="help enpiezas porpieza" aria-live="polite"></div>
 
@@ -140,7 +140,7 @@
   </div>
   <div class="help">{{ t("m.tg.cuts_help") }}</div>
   <div class="help">{{ t("m.tg.by_weight_help") }}</div>
-  {# El glosario se queda: en un móvil no se pasa el ratón por encima, así que
+  {# [01559] El glosario se queda: en un móvil no se pasa el ratón por encima, así que
      lo que explica cada nombre tiene que poder abrirse y leerse. #}
   <details class="help" style="margin:10px 0">
     <summary>{{ t("m.tg.what_is_what") }}</summary>

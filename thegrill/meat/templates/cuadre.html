@@ -3,7 +3,7 @@
 <h1>{{ t("m.cu.title") }}</h1>
 <p class="sub">{{ t("m.cu.sub") }}</p>
 
-{# 1. El residuo. Lo primero y lo más grande, porque es la pregunta con la que
+{# [01560] 1. El residuo. Lo primero y lo más grande, porque es la pregunta con la que
    se entra aquí: «¿dónde están los kilos que faltan?». #}
 <div class="card" data-tour="residuo">
   <h2>{{ t("m.cu.gap_title") }}</h2>
@@ -48,7 +48,7 @@
   {% endif %}
 </div>
 
-{# 2. La banda. Lo normal para cada corte EN ESTA CASA: un umbral redondo
+{# [01561] 2. La banda. Lo normal para cada corte EN ESTA CASA: un umbral redondo
    traído de fuera no vale para nadie. #}
 <div class="card" data-tour="banda">
   <h2>{{ t("m.cu.band_title") }}</h2>
@@ -73,12 +73,12 @@
   {% endif %}
 </div>
 
-{# 3. El dedo. Va al final y con su explicación delante: es un número, no una
+{# [01562] 3. El dedo. Va al final y con su explicación delante: es un número, no una
    acusación, y leído sin contexto hace daño. #}
 <div class="card" data-tour="dedo">
   <h2>{{ t("m.cu.finger_title") }}</h2>
   <p class="help">{{ t("m.cu.finger_help") }}</p>
-  {# La advertencia va ANTES de la tabla y siempre, haya alguien a quien
+  {# [01563] La advertencia va ANTES de la tabla y siempre, haya alguien a quien
      juzgar o no: leída después ya no sirve de nada. #}
   <p class="help">{{ t("m.cu.finger_fair") }}</p>
   {% if dedos %}

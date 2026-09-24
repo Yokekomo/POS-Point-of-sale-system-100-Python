@@ -1,4 +1,4 @@
-"""Dos personas a la vez sobre la misma carne.
+"""[01300] Dos personas a la vez sobre la misma carne.
 
 En una casa nadie trabaja solo: mientras uno cuenta la cámara del local, otro
 despieza en el obrador y un tercero da de alta la recepción del camión. Casi
@@ -25,11 +25,11 @@ from sqlalchemy.orm import Session
 
 
 class Busy(RuntimeError):
-    """Otra persona se ha adelantado con esto mismo, hace un momento."""
+    """[01301] Otra persona se ha adelantado con esto mismo, hace un momento."""
 
 
 def claim(session: Session, model, ident: int, expected: dict, values: dict) -> bool:
-    """Cambia una fila **solo si sigue como la dejamos**. Dice si fue nuestra.
+    """[01302] Cambia una fila **solo si sigue como la dejamos**. Dice si fue nuestra.
 
     Es un `UPDATE … WHERE` con el estado de antes metido en el `WHERE`: la base
     de datos lo resuelve dentro de su propio candado, así que de dos personas
@@ -39,7 +39,7 @@ def claim(session: Session, model, ident: int, expected: dict, values: dict) -> 
     taken = (session.query(model).filter_by(id=ident, **expected)
              .update(values, synchronize_session=False))
     if taken:
-        # La fila en memoria se quedó con lo de antes; se pone al día para que
+        # [01305] La fila en memoria se quedó con lo de antes; se pone al día para que
         # quien siga trabajando con el objeto vea lo que hay en la base.
         obj = session.get(model, ident)
         for field, value in values.items():
@@ -49,7 +49,7 @@ def claim(session: Session, model, ident: int, expected: dict, values: dict) -> 
 
 def take(session: Session, model, ident: int, field: str, qty: float,
          floor: float = 0.0) -> bool:
-    """Descuenta kilos de una fila **solo si quedan**. Dice si se pudieron sacar.
+    """[01303] Descuenta kilos de una fila **solo si quedan**. Dice si se pudieron sacar.
 
     Restar en Python lo que se acaba de leer es la manera de sacar diez kilos
     de un lote de seis: dos personas leen seis, las dos restan cinco y las dos
@@ -72,7 +72,7 @@ def take(session: Session, model, ident: int, field: str, qty: float,
 
 
 def retry(session: Session, escribir, arreglar, intentos: int = 6):
-    """Escribe, y si el número ya estaba cogido, lo cambia y vuelve a escribir.
+    """[01304] Escribe, y si el número ya estaba cogido, lo cambia y vuelve a escribir.
 
     Un número repetido no se ve mirando antes: los dos miraron cuando estaba
     libre y guardaron en el mismo segundo. Quien dice que no es la base de

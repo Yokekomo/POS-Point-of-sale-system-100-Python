@@ -1,4 +1,4 @@
-"""Inventario físico de carne: semanal, mensual o puntual.
+"""[01250] Inventario físico de carne: semanal, mensual o puntual.
 
 Se abre el inventario y el sistema saca la lista de lo que cree tener: cada
 corte con su serial y sus kilos, y cada primal sin despiezar. Se cuenta a mano
@@ -28,7 +28,7 @@ EPSILON = 1e-9
 
 
 class InventoryError(ValueError):
-    """El inventario no se puede abrir o cerrar tal y como está."""
+    """[01251] El inventario no se puede abrir o cerrar tal y como está."""
 
 
 @dataclass
@@ -43,14 +43,14 @@ class CloseResult:
 
     @property
     def aging_kg(self) -> float:
-        """El agua que se han dejado las piezas que maduran. No es carne que falte."""
+        """[01273] El agua que se han dejado las piezas que maduran. No es carne que falte."""
         return round(sum(w.loss_kg for w in self.weighings), 4)
 
 
 # ------------------------------------------------------------- lo esperado
 def expected_now(session: Session, restaurant_id: int,
                  site_id: int | None = None) -> list[Expected]:
-    """Lo que el sistema cree tener en este momento, pieza a pieza.
+    """[01252] Lo que el sistema cree tener en este momento, pieza a pieza.
 
     Con sede, lo de esa cámara. Contar a la vez el obrador y el local no cuadra
     nada: nadie pesa dos cámaras que están a veinte kilómetros, y lo que no se
@@ -85,7 +85,7 @@ def expected_now(session: Session, restaurant_id: int,
 def open_count(session: Session, user: User, period: CountPeriod = CountPeriod.MONTHLY,
                on: date | None = None, note: str | None = None,
                site_id: int | None = None) -> MeatCount:
-    """Abre un inventario con la lista de lo que hay que contar.
+    """[01253] Abre un inventario con la lista de lo que hay que contar.
 
     Cada sede cuenta su cámara, y las dos pueden estar contando a la vez: lo
     que no se puede es tener dos hojas abiertas de la misma cámara.
@@ -95,7 +95,7 @@ def open_count(session: Session, user: User, period: CountPeriod = CountPeriod.M
         mia = sites.of_user(session, user)
         site_id = mia.id if mia else None
     else:
-        # La sede viene del formulario, así que hay que preguntar de quién es.
+        # [01275] La sede viene del formulario, así que hay que preguntar de quién es.
         # Sin esto, una casa abría la hoja colgada de la cámara de otra —y lo
         # peor no era el cruce: al cerrar no encontraba nada que ajustar, así
         # que se contaba la cámara entera, no saltaba ningún error y no se
@@ -118,7 +118,7 @@ def open_count(session: Session, user: User, period: CountPeriod = CountPeriod.M
     try:
         session.flush()
     except IntegrityError:
-        # Dos encargados le han dado a abrir en el mismo segundo. Se deshace lo
+        # [01276] Dos encargados le han dado a abrir en el mismo segundo. Se deshace lo
         # de aquí —que no es más que una lista— y se cuenta en la que ya está.
         session.rollback()
         raise InventoryError("Otra persona acaba de abrir el inventario de esta cámara") \
@@ -129,7 +129,7 @@ def open_count(session: Session, user: User, period: CountPeriod = CountPeriod.M
 def record(session: Session, user: User, count: MeatCount, serial: str, kg: float,
            pieces: int | None = None, note: str | None = None,
            lang: str | None = None) -> MeatCountLine:
-    """Apunta lo contado de una pieza. Si no estaba en la lista, se añade.
+    """[01254] Apunta lo contado de una pieza. Si no estaba en la lista, se añade.
 
     Una cámara grande se cuenta entre dos, y los dos escriben en la misma hoja
     desde su móvil. Eso está bien: lo que no puede pasar es que el segundo pise
@@ -145,7 +145,7 @@ def record(session: Session, user: User, count: MeatCount, serial: str, kg: floa
     rangos.peso_corte(kg, lang or "es")
     line = _linea(session, count, serial)
 
-    # Guardar la hoja manda **todo** lo que hay en la pantalla, no solo lo que
+    # [01277] Guardar la hoja manda **todo** lo que hay en la pantalla, no solo lo que
     # uno acaba de escribir. Si el número que llega es el mismo que ya estaba,
     # no se toca nada: ni cambia de dueño ni hay discusión. Si no, la columna
     # «quién» diría que la contó el último que le dio a guardar.
@@ -153,7 +153,7 @@ def record(session: Session, user: User, count: MeatCount, serial: str, kg: floa
             and line.counted_pieces == pieces and not note):
         return line
 
-    # Lo que había cuando miramos. Se guarda aparte porque hay que poder
+    # [01278] Lo que había cuando miramos. Se guarda aparte porque hay que poder
     # preguntarle a la base si sigue siendo eso a la hora de escribir.
     visto = line.counted_at
     _decir_si_hay_lio(session, line, user, kg, lang)
@@ -165,7 +165,7 @@ def record(session: Session, user: User, count: MeatCount, serial: str, kg: floa
         valores["note"] = (" · ".join(x for x in (line.note, note) if x)[:1000]
                            if line.disputed else note)
 
-    # Y aquí está lo que costó encontrar: cuatro personas contando la misma
+    # [01279] Y aquí está lo que costó encontrar: cuatro personas contando la misma
     # pieza a la vez leían las cuatro la línea **sin contar**, así que ninguna
     # veía a nadie con quien discutir. Se guardaban los cuatro números encima
     # del anterior y la hoja quedaba diciendo que la contó uno solo, limpio. No
@@ -178,7 +178,7 @@ def record(session: Session, user: User, count: MeatCount, serial: str, kg: floa
     # lo lleva exactamente una.
     if not locking.claim(session, MeatCountLine, line.id, {"counted_at": visto},
                          valores):
-        # Perdimos: alguien escribió entre nuestra lectura y la nuestra. Se
+        # [01280] Perdimos: alguien escribió entre nuestra lectura y la nuestra. Se
         # relee lo que dejó, se mira si hay que decir algo —casi siempre sí— y
         # se escribe encima, que es lo pactado: manda el último, el que está
         # delante de la pieza ahora. Pero ya no en silencio.
@@ -195,7 +195,7 @@ def record(session: Session, user: User, count: MeatCount, serial: str, kg: floa
 
 
 def _linea(session: Session, count: MeatCount, serial: str) -> MeatCountLine:
-    """La línea de esa pieza en la hoja; si no estaba, se añade.
+    """[01255] La línea de esa pieza en la hoja; si no estaba, se añade.
 
     Una pieza que aparece en la cámara y no estaba en la lista la pueden
     apuntar dos personas en el mismo segundo, y la hoja no admite dos líneas
@@ -212,14 +212,14 @@ def _linea(session: Session, count: MeatCount, serial: str) -> MeatCountLine:
                           label=serial, expected_kg=0.0)
     try:
         with session.begin_nested():
-            # Va colgada de la hoja, no suelta en la sesión: el cierre recorre
+            # [01281] Va colgada de la hoja, no suelta en la sesión: el cierre recorre
             # `count.lines`, y una línea que se guarda pero no entra en esa
             # lista queda escrita en la base y fuera del cuadre. La pieza que
             # aparece en la cámara es justo la que no puede perderse.
             count.lines.append(nueva)
             session.flush()
     except IntegrityError:
-        # La creó otro en el mismo segundo. Se deshace solo esto y se sigue con
+        # [01282] La creó otro en el mismo segundo. Se deshace solo esto y se sigue con
         # la suya, que es la misma pieza; la hoja se relee para que la lista no
         # se quede con la línea que no llegó a existir.
         session.expire(count, ["lines"])
@@ -234,7 +234,7 @@ def _linea(session: Session, count: MeatCount, serial: str) -> MeatCountLine:
 
 def _decir_si_hay_lio(session: Session, line: MeatCountLine, user: User,
                       kg: float, lang: str | None) -> None:
-    """Si otra persona ya contó esta pieza y no les da lo mismo, queda escrito.
+    """[01256] Si otra persona ya contó esta pieza y no les da lo mismo, queda escrito.
 
     No se decide nada aquí sobre qué número manda —eso está pactado: manda el
     último—, solo que la discusión no se pierda. Una pieza en discusión no es
@@ -256,13 +256,13 @@ def _decir_si_hay_lio(session: Session, line: MeatCountLine, user: User,
 # ----------------------------------------------------------------- cierre
 def close_count(session: Session, user: User, count: MeatCount,
                 lang: str | None = None) -> CloseResult:
-    """Cierra el inventario: cuadra, re-ancla el stock y avisa de lo que falta."""
+    """[01257] Cierra el inventario: cuadra, re-ancla el stock y avisa de lo que falta."""
     if count.status == CountStatus.CLOSED:
         raise InventoryError("Ese inventario ya estaba cerrado")
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     now = datetime.utcnow()
 
-    # La hoja se coge antes de ajustar nada. Dos personas dándole a cerrar a la
+    # [01283] La hoja se coge antes de ajustar nada. Dos personas dándole a cerrar a la
     # vez —el encargado desde el móvil y el jefe desde el ordenador— escribían
     # los dos el mismo ajuste: los kilos quedaban bien, porque el segundo
     # re-ancla sobre lo mismo, pero el libro se llevaba dos apuntes de dinero
@@ -272,7 +272,7 @@ def close_count(session: Session, user: User, count: MeatCount,
                           "closed_at": now, "open_key": None}):
         raise InventoryError(t(lang, "inv.closed_by_other"))
 
-    # Lo esperado se relee al cerrar: el ajuste tiene que cuadrar contra el
+    # [01284] Lo esperado se relee al cerrar: el ajuste tiene que cuadrar contra el
     # estado de ahora, no contra el de cuando se abrió la hoja.
     expected = expected_now(session, user.restaurant_id, count.site_id)
     by_serial = {e.serial: e for e in expected}
@@ -312,7 +312,7 @@ def close_count(session: Session, user: User, count: MeatCount,
 
 
 def _reanchor_cut(session: Session, user: User, row, count: MeatCount, now: datetime) -> None:
-    """El conteo manda: el lote pasa a valer lo que se ha pesado."""
+    """[01258] El conteo manda: el lote pasa a valer lo que se ha pesado."""
     lot = (session.query(IngredientLot)
            .filter_by(restaurant_id=user.restaurant_id, serial=row.serial).first())
     if lot is None:
@@ -328,7 +328,7 @@ def _reanchor_cut(session: Session, user: User, row, count: MeatCount, now: date
 
 def _flag_primal(session: Session, user: User, row, result: CloseResult,
                  count: MeatCount | None = None, lang: str | None = None) -> None:
-    """Un primal que no aparece queda sospechoso, nunca cortado por inferencia.
+    """[01259] Un primal que no aparece queda sospechoso, nunca cortado por inferencia.
 
     Y si la pieza estaba madurando, pesarla en el inventario es una pesada como
     cualquier otra: lo que ha perdido es agua, no carne que falte, así que se
@@ -356,7 +356,7 @@ def _flag_primal(session: Session, user: User, row, result: CloseResult,
 
 def _raise_alerts(session: Session, user: User, result: CloseResult, lang: str,
                   now: datetime) -> None:
-    """Los avisos que deja un inventario cerrado, y a quién le llegan.
+    """[01260] Los avisos que deja un inventario cerrado, y a quién le llegan.
 
     Tres cosas distintas: lo que dos personas contaron distinto —manda el
     último número, pero hay que volver a mirarlo—, lo que no llegó a contarse,
@@ -366,7 +366,7 @@ def _raise_alerts(session: Session, user: User, result: CloseResult, lang: str,
     summary = result.summary
     targets = [uid for uid in service.manager_ids(session, user.restaurant_id) if uid != user.id]
 
-    # Lo que contaron dos personas y no les dio lo mismo. El número que manda
+    # [01285] Lo que contaron dos personas y no les dio lo mismo. El número que manda
     # es el último, pero el jefe se entera de cuáles hay que volver a mirar.
     disputed = [l.serial for l in result.count.lines if l.disputed]
     if disputed:
@@ -383,7 +383,7 @@ def _raise_alerts(session: Session, user: User, result: CloseResult, lang: str,
             message=t(lang, "alert.count_partial", n=len(pending),
                       serials=", ".join(pending[:8])),
             severity=AlertSeverity.WARNING, created_at=now))
-    # Lo que se han dejado madurando es agua, y el dinero sigue en la pieza: no
+    # [01286] Lo que se han dejado madurando es agua, y el dinero sigue en la pieza: no
     # entra en lo que falta. Lo que quede después de descontarlo, sí.
     aging_kg = result.aging_kg
     aging_value = round(sum(w.loss_kg * (w.cost_per_kg_before or 0.0)
@@ -426,7 +426,7 @@ def _raise_alerts(session: Session, user: User, result: CloseResult, lang: str,
 
 def cancel_count(session: Session, user: User, count: MeatCount,
                  reason: str | None = None) -> MeatCount:
-    """Cancela un inventario a medias. No ajusta nada y no cuenta para el mes."""
+    """[01261] Cancela un inventario a medias. No ajusta nada y no cuenta para el mes."""
     if count.status != CountStatus.OPEN:
         raise InventoryError("Solo se puede cancelar un inventario abierto")
     if not locking.claim(session, MeatCount, count.id, {"status": CountStatus.OPEN},
@@ -441,7 +441,7 @@ def cancel_count(session: Session, user: User, count: MeatCount,
 
 def last_closed(session: Session, restaurant_id: int,
                 site_id: int | None = None) -> MeatCount | None:
-    """El último inventario cerrado, de la casa o de una sede."""
+    """[01262] El último inventario cerrado, de la casa o de una sede."""
     query = (session.query(MeatCount)
              .filter_by(restaurant_id=restaurant_id, status=CountStatus.CLOSED))
     if site_id:
@@ -451,7 +451,7 @@ def last_closed(session: Session, restaurant_id: int,
 
 def open_now(session: Session, restaurant_id: int,
              site_id: int | None = None) -> MeatCount | None:
-    """La hoja abierta de esa cámara, si la hay."""
+    """[01263] La hoja abierta de esa cámara, si la hay."""
     query = (session.query(MeatCount)
              .filter_by(restaurant_id=restaurant_id, status=CountStatus.OPEN))
     if site_id:
@@ -461,7 +461,7 @@ def open_now(session: Session, restaurant_id: int,
 
 @dataclass
 class MonthlyStatus:
-    """La única obligación: un inventario completo dentro del mes natural."""
+    """[01264] La única obligación: un inventario completo dentro del mes natural."""
     year: int
     month: int
     done: bool
@@ -470,13 +470,13 @@ class MonthlyStatus:
 
     @property
     def due_soon(self) -> bool:
-        """Si el inventario del mes está encima y todavía no se ha hecho."""
+        """[01274] Si el inventario del mes está encima y todavía no se ha hecho."""
         return not self.done and self.days_left <= 5
 
 
 def monthly_status(session: Session, restaurant_id: int, on: date | None = None,
                    site_id: int | None = None) -> MonthlyStatus:
-    """Si el inventario obligatorio del mes ya está hecho, y cuántos días quedan.
+    """[01265] Si el inventario obligatorio del mes ya está hecho, y cuántos días quedan.
 
     Lo cumple un inventario cerrado y completo. Uno parcial no cuenta, por lo
     mismo que no cuadra: quedaron piezas sin mirar.
@@ -502,7 +502,7 @@ def monthly_status(session: Session, restaurant_id: int, on: date | None = None,
 # ================================================== cuando la pieza aparece
 @dataclass
 class Recovery:
-    """Una pieza que se había dado por perdida y ha aparecido."""
+    """[01266] Una pieza que se había dado por perdida y ha aparecido."""
     serial: str
     kind: str                # CUT o PRIMAL
     label: str
@@ -513,7 +513,7 @@ class Recovery:
 
 
 def _audit(session: Session, user: User, table: str, key: str, action: str, detail: str) -> None:
-    """Deja escrito quién tocó qué y por qué. No se borra."""
+    """[01267] Deja escrito quién tocó qué y por qué. No se borra."""
     from thegrill.models import AuditLog
     session.add(AuditLog(restaurant_id=user.restaurant_id, actor=user.name, table=table,
                          key=key, action=action, detail=detail))
@@ -522,7 +522,7 @@ def _audit(session: Session, user: User, table: str, key: str, action: str, deta
 def recover(session: Session, user: User, serial: str, kg: float | None = None,
             note: str | None = None, on: date | None = None,
             lang: str | None = None) -> Recovery:
-    """Devuelve al stock una pieza que había desaparecido y ha vuelto a aparecer.
+    """[01268] Devuelve al stock una pieza que había desaparecido y ha vuelto a aparecer.
 
     Vale igual para un primal marcado como sospechoso y para un corte que el
     inventario dejó a cero. Queda registrado quién lo hizo, cuándo y por qué:
@@ -548,7 +548,7 @@ def recover(session: Session, user: User, serial: str, kg: float | None = None,
 
 def _recover_primal(session: Session, user: User, primal: Primal, kg: float | None,
                     note: str | None, lang: str) -> Recovery:
-    """Da por reaparecida una pieza que constaba perdida.
+    """[01269] Da por reaparecida una pieza que constaba perdida.
 
     Una pieza que consta cortada no reaparece: si el despiece estuvo mal, lo
     que se corrige es el despiece. Levantarla aquí metería en la cámara una
@@ -573,7 +573,7 @@ def _recover_primal(session: Session, user: User, primal: Primal, kg: float | No
 
 def _recover_cut(session: Session, user: User, lot: IngredientLot, kg: float | None,
                  note: str | None, on: date, lang: str) -> Recovery:
-    """Sube un lote de cortes a los kilos que han aparecido de verdad.
+    """[01270] Sube un lote de cortes a los kilos que han aparecido de verdad.
 
     Solo hacia arriba: esto es para lo que apareció. Bajar un lote es contar
     menos de lo que consta, y eso se hace en un inventario, con su firma y su
@@ -606,7 +606,7 @@ def _recover_cut(session: Session, user: User, lot: IngredientLot, kg: float | N
 def adopt(session: Session, user: User, serial: str, item_id: int, kg: float,
           unit_cost: float, expiry: date, note: str | None = None,
           on: date | None = None, lang: str | None = None) -> Recovery:
-    """Da de alta una pieza que estaba en cámara y el sistema no tenía.
+    """[01271] Da de alta una pieza que estaba en cámara y el sistema no tenía.
 
     Hay que decir de qué artículo es y a qué precio: un lote no se inventa con
     un coste en blanco.
@@ -647,7 +647,7 @@ def adopt(session: Session, user: User, serial: str, item_id: int, kg: float,
 
 def _announce(session: Session, user: User, lang: str, key: str, params: dict,
               worth_telling: bool) -> None:
-    """Una corrección de stock no se hace en silencio."""
+    """[01272] Una corrección de stock no se hace en silencio."""
     if not worth_telling:
         return
     from thegrill.models import AlertSeverity

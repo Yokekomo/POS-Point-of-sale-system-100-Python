@@ -1,4 +1,4 @@
-"""Qué versión de esto se está ejecutando.
+"""[00824] Qué versión de esto se está ejecutando.
 
 Sirve para una pregunta que se repite cada vez que alguien prueba algo por su
 cuenta: «esto que ves, ¿es lo de hoy o lo de la semana pasada?». Sin un número
@@ -18,7 +18,7 @@ DESCONOCIDA = "sin git"
 
 
 def _git(*args: str) -> str:
-    """Lo que conteste git, o vacío si no hay git o tarda demasiado.
+    """[00825] Lo que conteste git, o vacío si no hay git o tarda demasiado.
 
     Es para poner la versión en la pantalla, no para trabajar: si falla, la
     aplicación arranca igual.
@@ -33,7 +33,7 @@ def _git(*args: str) -> str:
 
 @lru_cache(maxsize=1)
 def actual() -> str:
-    """Una línea corta: el día del último cambio y su número. Nunca revienta."""
+    """[00826] Una línea corta: el día del último cambio y su número. Nunca revienta."""
     fecha = _git("log", "-1", "--format=%cd", "--date=format:%d/%m/%Y %H:%M")
     commit = _git("rev-parse", "--short", "HEAD")
     if not commit:

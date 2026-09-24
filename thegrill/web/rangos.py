@@ -1,4 +1,4 @@
-"""Lo que puede ser y lo que no. Un número imposible no se guarda.
+"""[01351] Lo que puede ser y lo que no. Un número imposible no se guarda.
 
 Un registro sanitario mal relleno es peor que no tenerlo: queda completo,
 queda firmado, y es mentira. El día de la inspección nadie lo mira dos veces,
@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from thegrill.models import Storage
 from thegrill.web.i18n import t
 
-# --------------------------------------------------------------- lo imposible
+# [01363] --------------------------------------------------------------- lo imposible
 # Mínimo y máximo de cada magnitud. Anchos a propósito: esto no es el control
 # de calidad, es el filtro del dedo gordo. Lo que pasa por aquí y aun así es
 # raro lo dice el aviso de más abajo, no el rechazo.
@@ -40,12 +40,12 @@ TEMPERATURA = (-60.0, 60.0)      # fuera de esto no hay sonda, hay un teclazo
 PRECIO_KG = (0.01, 2000.0)       # el wagyu sube, pero no tanto
 GRAMOS_RACION = (1.0, 5000.0)
 
-# ---------------------------------------------------------- lo que es raro
+# [01364] ---------------------------------------------------------- lo que es raro
 # Posible, pero merece que alguien lo mire. No para la pantalla: deja el
 # número y levanta un aviso.
 PIEZA_PESADA = 80.0              # más que esto ya no lo sube una persona
 
-# --------------------------------------------------------- la banda de la casa
+# [01365] --------------------------------------------------------- la banda de la casa
 # A cuánto tiene que bajar del camión cada cosa. La carne que llega fuera de
 # esto se apunta igual —es la prueba de que ese camión vino como vino— y sale
 # en los avisos del manager el mismo día.
@@ -73,7 +73,7 @@ LEGAL = {
     Storage.FROZEN: (-30.0, -12.0),
 }
 
-# Cómo se llama cada límite en la casa, para leerlo y para escribirlo.
+# [01366] Cómo se llama cada límite en la casa, para leerlo y para escribirlo.
 CAMPOS = {
     Storage.CHILLED: ("chilled_min_c", "chilled_max_c"),
     Storage.FROZEN: ("frozen_min_c", "frozen_max_c"),
@@ -81,7 +81,7 @@ CAMPOS = {
 
 
 def banda(almacen: Storage, restaurant=None) -> tuple[float, float] | None:
-    """Entre qué dos temperaturas tiene que bajar del camión, en esta casa.
+    """[01352] Entre qué dos temperaturas tiene que bajar del camión, en esta casa.
 
     Lo que diga la casa manda sobre lo de serie, límite a límite: una que
     aprieta el máximo de refrigerado a 4 °C y deja el mínimo como estaba no
@@ -101,33 +101,33 @@ def banda(almacen: Storage, restaurant=None) -> tuple[float, float] | None:
             maximo = float(suyo_max)
     except (TypeError, ValueError):
         return de_serie
-    # Del revés no mide nada: si alguien cruza los dos números, se enderezan.
+    # [01367] Del revés no mide nada: si alguien cruza los dos números, se enderezan.
     return (minimo, maximo) if minimo <= maximo else (maximo, minimo)
 
 
 class FueraDeRango(ValueError):
-    """El número no puede describir lo que pasó: no se guarda."""
+    """[01353] El número no puede describir lo que pasó: no se guarda."""
 
 
 @dataclass(frozen=True)
 class Aviso:
-    """El número sí puede ser, y está mal. Se guarda y se avisa."""
+    """[01354] El número sí puede ser, y está mal. Se guarda y se avisa."""
     code: str
     message: str
 
 
 def _dentro(valor: float, limites: tuple[float, float]) -> bool:
-    """Si el valor cae dentro de esos dos límites, los dos incluidos."""
+    """[01355] Si el valor cae dentro de esos dos límites, los dos incluidos."""
     return limites[0] <= valor <= limites[1]
 
 
 def _numero(valor: float) -> str:
-    """Sin ceros de adorno: 1370 y no 1370.000000."""
+    """[01356] Sin ceros de adorno: 1370 y no 1370.000000."""
     return f"{valor:.10g}"
 
 
 def peso_pieza(kg: float | None, lang: str = "es", serial: str = "") -> None:
-    """El peso de un primal al entrar. Levanta si es imposible."""
+    """[01357] El peso de un primal al entrar. Levanta si es imposible."""
     if kg is None or _dentro(kg, PESO_PIEZA):
         return
     raise FueraDeRango(t(lang, "rango.peso", serial=serial or "—", kg=_numero(kg),
@@ -135,7 +135,7 @@ def peso_pieza(kg: float | None, lang: str = "es", serial: str = "") -> None:
 
 
 def peso_corte(kg: float | None, lang: str = "es") -> None:
-    """Kilos de un corte, una merma, un recuento. Levanta si es imposible."""
+    """[01358] Kilos de un corte, una merma, un recuento. Levanta si es imposible."""
     if kg is None or _dentro(kg, PESO_CORTE):
         return
     raise FueraDeRango(t(lang, "rango.peso_corte", kg=_numero(kg),
@@ -143,7 +143,7 @@ def peso_corte(kg: float | None, lang: str = "es") -> None:
 
 
 def temperatura(grados: float | None, lang: str = "es") -> None:
-    """Lo que marca la sonda. Levanta si no lo puede marcar ninguna sonda."""
+    """[01359] Lo que marca la sonda. Levanta si no lo puede marcar ninguna sonda."""
     if grados is None or _dentro(grados, TEMPERATURA):
         return
     raise FueraDeRango(t(lang, "rango.temp", c=_numero(grados),
@@ -151,7 +151,7 @@ def temperatura(grados: float | None, lang: str = "es") -> None:
 
 
 def precio_kg(eur: float | None, lang: str = "es") -> None:
-    """El precio de la factura. Levanta si es imposible."""
+    """[01360] El precio de la factura. Levanta si es imposible."""
     if eur is None or _dentro(eur, PRECIO_KG):
         return
     raise FueraDeRango(t(lang, "rango.precio", eur=_numero(eur),
@@ -159,7 +159,7 @@ def precio_kg(eur: float | None, lang: str = "es") -> None:
 
 
 def gramos_racion(gramos: float | None, lang: str = "es") -> None:
-    """Los gramos que se ponen en el plato. Levanta si es imposible."""
+    """[01361] Los gramos que se ponen en el plato. Levanta si es imposible."""
     if gramos is None or _dentro(gramos, GRAMOS_RACION):
         return
     raise FueraDeRango(t(lang, "rango.gramos", g=_numero(gramos),
@@ -169,7 +169,7 @@ def gramos_racion(gramos: float | None, lang: str = "es") -> None:
 def llegada(grados: float | None, almacen: Storage, serial: str,
             kg: float | None = None, lang: str = "es",
             restaurant=None) -> list[Aviso]:
-    """Lo que hay que mirar de una pieza que acaba de bajar del camión.
+    """[01362] Lo que hay que mirar de una pieza que acaba de bajar del camión.
 
     Devuelve avisos, no excepciones: todo lo que llega aquí ya pasó el filtro
     de lo imposible, así que es verdad y se guarda. Lo que sale de esta

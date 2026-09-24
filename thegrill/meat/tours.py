@@ -1,4 +1,4 @@
-"""Los tutoriales guiados: qué se enseña, en qué pantalla y a quién.
+"""[00668] Los tutoriales guiados: qué se enseña, en qué pantalla y a quién.
 
 La primera vez que alguien entra en un apartado le sale un tutorial corto que
 ilumina lo que tiene que mirar y le dice qué hacer. Una vez, y no vuelve —
@@ -21,39 +21,39 @@ from dataclasses import dataclass, field
 
 from thegrill.models import Role
 
-# Quién ve un paso cuando el paso no dice otra cosa: todo el mundo.
+# [00675] Quién ve un paso cuando el paso no dice otra cosa: todo el mundo.
 TODOS: tuple = (Role.OWNER, Role.MANAGER, Role.BUTCHER, Role.EMPLOYEE)
-# Y quién ve los pasos que hablan de dinero. Es la misma lista que la de la
+# [00676] Y quién ve los pasos que hablan de dinero. Es la misma lista que la de la
 # capacidad `money` en `perms`, escrita aquí para que se lea de un vistazo.
 DINERO: tuple = (Role.OWNER, Role.MANAGER)
 
-# Más de cuatro pasos no es un tutorial, es un manual: nadie lo lee de pie.
+# [00677] Más de cuatro pasos no es un tutorial, es un manual: nadie lo lee de pie.
 MAX_PASOS = 4
 
 
 @dataclass(frozen=True)
 class Paso:
-    """Un paso: qué se ilumina, qué se dice y quién puede verlo."""
+    """[00669] Un paso: qué se ilumina, qué se dice y quién puede verlo."""
     selector: str                 # el `data-tour` del elemento, sin más
     titulo: str                   # clave de traducción
     texto: str                    # clave de traducción
     roles: tuple = TODOS
 
     def para(self, role) -> bool:
-        """Si ese paso del tutorial se le enseña a ese nivel."""
+        """[00674] Si ese paso del tutorial se le enseña a ese nivel."""
         return role in self.roles
 
 
 @dataclass(frozen=True)
 class Tour:
-    """El tutorial de una pantalla."""
+    """[00670] El tutorial de una pantalla."""
     pantalla: str
     version: int
     pasos: list = field(default_factory=list)
 
 
 def _t(pantalla: str, version: int, *pasos: Paso) -> Tour:
-    """Monta un tutorial de pantalla, con tope de pasos.
+    """[00671] Monta un tutorial de pantalla, con tope de pasos.
 
     El tope no es capricho: un tutorial de quince pasos no lo termina nadie, y
     el que lo abandona a la mitad se queda sin ver lo importante.
@@ -62,7 +62,7 @@ def _t(pantalla: str, version: int, *pasos: Paso) -> Tour:
     return Tour(pantalla=pantalla, version=version, pasos=list(pasos))
 
 
-# ------------------------------------------------------------ los tutoriales
+# [00678] ------------------------------------------------------------ los tutoriales
 # La clave de cada pantalla es su ruta sin la barra, que es lo que ya
 # identifica a la pantalla en el resto del programa.
 TOURS: dict[str, Tour] = {
@@ -94,7 +94,7 @@ TOURS: dict[str, Tour] = {
         Paso("cortes", "m.tour.cam1.t", "m.tour.cam1.b"),
         Paso("caducan", "m.tour.cam2.t", "m.tour.cam2.b"),
     ),
-    # Sacar carne y contar lo que sobró son dos pantallas, y cada una tiene el
+    # [00679] Sacar carne y contar lo que sobró son dos pantallas, y cada una tiene el
     # suyo: si compartieran tutorial, el de la primera se daría por visto y en
     # el recuento —que es donde se descuadra el turno— no saldría nunca nada.
     "descongelado": _t(
@@ -135,7 +135,7 @@ TOURS: dict[str, Tour] = {
     ),
 }
 
-# Qué tutorial le toca a cada ruta.
+# [00680] Qué tutorial le toca a cada ruta.
 RUTAS: dict[str, str] = {
     "/recepcion": "recepcion",
     "/recepcion/precios": "precios",
@@ -154,12 +154,12 @@ RUTAS: dict[str, str] = {
 
 
 def de_ruta(ruta: str) -> Tour | None:
-    """El tutorial de esa pantalla, si tiene."""
+    """[00672] El tutorial de esa pantalla, si tiene."""
     return TOURS.get(RUTAS.get((ruta or "").rstrip("/") or "/", ""))
 
 
 def pasos_para(tour: Tour | None, role) -> list[Paso]:
-    """Los pasos que puede ver esa persona. Los demás no salen de aquí."""
+    """[00673] Los pasos que puede ver esa persona. Los demás no salen de aquí."""
     if tour is None:
         return []
     return [p for p in tour.pasos if p.para(role)]

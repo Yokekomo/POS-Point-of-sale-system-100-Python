@@ -1,4 +1,4 @@
-"""Los datos personales: cuánto se guarda, cuánto tiempo y quién los toca.
+"""[00529] Los datos personales: cuánto se guarda, cuánto tiempo y quién los toca.
 
 Una solicitud de acceso trae nombre, correo, teléfono, dirección y número
 fiscal de una persona identificable. En la Unión Europea eso no es un formulario
@@ -32,13 +32,13 @@ from thegrill.models import AccessRequest, AuditLog, RequestStatus, User
 
 log = logging.getLogger(__name__)
 
-# Cuánto se guarda una solicitud que no llegó a ser cuenta.
+# [00544] Cuánto se guarda una solicitud que no llegó a ser cuenta.
 RETENTION_DAYS = 180
 MARK = "enc:v1:"          # lo que lleva delante un valor cifrado
 
 
 def _key() -> bytes | None:
-    """La clave de cifrado, derivada de `GRILL_DATA_KEY`. Sin ella, no hay cifrado."""
+    """[00530] La clave de cifrado, derivada de `GRILL_DATA_KEY`. Sin ella, no hay cifrado."""
     secret = os.environ.get("GRILL_DATA_KEY", "").strip()
     if not secret:
         return None
@@ -47,7 +47,7 @@ def _key() -> bytes | None:
 
 
 def cipher():
-    """El cifrador, si se puede. None si falta la clave o la biblioteca."""
+    """[00531] El cifrador, si se puede. None si falta la clave o la biblioteca."""
     key = _key()
     if key is None:
         return None
@@ -60,12 +60,12 @@ def cipher():
 
 
 def encryption_on() -> bool:
-    """Si los datos personales se están guardando cifrados."""
+    """[00532] Si los datos personales se están guardando cifrados."""
     return cipher() is not None
 
 
 def protect(value: str | None) -> str | None:
-    """Cifra un dato de contacto, si se puede. Si no, lo deja como está."""
+    """[00533] Cifra un dato de contacto, si se puede. Si no, lo deja como está."""
     if not value:
         return value
     box = cipher()
@@ -75,7 +75,7 @@ def protect(value: str | None) -> str | None:
 
 
 def reveal(value: str | None) -> str | None:
-    """Descifra lo que esté cifrado. Lo demás se devuelve tal cual."""
+    """[00534] Descifra lo que esté cifrado. Lo demás se devuelve tal cual."""
     if not value or not value.startswith(MARK):
         return value
     box = cipher()
@@ -92,7 +92,7 @@ PERSONAL = ("contact_name", "email", "phone", "address", "tax_number", "legal_na
 
 
 def protect_request(row: AccessRequest) -> AccessRequest:
-    """Cifra los datos personales de una solicitud antes de guardarla.
+    """[00535] Cifra los datos personales de una solicitud antes de guardarla.
 
     Nombre, correo y teléfono de alguien que pide acceso: en la base quedan
     cifrados, y quien se lleve el fichero no se lleva la lista de contactos.
@@ -104,23 +104,23 @@ def protect_request(row: AccessRequest) -> AccessRequest:
 
 @dataclass
 class Readable:
-    """Una solicitud lista para leer, con sus datos ya en claro."""
+    """[00536] Una solicitud lista para leer, con sus datos ya en claro."""
     row: AccessRequest
 
     def __getattr__(self, name):
-        """Devuelve el campo, descifrado si era de los personales."""
+        """[00543] Devuelve el campo, descifrado si era de los personales."""
         value = getattr(self.row, name)
         return reveal(value) if name in PERSONAL else value
 
 
 def readable(rows: list[AccessRequest]) -> list[Readable]:
-    """Envuelve las solicitudes para poder leerlas en claro en la pantalla."""
+    """[00537] Envuelve las solicitudes para poder leerlas en claro en la pantalla."""
     return [Readable(row) for row in rows]
 
 
 # ------------------------------------------------------------------ registro
 def audit(session: Session, actor: User, key: str, action: str, detail: str = "") -> None:
-    """Deja escrito quién miró o tocó datos personales, y cuándo.
+    """[00538] Deja escrito quién miró o tocó datos personales, y cuándo.
 
     Lo pide la ley y lo pide el sentido común: los datos de quien pide acceso
     los ve alguien con nombre y apellidos, no «el sistema».
@@ -132,14 +132,14 @@ def audit(session: Session, actor: User, key: str, action: str, detail: str = ""
 
 
 def note_access(session: Session, actor: User, count: int) -> None:
-    """Mirar la bandeja de solicitudes deja huella. Quién y cuántas."""
+    """[00539] Mirar la bandeja de solicitudes deja huella. Quién y cuántas."""
     if count:
         audit(session, actor, "requests", "READ", f"{count} solicitudes")
 
 
 # ------------------------------------------------------ supresión y entrega
 def erase_request(session: Session, actor: User, request_id: int) -> bool:
-    """Derecho de supresión: la solicitud se borra, y queda que se borró."""
+    """[00540] Derecho de supresión: la solicitud se borra, y queda que se borró."""
     row = session.get(AccessRequest, request_id)
     if row is None:
         return False
@@ -150,7 +150,7 @@ def erase_request(session: Session, actor: User, request_id: int) -> bool:
 
 
 def export_request(row: AccessRequest) -> dict:
-    """Derecho de portabilidad: todo lo que guardamos de esa persona, en claro."""
+    """[00541] Derecho de portabilidad: todo lo que guardamos de esa persona, en claro."""
     return {
         "recibida": row.created_at.isoformat(),
         "estado": row.status.value,
@@ -172,7 +172,7 @@ def export_request(row: AccessRequest) -> dict:
 
 def purge(session: Session, actor: User | None = None, days: int = RETENTION_DAYS,
           on: date | None = None) -> int:
-    """Borra las solicitudes viejas que no llegaron a cuenta.
+    """[00542] Borra las solicitudes viejas que no llegaron a cuenta.
 
     Las aceptadas no se tocan aquí: esas ya son una casa dada de alta y sus
     datos viven en la cuenta, con su propio plazo.

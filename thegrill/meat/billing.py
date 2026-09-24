@@ -1,4 +1,4 @@
-"""La cuenta: quién entra, qué paga y qué pasa si no paga.
+"""[00418] La cuenta: quién entra, qué paga y qué pasa si no paga.
 
 La cadena es corta y a propósito:
 
@@ -25,19 +25,19 @@ TRIAL_DAYS = 15        # quince días de prueba, sin cobrar
 
 
 class BillingError(ValueError):
-    """La cuenta no se puede tocar así."""
+    """[00419] La cuenta no se puede tocar así."""
 
 
 class CardNumberRefused(BillingError):
-    """Alguien ha intentado meter un número de tarjeta donde no toca."""
+    """[00420] Alguien ha intentado meter un número de tarjeta donde no toca."""
 
 
 def _looks_like_a_card(value: str) -> bool:
-    """Trece a diecinueve dígitos seguidos, con o sin espacios: eso es un PAN."""
+    """[00421] Trece a diecinueve dígitos seguidos, con o sin espacios: eso es un PAN."""
     digits = "".join(ch for ch in value if ch.isdigit())
     if not 13 <= len(digits) <= 19:
         return False
-    # Luhn. Un número largo cualquiera no lo pasa; una tarjeta, sí.
+    # [00446] Luhn. Un número largo cualquiera no lo pasa; una tarjeta, sí.
     total, alt = 0, False
     for ch in reversed(digits):
         n = int(ch)
@@ -51,7 +51,7 @@ def _looks_like_a_card(value: str) -> bool:
 
 
 def refuse_card_numbers(**fields) -> None:
-    """Esta plataforma no toca números de tarjeta: ni de paso, ni por error.
+    """[00422] Esta plataforma no toca números de tarjeta: ni de paso, ni por error.
 
     El cobro va por una pasarela certificada, que es quien puede guardarlos. Si
     uno aparece en un formulario nuestro, se rechaza el formulario entero antes
@@ -72,7 +72,7 @@ FIELDS = ("restaurant_name", "legal_name", "tax_number", "country", "address",
 def request_access(session: Session, *, restaurant_name: str, contact_name: str,
                    email: str, plan: Plan = Plan.SINGLE, outlets: int = 1,
                    cooks: int | None = None, **extra) -> AccessRequest:
-    """Guarda la solicitud y avisa por correo. El registro manda, el correo avisa."""
+    """[00423] Guarda la solicitud y avisa por correo. El registro manda, el correo avisa."""
     if not restaurant_name.strip():
         raise BillingError("Hace falta el nombre del restaurante")
     if not contact_name.strip():
@@ -97,7 +97,7 @@ def request_access(session: Session, *, restaurant_name: str, contact_name: str,
 
 
 def summary(row: AccessRequest) -> str:
-    """La solicitud entera en texto, que es lo que llega al correo."""
+    """[00424] La solicitud entera en texto, que es lo que llega al correo."""
     ver = privacy.reveal
     lines = [
         f"Restaurante:      {row.restaurant_name}",
@@ -119,7 +119,7 @@ def summary(row: AccessRequest) -> str:
 
 def requests(session: Session, status: RequestStatus | None = None,
              limit: int = 200) -> list[AccessRequest]:
-    """Las solicitudes de acceso, de la más nueva a la más vieja."""
+    """[00425] Las solicitudes de acceso, de la más nueva a la más vieja."""
     query = session.query(AccessRequest)
     if status is not None:
         query = query.filter_by(status=status)
@@ -128,7 +128,7 @@ def requests(session: Session, status: RequestStatus | None = None,
 
 def set_request_status(session: Session, request_id: int,
                        status: RequestStatus) -> AccessRequest:
-    """Cambia el estado de una solicitud: atendida, rechazada, pendiente."""
+    """[00426] Cambia el estado de una solicitud: atendida, rechazada, pendiente."""
     row = session.get(AccessRequest, request_id)
     if row is None:
         raise BillingError("Esa solicitud no existe")
@@ -143,7 +143,7 @@ def create_account(session: Session, *, name: str, manager_name: str, manager_em
                    monthly_fee: float | None = None, language: str = "es",
                    request_id: int | None = None, group: str | None = None,
                    **fiscal) -> tuple[Restaurant, User]:
-    """Da de alta el restaurante y la cuenta de su manager.
+    """[00427] Da de alta el restaurante y la cuenta de su manager.
 
     Es el único camino: en esta edición nadie se registra solo.
     """
@@ -153,7 +153,7 @@ def create_account(session: Session, *, name: str, manager_name: str, manager_em
     restaurant.group_name = (group or "").strip() or None
     restaurant.outlets = max(1, outlets or 1)
     restaurant.monthly_fee = monthly_fee
-    # Sin método de pago no empieza la prueba: primero la tarjeta en la pasarela.
+    # [00447] Sin método de pago no empieza la prueba: primero la tarjeta en la pasarela.
     restaurant.billing = Billing.SETUP
     for field in ("legal_name", "tax_number", "address", "country", "contact_name",
                   "contact_role", "contact_phone", "billing_email", "cooks"):
@@ -169,7 +169,7 @@ def create_account(session: Session, *, name: str, manager_name: str, manager_em
 
 
 def timedelta_days(days: int):
-    """Tantos días, para sumarlos o restarlos a una fecha."""
+    """[00428] Tantos días, para sumarlos o restarlos a una fecha."""
     from datetime import timedelta
     return timedelta(days=days)
 
@@ -178,7 +178,7 @@ def attach_payment_method(session: Session, actor: User, restaurant: Restaurant,
                           provider: str, reference: str, brand: str | None = None,
                           last4: str | None = None, expiry: str | None = None,
                           on: date | None = None) -> Restaurant:
-    """Apunta el método de pago que ha devuelto la pasarela y arranca la prueba.
+    """[00429] Apunta el método de pago que ha devuelto la pasarela y arranca la prueba.
 
     Lo que se guarda es su referencia y los cuatro últimos dígitos, que es lo
     que la pasarela deja ver. El número entero no pasa por aquí.
@@ -205,7 +205,7 @@ def attach_payment_method(session: Session, actor: User, restaurant: Restaurant,
 
 def cancel(session: Session, actor: User, restaurant: Restaurant,
            reason: str | None = None, on: date | None = None) -> Restaurant:
-    """Cancela la cuenta. Durante la prueba no se cobra nada."""
+    """[00430] Cancela la cuenta. Durante la prueba no se cobra nada."""
     today = on or date.today()
     en_prueba = restaurant.billing == Billing.TRIAL and (
         restaurant.trial_ends is None or today <= restaurant.trial_ends)
@@ -219,7 +219,7 @@ def cancel(session: Session, actor: User, restaurant: Restaurant,
 
 
 def free_cancellation(restaurant: Restaurant, on: date | None = None) -> bool:
-    """Si cancelar hoy sale gratis: se está en prueba y no ha terminado."""
+    """[00431] Si cancelar hoy sale gratis: se está en prueba y no ha terminado."""
     if restaurant.billing != Billing.TRIAL:
         return False
     return restaurant.trial_ends is None or (on or date.today()) <= restaurant.trial_ends
@@ -227,14 +227,14 @@ def free_cancellation(restaurant: Restaurant, on: date | None = None) -> bool:
 
 def audit(session: Session, actor: User, restaurant_id: int, key: str,
           action: str, detail: str) -> None:
-    """Lo que toca la cuenta queda escrito: quién, qué y por qué."""
+    """[00432] Lo que toca la cuenta queda escrito: quién, qué y por qué."""
     session.add(AuditLog(restaurant_id=restaurant_id, actor=f"{actor.name} <{actor.email}>",
                          table="account", key=key, action=action, detail=detail))
     session.flush()
 
 
 def trial_left(restaurant: Restaurant, on: date | None = None) -> int | None:
-    """Días de prueba que quedan. None si no está de prueba.
+    """[00433] Días de prueba que quedan. None si no está de prueba.
 
     Es el reloj que ven el manager y la plataforma, y nadie más: la cocina no
     tiene por qué enterarse de cómo va el recibo.
@@ -247,7 +247,7 @@ def trial_left(restaurant: Restaurant, on: date | None = None) -> int | None:
 def create_user(session: Session, manager: User, *, name: str, email: str,
                 password: str, role: Role = Role.BUTCHER,
                 language: str | None = None) -> User:
-    """El manager crea las cuentas de su gente.
+    """[00434] El manager crea las cuentas de su gente.
 
     El manager general —el de la casa entera— da de alta también a los
     managers de cada local: un grupo con obrador y tres locales no lo lleva
@@ -279,45 +279,45 @@ class Account:
 
     @property
     def blocked(self) -> bool:
-        """Si esa casa no puede entrar."""
+        """[00442] Si esa casa no puede entrar."""
         return self.restaurant.blocked
 
 
 @dataclass
 class Group:
-    """Varias casas de la misma empresa, para verlas y cobrarlas juntas."""
+    """[00435] Varias casas de la misma empresa, para verlas y cobrarlas juntas."""
     name: str | None
     houses: list["Account"] = field(default_factory=list)
 
     @property
     def outlets(self) -> int:
-        """Cuántas casas tiene el grupo."""
+        """[00443] Cuántas casas tiene el grupo."""
         return len(self.houses)
 
     @property
     def monthly(self) -> float:
-        """Lo que paga el grupo al mes, sumando todas sus casas."""
+        """[00444] Lo que paga el grupo al mes, sumando todas sus casas."""
         return round(sum(h.restaurant.monthly_fee or 0.0 for h in self.houses), 2)
 
     @property
     def needs_attention(self) -> bool:
-        """Si alguna casa del grupo debe o está bloqueada."""
+        """[00445] Si alguna casa del grupo debe o está bloqueada."""
         return any(h.restaurant.needs_attention or h.blocked for h in self.houses)
 
 
 def grouped(session: Session) -> list[Group]:
-    """Las casas por grupo. Las que van solas quedan en un grupo de una."""
+    """[00436] Las casas por grupo. Las que van solas quedan en un grupo de una."""
     groups: dict[str | None, Group] = {}
     for account in accounts(session):
         key = account.restaurant.group_name or None
         groups.setdefault(key, Group(name=key)).houses.append(account)
-    # Primero los grupos de verdad, y dentro por nombre de casa.
+    # [00448] Primero los grupos de verdad, y dentro por nombre de casa.
     return sorted(groups.values(),
                   key=lambda g: (g.name is None, g.name or "",))
 
 
 def accounts(session: Session) -> list[Account]:
-    """Todas las casas con su estado de cuenta. Solo para el dueño."""
+    """[00437] Todas las casas con su estado de cuenta. Solo para el dueño."""
     rows = []
     for restaurant in (session.query(Restaurant)
                        .filter(Restaurant.platform.isnot(True))
@@ -330,7 +330,7 @@ def accounts(session: Session) -> list[Account]:
 
 def mark_paid(session: Session, owner: User, restaurant: Restaurant,
               until: date | None = None, note: str | None = None) -> Restaurant:
-    """El recibo del mes está pagado: la cuenta queda al día y se desbloquea."""
+    """[00438] El recibo del mes está pagado: la cuenta queda al día y se desbloquea."""
     restaurant.billing = Billing.ACTIVE
     restaurant.paid_until = until or restaurant.paid_until
     restaurant.billing_note = note or None
@@ -341,7 +341,7 @@ def mark_paid(session: Session, owner: User, restaurant: Restaurant,
 
 def mark_unpaid(session: Session, owner: User, restaurant: Restaurant,
                 block: bool = False, note: str | None = None) -> Restaurant:
-    """El recibo ha fallado. Primero se avisa; bloquear es la decisión siguiente."""
+    """[00439] El recibo ha fallado. Primero se avisa; bloquear es la decisión siguiente."""
     restaurant.billing = Billing.BLOCKED if block else Billing.PAST_DUE
     restaurant.billing_note = note or None
     audit(session, owner, restaurant.id, restaurant.slug,
@@ -350,13 +350,13 @@ def mark_unpaid(session: Session, owner: User, restaurant: Restaurant,
 
 
 def owner_exists(session: Session) -> bool:
-    """Si ya hay dueño de la plataforma. Solo se da de alta la primera vez."""
+    """[00440] Si ya hay dueño de la plataforma. Solo se da de alta la primera vez."""
     return session.query(User).filter_by(role=Role.OWNER).first() is not None
 
 
 def bootstrap_owner(session: Session, email: str, name: str, password: str,
                     language: str = "es") -> User:
-    """Crea al dueño de la plataforma la primera vez. Solo puede haber uno."""
+    """[00441] Crea al dueño de la plataforma la primera vez. Solo puede haber uno."""
     if owner_exists(session):
         raise BillingError("El dueño de la plataforma ya está dado de alta")
     house = Restaurant(name="Plataforma", slug=auth.unique_slug(session, "plataforma"),
