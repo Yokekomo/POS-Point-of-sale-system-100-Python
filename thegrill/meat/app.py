@@ -866,10 +866,10 @@ def prices_page(request: Request, ctx=Depends(needs(perms.MONEY)),
     return _prices(request, user, auth_session, session)
 
 
-def _prices(request, user, auth_session, session, *, done="", error=""):
+def _prices(request, user, auth_session, session, *, done="", error="", previo=None):
     mia = sites.of_user(session, user)
     return page(request, "prices.html", user, auth_session, session, done=done,
-                error=error, site=mia,
+                error=error, site=mia, previo=(previo or {}),
                 pending=meat.awaiting_price(session, user.restaurant_id,
                                             site_id=mia.id if mia else None))
 
@@ -887,11 +887,12 @@ async def save_prices(request: Request, ctx=Depends(needs(perms.MONEY)),
     if repetido is not None:
         return repetido
 
-    # «El mismo a todas» es lo normal: un albarán trae un precio por artículo.
-    # Lo que se escriba en la línea de una pieza manda sobre eso.
-    todas = _eur(form.get("all_price"))
     puestas = 0
     try:
+        # «El mismo a todas» es lo normal: un albarán trae un precio por
+        # artículo. Lo que se escriba en la línea de una pieza manda sobre eso.
+        # Se lee aquí dentro: un «32 eur» en esa casilla tumbaba la pantalla.
+        todas = _eur(form.get("all_price"))
         for serial in form.getlist("serial"):
             precio = _eur(form.get(f"price:{serial}"), todas)
             if precio is None:
@@ -900,7 +901,9 @@ async def save_prices(request: Request, ctx=Depends(needs(perms.MONEY)),
             puestas += 1
     except (meat.MeatError, ValueError) as e:
         session.rollback()
-        return _prices(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
+        return _prices(request, user, auth_session, session,
+                       error=_dicho(e, lang_for(request, session, user)),
+                       previo=_lo_escrito(form))
     if not puestas:
         return _prices(request, user, auth_session, session,
                        error=i18n.t(lang, "m.price.nothing"))
@@ -918,7 +921,7 @@ def butchery_page(request: Request, ctx=Depends(needs(perms.BUTCHER)),
 
 
 def _butchery(request, user, auth_session, session, *, done=None, issues=(), error="",
-              cortes: int = CORTES_A_LA_VISTA):
+              cortes: int = CORTES_A_LA_VISTA, previo=None):
     # Tres bloques a la vista y los demás se añaden. Diez huecos vacíos de
     # golpe son un muro: casi ningún despiece saca diez cortes, y el que los
     # saca los pide.
@@ -926,7 +929,7 @@ def _butchery(request, user, auth_session, session, *, done=None, issues=(), err
     mia = sites.of_user(session, user)
     return page(request, "butchery.html", user, auth_session, session, done=done,
                 issues=list(issues), error=error, rows=range(cuantos), site=mia,
-                maximo=meat.MAX_CUTS,
+                previo=(previo or {}), maximo=meat.MAX_CUTS,
                 tg=meat.next_tg(session, user.restaurant_id),
                 primals=meat.primals_in_stock(session, user.restaurant_id,
                                               site_id=mia.id if mia else None,
@@ -985,7 +988,11 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
             on=date.fromisoformat(on) if on else None,
             staff=(form.get("staff") or "").strip() or None, lang=lang)
     except (meat.MeatError, ValueError) as e:
-        return _butchery(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
+        # Con la hoja entera puesta: un despiece son diez líneas de números y
+        # un error en una no puede obligar a escribirlas todas otra vez.
+        return _butchery(request, user, auth_session, session,
+                         error=_dicho(e, lang_for(request, session, user)),
+                         previo=_lo_escrito(form))
     return _butchery(request, user, auth_session, session, issues=result.issues,
                      done=i18n.t(lang, "m.tg.posted", tg=result.tg, cuts=len(result.lots),
                                  kg=f"{sum(l.qty for l in result.lots):.10g}"))
