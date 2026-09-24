@@ -56,6 +56,7 @@ CAPS: dict[Role, frozenset[str]] = {
 
 
 def caps_for(role: Role) -> frozenset[str]:
+    """Lo que puede hacer ese nivel. Un nivel que no consta, lo mínimo."""
     return CAPS.get(role, EMPLOYEE_CAPS)
 
 

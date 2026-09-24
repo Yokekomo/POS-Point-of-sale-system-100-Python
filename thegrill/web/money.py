@@ -39,6 +39,7 @@ POR_DEFECTO = "EUR"
 
 
 def es_valida(code: str) -> bool:
+    """Si esa moneda es una de las que conoce el programa."""
     return (code or "").upper() in MONEDAS
 
 

@@ -61,6 +61,7 @@ class ShiftClose:
 
     @property
     def loss_kg(self) -> float:
+        """Los kilos que faltan al cerrar el turno, sumando todas las diferencias."""
         return round(sum(v.gap_kg for v in self.variances), 6)
 
     @property
@@ -71,6 +72,7 @@ class ShiftClose:
 
 # ------------------------------------------------------------------ apuntes
 def _lot_by_serial(session: Session, restaurant_id: int, serial: str) -> IngredientLot:
+    """El lote de ese número, o se dice que no existe."""
     lot = (session.query(IngredientLot)
            .filter_by(restaurant_id=restaurant_id, serial=serial).first())
     if lot is None:
@@ -183,11 +185,17 @@ def record(session: Session, user: User, kind: DefrostKind, serial: str, pieces:
 
 def intake(session: Session, user: User, serial: str, pieces: int, total_kg: float,
            on: date | None = None, shift: str = "", note: str | None = None) -> DefrostEntry:
+    """Lo que se saca del congelador para descongelar: piezas y kilos."""
     return record(session, user, DefrostKind.INTAKE, serial, pieces, total_kg, on, shift, note)
 
 
 def count(session: Session, user: User, serial: str, pieces: int, total_kg: float,
           on: date | None = None, shift: str = "", note: str | None = None) -> DefrostEntry:
+    """Lo que queda al contar la vitrina: piezas y kilos.
+
+    Con esto y lo que se sacó sale lo que se ha consumido, y comparándolo con
+    lo que dice la caja sale lo que falta.
+    """
     return record(session, user, DefrostKind.COUNT, serial, pieces, total_kg, on, shift, note)
 
 
@@ -564,6 +572,13 @@ def month_so_far(session: Session, restaurant_id: int, on: date | None = None,
 
 
 def _raise_alerts(session: Session, user: User, result: ShiftClose, lang: str) -> None:
+    """Los avisos que deja un turno cerrado, y a quién le llegan.
+
+    Tres cosas: lo imposible —se ha consumido más de lo que se sacó, que es un
+    número mal metido o carne que apareció de la nada—, las piezas que no
+    cuadran con lo que dice la caja, y la merma. Le llegan a quien lleva la
+    casa, hoy: a fin de mes ya no se acuerda nadie de lo que pasó ese día.
+    """
     now = datetime.utcnow()
     targets = [uid for uid in service.manager_ids(session, user.restaurant_id) if uid != user.id]
 

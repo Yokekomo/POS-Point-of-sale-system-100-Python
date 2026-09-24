@@ -47,6 +47,7 @@ class Plato:
 
     @property
     def fc_teorico(self) -> float | None:
+        """A qué food cost debería salir el plato, según el escandallo."""
         return round(self.coste_teorico / self.ingresos * 100, 1) if self.ingresos > NADA else None
 
 
@@ -61,14 +62,21 @@ class Dia:
 
     @property
     def ingresos(self) -> float:
+        """Lo ingresado en el día, sumando todos los platos."""
         return round(sum(p.ingresos for p in self.platos), 2)
 
     @property
     def coste_teorico(self) -> float:
+        """Lo que debería haber costado la materia prima del día."""
         return round(sum(p.coste_teorico for p in self.platos), 2)
 
     @property
     def fc_teorico(self) -> float | None:
+        """El food cost teórico del día entero.
+
+        El que se compara con el real: la diferencia entre los dos es lo que se
+        escapa por la cocina, y es la conversación de la reunión del lunes.
+        """
         return round(self.coste_teorico / self.ingresos * 100, 1) if self.ingresos > NADA else None
 
     @property
@@ -97,6 +105,7 @@ class Dia:
 
 
 def _vendido(session: Session, restaurant_id: int, on: date) -> list[SalesByProduct]:
+    """Lo que dice la caja que se vendió ese día, plato a plato."""
     return (session.query(SalesByProduct)
             .filter_by(restaurant_id=restaurant_id, op_date=on).all())
 

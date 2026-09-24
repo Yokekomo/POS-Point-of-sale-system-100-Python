@@ -231,5 +231,6 @@ def workbook(code: str, restaurant: Restaurant, lang: str = DEFAULT_LANG,
 
 
 def filename(code: str, lang: str = DEFAULT_LANG) -> str:
+    """El nombre del fichero que se descarga, en el idioma de la casa."""
     name = "todo" if code == "todo" else t(lang, BY_CODE[code].title_key)
     return filename_for(name, lang)

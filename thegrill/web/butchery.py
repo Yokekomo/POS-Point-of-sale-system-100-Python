@@ -384,6 +384,7 @@ class CutStock:
 
     @property
     def below_par(self) -> bool:
+        """Si de ese corte queda menos de lo que la casa quiere tener."""
         return self.min_stock is not None and self.kg < self.min_stock
 
 
@@ -396,6 +397,7 @@ class PrimalStock:
 
     @property
     def below_par(self) -> bool:
+        """Si quedan menos piezas de las que la casa quiere tener."""
         return self.min_pieces is not None and self.pieces < self.min_pieces
 
 
@@ -409,18 +411,22 @@ class MeatStatus:
 
     @property
     def cuts_below(self) -> list[CutStock]:
+        """Los cortes por debajo del mínimo: lo que hay que despiezar."""
         return [c for c in self.cuts if c.below_par]
 
     @property
     def primals_below(self) -> list[PrimalStock]:
+        """Las piezas por debajo del mínimo: lo que hay que pedir."""
         return [p for p in self.primals if p.below_par]
 
     @property
     def total_primals(self) -> int:
+        """Cuántas piezas enteras hay en la casa."""
         return sum(p.pieces for p in self.primals)
 
     @property
     def total_cut_kg(self) -> float:
+        """Los kilos de carne ya cortada que hay en cámara."""
         return round(sum(c.kg for c in self.cuts), 3)
 
 
@@ -533,6 +539,11 @@ def lot_label(lot) -> str:
 
 
 def _labels(lots: list) -> list[str]:
+    """Las etiquetas distintas de unos lotes, sin repetir y en el orden en que salen.
+
+    Es lo que se enseña debajo de un corte: «MB9+ · AUS», y no la misma tres
+    veces porque haya tres lotes iguales.
+    """
     seen: list[str] = []
     for lot in lots:
         label = lot_label(lot)

@@ -117,6 +117,7 @@ class Aviso:
 
 
 def _dentro(valor: float, limites: tuple[float, float]) -> bool:
+    """Si el valor cae dentro de esos dos límites, los dos incluidos."""
     return limites[0] <= valor <= limites[1]
 
 

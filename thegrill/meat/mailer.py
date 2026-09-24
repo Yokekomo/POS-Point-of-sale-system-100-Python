@@ -25,6 +25,7 @@ log = logging.getLogger(__name__)
 
 
 def settings() -> dict[str, str]:
+    """La configuración del correo, leída del entorno."""
     return {
         "host": os.environ.get("GRILL_SMTP_HOST", ""),
         "port": os.environ.get("GRILL_SMTP_PORT", "587"),
@@ -36,6 +37,7 @@ def settings() -> dict[str, str]:
 
 
 def configured() -> bool:
+    """Si hay correo configurado: servidor, remitente y destinatario."""
     cfg = settings()
     return bool(cfg["host"] and cfg["sender"] and cfg["to"])
 

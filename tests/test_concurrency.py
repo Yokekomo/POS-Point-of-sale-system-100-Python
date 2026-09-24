@@ -114,6 +114,26 @@ def a_la_vez(trabajo, veces=2):
     return fallos
 
 
+def se_lo_dijeron(fallos: list[str], *frases: str) -> bool:
+    """Uno solo escribió, y al otro se le dijo. Con las palabras que toquen.
+
+    Los dos caminos acaban igual, pero no con las mismas palabras. Si coinciden
+    de verdad en el mismo segundo, lo que salta es la regla de la base y el
+    aviso dice que **otra persona acaba de** hacerlo. Si a la primera le ha
+    dado tiempo a terminar antes de que la segunda empiece —y con la máquina
+    cargada le da tiempo—, la segunda se encuentra el trabajo ya hecho y lo que
+    se le dice es eso: que la pieza ya consta cortada, que ya hay una hoja
+    abierta, que el inventario ya estaba cerrado.
+
+    Las dos cosas son lo mismo para quien está delante y las dos están bien.
+    Exigir una de las dos frases hacía que estas pruebas fallaran una de cada
+    tres veces, y solo con la máquina cargada, que es justo cuando a la primera
+    le da tiempo a acabar. Lo que hay que comprobar es que **una sola** escribió
+    y que a la otra **se le dijo**, no con qué palabras.
+    """
+    return len(fallos) == 1 and any(frase.lower() in fallos[0].lower() for frase in frases)
+
+
 def _usuario(s, restaurant_id, nombre):
     return (s.query(User).filter_by(restaurant_id=restaurant_id, name=nombre).one())
 
@@ -142,7 +162,7 @@ def test_the_same_piece_cannot_be_butchered_twice_at_once(casa):
         assert kilos == pytest.approx(8.1)         # los kilos de una pieza, no de dos
         assert s.query(Primal).filter_by(restaurant_id=rest_id,
                                          serial="8017").one().status == PrimalStatus.CUT
-    assert len(fallos) == 1 and "otra persona" in fallos[0]
+    assert se_lo_dijeron(fallos, "otra persona", "ya estaba CUT")
 
 
 def test_the_one_who_arrives_second_is_told_and_does_not_lose_the_sheet(casa):
@@ -265,7 +285,7 @@ def test_only_one_of_two_closes_writes_the_adjustment(casa):
         refs = [m.source_ref for m in ajustes]
         assert len(refs) == len(set(refs))         # ningún serial ajustado dos veces
         assert s.get(MeatCount, hoja_id).status == CountStatus.CLOSED
-    assert len(fallos) == 1 and "Otra persona" in fallos[0]
+    assert se_lo_dijeron(fallos, "otra persona", "ya estaba cerrado")
 
 
 def test_two_managers_opening_the_count_at_once_open_one_sheet(casa):
@@ -282,7 +302,7 @@ def test_two_managers_opening_the_count_at_once_open_one_sheet(casa):
         abiertas = (s.query(MeatCount)
                     .filter_by(restaurant_id=rest_id, status=CountStatus.OPEN).all())
         assert len(abiertas) == 1
-    assert len(fallos) == 1 and "Otra persona" in fallos[0]
+    assert se_lo_dijeron(fallos, "otra persona", "ya hay un inventario abierto")
 
 
 def test_a_chiller_can_be_counted_again_after_closing_the_sheet(casa):

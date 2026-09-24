@@ -58,6 +58,10 @@ class Residuo:
 
     @property
     def explicado_kg(self) -> float:
+        """Los kilos que sí tienen explicación: vendidos, tirados, elaborados o movidos.
+
+        Lo que sobra de aquí es lo que no cuadra, y es el número del cuadre.
+        """
         return round(self.vendido_kg + self.tirado_kg + self.elaborado_kg + self.movido_kg, 6)
 
     @property
@@ -76,10 +80,12 @@ class Cuadre:
 
     @property
     def sin_explicar_kg(self) -> float:
+        """Los kilos que no tienen explicación en todo el cuadre."""
         return round(sum(l.ajustado_kg for l in self.lineas), 3)
 
     @property
     def sin_explicar_eur(self) -> float:
+        """Lo que cuestan esos kilos. Es el número que mira quien lleva la casa."""
         return round(sum(l.ajustado_eur for l in self.lineas), 2)
 
     @property
@@ -151,6 +157,7 @@ class Banda:
     alto: float
 
     def raro(self, valor: float) -> bool:
+        """Si ese valor se sale de lo normal por arriba o por abajo."""
         return valor < self.bajo or valor > self.alto
 
     def cuanto_se_sale(self, valor: float) -> float:
@@ -161,6 +168,12 @@ class Banda:
 
 
 def mediana(valores: list[float]) -> float:
+    """El valor de en medio. Sin nada que ordenar, cero.
+
+    La mediana y no la media: un día con una merma de cuarenta kilos por una
+    cámara que se paró tira de la media de todo el mes y hace que ningún otro
+    día parezca raro. A la de en medio ese día no la mueve.
+    """
     if not valores:
         return 0.0
     orden = sorted(valores)
@@ -238,6 +251,7 @@ class Dedo:
 
     @property
     def sospechoso(self) -> bool:
+        """Si ese número no parece pesado, sino escrito a ojo."""
         return self.veredicto != "pesa"
 
 
@@ -265,6 +279,12 @@ def _resolucion(valores: list[float]) -> float:
 
 
 def _ultimo_digito(valor: float, resolucion: float) -> int:
+    """El último dígito de un peso, a la resolución de la báscula.
+
+    Una báscula que pesa de cinco en cinco gramos reparte los dígitos sola. Una
+    persona que escribe a ojo, no: le salen ceros y cincos de más. Eso es lo
+    que se cuenta después.
+    """
     return int(round(valor / resolucion)) % 10
 
 

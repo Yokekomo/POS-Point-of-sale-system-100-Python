@@ -15,12 +15,19 @@ class LandedLot:
 
     @property
     def landed_usd_per_kg(self) -> float:
+        """Lo que cuesta el kilo puesto en la cámara: género, transporte y aduana.
+
+        No el precio de la factura: la carne no cuesta lo que se pagó al
+        proveedor, cuesta lo que costó traerla. Un lote sin kilos no tiene precio
+        por kilo y salta, en vez de dividir entre cero.
+        """
         if self.total_kg <= 0:
             raise ValueError("Lote sin kg")
         return round((self.goods_usd + self.freight_usd + self.duty_usd) / self.total_kg, 4)
 
 
 def piece_cost(landed_usd_per_kg: float, weight_kg: float) -> float:
+    """Lo que cuesta una pieza: su peso por el precio del kilo puesto en cámara."""
     return round(landed_usd_per_kg * weight_kg, 2)
 
 

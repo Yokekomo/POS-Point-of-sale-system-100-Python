@@ -31,6 +31,7 @@ class Consumption:
 
     @property
     def cost_usd(self) -> float:
+        """Lo que cuesta lo que se sacó de ese lote."""
         return round(self.kg * self.unit_cost_usd, 4)
 
 
@@ -42,10 +43,12 @@ class FefoResult:
 
     @property
     def cost_usd(self) -> float:
+        """Lo que cuesta todo lo consumido, lote a lote."""
         return round(sum(c.cost_usd for c in self.consumptions), 4)
 
     @property
     def kg(self) -> float:
+        """Los kilos consumidos en total."""
         return round(sum(c.kg for c in self.consumptions), 4)
 
 
@@ -60,6 +63,12 @@ def order_fifo(lots: list[Lot]) -> list[Lot]:
 
 
 def order_by(lots: list[Lot], rotation: str = "FEFO") -> list[Lot]:
+    """Ordena los lotes según la rotación de la casa: FEFO o FIFO.
+
+    No es lo mismo: FEFO saca primero lo que caduca antes, que es lo que
+    protege al cliente; FIFO saca lo que entró antes, que es lo que cuadra el
+    almacén. Con carne manda la caducidad.
+    """
     return order_fifo(lots) if str(rotation).upper().endswith("FIFO") else order_fefo(lots)
 
 

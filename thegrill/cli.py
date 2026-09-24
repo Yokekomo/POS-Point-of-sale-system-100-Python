@@ -33,6 +33,11 @@ def _open_when_ready(puerto: int, espera: float = 40.0) -> None:
     import webbrowser
 
     def esperar():
+        """Espera a que el servidor conteste y abre el navegador solo.
+
+        En un servidor o dentro de Docker no hay navegador que abrir, y no pasa
+        nada: se intenta y se sigue.
+        """
         limite = time.monotonic() + espera
         while time.monotonic() < limite:
             with socket.socket() as prueba:
@@ -50,6 +55,7 @@ def _open_when_ready(puerto: int, espera: float = 40.0) -> None:
 
 
 def main(argv=None):
+    """La línea de órdenes: crear la base, correr la cadena del día o arrancar la web."""
     p = argparse.ArgumentParser(prog="thegrill")
     p.add_argument("--db", default="sqlite:///thegrill.db")
     sub = p.add_subparsers(dest="cmd", required=True)

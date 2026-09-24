@@ -62,6 +62,12 @@ def enganchar(app) -> None:
     """Pone las cabeceras en todas las respuestas, también en las de error."""
     @app.middleware("http")
     async def _cabeceras(request: Request, call_next):        # noqa: ANN001
+        """Pone las cabeceras de seguridad en todas las respuestas.
+
+        Un nonce distinto por petición para que solo corra el javascript nuestro, y
+        HSTS solo cuando se entra por https: ponerlo en una prueba local dejaría el
+        navegador sin poder volver a entrar por http durante un año.
+        """
         request.state.nonce = nuevo_nonce()
         response = await call_next(request)
         for cabecera, valor in CABECERAS.items():

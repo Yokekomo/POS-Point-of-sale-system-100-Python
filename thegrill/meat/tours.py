@@ -40,6 +40,7 @@ class Paso:
     roles: tuple = TODOS
 
     def para(self, role) -> bool:
+        """Si ese paso del tutorial se le enseña a ese nivel."""
         return role in self.roles
 
 
@@ -52,6 +53,11 @@ class Tour:
 
 
 def _t(pantalla: str, version: int, *pasos: Paso) -> Tour:
+    """Monta un tutorial de pantalla, con tope de pasos.
+
+    El tope no es capricho: un tutorial de quince pasos no lo termina nadie, y
+    el que lo abandona a la mitad se queda sin ver lo importante.
+    """
     assert len(pasos) <= MAX_PASOS, f"{pantalla}: {len(pasos)} pasos, y el tope son {MAX_PASOS}"
     return Tour(pantalla=pantalla, version=version, pasos=list(pasos))
 

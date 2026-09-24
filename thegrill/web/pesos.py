@@ -40,6 +40,7 @@ class ConDecimales(ValueError):
     """
 
     def __init__(self, escrito: str, como_kilos: float):
+        """Lo escrito, y la cifra en gramos que hay que poner en su lugar."""
         # Lo que se tecleó, leído como lo que casi seguro quiso decir —kilos—,
         # y los gramos que habría que escribir para decir eso mismo. El aviso
         # no se queda en «está mal»: dice la cifra que hay que poner.

@@ -145,6 +145,7 @@ class NoEsUnNumero(ValueError):
     le sirve a quien lo escribió: «4 C» se arregla mirando la C."""
 
     def __init__(self, escrito: str):
+        """Guarda lo que se escribió, para poder enseñarlo tal cual."""
         self.escrito = escrito
         super().__init__(f"no es un número: {escrito!r}")
 
@@ -322,6 +323,12 @@ def enganchar(session_class) -> None:
 
     @event.listens_for(session_class, "before_flush")
     def _antes_de_guardar(session, _contexto, _instancias):   # noqa: ANN001
+        """Redondea lo que va a la base justo antes de escribirlo.
+
+        Todo lo que se guarda pasa por aquí: lo nuevo y lo que se ha tocado. Es el
+        último sitio donde se puede evitar que un importe con milésimas o un peso
+        con miligramos acabe en el disco.
+        """
         for objeto in session.new:
             _cuadrar(objeto)
         for objeto in session.dirty:

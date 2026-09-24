@@ -100,10 +100,12 @@ class Variance:
 
     @property
     def gap_kg(self) -> float:
+        """Lo que falta o sobra: lo que se consumió de verdad menos lo que tocaba."""
         return round(self.real_kg - self.theoretical_kg, 6)
 
     @property
     def gap_pct(self) -> float | None:
+        """Esa diferencia en tanto por ciento. Sin teórico no hay con qué comparar."""
         if self.theoretical_kg <= EPSILON:
             return None
         return round(self.gap_kg / self.theoretical_kg * 100, 2)
@@ -115,6 +117,11 @@ class Variance:
 
     @property
     def theoretical_g_per_unit(self) -> float | None:
+        """A cuántos gramos por ración debería haber salido.
+
+        Es el número que dice si en la plancha se está cortando ancho: la carta
+        dice trescientos y están saliendo trescientos cuarenta.
+        """
         return round(self.theoretical_kg * 1000 / self.units_sold, 1) if self.units_sold else None
 
     @property

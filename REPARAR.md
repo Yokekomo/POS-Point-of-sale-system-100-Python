@@ -260,6 +260,29 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 
 ## Ya reparado
 
+- [x] **Un traslado ya no inventa un viaje que no existió.** Dos personas con
+      la misma pantalla abierta ven la pieza en el obrador; la primera la manda
+      a Playa y la segunda, un segundo después, escribe un albarán que dice
+      «de Playa a Sierra» de una pieza que en Playa no estuvo nunca. El envío
+      lleva ahora la sede en la que se **veía** la pieza, viajando en el propio
+      desplegable para no depender de que haya javascript, y si ya no está ahí
+      no se manda. Lo mismo con los lotes de cortes. `sites.py`,
+      `tests/test_sites.py`, `tests/test_concurrency.py`.
+
+- [x] **El encargado de un local le cambiaba la contraseña a la gente del local
+      de al lado** y entraba como ella. Estaba escrito desde el principio y no
+      se comprobaba. `meat/perms.py`, `tests/test_meat_roles.py`.
+
+- [x] **La actualización de la base, orden a orden.** Todas las columnas nuevas
+      iban en una sola transacción, y PostgreSQL aborta la transacción entera en
+      cuanto una falla: la aplicación arrancaba con media base sin columnas. En
+      SQLite, que es donde se prueba, no pasaba. `db.py`.
+
+- [x] **Cada función explica lo que hace.** Las 362 que no lo hacían, escritas
+      una a una. Y los comentarios llevan número —`[00423]`— con su índice en
+      `COMENTARIOS.xlsx`, para poder buscar por lo que uno recuerda y caer en
+      el sitio exacto del código. `scripts/comentarios.py`.
+
 - [x] **Que la cola no mienta**, y el token se coja al mandar y no al apuntar:
       con eso el rechazo por token viejo —el más frecuente— deja de existir.
       Y la llave contra duplicados va ya en todos los formularios, con red y

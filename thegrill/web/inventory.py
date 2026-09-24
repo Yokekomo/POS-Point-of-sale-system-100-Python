@@ -356,6 +356,13 @@ def _flag_primal(session: Session, user: User, row, result: CloseResult,
 
 def _raise_alerts(session: Session, user: User, result: CloseResult, lang: str,
                   now: datetime) -> None:
+    """Los avisos que deja un inventario cerrado, y a quién le llegan.
+
+    Tres cosas distintas: lo que dos personas contaron distinto —manda el
+    último número, pero hay que volver a mirarlo—, lo que no llegó a contarse,
+    y lo que falta. Le llegan a quien lleva la casa y no a quien contó: quien
+    cuenta ya sabe lo que contó.
+    """
     summary = result.summary
     targets = [uid for uid in service.manager_ids(session, user.restaurant_id) if uid != user.id]
 
@@ -434,6 +441,7 @@ def cancel_count(session: Session, user: User, count: MeatCount,
 
 def last_closed(session: Session, restaurant_id: int,
                 site_id: int | None = None) -> MeatCount | None:
+    """El último inventario cerrado, de la casa o de una sede."""
     query = (session.query(MeatCount)
              .filter_by(restaurant_id=restaurant_id, status=CountStatus.CLOSED))
     if site_id:
@@ -462,6 +470,7 @@ class MonthlyStatus:
 
     @property
     def due_soon(self) -> bool:
+        """Si el inventario del mes está encima y todavía no se ha hecho."""
         return not self.done and self.days_left <= 5
 
 
@@ -504,6 +513,7 @@ class Recovery:
 
 
 def _audit(session: Session, user: User, table: str, key: str, action: str, detail: str) -> None:
+    """Deja escrito quién tocó qué y por qué. No se borra."""
     from thegrill.models import AuditLog
     session.add(AuditLog(restaurant_id=user.restaurant_id, actor=user.name, table=table,
                          key=key, action=action, detail=detail))
@@ -538,6 +548,12 @@ def recover(session: Session, user: User, serial: str, kg: float | None = None,
 
 def _recover_primal(session: Session, user: User, primal: Primal, kg: float | None,
                     note: str | None, lang: str) -> Recovery:
+    """Da por reaparecida una pieza que constaba perdida.
+
+    Una pieza que consta cortada no reaparece: si el despiece estuvo mal, lo
+    que se corrige es el despiece. Levantarla aquí metería en la cámara una
+    pieza que ya está repartida en cortes, y esos kilos saldrían dos veces.
+    """
     if primal.status == PrimalStatus.CUT:
         raise InventoryError(
             f"El primal {primal.serial} consta cortado en {primal.status_ref}. "
@@ -557,6 +573,13 @@ def _recover_primal(session: Session, user: User, primal: Primal, kg: float | No
 
 def _recover_cut(session: Session, user: User, lot: IngredientLot, kg: float | None,
                  note: str | None, on: date, lang: str) -> Recovery:
+    """Sube un lote de cortes a los kilos que han aparecido de verdad.
+
+    Solo hacia arriba: esto es para lo que apareció. Bajar un lote es contar
+    menos de lo que consta, y eso se hace en un inventario, con su firma y su
+    merma, no por la puerta de atrás. Queda un movimiento de ajuste con su
+    coste, para que el cuadre lo vea.
+    """
     if kg is None or kg <= 0:
         raise InventoryError("Hay que decir cuántos kilos han aparecido")
     difference = round(kg - lot.qty_remaining, 6)

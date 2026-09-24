@@ -18,6 +18,11 @@ DESCONOCIDA = "sin git"
 
 
 def _git(*args: str) -> str:
+    """Lo que conteste git, o vacío si no hay git o tarda demasiado.
+
+    Es para poner la versión en la pantalla, no para trabajar: si falla, la
+    aplicación arranca igual.
+    """
     try:
         salida = subprocess.run(("git", "-C", str(RAIZ), *args),
                                 capture_output=True, text=True, timeout=5)

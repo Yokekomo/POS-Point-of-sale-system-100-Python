@@ -35,6 +35,12 @@ class MappingGap(KeyError):
 
 
 def primal_sku(cut_sku: str, mapping: dict[str, str] | None = None) -> str:
+    """De qué pieza sale ese corte.
+
+    Un corte sin ruta de vuelta a su pieza es stock fantasma: sale de la cámara
+    sin descontar de nada, y la pieza se queda para siempre con kilos que ya no
+    existen. Por eso salta en vez de devolver nada.
+    """
     m = mapping if mapping is not None else PRIMAL_SKU_MAP
     try:
         return m[cut_sku]
@@ -43,6 +49,7 @@ def primal_sku(cut_sku: str, mapping: dict[str, str] | None = None) -> str:
 
 
 def mapping_gaps(cut_skus: set[str], mapping: dict[str, str] | None = None) -> set[str]:
+    """Los cortes que no saben de qué pieza vienen. Es lo que hay que mapear."""
     m = mapping if mapping is not None else PRIMAL_SKU_MAP
     return {c for c in cut_skus if c not in m}
 
@@ -75,6 +82,7 @@ class StockResult:
     floored: list[str]
 
     def kg(self, sku: str) -> float:
+        """Los kilos que quedan de ese artículo. Lo que no está, cero."""
         return round(self.balances[sku].kg, 3) if sku in self.balances else 0.0
 
 
@@ -115,6 +123,12 @@ def rebuild(movements: list[Movement], physical_base: set[str] | None = None) ->
 
 def _order(t: MovementType) -> int:
     # dentro de un mismo día: entradas, luego salidas, y el conteo re-ancla al final
+    """En qué orden se aplican los movimientos de un mismo día.
+
+    Primero lo que entra y después lo que sale, porque al revés un artículo que
+    entra y sale el mismo día se queda un rato en negativo. El recuento, el
+    último: lo que se ha contado manda sobre lo que se había calculado.
+    """
     return {MovementType.IN: 0, MovementType.FROZEN_CUT: 1, MovementType.OUT: 2,
             MovementType.WASTE: 3, MovementType.READJUST: 9}[t]
 
@@ -140,6 +154,11 @@ def mass_balance(tg: str, weight_before_kg: float, total_cuts_kg: float, waste_k
 
 
 def yield_pct(weight_before_kg: float, total_cuts_kg: float) -> float:
+    """Qué parte de la pieza sale en cortes aprovechables.
+
+    Es el número con el que se juzga un despiece y a quien lo hizo: de nueve
+    kilos salieron seis y medio, un 72 %.
+    """
     return round(total_cuts_kg / weight_before_kg * 100, 2) if weight_before_kg else 0.0
 
 

@@ -85,15 +85,22 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # --------------------------------------------------------------- utilidades
 def get_db():
+    """Una sesión con la base para cada petición, que se cierra al acabar."""
     with db.session_scope() as session:
         yield session
 
 
 def current(request: Request, session: Session):
+    """Quién está dentro, según la cookie. Nadie, si no hay sesión válida."""
     return auth.resolve_session(session, request.cookies.get(auth.COOKIE_NAME))
 
 
 def lang_for(request: Request, session: Session | None = None, user: User | None = None) -> str:
+    """En qué idioma se le contesta a esta petición.
+
+    Por orden: lo que eligió esa persona, la cookie, lo que pide el navegador y
+    el idioma de la casa.
+    """
     restaurant_lang = None
     if session is not None and user is not None:
         restaurant = session.get(Restaurant, user.restaurant_id)
@@ -112,10 +119,20 @@ CABECERA_COLA = "x-cola"
 
 
 def _de_la_cola(request: Request) -> bool:
+    """Si esto viene de la cola del teléfono y no de alguien mirando la pantalla.
+
+    Se contesta distinto: a una persona se la manda a entrar; a la cola, un
+    error seco, que no hay pantalla que enseñar.
+    """
     return request.headers.get(CABECERA_COLA) == "1"
 
 
 def require_user(request: Request, session: Session = Depends(get_db)):
+    """La puerta: hay que estar dentro, y la casa no puede estar bloqueada.
+
+    Una cuenta bloqueada puede entrar, ver por qué y salir, y nada más. El
+    dueño de la plataforma entra siempre: es quien lo tiene que desbloquear.
+    """
     found = current(request, session)
     if found is None:
         if _de_la_cola(request):
@@ -132,6 +149,7 @@ def require_user(request: Request, session: Session = Depends(get_db)):
 
 
 def require_manager_user(request: Request, session: Session = Depends(get_db)):
+    """Solo para quien lleva la casa."""
     user, auth_session = require_user(request, session)
     if user.role != Role.MANAGER:
         raise HTTPException(status_code=403,
@@ -140,6 +158,11 @@ def require_manager_user(request: Request, session: Session = Depends(get_db)):
 
 
 def require_owner(request: Request, session: Session = Depends(get_db)):
+    """Solo para el dueño de la plataforma.
+
+    A los demás se les contesta que no existe, no que no pueden: ni se insinúa
+    que haya una pantalla ahí detrás.
+    """
     found = current(request, session)
     if found is None:
         raise HTTPException(status_code=303, headers={"Location": "/login"})
@@ -156,6 +179,7 @@ def needs(capability: str):
     ruta, basta escribir la dirección a mano para entrar.
     """
     def dependency(request: Request, session: Session = Depends(get_db)):
+        """Comprueba que esa persona puede hacer eso antes de dejarla pasar."""
         user, auth_session = require_user(request, session)
         if not perms.can(user, capability):
             raise HTTPException(
@@ -167,6 +191,12 @@ def needs(capability: str):
 
 def page(request: Request, name: str, user: User | None = None, auth_session=None,
          session: Session | None = None, **ctx):
+    """Pinta una pantalla con todo lo que las plantillas dan por hecho.
+
+    El usuario, el testigo del formulario, el idioma, lo que puede hacer y —lo
+    que más se olvida— el día de trabajo de la casa, que no es el del
+    servidor: es lo que se propone en cada casilla de fecha.
+    """
     lang = ctx.pop("lang", None) or lang_for(request, session, user)
     base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
             "cookies_seen": bool(request.cookies.get(COOKIE_NOTICE)),
@@ -231,6 +261,11 @@ def is_https(request: Request) -> bool:
 
 
 def set_session_cookie(response: Response, token: str) -> Response:
+    """Deja la cookie de sesión, cerrada a cal y canto.
+
+    No la lee el javascript, no viaja desde otra página y solo va por https.
+    Esto es un programa de trabajo: nadie llega aquí desde fuera.
+    """
     secure = os.environ.get("GRILL_INSECURE_COOKIE") != "1"
     # `strict`: la cookie no viaja en peticiones que vengan de otro sitio, ni
     # siquiera al pinchar un enlace. Es un programa de trabajo, no una red
@@ -241,12 +276,14 @@ def set_session_cookie(response: Response, token: str) -> Response:
 
 
 def set_lang_cookie(response: Response, lang: str) -> Response:
+    """Recuerda el idioma elegido durante un año."""
     response.set_cookie(i18n.COOKIE_NAME, lang, httponly=False, samesite="lax",
                         max_age=365 * 86400, path="/")
     return response
 
 
 def _guard(request, session, user, auth_session, csrf: str) -> None:
+    """Comprueba que el formulario salió de nuestra pantalla. Si no, no pasa."""
     try:
         auth.check_csrf(auth_session, csrf, lang_for(request, session, user))
     except auth.PermissionDenied as e:
@@ -269,6 +306,11 @@ def _ya_estaba(request, session, user, envio: str, destino: str):
 
 
 def _own(session: Session, user: User, model, obj_id: int, request: Request):
+    """Trae una fila comprobando que es de esta casa.
+
+    Sin esto, cambiar un número en la dirección enseña —o borra— lo del
+    vecino. Y se contesta «no existe», que es lo que tiene que parecer.
+    """
     row = session.get(model, obj_id)
     if row is None or row.restaurant_id != user.restaurant_id:
         raise HTTPException(status_code=404,
@@ -450,6 +492,7 @@ async def security_headers(request: Request, call_next):
 
 
 def client_ip(request: Request) -> str:
+    """De qué dirección viene la petición, para frenar a quien prueba contraseñas."""
     return (request.client.host if request.client else "") or "desconocido"
 
 
@@ -463,6 +506,11 @@ SIN_TEXTO = {400: "error.bad_request", 403: "error.forbidden",
 
 @app.exception_handler(HTTPException)
 async def redirect_handler(request: Request, exc: HTTPException):
+    """Pinta los errores en pantalla, en el idioma de quien está delante.
+
+    La pantalla de error se pintaba sin mirar quién era, así que una casa
+    española que se equivocaba en una casilla recibía el aviso en inglés.
+    """
     if exc.status_code == 303 and "Location" in (exc.headers or {}):
         return RedirectResponse(exc.headers["Location"], status_code=303)
     # En el idioma de quien está delante, no en el del navegador. La pantalla
@@ -502,6 +550,11 @@ async def redirect_handler(request: Request, exc: HTTPException):
 # ============================================================== ACCESO
 @app.get("/idioma/{lang}")
 def choose_language(lang: str, next: str = "/login"):
+    """Cambia el idioma y devuelve a donde estaba.
+
+    Solo a una dirección de aquí: sin esa comprobación, un enlace preparado
+    lleva a quien lo pincha a otra web con nuestra cara.
+    """
     if not i18n.is_supported(lang):
         raise HTTPException(status_code=404, detail="")
     target = next if next.startswith("/") and not next.startswith("//") else "/login"
@@ -579,6 +632,7 @@ def cookies_page(request: Request, session: Session = Depends(get_db)):
 
 @app.get("/precios", response_class=HTMLResponse)
 def pricing(request: Request, session: Session = Depends(get_db)):
+    """La pantalla de precios, para quien todavía no es cliente."""
     return page(request, "public_pricing.html", lang=lang_for(request, session),
                 precio=tarifa.publicada(session), moneda_de=money.simbolo,
                 trial_days=billing.TRIAL_DAYS, retention_days=privacy.RETENTION_DAYS)
@@ -586,6 +640,7 @@ def pricing(request: Request, session: Session = Depends(get_db)):
 
 @app.get("/solicitar", response_class=HTMLResponse)
 def request_form(request: Request, session: Session = Depends(get_db), sent: int = 0):
+    """El formulario para pedir acceso al programa."""
     return page(request, "public_request.html", lang=lang_for(request, session),
                 sent=bool(sent), error="", plans=list(Plan), sub={},
                 trial_days=billing.TRIAL_DAYS, retention_days=privacy.RETENTION_DAYS)
@@ -601,6 +656,10 @@ async def submit_request(request: Request, session: Session = Depends(get_db)):
              "contact_name", "contact_role", "email", "phone", "message")}
 
     def again(error: str):
+        """Vuelve a pintar el formulario con lo que ya se había escrito.
+
+        Un fallo en una casilla no puede costar volver a escribir las doce.
+        """
         return page(request, "public_request.html", lang=lang, sent=False, error=error,
                     plans=list(Plan), sub=data, trial_days=billing.TRIAL_DAYS,
                     retention_days=privacy.RETENTION_DAYS)
@@ -635,6 +694,7 @@ def account_notice(request: Request, session: Session = Depends(get_db)):
 
 @app.get("/login", response_class=HTMLResponse)
 def login_form(request: Request, session: Session = Depends(get_db)):
+    """La pantalla de entrar. Quien ya está dentro, adentro."""
     if current(request, session):
         return RedirectResponse("/hoy", status_code=303)
     return page(request, "login.html", error="")
@@ -643,6 +703,11 @@ def login_form(request: Request, session: Session = Depends(get_db)):
 @app.post("/login")
 def login(request: Request, email: str = Form(...), password: str = Form(...),
           session: Session = Depends(get_db)):
+    """Entrar. Con freno para quien prueba contraseñas.
+
+    El freno va por correo **y** por dirección: ni se castiga a una casa entera
+    por una dirección, ni se dejan probar mil contraseñas desde la misma.
+    """
     lang = lang_for(request, session)
     # El freno va por correo y por dirección: ni se castiga a una casa entera
     # por una dirección, ni se prueban mil contraseñas desde la misma.
@@ -694,6 +759,7 @@ def second_step_form(request: Request, session: Session = Depends(get_db), error
 @app.post("/acceso/verificacion", response_class=HTMLResponse)
 def second_step(request: Request, code: str = Form(...), csrf: str = Form(""),
                 session: Session = Depends(get_db)):
+    """El segundo paso: el código del teléfono, o uno de repuesto."""
     user_and_session = _pending(request, session)
     if user_and_session is None:
         return RedirectResponse("/login", status_code=303)
@@ -730,6 +796,7 @@ def second_step(request: Request, code: str = Form(...), csrf: str = Form(""),
 
 @app.post("/logout")
 def logout(request: Request, session: Session = Depends(get_db)):
+    """Salir: se cierra la sesión y se borra la cookie."""
     auth.end_session(session, request.cookies.get(auth.COOKIE_NAME))
     response = RedirectResponse("/login", status_code=303)
     response.delete_cookie(auth.COOKIE_NAME, path="/")
@@ -744,6 +811,7 @@ def signup_form():
 
 @app.post("/signup")
 def signup_closed():
+    """Aquí no se da de alta nadie solo: se pide acceso."""
     return RedirectResponse("/solicitar", status_code=303)
 
 
@@ -755,6 +823,7 @@ def join_form():
 
 @app.post("/join")
 def join_closed():
+    """Tampoco se entra en una casa por un enlace: la da de alta quien la lleva."""
     return RedirectResponse("/login", status_code=303)
 
 
@@ -818,6 +887,7 @@ DEL_CAMION = ("lot", "sku", "chamber", "grade", "origin", "use_by", "price_kg",
 @app.get("/recepcion", response_class=HTMLResponse)
 def reception_page(request: Request, ctx=Depends(needs(perms.RECEIVE)),
                    session: Session = Depends(get_db), foto: str = ""):
+    """El muelle: lo que llega del camión."""
     user, auth_session = ctx
     return _reception(request, user, auth_session, session, foto=foto)
 
@@ -825,6 +895,11 @@ def reception_page(request: Request, ctx=Depends(needs(perms.RECEIVE)),
 def _reception(request, user, auth_session, session, *, done=None, error="",
                foto: str = "", previo=None):
     # Se proponen el lote y el número; se cogen de verdad al dar de alta.
+    """Pinta el muelle, proponiendo el lote y el número de la pieza.
+
+    Se proponen; se cogen de verdad al dar de alta, que es cuando se sabe si
+    otro se ha adelantado.
+    """
     return page(request, "reception.html", user, auth_session, session, done=done, error=error,
                 recent=meat.recent_primals(session, user.restaurant_id),
                 lot=meat.next_lot(session, user.restaurant_id),
@@ -855,6 +930,12 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
 
 
 async def _recibir(request, user, auth_session, session, form, lang):
+    """Lee el formulario del muelle y da de alta lo que ha llegado.
+
+    El precio no lo pone el muelle: quien descarga apunta qué es, cuánto pesa,
+    de qué calidad y de dónde viene. El dinero es de dirección y además llega
+    después, en la factura.
+    """
     lot = (form.get("lot") or "").strip()
     sku = (form.get("sku") or "").strip()
     grade = (form.get("grade") or "").strip() or None
@@ -996,6 +1077,7 @@ def prices_page(request: Request, ctx=Depends(needs(perms.MONEY)),
 
 
 def _prices(request, user, auth_session, session, *, done="", error="", previo=None):
+    """La pantalla de poner precio a lo que entró sin él."""
     mia = sites.of_user(session, user)
     return page(request, "prices.html", user, auth_session, session, done=done,
                 error=error, site=mia, previo=(previo or {}),
@@ -1045,6 +1127,7 @@ CORTES_A_LA_VISTA = 3
 @app.get("/despiece", response_class=HTMLResponse)
 def butchery_page(request: Request, ctx=Depends(needs(perms.BUTCHER)),
                   session: Session = Depends(get_db), cortes: int = CORTES_A_LA_VISTA):
+    """La mesa de despiece."""
     user, auth_session = ctx
     return _butchery(request, user, auth_session, session, cortes=cortes)
 
@@ -1054,6 +1137,11 @@ def _butchery(request, user, auth_session, session, *, done=None, issues=(), err
     # Tres bloques a la vista y los demás se añaden. Diez huecos vacíos de
     # golpe son un muro: casi ningún despiece saca diez cortes, y el que los
     # saca los pide.
+    """Pinta el despiece, con tres huecos de corte a la vista.
+
+    Diez huecos vacíos de golpe son un muro: casi ningún despiece saca diez
+    cortes, y el que los saca los pide.
+    """
     cuantos = max(CORTES_A_LA_VISTA, min(int(cortes or CORTES_A_LA_VISTA), meat.MAX_CUTS))
     mia = sites.of_user(session, user)
     return page(request, "butchery.html", user, auth_session, session, done=done,
@@ -1233,6 +1321,7 @@ def set_chamber(request: Request, serial: str = Form(...), chamber: str = Form("
 @app.post("/carne/cierre")
 def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(needs(perms.STOCK)),
                    session: Session = Depends(get_db)):
+    """Cierra el día de la carne y deja los avisos de lo que no cuadró."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     result = butchery.close_day(session, user)
@@ -1248,6 +1337,7 @@ def close_meat_day(request: Request, csrf: str = Form(""), ctx=Depends(needs(per
 @app.get("/descongelado", response_class=HTMLResponse)
 def defrost_page(request: Request, ctx=Depends(needs(perms.DEFROST)),
                  session: Session = Depends(get_db), shift: str = "", done: str = ""):
+    """La pantalla del descongelado y el conteo de la vitrina."""
     user, auth_session = ctx
     return _defrost(request, user, auth_session, session, shift=shift, done=done)
 
@@ -1263,6 +1353,11 @@ def defrost_count_page(request: Request, ctx=Depends(needs(perms.DEFROST)),
 
 def _defrost(request, user, auth_session, session, *, shift="", done="", error="",
              closed=None, tab="salida"):
+    """Pinta el descongelado con lo que hay en el arcón de **esa** sede.
+
+    No se saca a descongelar lo que está en otra sede: ese arcón no se abre
+    desde aquí.
+    """
     on = jornada.del_usuario(session, user)
     mia = sites.of_user(session, user)
     # No se saca a descongelar lo que está en otra sede: ese arcón no se abre
@@ -1289,6 +1384,7 @@ def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form
                    csrf: str = Form(""), envio: str = Form(""), cuando: str = Form(""),
                    ctx=Depends(needs(perms.DEFROST)),
                    session: Session = Depends(get_db)):
+    """Apunta lo que se saca del congelador: piezas y peso."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -1329,6 +1425,7 @@ def defrost_count(request: Request, serial: str = Form(...), pieces: int = Form(
                   csrf: str = Form(""), envio: str = Form(""), cuando: str = Form(""),
                   ctx=Depends(needs(perms.DEFROST)),
                   session: Session = Depends(get_db)):
+    """Apunta lo que queda en la vitrina al contar."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     repetido = _ya_estaba(request, session, user, envio, "/descongelado/recuento")
@@ -1375,6 +1472,12 @@ def _aging(request, user, auth_session, session, *, done="", error="", weighed=N
            sold=None, trimmed=None, counted=None):
     # Se madura donde se sirve: quien tiene sede pesa la suya, que es la cámara
     # que tiene delante.
+    """Pinta la cámara de maduración: la pizarra, el conteo del día y el resumen.
+
+    Se madura donde se sirve, así que quien tiene sede pesa la suya. Lo pesado
+    se lee una vez y lo usan las tres tablas: leerlo tres veces era medio
+    segundo en una casa con seis meses dentro, solo por preguntar lo mismo.
+    """
     mia = sites.of_user(session, user)
     suya = mia.id if mia else None
     principal = sites.main(session, user.restaurant_id).id
@@ -1551,6 +1654,7 @@ def transfers_page(request: Request, ctx=Depends(needs(perms.STOCK)),
 
 
 def _transfers(request, user, auth_session, session, *, done="", error=""):
+    """Pinta los traslados: dónde está la carne y qué se puede mandar."""
     mine = sites.of_user(session, user)
     return page(request, "transfers.html", user, auth_session, session, done=done,
                 error=error, mine=mine,
@@ -1656,6 +1760,7 @@ def sites_page(request: Request, ctx=Depends(needs(perms.TEAM)),
 def create_site(request: Request, name: str = Form(...), kind: str = Form("OUTLET"),
                 address: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
+    """Abre una sede nueva: un local, o el obrador."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -1672,6 +1777,7 @@ def create_site(request: Request, name: str = Form(...), kind: str = Form("OUTLE
 @app.post("/sedes/{site_id}/estado")
 def toggle_site(site_id: int, request: Request, csrf: str = Form(""),
                 ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
+    """Abre o cierra una sede."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     site = _own(session, user, Site, site_id, request)
@@ -1751,6 +1857,7 @@ def change_site(user_id: int, request: Request, site: str = Form(""), csrf: str 
 @app.get("/cortes", response_class=HTMLResponse)
 def cuts_page(request: Request, ctx=Depends(needs(perms.STOCK)),
               session: Session = Depends(get_db), error: str = ""):
+    """El catálogo de cortes, con lo que queda de cada uno y a cómo sale."""
     user, auth_session = ctx
     return page(request, "cuts.html", user, auth_session, session, error=error,
                 rotations=list(Rotation), modes=list(ConsumptionMode),
@@ -1764,6 +1871,7 @@ def new_cut(request: Request, name: str = Form(...), min_stock: str = Form(""),
             rotation: str = Form("FEFO"), consumption: str = Form("RECIPE"),
             sold_by_weight: str = Form(""), csrf: str = Form(""),
             ctx=Depends(needs(perms.CATALOGUE)), session: Session = Depends(get_db)):
+    """Da de alta un corte nuevo en el catálogo."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -1783,6 +1891,7 @@ def new_cut(request: Request, name: str = Form(...), min_stock: str = Form(""),
 def new_article(cut_id: int, request: Request, name: str = Form(...),
                 supplier: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.CATALOGUE)), session: Session = Depends(get_db)):
+    """Da de alta un artículo de compra de ese corte."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     cut = _own(session, user, Ingredient, cut_id, request)
@@ -1797,6 +1906,7 @@ def new_article(cut_id: int, request: Request, name: str = Form(...),
 @app.get("/carta", response_class=HTMLResponse)
 def menu_page(request: Request, ctx=Depends(needs(perms.MENU)),
               session: Session = Depends(get_db), error: str = ""):
+    """La carta: los platos y lo que lleva cada uno."""
     user, auth_session = ctx
     return page(request, "menu.html", user, auth_session, session, error=error,
                 rows=meat.menu(session, user.restaurant_id),
@@ -1809,6 +1919,7 @@ def new_dish(request: Request, name: str = Form(...), cut_id: int = Form(...),
              pos_code: str = Form(""), pos_name: str = Form(""),
              by_weight: str = Form(""), price_per_kg: str = Form(""), csrf: str = Form(""),
              ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
+    """Da de alta un plato, con su corte, sus gramos y su precio."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -1841,6 +1952,7 @@ def extras_page(request: Request, ctx=Depends(needs(perms.MENU)),
 def new_extra(request: Request, name: str = Form(...), unit: str = Form("KG"),
               cost: str = Form(""), portion: str = Form(""), csrf: str = Form(""),
               ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
+    """Da de alta un acompañamiento: guarnición, salsa, pan."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -1857,6 +1969,7 @@ def update_extra_cost(ingredient_id: int, request: Request, cost: str = Form(...
                       portion: str = Form(""), csrf: str = Form(""),
                       ctx=Depends(needs(perms.MENU)),
                       session: Session = Depends(get_db)):
+    """Cambia lo que cuesta un acompañamiento y lo que se pone por ración."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -1869,6 +1982,7 @@ def update_extra_cost(ingredient_id: int, request: Request, cost: str = Form(...
 
 # ============================================================= EMPLATADO
 def _dish(session: Session, user: User, code: str, request: Request) -> Recipe:
+    """Trae un plato por su código, comprobando que es de esta casa."""
     dish = (session.query(Recipe)
             .filter_by(restaurant_id=user.restaurant_id, code=code).first())
     if dish is None:
@@ -1895,6 +2009,7 @@ def plate_page(code: str, request: Request, ctx=Depends(needs(perms.MENU)),
 def add_plate_line(code: str, request: Request, ingredient_id: int = Form(...),
                    qty: str = Form(...), waste_pct: str = Form("0"), csrf: str = Form(""),
                    ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
+    """Añade un ingrediente al plato, con su cantidad y su merma."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     dish = _dish(session, user, code, request)
@@ -1910,6 +2025,7 @@ def add_plate_line(code: str, request: Request, ingredient_id: int = Form(...),
 @app.post("/carta/{code}/linea/{line_id}/quitar")
 def remove_plate_line(code: str, line_id: int, request: Request, csrf: str = Form(""),
                       ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
+    """Quita un ingrediente del plato."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     dish = _dish(session, user, code, request)
@@ -1924,6 +2040,12 @@ def remove_plate_line(code: str, line_id: int, request: Request, csrf: str = For
 @app.post("/carta/{code}/gramos")
 def set_plate_grams(code: str, request: Request, grams: str = Form(...), csrf: str = Form(""),
                     ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
+    """Cambia los gramos de carne del plato.
+
+    Es el número que más se toca de la carta y el que más manda en el food
+    cost: veinte gramos de más en un plato que se vende cien veces al día son
+    dos kilos diarios.
+    """
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     dish = _dish(session, user, code, request)
@@ -1939,12 +2061,18 @@ def set_plate_grams(code: str, request: Request, grams: str = Form(...), csrf: s
 @app.get("/ventas", response_class=HTMLResponse)
 def sales_page(request: Request, ctx=Depends(needs(perms.MENU)),
                session: Session = Depends(get_db), done: str = ""):
+    """La pantalla de subir el parte de ventas de la caja."""
     user, auth_session = ctx
     return _sales(request, user, auth_session, session, done=done)
 
 
 def _sales(request, user, auth_session, session, *, done="", error="", parsed=None,
            preview=None, business_date="", site=""):
+    """Pinta las ventas, con lo leído del fichero antes de darlo por bueno.
+
+    Sin sede se elige de cuál son estas ventas: el manager sube el fichero de
+    cada local desde su despacho.
+    """
     mia = sites.of_user(session, user)
     return page(request, "sales.html", user, auth_session, session, done=done, error=error,
                 parsed=parsed, preview=preview, business_date=business_date,
@@ -2048,6 +2176,11 @@ async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
 @app.get("/inventario", response_class=HTMLResponse)
 def inventory_page(request: Request, ctx=Depends(needs(perms.COUNT)),
                    session: Session = Depends(get_db), done: str = ""):
+    """La hoja de inventario que esté abierta en esa sede.
+
+    Cada cámara se cuenta por su cuenta: la hoja abierta es la de tu sede, no
+    la del obrador.
+    """
     user, auth_session = ctx
     # Cada cámara se cuenta por su cuenta: la hoja abierta es la de tu sede.
     mia = sites.of_user(session, user)
@@ -2073,6 +2206,7 @@ def inventory_page(request: Request, ctx=Depends(needs(perms.COUNT)),
 def open_inventory(request: Request, period: str = Form("MONTHLY"), site: str = Form(""),
                    csrf: str = Form(""), ctx=Depends(needs(perms.INVENTORY)),
                    session: Session = Depends(get_db)):
+    """Abre una hoja de inventario."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     mia = sites.of_user(session, user)
@@ -2151,6 +2285,7 @@ async def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
 def close_inventory(request: Request, csrf: str = Form(""), hoja: str = Form(""),
                     ctx=Depends(needs(perms.INVENTORY)),
                     session: Session = Depends(get_db)):
+    """Cierra el inventario: lo contado pasa a ser lo que hay."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     count = _open_sheet(session, user, hoja, lang_for(request, session, user))
@@ -2165,6 +2300,7 @@ def close_inventory(request: Request, csrf: str = Form(""), hoja: str = Form("")
 def cancel_inventory(request: Request, reason: str = Form(""), csrf: str = Form(""),
                      hoja: str = Form(""),
                      ctx=Depends(needs(perms.INVENTORY)), session: Session = Depends(get_db)):
+    """Cancela un inventario a medias, diciendo por qué."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     count = _open_sheet(session, user, hoja, lang_for(request, session, user))
@@ -2199,6 +2335,7 @@ def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(.
                 unit_cost: float = Form(...), expiry: str = Form(...),
                 note: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.FIX)), session: Session = Depends(get_db)):
+    """Da de alta algo que apareció y no constaba en ninguna parte."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -2228,6 +2365,7 @@ def _waste_page(request, user, auth_session, session, *, result=None, error="",
 @app.get("/merma", response_class=HTMLResponse)
 def waste_page(request: Request, ctx=Depends(needs(perms.WASTE)),
                session: Session = Depends(get_db), serial: str = "", aviso: int = 0):
+    """La pantalla de apuntar merma."""
     user, auth_session = ctx
     return _waste_page(request, user, auth_session, session, serial=serial,
                        aviso=bool(aviso))
@@ -2240,6 +2378,7 @@ def record_waste(request: Request, g: str = Form(""), kg: str = Form(""),
                  csrf: str = Form(""), envio: str = Form(""), cuando: str = Form(""),
                  ctx=Depends(needs(perms.WASTE)),
                  session: Session = Depends(get_db)):
+    """Apunta lo que se ha tirado, con su motivo."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     repetido = _ya_estaba(request, session, user, envio, "/merma")
@@ -2417,6 +2556,7 @@ def purge_requests(request: Request, csrf: str = Form(""), ctx=Depends(require_o
 def set_request_status(request_id: int, request: Request, status: str = Form(...),
                        csrf: str = Form(""), ctx=Depends(require_owner),
                        session: Session = Depends(get_db)):
+    """El dueño de la plataforma atiende o rechaza una solicitud de acceso."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     if status in RequestStatus.__members__:
@@ -2508,6 +2648,7 @@ def attach_payment(restaurant_id: int, request: Request, provider: str = Form("s
 def cancel_account(restaurant_id: int, request: Request, reason: str = Form(""),
                    csrf: str = Form(""), ctx=Depends(require_owner),
                    session: Session = Depends(get_db)):
+    """El dueño de la plataforma cancela una casa, diciendo por qué."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     restaurant = session.get(Restaurant, restaurant_id)
@@ -2545,6 +2686,11 @@ def alerts_page(request: Request, ctx=Depends(require_manager_user),
 def close_alert(alert_id: int, request: Request, resolution: str = Form(...),
                 csrf: str = Form(""), ctx=Depends(require_manager_user),
                 session: Session = Depends(get_db)):
+    """Cierra un aviso diciendo cómo se resolvió.
+
+    Un aviso que se cierra sin más vuelve a salir la semana que viene y nadie
+    recuerda qué se hizo la vez pasada.
+    """
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -2558,6 +2704,7 @@ def close_alert(alert_id: int, request: Request, resolution: str = Form(...),
 @app.get("/manager/equipo", response_class=HTMLResponse)
 def team_page(request: Request, ctx=Depends(needs(perms.TEAM)),
               session: Session = Depends(get_db), error: str = "", done: str = ""):
+    """El equipo de la casa: quién es quién y qué puede hacer cada uno."""
     user, auth_session = ctx
     restaurant = session.get(Restaurant, user.restaurant_id)
     rows = (session.query(User).filter_by(restaurant_id=user.restaurant_id)
@@ -2589,6 +2736,12 @@ def create_team_user(request: Request, name: str = Form(...), email: str = Form(
 @app.post("/manager/equipo/{user_id}/rol")
 def change_role(user_id: int, request: Request, role: str = Form(...), csrf: str = Form(""),
                 ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    """Cambia el nivel de una persona.
+
+    La pantalla no enseña los niveles que no tocan, pero una pantalla sin
+    desplegable no es una puerta cerrada: el formulario se manda a mano, y por
+    eso se vuelve a comprobar aquí. Nadie se cambia el nivel a sí mismo.
+    """
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -2609,6 +2762,7 @@ def change_role(user_id: int, request: Request, role: str = Form(...), csrf: str
 @app.post("/manager/equipo/{user_id}/activar")
 def toggle_user(user_id: int, request: Request, csrf: str = Form(""),
                 ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    """Da de alta o de baja a una persona. A uno mismo, no."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
@@ -2624,6 +2778,7 @@ def toggle_user(user_id: int, request: Request, csrf: str = Form(""),
 @app.get("/notificaciones", response_class=HTMLResponse)
 def notifications_page(request: Request, ctx=Depends(require_user),
                        session: Session = Depends(get_db)):
+    """Los avisos de esa persona. Al abrirlos, quedan leídos."""
     user, auth_session = ctx
     rows = service.recent_notifications(session, user.id)
     response = page(request, "notifications.html", user, auth_session, session,
@@ -2635,6 +2790,11 @@ def notifications_page(request: Request, ctx=Depends(require_user),
 @app.get("/api/notificaciones")
 def notifications_api(request: Request, ctx=Depends(require_user),
                       session: Session = Depends(get_db)):
+    """Los últimos avisos y cuántos hay sin leer, para la campanita.
+
+    El número va: sin él, la pantalla no sabe cuál es nueva y la alerta crítica
+    que debía saltar al teléfono no saltaba nunca.
+    """
     user, _ = ctx
     rows = service.recent_notifications(session, user.id, limit=5)
     # El número va: sin él, la pantalla no sabe cuál es nueva y la alerta
@@ -2662,6 +2822,7 @@ def news_api(request: Request, desde: int = 0, ctx=Depends(require_user),
                                 site_id=mia.id if mia else None, salvo_user=user.id)
 
     def contar(n):
+        """Una novedad contada en el idioma de la casa, con su hora."""
         titulo, detalle = novedades.frase(lang, n)
         return {"id": n.id, "kind": n.kind, "titulo": titulo, "detalle": detalle,
                 "texto": f"{titulo} · {detalle}",
@@ -2679,6 +2840,11 @@ def settings_page(request: Request, ctx=Depends(require_user),
                   off: int = 0, error: str = ""):
     # Sin `codes`: por la barra de direcciones no entran ni salen los códigos
     # de repuesto. Los pinta el POST que los crea, una vez y ahí se acabó.
+    """La configuración de la casa: idioma, moneda, horario y temperaturas.
+
+    Los códigos de repuesto no salen por la barra de direcciones: los pinta una
+    sola vez el formulario que los crea.
+    """
     user, auth_session = ctx
     # Si aún no la tiene puesta, se le propone un secreto para que lo meta en
     # el teléfono. Hasta que teclee un código no queda activada.
@@ -2720,6 +2886,7 @@ def save_settings(request: Request, language: str = Form(...),
                   frozen_min_c: str = Form(""), frozen_max_c: str = Form(""),
                   csrf: str = Form(""),
                   ctx=Depends(require_user), session: Session = Depends(get_db)):
+    """Guarda la configuración de la casa y la de la persona."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     if i18n.is_supported(language):
@@ -2923,6 +3090,7 @@ def bugs_page(request: Request, ctx=Depends(needs(perms.PLATFORM)),
 def set_bug_status(report_id: int, request: Request, estado: str = Form(...),
                    note: str = Form(""), csrf: str = Form(""),
                    ctx=Depends(needs(perms.PLATFORM)), session: Session = Depends(get_db)):
+    """El dueño de la plataforma marca en qué anda un parte de fallo."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
@@ -2987,6 +3155,7 @@ def daily_report_page(request: Request, ctx=Depends(needs(perms.STOCK)),
 @app.get("/descargas", response_class=HTMLResponse)
 def downloads_page(request: Request, ctx=Depends(require_user),
                    session: Session = Depends(get_db)):
+    """Las hojas que se pueden descargar para llevar a mano."""
     user, auth_session = ctx
     return page(request, "downloads_meat.html", user, auth_session, session,
                 sheets=sheets_meat.SHEETS, site=sites.of_user(session, user))
@@ -3009,6 +3178,7 @@ def label_sheet(request: Request, ctx=Depends(require_user),
 @app.get("/descargas/{code}.xlsx")
 def download_sheet(code: str, request: Request, ctx=Depends(require_user),
                    session: Session = Depends(get_db)):
+    """Descarga una hoja en Excel, en el idioma de la casa."""
     user, auth_session = ctx
     restaurant = session.get(Restaurant, user.restaurant_id)
     lang = lang_for(request, session, user)
@@ -3231,10 +3401,12 @@ def favicon():
 
 @app.get("/healthz")
 def healthz():
+    """Contesta que está viva. Lo pregunta el servidor, no una persona."""
     return {"status": "ok", "edition": "meat"}
 
 
 def create_app(database_url: str = "sqlite:///carnes.db") -> FastAPI:
+    """Arranca la edición de carne: abre la base y deja las tablas al día."""
     db.init_engine(database_url)
     db.create_all()
     return app

@@ -46,6 +46,7 @@ class Finding:
     detail: str
 
     def __str__(self) -> str:
+        """El hallazgo en una línea, como sale en el informe."""
         return f"[{self.rule}] {self.what}: {self.detail}"
 
 
@@ -76,14 +77,17 @@ class Population:
 
     @property
     def multisite(self) -> int:
+        """Cuántas casas del banco de pruebas tienen más de una sede."""
         return len([h for h in self.houses if h.multisite])
 
     @property
     def sales(self) -> int:
+        """Todas las ventas del banco de pruebas."""
         return sum(h.sales for h in self.houses)
 
     @property
     def counts(self) -> int:
+        """Todos los recuentos del banco de pruebas."""
         return sum(h.counts for h in self.houses)
 
 
@@ -222,6 +226,7 @@ def demo_accounts(session: Session) -> list[Account]:
 
 
 def of_site(session: Session, user: User) -> str:
+    """El nombre de la sede donde trabaja esa persona. Sin sede, vacío."""
     sede = sites.of_user(session, user)
     return sede.name if sede else ""
 

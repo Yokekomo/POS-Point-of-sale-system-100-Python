@@ -7,6 +7,11 @@ IQD_PER_AED = 360.0           # Dubái
 
 
 def to_usd(amount: float, currency: str) -> float:
+    """Pasa un importe a dólares, que es la moneda en la que se compara todo.
+
+    Una moneda que no se conoce no se convierte a ojo: salta. Un cambio
+    inventado se arrastra hasta el food cost sin que nadie vuelva a mirarlo.
+    """
     cur = currency.upper()
     if cur == "USD":
         return amount

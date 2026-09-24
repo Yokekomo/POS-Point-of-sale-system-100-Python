@@ -77,6 +77,10 @@ def _fingerprint(code: str) -> str:
 
 
 def store_recovery(codes: list[str]) -> str:
+    """Guarda los códigos de recuperación sin guardar los códigos.
+
+    En la base queda su huella: quien lea la tabla no puede entrar con ella.
+    """
     return json.dumps([_fingerprint(c) for c in codes])
 
 
@@ -95,6 +99,7 @@ def spend_recovery(stored: str | None, code: str) -> tuple[bool, str]:
 
 
 def recovery_left(stored: str | None) -> int:
+    """Cuántos códigos de recuperación quedan sin gastar."""
     try:
         return len(json.loads(stored or "[]"))
     except ValueError:

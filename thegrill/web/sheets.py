@@ -62,6 +62,7 @@ def column_header(field, lang: str) -> str:
 
 
 def _num(value: float) -> str:
+    """Un número para la hoja de cálculo, sin ceros de adorno detrás."""
     return f"{value:.10g}"
 
 

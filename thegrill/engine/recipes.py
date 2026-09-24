@@ -54,6 +54,7 @@ class LineCost:
 
     @property
     def known(self) -> bool:
+        """Si esa línea tiene precio. Sin precio no hay escandallo que valga."""
         return self.unit_cost is not None
 
 
@@ -70,6 +71,7 @@ class RecipeCost:
 
     @property
     def cost_per_portion(self) -> float:
+        """Lo que cuesta una ración. Sin raciones, lo que cuesta la receta entera."""
         return round(self.total_cost / self.portions, 4) if self.portions else self.total_cost
 
     @property
@@ -81,6 +83,12 @@ class RecipeCost:
 
     @property
     def food_cost_pct(self) -> float | None:
+        """El food cost del plato: lo que cuesta sobre lo que se cobra sin impuestos.
+
+        Sobre el precio sin impuestos y no sobre el de carta: el IVA no es
+        ingreso de la casa, y calcularlo sobre él da un food cost más bonito del
+        que es.
+        """
         net = self.net_price
         if not net:
             return None
@@ -88,6 +96,7 @@ class RecipeCost:
 
     @property
     def margin_per_portion(self) -> float | None:
+        """Lo que deja cada ración en dinero, que es lo que se lleva la casa."""
         net = self.net_price
         return round(net - self.cost_per_portion, 4) if net is not None else None
 
@@ -98,6 +107,7 @@ class RecipeCost:
 
     @property
     def complete(self) -> bool:
+        """Si el escandallo está entero o hay ingredientes sin precio."""
         return not self.missing
 
     def worst_lines(self, n: int = 3) -> list[LineCost]:
@@ -248,6 +258,7 @@ class TreeNode:
 
     @property
     def is_leaf(self) -> bool:
+        """Si de aquí no cuelga nada: un ingrediente, no una subreceta."""
         return not self.children
 
     def walk(self):
@@ -302,6 +313,11 @@ def cost_tree(recipe, costs: dict[int, float], units: float = 1.0,
 
 
 def _assign_shares(node: TreeNode, total: float) -> None:
+    """Reparte el peso de cada rama sobre el total, en tanto por ciento.
+
+    Es lo que dice dónde está el dinero de un plato: el 70 % en la carne y el
+    4 % en la salsa, para no perder la tarde afinando la salsa.
+    """
     for child in node.walk():
         child.share_pct = round(child.cost / total * 100, 2) if total else 0.0
 

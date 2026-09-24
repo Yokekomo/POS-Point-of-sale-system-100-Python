@@ -55,12 +55,18 @@ class Line:
 
     @property
     def gap_kg(self) -> float:
+        """Lo que falta o sobra en esa línea. Sin contar, cero.
+
+        Una línea que nadie ha contado no es una línea que cuadra: es una que no se
+        ha mirado, y meterla como diferencia cero escondería justo lo que falta.
+        """
         if self.counted_kg is None:
             return 0.0
         return round(self.counted_kg - self.expected_kg, 6)
 
     @property
     def gap_value(self) -> float:
+        """Lo que cuesta esa diferencia."""
         return round(self.gap_kg * self.unit_cost, 4) if self.unit_cost else 0.0
 
     @property
@@ -74,6 +80,7 @@ class Summary:
     lines: list[Line] = field(default_factory=list)
 
     def of(self, outcome: str) -> list[Line]:
+        """Las líneas que acabaron de una manera: contadas, sin contar, con falta."""
         return [l for l in self.lines if l.outcome == outcome]
 
     @property
@@ -83,10 +90,12 @@ class Summary:
 
     @property
     def counted_lines(self) -> int:
+        """Cuántas líneas se llegaron a contar."""
         return len([l for l in self.lines if l.outcome != UNCOUNTED])
 
     @property
     def gap_kg(self) -> float:
+        """Los kilos que no cuadran en todo el inventario."""
         return round(sum(l.gap_kg for l in self.lines), 4)
 
     @property
@@ -96,10 +105,17 @@ class Summary:
 
     @property
     def gap_value(self) -> float:
+        """Lo que cuesta todo lo que no cuadra, sumando faltas y sobras."""
         return round(sum(l.gap_value for l in self.lines), 2)
 
     @property
     def shrink_value(self) -> float:
+        """Solo lo que falta, en dinero, sin que lo tape lo que sobra.
+
+        Doscientos euros de menos en el lomo y doscientos de más en la aguja no son
+        cero: son cuatrocientos euros de recuento que no se sostiene, y con el
+        total a secas no se ve ninguno de los dos.
+        """
         return round(-sum(l.gap_value for l in self.lines if l.gap_value < 0), 2)
 
     @property

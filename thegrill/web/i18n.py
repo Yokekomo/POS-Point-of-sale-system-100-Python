@@ -43,10 +43,15 @@ LANGUAGES: dict[str, Language] = {
 
 
 def is_supported(code: str | None) -> bool:
+    """Si ese idioma está traducido."""
     return bool(code) and code in LANGUAGES
 
 
 def direction(code: str) -> str:
+    """Si el idioma se escribe de izquierda a derecha o al revés.
+
+    El árabe va al revés, y la pantalla entera se da la vuelta con él.
+    """
     return LANGUAGES[code].direction if code in LANGUAGES else "ltr"
 
 
@@ -73,6 +78,12 @@ def from_accept_language(header: str | None) -> str | None:
 
 def resolve(user_lang: str | None = None, cookie: str | None = None,
             accept_header: str | None = None, restaurant_lang: str | None = None) -> str:
+    """En qué idioma se le habla a quien está delante.
+
+    Por orden: lo que eligió esa persona, lo que dejó en la cookie, lo que pide
+    el navegador y lo que habla la casa. Si nada de eso está traducido, el de
+    las visitas.
+    """
     for candidate in (user_lang, cookie, from_accept_language(accept_header), restaurant_lang):
         if is_supported(candidate):
             return candidate
@@ -120,6 +131,7 @@ def _es_una(n) -> bool:
 def translator(lang: str):
     """Versión atada a un idioma, que es lo que reciben las plantillas."""
     def _t(key: str, **kw) -> str:
+        """Traduce en el idioma ya elegido, sin repetirlo en cada llamada."""
         return t(lang, key, **kw)
     return _t
 

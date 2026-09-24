@@ -15,6 +15,12 @@ _SessionFactory = None
 
 
 def init_engine(database_url: str = "sqlite:///thegrill.db"):
+    """Abre la base de datos: SQLite de serie, PostgreSQL cambiando la URL.
+
+    Deja SQLite preparada para que escriban varios a la vez y engancha el
+    redondeo: ningún importe con milésimas ni ningún peso con miligramos llega
+    al disco, porque se engancha aquí, que es por donde pasa todo.
+    """
     global _engine, _SessionFactory
     connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
     if database_url.startswith("sqlite"):
@@ -54,6 +60,7 @@ def _sqlite_ready(connection, _record) -> None:
 
 
 def create_all():
+    """Crea las tablas que falten y pone al día las que ya estaban."""
     from thegrill import models  # noqa: F401  (registra las tablas)
     if _engine is None:
         init_engine()
@@ -279,6 +286,12 @@ def _valores_nuevos_de_las_listas(added: list[str]) -> None:
 
 @contextmanager
 def session_scope():
+    """Una sesión con la base: guarda al salir bien, deshace al salir mal.
+
+    Cuidado con lo que se hace dentro: una función que atrapa un error y sigue
+    como si nada sale «bien» de aquí, y lo que hubiera escrito a medias se
+    guarda igual.
+    """
     if _SessionFactory is None:
         init_engine()
     session = _SessionFactory()

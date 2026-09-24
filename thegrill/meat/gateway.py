@@ -55,10 +55,16 @@ class Applied:
 
     @property
     def changed(self) -> bool:
+        """Si el aviso del banco cambió de verdad el estado de la cuenta."""
         return self.now is not None and self.now != self.was
 
 
 def secret() -> str | None:
+    """La clave con la que se firman los avisos del banco, si está puesta.
+
+    Sin clave no se puede comprobar quién manda el aviso, y ahí no se cobra ni
+    se bloquea a nadie por lo que diga un mensaje que puede mandar cualquiera.
+    """
     return os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip() or None
 
 
@@ -162,6 +168,7 @@ def _whose(session: Session, data: dict) -> Restaurant | None:
 
 
 def _int(value) -> int:
+    """Un número entero de lo que venga, y cero de lo que no lo sea."""
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -184,6 +191,7 @@ def _failed(session: Session, restaurant: Restaurant, data: dict, result: Applie
 
 
 def _cancelled(session: Session, restaurant: Restaurant, data: dict, result: Applied) -> None:
+    """La casa ha cancelado: se apunta el día y se deja de cobrar."""
     restaurant.billing = Billing.CANCELLED
     restaurant.cancelled_at = datetime.utcnow()
     restaurant.billing_note = f"{PROVIDER}: suscripción cancelada"
@@ -233,6 +241,12 @@ HANDLERS = {
 
 
 def _period_end(data: dict) -> date | None:
+    """Hasta cuándo está pagado el mes, según el aviso del banco.
+
+    El proveedor lo manda en dos sitios distintos según el tipo de aviso, y en
+    segundos desde 1970. Si no viene en ninguno, no se inventa una fecha: una
+    fecha inventada corta el servicio a una casa que está al día.
+    """
     for campo in ("period_end", "current_period_end"):
         if data.get(campo):
             try:

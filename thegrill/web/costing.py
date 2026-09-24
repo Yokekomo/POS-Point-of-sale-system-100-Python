@@ -41,6 +41,7 @@ class NotMapped(KeyError):
 
 
 def _norm(value: str | None) -> str:
+    """Deja un texto comparable: mayúsculas, sin espacios de sobra."""
     return " ".join(str(value or "").strip().upper().split())
 
 
@@ -387,6 +388,13 @@ def consume_sales(session: Session, user: User, sales: list[tuple],
 
 
 def _raise_alerts(session: Session, user: User, result: ConsumptionResult, lang: str) -> None:
+    """Los avisos de lo que falta para cocinar lo vendido, y a quién le llegan.
+
+    No falta carne de la misma manera en los tres casos, y por eso no se dice
+    igual: si la hay en otra sede se arregla con un traslado, si está en el
+    arcón sacándola a descongelar, y si no hay ninguna de las dos cosas es que
+    alguien no registró una entrada.
+    """
     managers = service.manager_ids(session, user.restaurant_id)
     targets = [uid for uid in managers if uid != user.id]
     now = datetime.utcnow()
@@ -426,6 +434,7 @@ def _raise_alerts(session: Session, user: User, result: ConsumptionResult, lang:
 # ----------------------------------------------------------------- escandallo
 def cost_of(session: Session, recipe: Recipe,
             costs: dict[int, float] | None = None) -> RecipeCost:
+    """Lo que cuesta una receta. Si no le dan los precios, los busca."""
     costs = unit_costs(session, recipe.restaurant_id) if costs is None else costs
     return cost_recipe(recipe, costs)
 

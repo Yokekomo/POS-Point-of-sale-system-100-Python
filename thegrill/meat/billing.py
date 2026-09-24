@@ -119,6 +119,7 @@ def summary(row: AccessRequest) -> str:
 
 def requests(session: Session, status: RequestStatus | None = None,
              limit: int = 200) -> list[AccessRequest]:
+    """Las solicitudes de acceso, de la más nueva a la más vieja."""
     query = session.query(AccessRequest)
     if status is not None:
         query = query.filter_by(status=status)
@@ -127,6 +128,7 @@ def requests(session: Session, status: RequestStatus | None = None,
 
 def set_request_status(session: Session, request_id: int,
                        status: RequestStatus) -> AccessRequest:
+    """Cambia el estado de una solicitud: atendida, rechazada, pendiente."""
     row = session.get(AccessRequest, request_id)
     if row is None:
         raise BillingError("Esa solicitud no existe")
@@ -167,6 +169,7 @@ def create_account(session: Session, *, name: str, manager_name: str, manager_em
 
 
 def timedelta_days(days: int):
+    """Tantos días, para sumarlos o restarlos a una fecha."""
     from datetime import timedelta
     return timedelta(days=days)
 
@@ -276,6 +279,7 @@ class Account:
 
     @property
     def blocked(self) -> bool:
+        """Si esa casa no puede entrar."""
         return self.restaurant.blocked
 
 
@@ -287,14 +291,17 @@ class Group:
 
     @property
     def outlets(self) -> int:
+        """Cuántas casas tiene el grupo."""
         return len(self.houses)
 
     @property
     def monthly(self) -> float:
+        """Lo que paga el grupo al mes, sumando todas sus casas."""
         return round(sum(h.restaurant.monthly_fee or 0.0 for h in self.houses), 2)
 
     @property
     def needs_attention(self) -> bool:
+        """Si alguna casa del grupo debe o está bloqueada."""
         return any(h.restaurant.needs_attention or h.blocked for h in self.houses)
 
 
@@ -343,6 +350,7 @@ def mark_unpaid(session: Session, owner: User, restaurant: Restaurant,
 
 
 def owner_exists(session: Session) -> bool:
+    """Si ya hay dueño de la plataforma. Solo se da de alta la primera vez."""
     return session.query(User).filter_by(role=Role.OWNER).first() is not None
 
 

@@ -53,6 +53,7 @@ _forms: dict[str, deque] = defaultdict(deque)
 
 
 def _prune(marks: deque, window: float, now: float) -> None:
+    """Tira los intentos que ya quedan fuera de la ventana de tiempo."""
     while marks and now - marks[0] > window:
         marks.popleft()
 
@@ -84,6 +85,12 @@ def locked_for(key: str, now: float | None = None, session=None) -> int:
 
 
 def note_failure(key: str, now: float | None = None, session=None) -> None:
+    """Apunta un intento de entrar fallido, para frenar a quien prueba contraseñas.
+
+    En memoria mientras hay un solo proceso; en la base cuando hay varios, que
+    es lo que hay en un servidor de verdad: si cada proceso lleva su cuenta
+    aparte, quien prueba contraseñas tiene tantos intentos como procesos.
+    """
     now = time.time() if now is None else now
     if session is not None:
         from thegrill.models import AccessBrake

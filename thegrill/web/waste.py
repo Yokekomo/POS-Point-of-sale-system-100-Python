@@ -108,6 +108,12 @@ def record(session: Session, user: User, kg: float, serial: str | None = None,
 
 def _find_lot(session: Session, user: User, serial: str | None,
               ingredient_id: int | None) -> IngredientLot:
+    """El lote del que se tira, por su número o por el ingrediente.
+
+    Y con la puerta cerrada: no se tira la carne de otra sede. De un lote que
+    ya está a cero no queda nada que tirar, y decirlo es mejor que dejar el
+    stock en negativo.
+    """
     if serial:
         lot = (session.query(IngredientLot)
                .filter_by(restaurant_id=user.restaurant_id, serial=serial.strip()).first())
@@ -147,6 +153,12 @@ def _ref(lot: IngredientLot, pieces: int | None, reason: str | None) -> str:
 
 
 def _announce(session: Session, user: User, result: WasteResult, lang: str) -> None:
+    """Deja el aviso de la merma y se lo manda a quien lleva la casa.
+
+    De cincuenta euros para arriba se sube el tono: no es lo mismo tirar un
+    recorte que tirar un lomo, y si las dos cosas avisan igual se dejan de
+    mirar las dos.
+    """
     now = datetime.utcnow()
     severity = AlertSeverity.CRITICAL if result.cost >= 50 else AlertSeverity.WARNING
     alert = Alert(restaurant_id=user.restaurant_id, code="waste.meat",

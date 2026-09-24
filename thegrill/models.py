@@ -199,6 +199,11 @@ class TenantMixin:
 
     @declared_attr
     def restaurant_id(cls) -> Mapped[int]:
+        """De qué casa es esta fila. Todas las tablas la llevan.
+
+        Es lo que separa una casa de otra en la misma base: sin esto, una consulta
+        que se olvide del filtro enseña la carne del vecino.
+        """
         return mapped_column(ForeignKey("restaurants.id"), index=True, nullable=False)
 
 
@@ -269,14 +274,17 @@ class Restaurant(Base):
 
     @property
     def blocked(self) -> bool:
+        """Si la casa no puede entrar: sin pagar, cancelada o dada de baja."""
         return self.billing in (Billing.BLOCKED, Billing.CANCELLED) or not self.active
 
     @property
     def has_payment_method(self) -> bool:
+        """Si la casa tiene una forma de pago guardada."""
         return bool(self.payment_ref)
 
     @property
     def needs_attention(self) -> bool:
+        """Si hay que mirar el recibo de esta casa: debe o está bloqueada."""
         return self.billing in (Billing.PAST_DUE, Billing.BLOCKED)
 
 
@@ -439,6 +447,11 @@ class RecordValue(Base):
 
     @property
     def display(self) -> str:
+        """El valor para enseñar, sea del tipo que sea.
+
+        Un parte guarda números, textos, fechas y síes: se guarda cada uno en su
+        columna y aquí se saca el que tenga algo.
+        """
         for v in (self.value_text, self.value_number, self.value_date, self.value_bool):
             if v is not None:
                 return str(v)

@@ -60,6 +60,7 @@ def cipher():
 
 
 def encryption_on() -> bool:
+    """Si los datos personales se están guardando cifrados."""
     return cipher() is not None
 
 
@@ -91,6 +92,11 @@ PERSONAL = ("contact_name", "email", "phone", "address", "tax_number", "legal_na
 
 
 def protect_request(row: AccessRequest) -> AccessRequest:
+    """Cifra los datos personales de una solicitud antes de guardarla.
+
+    Nombre, correo y teléfono de alguien que pide acceso: en la base quedan
+    cifrados, y quien se lleve el fichero no se lleva la lista de contactos.
+    """
     for field in PERSONAL:
         setattr(row, field, protect(getattr(row, field)))
     return row
@@ -102,16 +108,23 @@ class Readable:
     row: AccessRequest
 
     def __getattr__(self, name):
+        """Devuelve el campo, descifrado si era de los personales."""
         value = getattr(self.row, name)
         return reveal(value) if name in PERSONAL else value
 
 
 def readable(rows: list[AccessRequest]) -> list[Readable]:
+    """Envuelve las solicitudes para poder leerlas en claro en la pantalla."""
     return [Readable(row) for row in rows]
 
 
 # ------------------------------------------------------------------ registro
 def audit(session: Session, actor: User, key: str, action: str, detail: str = "") -> None:
+    """Deja escrito quién miró o tocó datos personales, y cuándo.
+
+    Lo pide la ley y lo pide el sentido común: los datos de quien pide acceso
+    los ve alguien con nombre y apellidos, no «el sistema».
+    """
     session.add(AuditLog(restaurant_id=actor.restaurant_id,
                          actor=f"{actor.name} <{actor.email}>",
                          table="personal_data", key=key, action=action, detail=detail))

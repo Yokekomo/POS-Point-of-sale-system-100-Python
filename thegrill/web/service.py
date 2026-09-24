@@ -39,6 +39,10 @@ class ValidationError(ValueError):
     """El formulario no se puede guardar. `errors` lleva el detalle por campo."""
 
     def __init__(self, errors: dict[str, str]):
+        """Guarda los fallos por casilla, para pintarlos donde están.
+
+        Un mensaje suelto obliga a buscar cuál de las doce casillas era.
+        """
         super().__init__("; ".join(f"{k}: {v}" for k, v in errors.items()))
         self.errors = errors
 
@@ -87,18 +91,21 @@ def notify(session: Session, restaurant_id: int, user_ids, title: str, body: str
 
 
 def manager_ids(session: Session, restaurant_id: int) -> list[int]:
+    """Quién lleva la casa: a estos les llegan los avisos."""
     return [u.id for u in session.query(User)
             .filter_by(restaurant_id=restaurant_id, role=Role.MANAGER, active=True)
             .order_by(User.id)]
 
 
 def unread_count(session: Session, user_id: int) -> int:
+    """Cuántos avisos tiene esa persona sin leer."""
     return (session.query(func.count(Notification.id))
             .filter(Notification.user_id == user_id, Notification.read_at.is_(None))
             .scalar() or 0)
 
 
 def recent_notifications(session: Session, user_id: int, limit: int = 50) -> list[Notification]:
+    """Los últimos avisos de esa persona, del más nuevo al más viejo."""
     return (session.query(Notification).filter(Notification.user_id == user_id)
             .order_by(Notification.created_at.desc(), Notification.id.desc())
             .limit(limit).all())
@@ -179,6 +186,7 @@ def parse_field(fld: TemplateField, raw: str | None, today: date,
 
 
 def restaurant_language(session: Session, restaurant_id: int) -> str:
+    """En qué idioma habla la casa. Si no consta, el de serie."""
     restaurant = session.get(Restaurant, restaurant_id)
     return (restaurant.language if restaurant else None) or DEFAULT_LANG
 
@@ -290,6 +298,12 @@ class TemplateStat:
 
     @property
     def compliance_pct(self) -> float:
+        """Qué parte de los partes que tocaban se ha entregado.
+
+        Nunca pasa del cien: entregar tres veces el mismo parte no es cumplir el
+        trescientos por cien. Y sin partes que tocaran, cien: no se le puede
+        reprochar a nadie no haber hecho lo que no había que hacer.
+        """
         if self.expected <= 0:
             return 100.0
         return round(min(self.submitted / self.expected, 1.0) * 100, 1)

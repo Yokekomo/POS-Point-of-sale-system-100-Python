@@ -84,6 +84,7 @@ def report(session: Session, user: User | None, message: str, screen: str = "",
 
 def recent(session: Session, limit: int = 100,
            status: BugStatus | None = None) -> list[BugReport]:
+    """Los últimos partes de fallo, del más nuevo al más viejo."""
     query = session.query(BugReport)
     if status is not None:
         query = query.filter(BugReport.status == status)
@@ -98,6 +99,7 @@ def mine(session: Session, restaurant_id: int, limit: int = 20) -> list[BugRepor
 
 def set_status(session: Session, report_id: int, status: BugStatus,
                note: str | None = None) -> BugReport:
+    """Cambia el estado de un parte de fallo y le deja una nota."""
     row = session.get(BugReport, report_id)
     if row is None:
         raise BugError("Ese parte no existe")

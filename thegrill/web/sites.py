@@ -44,6 +44,7 @@ class SiteStock:
 
     @property
     def kg(self) -> float:
+        """Toda la carne de la sede: piezas enteras y cortes."""
         return round(self.primal_kg + self.cut_kg, 3)
 
 
@@ -95,6 +96,7 @@ def main(session: Session, restaurant_id: int) -> Site:
 
 
 def all_sites(session: Session, restaurant_id: int, active: bool = True) -> list[Site]:
+    """Las sedes de la casa. Una casa sin ninguna tiene el obrador."""
     query = session.query(Site).filter_by(restaurant_id=restaurant_id)
     if active:
         query = query.filter(Site.active.is_(True))
@@ -104,6 +106,13 @@ def all_sites(session: Session, restaurant_id: int, active: bool = True) -> list
 
 def create(session: Session, user: User, name: str,
            kind: SiteKind = SiteKind.OUTLET, address: str | None = None) -> Site:
+    """Abre una sede nueva.
+
+    Antes de nada se asegura de que existe el obrador: un local consume de
+    algún sitio, y la carne que ya había en la casa estaba en la sede
+    principal, no en el local que se acaba de abrir. Dos sedes con el mismo
+    nombre no, que luego nadie sabe a cuál mandó la carne.
+    """
     name = (name or "").strip()
     if not name:
         raise SiteError("La sede necesita un nombre")
@@ -414,6 +423,7 @@ def _child_serial(session: Session, restaurant_id: int, base: str) -> str:
 
 
 def _site(session: Session, user: User, site_id: int) -> Site:
+    """La sede de ese número, comprobando que es de esta casa y está abierta."""
     site = session.get(Site, site_id or 0)
     if site is None or site.restaurant_id != user.restaurant_id:
         raise SiteError("Esa sede no es de esta casa")
@@ -449,6 +459,7 @@ def set_active(session: Session, user: User, site_id: int, active: bool) -> Site
 
 
 def people(session: Session, restaurant_id: int) -> list[User]:
+    """La gente de la casa que está de alta, por nombre."""
     return (session.query(User).filter_by(restaurant_id=restaurant_id, active=True)
             .order_by(User.name).all())
 
