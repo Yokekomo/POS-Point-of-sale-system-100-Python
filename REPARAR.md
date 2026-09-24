@@ -175,15 +175,20 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       redirección, y el recado de lo que se guardó viaja aparte —en la sesión,
       no en la barra de direcciones— y se enseña una sola vez.
 
-- [ ] **Siete pantallas siguen contestando al POST con la pantalla entera:**
-      recepción, despiece, el cierre de descongelado y las cuatro de
-      maduración. No es un descuido: esas no contestan con una frase sino con
-      un bloque —los avisos del despiece, el cuadre del turno, lo del camión
-      que se queda puesto para la siguiente bolsa—, y meterlo en un recado de
-      texto perdería la mitad. Llevar ese estado entero de una pantalla a la
-      siguiente es otro trabajo, no un retoque. En ellas el apunte doble ya lo
-      impide la llave del envío: lo que queda es la pregunta del navegador,
-      que es molesta y no peligrosa.
+- [ ] **Tres pantallas siguen contestando al POST con la pantalla entera:**
+      recepción, despiece y el cierre de descongelado. Las cuatro de
+      maduración ya no: el bloque de números que enseñan —la pesada, el
+      recuento, la limpieza, la venta al corte— viaja ahora en la sesión y se
+      vuelve a montar al pintar, con sus campos y con lo que la clase calcula.
+
+      Las tres que quedan cuestan lo mismo en código y mucho más en pruebas:
+      **treinta y siete** que esperan un 200 y recibirían un 303. Ninguna es
+      un fallo, todas son del mismo tipo, y por eso mismo reescribirlas en
+      lote es la manera de que una prueba deje de comprobar lo que comprobaba
+      sin que nadie lo vea. Merecen su propio rato, no ir pegadas al final de
+      otra cosa. Mientras tanto el apunte doble lo impide la llave del envío,
+      que tiene su prueba: lo que queda es la pregunta del navegador, molesta
+      y no peligrosa.
 - [x] **Un error deja la pantalla en blanco** con el título «Error 400». Ahora
       cuando el error no trae texto se dice qué ha pasado —si te has
       equivocado tú, si no te toca, o si eso ya no está—, en el idioma de
@@ -263,9 +268,13 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
       `tests/test_rangos.py`.
 
-- [x] **Guardar contesta con una redirección.** En las pantallas donde lo que
-      se dice cabe en una frase. El recado viaja en la sesión y se enseña una
-      vez: ni se queda pegado ni vive en la barra de direcciones.
+- [x] **Guardar contesta con una redirección** en merma, los dos traslados, el
+      descongelado, las ventas y las cuatro de maduración. El recado viaja en
+      la sesión y se enseña una vez: ni se queda pegado ni vive en la barra de
+      direcciones. Y cuando lo que hay que enseñar no cabe en una frase —la
+      pesada de una pieza, el recuento del día— viaja el bloque entero, con
+      sus campos **y con lo que la clase calcula**, que es lo que pide la
+      pantalla y lo que se quedaba fuera al copiar solo lo guardado.
 
 - [x] **La cámara, de verdad.** La cola se enciende por lo que pasa y no por lo
       que diga el navegador, y lo que se apunta lleva la hora a la que se

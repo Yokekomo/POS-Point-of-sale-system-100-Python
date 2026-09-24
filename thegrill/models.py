@@ -355,6 +355,11 @@ class AuthSession(Base):
     # reenviar el formulario, que es una pregunta que nadie sabe contestar con
     # una pieza en la mano. Se guarda aquí, se enseña una vez y se borra.
     flash: Mapped[str | None] = mapped_column(Text)
+    # Y el bloque de números que va con el recado, cuando lo que hay que
+    # enseñar no cabe en una frase: el cuadre de un despiece, la pesada de una
+    # pieza, lo del camión que se queda puesto para la siguiente bolsa. Viaja
+    # como texto y se vuelve a montar al pintar la pantalla.
+    flash_data: Mapped[str | None] = mapped_column(Text)
 
 
 class RecordTemplate(TenantMixin, Base):

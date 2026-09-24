@@ -374,7 +374,8 @@ def test_the_butcher_moves_and_weighs_but_does_not_sell_by_weight(client):
         "csrf": token, "serial": "9001", "storage": "AGING",
         "target_days": "45"}).status_code == 303
     pesada = luis.post("/maduracion/pesar", data={"csrf": token, "serial": "9001", "kg": "7,6"})
-    assert pesada.status_code == 200
+    # Guardar contesta con una redirección: recargar no vuelve a pesar.
+    assert pesada.status_code == 303
 
     with db.session_scope() as s:
         pieza = s.query(Primal).filter_by(serial="9001").one()
@@ -718,9 +719,11 @@ def test_the_manager_sells_by_weight_and_sees_the_food_cost(client):
     venta = ana.post("/maduracion/venta", data={"csrf": token, "serial": "9002",
                                                 "grams": "420", "price": "52",
                                                 "dish": "Chuleta madurada"})
-    assert venta.status_code == 200
-    assert "29 %" in venta.text                  # food cost de esa venta, redondeado arriba
-    assert "Chuleta madurada" in ana.get("/maduracion").text
+    assert venta.status_code == 303
+    # El bloque de la venta se lee en la pantalla de detrás, con sus números.
+    pantalla = ana.get("/maduracion").text
+    assert "29 %" in pantalla                    # food cost de esa venta, redondeado arriba
+    assert "Chuleta madurada" in pantalla
 
 
 def test_the_waste_screen_shows_both_sources_and_hides_the_money(client):
@@ -766,9 +769,10 @@ def test_the_daily_count_of_the_aging_fridge_is_the_butchers_job(client):
     assert "Conteo diario" in pantalla.text and 'name="kg:9300"' in pantalla.text
 
     hecho = luis.post("/maduracion/conteo", data={"csrf": token, "kg:9300": "8,7"})
-    assert hecho.status_code == 200
-    assert "Agua evaporada" in hecho.text       # los kilos de hoy, sí
-    assert "Se pierde hoy" not in hecho.text    # el dinero de esos kilos, no
+    assert hecho.status_code == 303
+    pantalla = luis.get("/maduracion").text
+    assert "Agua evaporada" in pantalla         # los kilos de hoy, sí
+    assert "Se pierde hoy" not in pantalla      # el dinero de esos kilos, no
 
     with db.session_scope() as s:
         assert s.query(Primal).filter_by(serial="9300").one().weight_kg == 8.7

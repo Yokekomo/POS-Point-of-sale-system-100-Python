@@ -15,6 +15,8 @@ import os
 from urllib.parse import quote
 from datetime import date, datetime, timedelta, timezone
 import zoneinfo
+from dataclasses import fields, is_dataclass
+from types import SimpleNamespace
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
@@ -195,6 +197,15 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
         if not base.get("done"):
             base["done"] = auth_session.flash
         auth_session.flash = None
+    if auth_session is not None and getattr(auth_session, "flash_data", None):
+        try:
+            guardado = json.loads(auth_session.flash_data)
+        except ValueError:                                   # pragma: no cover
+            guardado = {}
+        for nombre, valor in guardado.items():
+            if not base.get(nombre):
+                base[nombre] = _objeto(valor)
+        auth_session.flash_data = None
     return templates.TemplateResponse(request, name, base)
 
 
@@ -270,7 +281,60 @@ def _num(raw: str | None, default: float | None = None,
     return exacto.leer(raw, default, decimales)
 
 
-def _hecho(auth_session, destino: str, recado: str = "") -> RedirectResponse:
+# La marca con la que un objeto viaja como texto sin dejar de ser un objeto.
+CAMPOS_DE_UN_OBJETO = "__campos__"
+
+
+def _en_texto(valor):
+    """Un resultado entero, para que viaje de una pantalla a la siguiente.
+
+    Sus campos y **también lo que calcula**. Copiar solo los campos guardados
+    deja fuera lo que la clase saca al vuelo —el margen de una venta, los
+    kilos perdidos de un recuento—, que es justo lo que la pantalla pide. Aquí
+    van los dos, porque lo que se enseña es el conjunto.
+    """
+    if is_dataclass(valor) and not isinstance(valor, type):
+        # La marca dice «esto era un objeto»: al volver hay que montarlo como
+        # tal, porque la pantalla le pide sus campos con un punto. Un
+        # diccionario de los de siempre —lo del camión, por ejemplo— viaja
+        # como diccionario y se pide con `.get`, y confundir los dos rompe la
+        # mitad de las plantillas.
+        datos = {CAMPOS_DE_UN_OBJETO: True}
+        datos.update({campo.name: _en_texto(getattr(valor, campo.name))
+                      for campo in fields(valor)})
+        for nombre in dir(type(valor)):
+            if nombre.startswith("_") or nombre in datos:
+                continue
+            if isinstance(getattr(type(valor), nombre, None), property):
+                try:
+                    datos[nombre] = _en_texto(getattr(valor, nombre))
+                except Exception:                            # noqa: BLE001
+                    continue          # una cuenta que no sale no para la pantalla
+        return datos
+    if isinstance(valor, (list, tuple)):
+        return [_en_texto(v) for v in valor]
+    if isinstance(valor, dict):
+        return {k: _en_texto(v) for k, v in valor.items()}
+    return valor
+
+
+def _objeto(valor):
+    """Vuelve a montar lo que viajó como texto, para que la plantilla no note nada.
+
+    Un diccionario se convierte en algo a lo que se le pueden pedir sus campos
+    con un punto —`pesada.kg`— porque es así como están escritas las
+    plantillas, y no tiene sentido reescribirlas todas para esto.
+    """
+    if isinstance(valor, dict):
+        limpio = {k: _objeto(v) for k, v in valor.items() if k != CAMPOS_DE_UN_OBJETO}
+        return SimpleNamespace(**limpio) if valor.get(CAMPOS_DE_UN_OBJETO) else limpio
+    if isinstance(valor, list):
+        return [_objeto(v) for v in valor]
+    return valor
+
+
+def _hecho(auth_session, destino: str, recado: str = "",
+           **estado) -> RedirectResponse:
     """Guardado: se deja el recado y se manda a la pantalla, que es otra cosa.
 
     Contestar a un POST con la pantalla entera parece lo más corto y es lo que
@@ -282,6 +346,9 @@ def _hecho(auth_session, destino: str, recado: str = "") -> RedirectResponse:
     """
     if auth_session is not None:
         auth_session.flash = recado or None
+        # Lo que no cabe en una frase viaja aparte. `default=str` es para las
+        # fechas: van y vuelven como texto, que es como las pinta la pantalla.
+        auth_session.flash_data = (json.dumps(estado, default=str) if estado else None)
     return RedirectResponse(destino, status_code=303)
 
 
@@ -852,6 +919,8 @@ async def _recibir(request, user, auth_session, session, form, lang):
     # número y los kilos de la anterior es la manera de dar de alta dos veces
     # lo mismo. Lo escrito entero se devuelve cuando algo falla, que es cuando
     # hace falta, y no cuando se ha guardado.
+    # Tampoco esta: lo del camión se queda puesto para la siguiente bolsa y
+    # eso es media pantalla de estado. El apunte doble lo impide la llave.
     return _reception(request, user, auth_session, session, previo=_del_camion(form),
                       done=hecho)
 
@@ -1040,6 +1109,9 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
         return _butchery(request, user, auth_session, session,
                          error=_dicho(e, lang_for(request, session, user)),
                          previo=_lo_escrito(form))
+    # Esta no se convierte a redirección todavía: el despiece contesta con
+    # sus avisos y con la hoja, y hacerlo bien es un trabajo aparte. El apunte
+    # doble aquí ya lo impide la llave del envío.
     return _butchery(request, user, auth_session, session, issues=result.issues,
                      done=i18n.t(lang, "m.tg.posted", tg=result.tg, cuts=len(result.lots),
                                  kg=f"{sum(l.qty for l in result.lots):.10g}"))
@@ -1335,10 +1407,11 @@ def aging_weigh(request: Request, serial: str = Form(...), kg: str = Form(...),
                              note=note.strip() or None, lang=lang)
     except (aging.AgingError, ValueError) as e:
         return _aging(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
-    return _aging(request, user, auth_session, session, weighed=result,
-                  done=i18n.t(lang, "m.ag.weighed", serial=result.serial,
-                              kg=f"{result.kg:.10g}", loss=f"{result.loss_kg:.10g}",
-                              pct=f"{result.total_loss_pct:.10g}"))
+    return _hecho(auth_session, "/maduracion",
+                  i18n.t(lang, "m.ag.weighed", serial=result.serial,
+                         kg=f"{result.kg:.10g}", loss=f"{result.loss_kg:.10g}",
+                         pct=f"{result.total_loss_pct:.10g}"),
+                  weighed=_en_texto(result))
 
 
 @app.post("/maduracion/conteo", response_class=HTMLResponse)
@@ -1366,9 +1439,10 @@ async def aging_daily_count(request: Request, ctx=Depends(needs(perms.COUNT)),
         result = aging.count_day(session, user, lecturas, lang=lang)
     except (aging.AgingError, ValueError) as e:
         return _aging(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
-    return _aging(request, user, auth_session, session, counted=result,
-                  done=i18n.t(lang, "m.ag.counted", n=result.counted,
-                              kg=f"{result.loss_kg:.10g}"))
+    return _hecho(auth_session, "/maduracion",
+                  i18n.t(lang, "m.ag.counted", n=result.counted,
+                         kg=f"{result.loss_kg:.10g}"),
+                  counted=_en_texto(result))
 
 
 @app.post("/maduracion/limpiar", response_class=HTMLResponse)
@@ -1397,12 +1471,13 @@ async def aging_trim(request: Request, ctx=Depends(needs(perms.AGE)),
                             note=(form.get("note") or "").strip() or None, lang=lang)
     except (aging.AgingError, ValueError) as e:
         return _aging(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
-    return _aging(request, user, auth_session, session, trimmed=result,
-                  done=i18n.t(lang, "m.ag.trimmed", serial=result.serial,
-                              kg=f"{result.removed_kg:.10g}",
-                              kept=f"{result.kept_kg:.10g}",
-                              waste=f"{result.waste_kg:.10g}",
-                              left=f"{result.kg:.10g}"))
+    return _hecho(auth_session, "/maduracion",
+                  i18n.t(lang, "m.ag.trimmed", serial=result.serial,
+                         kg=f"{result.removed_kg:.10g}",
+                         kept=f"{result.kept_kg:.10g}",
+                         waste=f"{result.waste_kg:.10g}",
+                         left=f"{result.kg:.10g}"),
+                  trimmed=_en_texto(result))
 
 
 @app.post("/maduracion/venta", response_class=HTMLResponse)
@@ -1420,10 +1495,11 @@ def aging_sale(request: Request, serial: str = Form(...), grams: str = Form(...)
                                       dish=dish.strip() or None, note=note.strip() or None)
     except (aging.AgingError, ValueError) as e:
         return _aging(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
-    return _aging(request, user, auth_session, session, sold=result,
-                  done=i18n.t(lang, "m.ag.sold", serial=result.serial,
-                              grams=f"{result.grams:.10g}",
-                              left=f"{result.kg_left:.10g}"))
+    return _hecho(auth_session, "/maduracion",
+                  i18n.t(lang, "m.ag.sold", serial=result.serial,
+                         grams=f"{result.grams:.10g}",
+                         left=f"{result.kg_left:.10g}"),
+                  sold=_en_texto(result))
 
 
 # ============================================================= TRASLADOS
