@@ -228,3 +228,73 @@ def test_transfers_survive_having_no_signal(navegador):
             "a algún formulario le falta la llave contra duplicados"
     finally:
         contexto.close()
+
+
+def test_a_send_that_hangs_is_noted_and_the_person_keeps_working(navegador):
+    """El caso de la cámara de verdad, y el que faltaba.
+
+    `navigator.onLine` no dice si hay red: dice si hay una interfaz conectada
+    a algo. En una cámara el punto de acceso se ve desde dentro y no se llega
+    a ninguna parte, así que el navegador contesta que sí hay red, el envío
+    sale y se queda colgado. La pantalla se quedaba quieta, sin decir nada, y
+    la persona sin saber si lo suyo se había guardado —que es exactamente lo
+    que este programa no se puede permitir—.
+
+    Ahora el envío lleva un reloj: si no contesta, se corta, se apunta en la
+    cola y quien está delante sigue trabajando.
+    """
+    base, chromium = navegador
+    contexto = chromium.new_context(viewport=MOVIL, has_touch=True)
+    try:
+        page = contexto.new_page()
+        entra(page, base)
+        page.goto(f"{base}/merma")
+        page.wait_for_timeout(400)
+
+        # El punto de acceso se ve y no se llega: la petición sale y nadie
+        # contesta nunca. El navegador sigue creyendo que hay red.
+        contexto.route("**/merma", lambda ruta: None)
+        assert page.evaluate("() => navigator.onLine") is True
+
+        page.fill("input[name=kg]", "1,2")
+        page.fill("input[name=reason]", "Caducado")
+        page.click("form[data-cola] button[type=submit]")
+
+        page.wait_for_function(
+            "() => JSON.parse(localStorage.grill_cola || '[]').length === 1",
+            timeout=15000)
+        apuntado = page.evaluate("() => JSON.parse(localStorage.grill_cola)[0]")
+        assert apuntado["accion"] == "/merma"
+        assert apuntado["datos"]["kg"] == "1,2"
+        assert apuntado["datos"]["reason"] == "Caducado"
+        assert apuntado["datos"]["envio"], "sin llave no se puede repetir sin miedo"
+
+        # Y se le dice, que es la mitad del arreglo: una pantalla quieta no
+        # es una respuesta.
+        page.wait_for_function(
+            "() => (document.body.innerText || '').toLowerCase().includes('señal')"
+            " || (document.body.innerText || '').toLowerCase().includes('apuntado')",
+            timeout=15000)
+        # Y el formulario queda limpio para la siguiente merma.
+        assert page.input_value("input[name=kg]") == ""
+    finally:
+        contexto.close()
+
+
+def test_and_when_the_link_is_good_nothing_changes(navegador):
+    """El reloj no puede estorbar al noventa y nueve por ciento de las veces."""
+    base, chromium = navegador
+    contexto = chromium.new_context(viewport=MOVIL, has_touch=True)
+    try:
+        page = contexto.new_page()
+        entra(page, base)
+        page.goto(f"{base}/merma")
+        page.wait_for_timeout(400)
+        page.fill("input[name=kg]", "0,4")
+        page.fill("input[name=reason]", "Prueba")
+        page.click("form[data-cola] button[type=submit]")
+        page.wait_for_timeout(1500)
+        # Ha ido directo: nada en la cola y la pantalla ha contestado.
+        assert page.evaluate("() => JSON.parse(localStorage.grill_cola || '[]').length") == 0
+    finally:
+        contexto.close()

@@ -43,16 +43,27 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 - [x] **Un solo rechazo congela la cola para siempre.** `base.html:949`. Un 403
       de CSRF —móvil compartido entre turnos— y todo lo que se apunte detrás se
       queda dentro del teléfono. La única salida es borrarlo todo.
-- [ ] **La cola solo se enciende si `navigator.onLine` es falso**, que es justo
+- [x] **La cola solo se enciende si `navigator.onLine` es falso**, que es justo
       lo que no pasa en una cámara: el punto de acceso se ve y no se llega.
+      `navigator.onLine` no dice si hay red, dice si hay una interfaz
+      conectada a algo. Ahora el envío sale con un reloj de siete segundos: si
+      no contesta, se corta, se apunta en la cola y quien está delante sigue
+      trabajando. Y si además el envío llegaba tarde y entra, no pasa nada —los
+      dos llevan la misma llave y el servidor reconoce el repetido—, que es
+      exactamente para lo que está la llave.
 - [x] **Despiece y traslados no tienen cola.** Se guardan para abrirlos sin
       señal pero no se pueden mandar: la hoja más cara de rellenar se pierde.
 - [x] **Salir de la sesión borra las copias y no vuelven.** Desde el primer
       cierre de sesión, cada mañana sale «Sin conexión» en la cámara.
 - [x] **El ayudante espera a la red sin plazo.** Con una raya, pantalla en
       blanco indefinida teniendo la copia guardada al lado.
-- [ ] **La hora del apunte se guarda y no se manda.** Lo apuntado a las 23:50 y
-      mandado a las 00:10 queda fechado al día siguiente.
+- [x] **La hora del apunte se guarda y no se manda.** Lo apuntado a las 23:50 y
+      mandado a las 00:10 quedaba fechado al día siguiente: el turno de noche
+      entero cambiaba de día y ni el consumo ni el food cost de ninguno de los
+      dos volvían a cuadrar. Ahora el sello viaja y el servidor lo usa, pero
+      no a ciegas: lo pone el teléfono, así que se acepta solo si cae dentro
+      de la última semana y no está en el futuro. Un reloj mal puesto —que los
+      hay— archivaría media cámara en un mes ya cerrado.
 
 ## 3. Lo que hace perder dinero
 
@@ -236,6 +247,10 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       guardaba 15, el «1.250» que se guardaba 1,25 y los rangos de proceso.
       `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
       `tests/test_rangos.py`.
+
+- [x] **La cámara, de verdad.** La cola se enciende por lo que pasa y no por lo
+      que diga el navegador, y lo que se apunta lleva la hora a la que se
+      escribió. `tests/test_cola.py` (7), `tests/test_jornada.py` (22).
 
 - [x] **Las bandas de llegada las pone la casa.** Refrigerado y congelado, con
       su mínimo y su máximo, en la configuración del manager. Límite a límite:

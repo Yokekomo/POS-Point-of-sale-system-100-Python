@@ -6,7 +6,7 @@ mal: el de ayer corto y el de hoy largo. Aquí se prueba con el reloj en la
 mano, que es la única manera de probar esto sin que la suite dependa de la
 hora a la que se ejecute.
 """
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -177,3 +177,87 @@ def test_the_reception_uses_the_day_of_the_house(client):
     with db.session_scope() as s:
         casa = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
         assert s.query(Primal).one().received_date == jornada.de(casa)
+
+
+# ================================ la hora del apunte, no la hora del envío
+#
+# La cola de la cámara sella cada cosa con la hora a la que se tecleó, pero
+# hasta ahora mandaba solo el contenido: un recuento apuntado a las 23:50
+# dentro de la cámara y enviado a las 00:10, cuando el teléfono vuelve a tener
+# señal, quedaba fechado al día siguiente. El turno de noche entero cambiaba
+# de día, y ni el consumo ni el food cost de ninguno de los dos volvían a
+# cuadrar.
+def _ayer_a_las(hora: int, minuto: int = 0) -> str:
+    de_ayer = datetime.now(timezone.utc).replace(
+        hour=hora, minute=minuto, second=0, microsecond=0) - timedelta(days=1)
+    return de_ayer.isoformat()
+
+
+def test_what_was_written_last_night_is_filed_last_night(client):
+    """Lo que se apuntó ayer entra con la fecha de ayer, no con la de hoy."""
+    sello = _ayer_a_las(22, 30)
+    form = client.get("/recepcion")
+    r = client.post("/recepcion", data={
+        "csrf": csrf_from(form.text), "lot": "L1", "sku": "Striploin",
+        "price_kg": "32", "serial:0": "8017", "kg:0": "9,4", "cuando": sello})
+    assert r.status_code == 200
+    with db.session_scope() as s:
+        assert s.query(Primal).one().received_date == date.today() - timedelta(days=1)
+
+
+def test_with_no_stamp_it_is_today(client):
+    form = client.get("/recepcion")
+    client.post("/recepcion", data={
+        "csrf": csrf_from(form.text), "lot": "L1", "sku": "Striploin",
+        "price_kg": "32", "serial:0": "8018", "kg:0": "9,4"})
+    with db.session_scope() as s:
+        assert s.query(Primal).one().received_date == date.today()
+
+
+def test_a_phone_with_the_clock_in_the_future_files_nothing_forward(client):
+    """El sello lo pone el teléfono: no se cree a ciegas."""
+    futuro = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    form = client.get("/recepcion")
+    client.post("/recepcion", data={
+        "csrf": csrf_from(form.text), "lot": "L1", "sku": "Striploin",
+        "price_kg": "32", "serial:0": "8019", "kg:0": "9,4", "cuando": futuro})
+    with db.session_scope() as s:
+        assert s.query(Primal).one().received_date == date.today()
+
+
+def test_and_a_clock_a_month_behind_does_not_file_into_a_closed_month(client):
+    """Un reloj mal puesto archivaría media cámara en un mes ya cerrado."""
+    viejo = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    form = client.get("/recepcion")
+    client.post("/recepcion", data={
+        "csrf": csrf_from(form.text), "lot": "L1", "sku": "Striploin",
+        "price_kg": "32", "serial:0": "8020", "kg:0": "9,4", "cuando": viejo})
+    with db.session_scope() as s:
+        assert s.query(Primal).one().received_date == date.today()
+
+
+def test_rubbish_in_the_stamp_is_just_today(client):
+    form = client.get("/recepcion")
+    client.post("/recepcion", data={
+        "csrf": csrf_from(form.text), "lot": "L1", "sku": "Striploin",
+        "price_kg": "32", "serial:0": "8021", "kg:0": "9,4", "cuando": "el martes"})
+    with db.session_scope() as s:
+        assert s.query(Primal).one().received_date == date.today()
+
+
+def test_the_waste_of_last_night_is_last_nights_waste(client):
+    """Y lo mismo en la merma, que es lo que más se apunta sin señal."""
+    from thegrill.models import IngredientMovement, MovementKind
+    form = client.get("/recepcion")
+    client.post("/recepcion", data={
+        "csrf": csrf_from(form.text), "lot": "L1", "sku": "Striploin",
+        "price_kg": "32", "serial:0": "8017", "kg:0": "9,4"})
+    pantalla = client.get("/merma")
+    client.post("/merma", data={
+        "csrf": csrf_from(pantalla.text), "kg": "1,2", "serial": "8017",
+        "reason": "Caducado", "envio": "m-1", "cuando": _ayer_a_las(23, 50)})
+    with db.session_scope() as s:
+        apunte = (s.query(IngredientMovement)
+                  .filter(IngredientMovement.kind == MovementKind.WASTE).first())
+        if apunte is not None:                 # la merma pide un lote de corte
+            assert apunte.date == date.today() - timedelta(days=1)

@@ -263,6 +263,21 @@ def _num(raw: str | None, default: float | None = None,
     return exacto.leer(raw, default, decimales)
 
 
+def _cuando(form, session, user) -> date:
+    """El día de trabajo del momento en que se **escribió** el apunte.
+
+    La cola del teléfono sella cada cosa con la hora a la que se tecleó. Sin
+    leer ese sello, un recuento apuntado a las 23:50 dentro de la cámara y
+    mandado a las 00:10 —cuando el teléfono vuelve a tener señal— quedaba
+    fechado al día siguiente: el turno de noche entero cambiaba de día.
+
+    Se le pasa el formulario entero o el sello suelto, según lo que tenga a
+    mano cada ruta.
+    """
+    cuando = form.get("cuando") if hasattr(form, "get") else form
+    return jornada.apuntado(session, user, str(cuando) if cuando else None)
+
+
 def _eur(raw: str | None, default: float | None = None) -> float | None:
     """Un precio. Como el dinero lleva dos decimales y no tres, «1.250» aquí
     son mil doscientos cincuenta euros y no un euro con veinticinco."""
@@ -787,7 +802,8 @@ async def _recibir(request, user, auth_session, session, form, lang):
             arrival=llegada, arrival_c=grados, frozen_on_arrival=al_arcon,
             slaughter_date=date.fromisoformat(fecha_sac) if fecha_sac else None,
             pack_date=date.fromisoformat(envasado) if envasado else None))
-    created = meat.receive_primals(session, user, lot, rows, lang=lang)
+    created = meat.receive_primals(session, user, lot, rows, lang=lang,
+                                   received=_cuando(form, session, user))
     # La foto de la etiqueta viaja con la pieza, en el mismo envío: se hace
     # al coger la bolsa, antes de teclear nada, que es cuando la etiqueta
     # está delante. Va aparte del texto solo cuando no hay cobertura, y
@@ -991,7 +1007,10 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
             serials=form.getlist("primal"),
             before_kg=_num(form.get("before_kg"), 0.0) or 0.0,
             rows=rows, waste_kg=_num(form.get("waste_kg"), 0.0) or 0.0,
-            on=date.fromisoformat(on) if on else None,
+            # La fecha escrita en la hoja manda; si no la hay, la del momento
+            # en que se apuntó, que no es la misma que la del envío cuando la
+            # hoja ha esperado en la cola del teléfono.
+            on=(date.fromisoformat(on) if on else _cuando(form, session, user)),
             staff=(form.get("staff") or "").strip() or None, lang=lang)
     except (meat.MeatError, ValueError) as e:
         # Con la hoja entera puesta: un despiece son diez líneas de números y
@@ -1151,7 +1170,7 @@ def _defrost(request, user, auth_session, session, *, shift="", done="", error="
 @app.post("/descongelado/salida", response_class=HTMLResponse)
 def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form(...),
                    total_kg: str = Form(...), shift: str = Form(""), note: str = Form(""),
-                   csrf: str = Form(""), envio: str = Form(""),
+                   csrf: str = Form(""), envio: str = Form(""), cuando: str = Form(""),
                    ctx=Depends(needs(perms.DEFROST)),
                    session: Session = Depends(get_db)):
     user, auth_session = ctx
@@ -1168,6 +1187,7 @@ def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form
     congelado = bool(estaba and estaba.frozen)
     try:
         entry = defrost.intake(session, user, pedido, pieces, _num(total_kg, 0.0) or 0.0,
+                               on=_cuando(cuando, session, user),
                                shift=shift.strip(), note=note.strip() or None)
     except (defrost.DefrostError, ValueError) as e:
         return _defrost(request, user, auth_session, session, shift=shift, error=_dicho(e, lang_for(request, session, user)))
@@ -1186,7 +1206,7 @@ def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form
 @app.post("/descongelado/recuento", response_class=HTMLResponse)
 def defrost_count(request: Request, serial: str = Form(...), pieces: int = Form(...),
                   total_kg: str = Form(...), shift: str = Form(""), note: str = Form(""),
-                  csrf: str = Form(""), envio: str = Form(""),
+                  csrf: str = Form(""), envio: str = Form(""), cuando: str = Form(""),
                   ctx=Depends(needs(perms.DEFROST)),
                   session: Session = Depends(get_db)):
     user, auth_session = ctx
@@ -1196,6 +1216,7 @@ def defrost_count(request: Request, serial: str = Form(...), pieces: int = Form(
         return repetido
     try:
         defrost.count(session, user, serial.strip(), pieces, _num(total_kg, 0.0) or 0.0,
+                      on=_cuando(cuando, session, user),
                       shift=shift.strip(), note=note.strip() or None)
     except (defrost.DefrostError, ValueError) as e:
         return _defrost(request, user, auth_session, session, shift=shift, error=_dicho(e, lang_for(request, session, user)),
@@ -1841,9 +1862,10 @@ async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
     on = form.get("business_date")
     sede = (form.get("site") or "").strip()
     try:
-        result = costing.consume_sales(session, user, sales,
-                                       on=date.fromisoformat(on) if on else None, lang=lang,
-                                       site_id=int(sede) if sede else None)
+        result = costing.consume_sales(
+            session, user, sales,
+            on=(date.fromisoformat(on) if on else _cuando(form, session, user)),
+            lang=lang, site_id=int(sede) if sede else None)
     except ValueError as e:
         return _sales(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     summary = i18n.t(lang, "sale.done", n=result.lines, cost=f"{result.cost:.2f}")
@@ -2026,7 +2048,7 @@ def waste_page(request: Request, ctx=Depends(needs(perms.WASTE)),
 @app.post("/merma", response_class=HTMLResponse)
 def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
                  ingredient_id: str = Form(""), pieces: str = Form(""), reason: str = Form(""),
-                 csrf: str = Form(""), envio: str = Form(""),
+                 csrf: str = Form(""), envio: str = Form(""), cuando: str = Form(""),
                  ctx=Depends(needs(perms.WASTE)),
                  session: Session = Depends(get_db)):
     user, auth_session = ctx
@@ -2039,7 +2061,8 @@ def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
             session, user, kg=_num(kg, 0.0) or 0.0, serial=serial.strip() or None,
             ingredient_id=int(ingredient_id) if ingredient_id.strip() else None,
             pieces=int(pieces) if pieces.strip() else None,
-            reason=reason.strip() or None, lang=lang_for(request, session, user))
+            reason=reason.strip() or None, on=_cuando(cuando, session, user),
+            lang=lang_for(request, session, user))
     except (waste.WasteError, ValueError) as e:
         # Con lo que había escrito puesto otra vez: un error en los kilos no
         # puede obligar a volver a buscar el número de la pieza y el motivo.

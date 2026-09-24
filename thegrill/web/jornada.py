@@ -89,6 +89,42 @@ def del_usuario(session, user, momento: datetime | None = None) -> date:
     return hoy(session, getattr(user, "restaurant_id", None), momento)
 
 
+# Lo que puede haber esperado un apunte en la cola de un teléfono. La cola
+# reintenta cada pocos segundos y en cada pantalla que se abre, así que una
+# semana es holgadísimo: lo que venga fechado más atrás no es un turno que
+# tardó en salir, es un reloj mal puesto.
+MARGEN = timedelta(days=7)
+
+
+def apuntado(session, user, cuando: str | None, ahora: datetime | None = None) -> date:
+    """El día de trabajo del instante en que se **escribió**, no del envío.
+
+    Un recuento apuntado a las 23:50 dentro de la cámara y mandado a las 00:10,
+    cuando el teléfono vuelve a tener señal, quedaba fechado al día siguiente.
+    El turno de noche entero cambiaba de día y ni el consumo ni el food cost de
+    ninguno de los dos volvían a cuadrar, y nadie podía saber por qué.
+
+    El sello lo pone el teléfono, así que no se cree a ciegas: se acepta si cae
+    dentro de la última semana y no está en el futuro. Un reloj mal puesto —que
+    los hay— archivaría media cámara en un mes que ya se cerró, y eso no se
+    arregla mirando.
+    """
+    ahora = ahora or datetime.now(timezone.utc)
+    if ahora.tzinfo is None:
+        ahora = ahora.replace(tzinfo=timezone.utc)
+    if not cuando:
+        return hoy(session, getattr(user, "restaurant_id", None), ahora)
+    try:
+        momento = datetime.fromisoformat(str(cuando).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return hoy(session, getattr(user, "restaurant_id", None), ahora)
+    if momento.tzinfo is None:
+        momento = momento.replace(tzinfo=timezone.utc)
+    if momento > ahora or (ahora - momento) > MARGEN:
+        return hoy(session, getattr(user, "restaurant_id", None), ahora)
+    return hoy(session, getattr(user, "restaurant_id", None), momento)
+
+
 def etiqueta(restaurant) -> str:
     """«03:00», para enseñarlo en la configuración."""
     return f"{corte(restaurant):02d}:00"

@@ -935,6 +935,12 @@ if ("serviceWorker" in navigator) {
   }
 
   // --------------------------------------- guardar sin red: se apunta y sigue
+  //
+  // Lo que aguanta una persona con una pieza en la mano mirando la pantalla.
+  // Pasado esto, el envío se corta y se apunta: más vale «apuntado, sin
+  // señal» en siete segundos que una pantalla quieta que no dice nada.
+  var PLAZO_SIN_RESPUESTA = 7000;
+
   document.querySelectorAll("form[data-cola]").forEach(function (formulario) {
     // La llave contra duplicados va SIEMPRE, con red y sin ella. El servidor
     // sabe reconocer un envío repetido —`_ya_estaba`— pero solo lo hacía con
@@ -955,15 +961,10 @@ if ("serviceWorker" in navigator) {
     }
     var llave = marcarEnvio();
 
-    formulario.addEventListener("submit", function (ev) {
-      if (navigator.onLine && !cola().length) {
-        if (form && formulario === form) localStorage.removeItem("cuenta:" + form.dataset.keep);
-        return;                       // hay red y no hay cola: va directo
-      }
-      // Sin red, o con algo esperando delante: se pone en la cola y el
-      // trabajo se da por hecho. Colarse rompería el orden —una pieza no se
-      // puede despiezar antes de recibirla—.
-      ev.preventDefault();
+    // `colgado` es que el envío salió y nadie contestó. No es lo mismo que no
+    // tener red: aquí el navegador dice que sí la hay, y por eso el aviso que
+    // se enseña y lo que se hace después son distintos.
+    function alaCola(colgado) {
       var datos = {};
       var conFichero = false;
       new FormData(formulario).forEach(function (v, k) {
@@ -978,6 +979,12 @@ if ("serviceWorker" in navigator) {
       });
       datos.envio = llave.value || numero();
       marcarEnvio();                  // el siguiente apunte lleva la suya
+      // La hora a la que se escribió, no la de cuando salga. Un recuento
+      // apuntado a las 23:50 en la cámara y mandado a las 00:10 cuando el
+      // teléfono vuelve a tener señal quedaba fechado al día siguiente: el
+      // turno de noche entero cambiaba de día y ni el consumo ni el food cost
+      // de ninguno de los dos volvían a cuadrar.
+      datos.cuando = new Date().toISOString();
       var lista = cola();
       lista.push({id: datos.envio, accion: formulario.getAttribute("action"),
                   datos: datos, cuando: Date.now(), intentos: 0});
@@ -988,9 +995,45 @@ if ("serviceWorker" in navigator) {
       // aviso de que no la hay, que es lo que hace falta tener delante.
       decir(conFichero ? textos.sinfoto : textos.apuntado, false, conFichero ? 6 : 2);
       setTimeout(function () {
-        if (!navigator.onLine) decir(textos.sinsenal, true);
+        // Si el envío se quedó colgado, la señal no está aunque el navegador
+        // diga que sí: se dice lo mismo que cuando no la hay, porque para
+        // quien está delante es exactamente lo mismo.
+        if (colgado || !navigator.onLine) decir(textos.sinsenal, true);
       }, conFichero ? 6100 : 2100);
-      mandar();
+      // Y no se reintenta de inmediato lo que acaba de no llegar: se deja al
+      // reintento de cada poco, que es el que espera a que la red vuelva.
+      if (!colgado) mandar();
+    }
+
+    formulario.addEventListener("submit", function (ev) {
+      // Con algo esperando delante, a la cola siempre: colarse rompería el
+      // orden —una pieza no se puede despiezar antes de recibirla—.
+      if (!navigator.onLine || cola().length) {
+        ev.preventDefault();
+        alaCola();
+        return;
+      }
+      // Y aquí el navegador dice que hay red. En una cámara eso no quiere
+      // decir nada: el punto de acceso se ve desde dentro y no se llega a
+      // ninguna parte, así que `navigator.onLine` da que sí, el envío sale y
+      // se queda colgado. La persona se queda mirando una pantalla que no
+      // hace nada, sin saber si lo suyo se guardó, que es justo lo que este
+      // programa no se puede permitir.
+      //
+      // Así que el envío sale y se le pone un reloj. Si en unos segundos no
+      // ha contestado, se corta y se apunta en la cola, y quien está delante
+      // sigue trabajando. Si además el envío llegaba tarde y entra, no pasa
+      // nada: los dos llevan la misma llave y el servidor reconoce el
+      // repetido. Es para lo que está la llave.
+      if (form && formulario === form) {
+        localStorage.removeItem("cuenta:" + form.dataset.keep);
+      }
+      var reloj = setTimeout(function () {
+        window.stop();                // se corta el que no llega
+        alaCola(true);
+      }, PLAZO_SIN_RESPUESTA);
+      window.addEventListener("pagehide", function () { clearTimeout(reloj); },
+                              {once: true});
     });
   });
 
@@ -1122,6 +1165,7 @@ if ("serviceWorker" in navigator) {
   // también tiene que esperar a que vuelva la señal en vez de perderse.
   window.cola = {
     apuntar: function (accion, datos) {
+      if (datos && !datos.cuando) datos.cuando = new Date().toISOString();
       var carga = {};
       Object.keys(datos || {}).forEach(function (k) { carga[k] = datos[k]; });
       carga.envio = numero();
