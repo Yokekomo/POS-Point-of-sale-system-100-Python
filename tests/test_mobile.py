@@ -1169,3 +1169,96 @@ def test_the_notice_fits_and_can_be_tapped_on_a_phone(browser):
         assert ancho <= ventana + 1
     finally:
         context.close()
+
+
+# ==================================== la portada pública, en un teléfono
+#
+# Es lo primero que ve alguien que no nos conoce, y casi siempre lo ve en el
+# móvil. Tres fallos vivían aquí sin que nadie los viera desde el código: el
+# margen lateral borrado por un atajo de CSS, una regla de móvil escrita y
+# nunca aplicada por el orden de los bloques, y una cabecera de tres filas.
+# Ninguno se ve leyendo la hoja de estilos; todos se ven midiendo.
+def test_the_public_pages_keep_their_margin_on_a_phone(browser):
+    """Nada pegado al borde y nada que se salga por el lado.
+
+    `.wrap` pone 24 px a los lados y `.inner` los borraba sin querer: usaba el
+    atajo `padding` de cuatro valores, que pisa los cuatro lados. Precios,
+    cookies y solicitar acceso salían con la primera letra de cada línea
+    debajo del redondeo del cristal.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    for ruta in ("/", "/precios", "/cookies", "/solicitar"):
+        page.goto(f"{base}{ruta}")
+        page.wait_for_load_state("networkidle")
+        medido = page.evaluate("""() => {
+            const vista = document.documentElement.clientWidth;
+            const fuera = [...document.querySelectorAll('h1,h2,h3,p,.card')]
+              .filter(el => {
+                const r = el.getBoundingClientRect();
+                return r.width > 0 && r.height > 0 && r.left < 8;
+              })
+              .map(el => el.tagName + ':' + el.textContent.trim().slice(0, 28));
+            return {vista, ancho: document.documentElement.scrollWidth, fuera};
+        }""")
+        assert medido["ancho"] <= medido["vista"] + 1, (ruta, medido)
+        assert medido["fuera"] == [], (ruta, medido["fuera"])
+    context.close()
+
+
+def test_the_detail_is_one_column_on_a_phone(browser):
+    """Seis tarjetas a dos columnas en 412 px parten los títulos en tres líneas.
+
+    La regla que las pone a una columna estaba escrita, pero el bloque de
+    900 px iba después y ganaba él: en un móvil se cumplen los dos y manda el
+    último, no el más estrecho. Una regla de móvil que no se aplica nunca no
+    se ve leyendo el fichero; se ve midiendo el resultado.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    page.goto(base)
+    page.wait_for_load_state("networkidle")
+    columnas = page.evaluate(
+        "() => getComputedStyle(document.querySelector('.facts'))"
+        ".gridTemplateColumns.split(' ').length")
+    assert columnas == 1, f"el detalle sale en {columnas} columnas"
+
+    largos = page.evaluate("""() => [...document.querySelectorAll('.facts h3')].map(h => {
+        const alto = h.getBoundingClientRect().height;
+        return Math.round(alto / parseFloat(getComputedStyle(h).lineHeight));
+    })""")
+    assert max(largos) <= 2, f"hay títulos de {max(largos)} líneas"
+    context.close()
+
+
+def test_the_public_header_fits_in_one_row(browser):
+    """La cabecera es pegajosa: si ocupa tres filas, se come la pantalla.
+
+    Con la marca partida en dos y cinco enlaces salían 126 px fijos arriba —un
+    tercio de un teléfono— antes de leer una palabra. En el móvil se queda lo
+    que se usa desde el móvil: entrar y el botón. Lo demás está en el pie.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    for ruta in ("/", "/precios"):
+        page.goto(f"{base}{ruta}")
+        page.wait_for_load_state("networkidle")
+        r = page.evaluate("""() => {
+            const marca = document.querySelector('.brand');
+            const vistos = [...document.querySelectorAll('header nav a')]
+              .filter(a => getComputedStyle(a).display !== 'none');
+            return {
+              alto: Math.round(document.querySelector('header').getBoundingClientRect().height),
+              lineas_marca: Math.round(marca.getBoundingClientRect().height /
+                                       parseFloat(getComputedStyle(marca).lineHeight)),
+              filas: new Set(vistos.map(a =>
+                       Math.round(a.getBoundingClientRect().top))).size,
+            };
+        }""")
+        assert r["lineas_marca"] == 1, (ruta, "la marca se parte", r)
+        assert r["filas"] == 1, (ruta, f"el menú sale en {r['filas']} filas", r)
+        assert r["alto"] <= 80, (ruta, f"la cabecera ocupa {r['alto']}px", r)
+    context.close()

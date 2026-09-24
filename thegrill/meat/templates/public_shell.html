@@ -63,7 +63,7 @@ header{position:sticky;top:0;z-index:20;background:var(--header);
   backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 header .wrap{display:flex;align-items:center;gap:20px;padding-top:16px;padding-bottom:16px}
 .brand{font-weight:700;letter-spacing:-.02em;margin-inline-end:auto;display:flex;
-  align-items:center;gap:10px}
+  align-items:center;gap:10px;white-space:nowrap}
 .brand span{width:10px;height:10px;border-radius:3px;background:var(--ember);
   box-shadow:0 0 18px var(--ember)}
 header nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -213,9 +213,28 @@ footer a:hover{color:var(--ink)}
 #cookiebar[hidden]{display:none}
 #cookiebar a{color:var(--ember)}
 #cookiebar button{min-height:44px}
+/* El aviso flota sobre la página, así que hay que dejarle su hueco al final:
+   si no, tapa lo último que hay escrito y en un teléfono eso son cinco o seis
+   líneas que no se pueden leer hasta darle a «entendido». En una portada, lo
+   último de la página es el pie con los idiomas y la puerta de entrar. */
+body:has(#cookiebar:not([hidden])){padding-bottom:150px}
+@media (min-width:760px){
+  body:has(#cookiebar:not([hidden])){padding-bottom:110px}
+}
 
-@media (max-width:620px){
-  .facts{grid-template-columns:1fr}
+/* De ancho a estrecho, y en ese orden. Dos bloques que se cumplen a la vez
+   —en un móvil de 412 px se cumplen los tres— los resuelve el navegador por
+   el que va después, no por el más específico. Estando el de 900 px el
+   último, ganaba él: la regla de «una sola columna en el móvil» estaba
+   escrita y no se aplicaba nunca, y el detalle salía a dos columnas con
+   títulos partidos en tres líneas en una pantalla de teléfono. */
+@media (max-width:900px){
+  .hero-grid,.g3,.g4,.g2{grid-template-columns:1fr}
+  .sum{grid-template-columns:repeat(2,1fr)}
+  .sum div:nth-child(3){border-inline-start:0}
+  .facts{grid-template-columns:repeat(2,1fr)}
+  .year{gap:18px}
+  section{padding:68px 0}
 }
 @media (max-width:760px){
   /* En un móvil, la cabecera es la marca, entrar y el botón. Lo que estorba
@@ -226,13 +245,36 @@ footer a:hover{color:var(--ink)}
   header nav{gap:2px}
   header nav a{padding:10px}
 }
-@media (max-width:900px){
-  .hero-grid,.g3,.g4,.g2{grid-template-columns:1fr}
-  .sum{grid-template-columns:repeat(2,1fr)}
-  .sum div:nth-child(3){border-inline-start:0}
-  .facts{grid-template-columns:repeat(2,1fr)}
-  .year{gap:18px}
-  section{padding:68px 0}
+@media (max-width:620px){
+  .facts{grid-template-columns:1fr}
+  .sum{grid-template-columns:1fr}
+  .sum div{border-inline-start:0}
+  /* La cabecera, en una sola fila. Con cinco enlaces y la marca no cabía nada
+     y se iba a tres filas: 126 px de cabecera pegajosa, un tercio de la
+     pantalla de un teléfono ocupada antes de leer una palabra. Aquí se deja
+     lo que se usa desde el móvil —entrar, y el botón— y lo demás se busca en
+     el pie, que los lleva todos; a la portada se vuelve por la marca. */
+  header nav a.menor{display:none}
+  /* La cabecera se estrecha un poco más que el texto: entre la marca y los
+     dos botones faltaban seis píxeles y el botón se caía a otra fila. El
+     texto se sigue leyendo con sus 24 px, que es lo que importa; una barra
+     con menos aire a los lados no la nota nadie, una que ocupa tres filas
+     sí. */
+  header .wrap{gap:8px;padding:12px 16px}
+  header nav{flex-wrap:nowrap;gap:2px}
+  .brand{font-size:15px;gap:7px}
+  .brand span{width:8px;height:8px}
+  header nav a{font-size:13px;padding:8px 8px}
+  header nav a.btn{padding:9px 12px}
+}
+/* Y los teléfonos estrechos de verdad, que siguen siendo muchos. A 360 px la
+   marca y los dos botones se quedaban a dos píxeles de caber, y dos píxeles
+   son una fila entera de cabecera. */
+@media (max-width:400px){
+  .brand{font-size:14px}
+  header .wrap{gap:6px;padding-inline:12px}
+  header nav a{font-size:12px;padding:8px 6px}
+  header nav a.btn{padding:9px 10px}
 }
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 
@@ -280,7 +322,12 @@ details summary{cursor:pointer;color:var(--dim)}
 .langbar a{padding:9px 14px;border:1px solid var(--line);border-radius:999px;
   text-decoration:none;font-size:14px;color:var(--ink)}
 .langbar a.on{border-color:var(--ember);color:var(--ember);font-weight:650}
-.inner{padding:52px 0 96px}
+/* Solo arriba y abajo: el atajo `padding` de cuatro valores pisaba los 24 px
+   laterales que pone `.wrap` y dejaba precios, cookies y solicitar acceso con
+   el texto pegado al borde de la pantalla. En un móvil eso no es un detalle
+   de gusto: la primera letra de cada línea queda debajo del redondeo del
+   cristal y cuesta leer. */
+.inner{padding-block:52px 96px}
 .inner h1{font-size:clamp(30px,4.6vw,46px);margin-bottom:10px}
 .inner .sub{color:var(--dim);margin-bottom:28px;font-size:17px}
 a.back{display:inline-block;margin-bottom:22px;color:var(--dim);text-decoration:none;
@@ -324,9 +371,9 @@ a.back:hover{color:var(--ember)}
     <a class="brand" href="/" style="text-decoration:none"><span></span>{{ t("m.app.title") }}</a>
     <nav>
       {% block nav %}
-      <a href="/">{{ t("pub.home") }}</a>
-      <a href="/precios">{{ t("pub.pricing") }}</a>
-      <a href="/cookies">{{ t("cook.title") }}</a>
+      <a class="menor" href="/">{{ t("pub.home") }}</a>
+      <a class="menor" href="/precios">{{ t("pub.pricing") }}</a>
+      <a class="menor" href="/cookies">{{ t("cook.title") }}</a>
       <a href="#entrar">{{ t("pub.enter") }}</a>
       <a class="btn primary small" href="/solicitar">{{ t("pub.request") }}</a>
       {% endblock %}
