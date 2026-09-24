@@ -390,6 +390,81 @@ def test_four_people_counting_the_same_piece_keep_the_last_one(casa):
         assert linea.disputed                                 # y queda dicho
 
 
+def test_nobody_loses_their_count_when_all_four_read_before_anyone_writes(casa):
+    """El caso de verdad: los cuatro miran la hoja y luego escriben.
+
+    La prueba de arriba deja que los hilos caigan donde caigan, y casi siempre
+    uno guarda antes de que el siguiente mire: entonces el segundo ve a alguien
+    con quien discutir y se marca el lío. Pero una de cada cinco veces los
+    cuatro miraban la línea **sin contar** —que es lo que pasa cuando dos
+    móviles le dan a guardar en el mismo segundo dentro de la cámara— y
+    entonces ninguno veía a nadie: se guardaban los cuatro números encima del
+    anterior y la hoja quedaba diciendo que la contó uno solo y limpio.
+
+    No es que se perdiera un aviso: es que el inventario mentía justo en el
+    caso para el que se escribió el aviso. Aquí se fuerza ese solape con una
+    barrera, para que no dependa de cómo vaya de cargada la máquina.
+    """
+    rest_id, obrador, _playa, _sierra, _item = casa
+    with db.session_scope() as s:
+        ana = _usuario(s, rest_id, "Ana")
+        hoja_id = inventory.open_count(s, ana, CountPeriod.MONTHLY, site_id=obrador).id
+
+    leido = threading.Barrier(3, timeout=60)
+    nombres = ["Ana", "Paco", "Eva"]
+
+    def contar(s, i):
+        quien = _usuario(s, rest_id, nombres[i])
+        hoja = s.get(MeatCount, hoja_id)
+        list(hoja.lines)                    # se lee la hoja, como al pintarla
+        leido.wait()                        # y solo entonces escribe nadie
+        inventory.record(s, quien, hoja, "8017", 8.0 + i * 0.1, lang="es")
+
+    fallos = a_la_vez(contar, veces=3)
+
+    with db.session_scope() as s:
+        linea = next(l for l in s.get(MeatCount, hoja_id).lines if l.serial == "8017")
+        assert fallos == []                             # nadie se queda fuera
+        assert linea.counted_kg in (8.0, 8.1, 8.2)      # manda uno, el último
+        assert linea.disputed, "tres recuentos distintos y la hoja no dice nada"
+        # Y con los números de los otros dos escritos: quien cierre el
+        # inventario tiene que saber a quién preguntarle, no solo que hubo lío.
+        assert linea.note and linea.note.count("kg") >= 2, linea.note
+        assert sum(n in linea.note for n in nombres) >= 2, linea.note
+
+
+def test_a_piece_that_turns_up_is_never_lost_when_two_write_it_at_once(casa):
+    """Dos apuntan a la vez una pieza que no estaba en la lista.
+
+    La hoja no admite dos líneas con el mismo número, así que la segunda
+    reventaba con un fallo de la base —un 500 en la cara, y su recuento a la
+    basura— en vez de entender lo único que había pasado: que llegó segunda.
+    """
+    rest_id, obrador, _playa, _sierra, _item = casa
+    with db.session_scope() as s:
+        ana = _usuario(s, rest_id, "Ana")
+        hoja_id = inventory.open_count(s, ana, CountPeriod.MONTHLY, site_id=obrador).id
+
+    leido = threading.Barrier(3, timeout=60)
+    nombres = ["Ana", "Paco", "Eva"]
+
+    def apuntar(s, i):
+        quien = _usuario(s, rest_id, nombres[i])
+        hoja = s.get(MeatCount, hoja_id)
+        list(hoja.lines)
+        leido.wait()
+        inventory.record(s, quien, hoja, "APARECIDA", 2.0 + i, lang="es")
+
+    fallos = a_la_vez(apuntar, veces=3)
+
+    with db.session_scope() as s:
+        lineas = [l for l in s.get(MeatCount, hoja_id).lines if l.serial == "APARECIDA"]
+        assert fallos == [], fallos          # ninguno revienta
+        assert len(lineas) == 1              # y una sola línea, no tres
+        assert lineas[0].counted_kg in (2.0, 3.0, 4.0)
+        assert lineas[0].disputed            # con lo que contaron los otros
+
+
 def test_four_people_writing_down_the_same_piece_that_was_not_on_the_list(casa):
     """Aparece una pieza que no estaba en la hoja y la apuntan cuatro a la vez."""
     rest_id, obrador, _playa, _sierra, _item = casa

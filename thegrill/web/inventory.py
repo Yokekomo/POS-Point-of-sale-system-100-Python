@@ -143,11 +143,7 @@ def record(session: Session, user: User, count: MeatCount, serial: str, kg: floa
     if kg < 0:
         raise InventoryError("El peso contado no puede ser negativo")
     rangos.peso_corte(kg, lang or "es")
-    line = next((l for l in count.lines if l.serial == serial), None)
-    if line is None:
-        line = MeatCountLine(count_id=count.id, kind=CountItemKind.CUT, serial=serial,
-                             label=serial, expected_kg=0.0)
-        count.lines.append(line)
+    line = _linea(session, count, serial)
 
     # Guardar la hoja manda **todo** lo que hay en la pantalla, no solo lo que
     # uno acaba de escribir. Si el número que llega es el mismo que ya estaba,
@@ -157,25 +153,104 @@ def record(session: Session, user: User, count: MeatCount, serial: str, kg: floa
             and line.counted_pieces == pieces and not note):
         return line
 
-    otro = (line.counted_by is not None and line.counted_by != user.id
-            and line.counted_kg is not None)
-    if otro and abs((line.counted_kg or 0.0) - kg) > EPSILON:
-        lang = lang or service.restaurant_language(session, user.restaurant_id)
-        quien = session.get(User, line.counted_by)
-        aviso = t(lang, "inv.clash", who=(quien.name if quien else "?"),
-                  kg=f"{line.counted_kg:.10g}",
-                  when=(line.counted_at or datetime.utcnow()).strftime("%H:%M"))
-        line.note = " · ".join(x for x in (line.note, aviso) if x)[:1000]
-        line.disputed = True
+    # Lo que había cuando miramos. Se guarda aparte porque hay que poder
+    # preguntarle a la base si sigue siendo eso a la hora de escribir.
+    visto = line.counted_at
+    _decir_si_hay_lio(session, line, user, kg, lang)
 
-    line.counted_kg = kg
-    line.counted_pieces = pieces
-    line.counted_by = user.id
-    line.counted_at = datetime.utcnow()
+    ahora = datetime.utcnow()
+    valores = {"counted_kg": kg, "counted_pieces": pieces, "counted_by": user.id,
+               "counted_at": ahora, "disputed": line.disputed, "note": line.note}
     if note:
-        line.note = " · ".join(x for x in (line.note, note) if x)[:1000] if line.disputed else note
+        valores["note"] = (" · ".join(x for x in (line.note, note) if x)[:1000]
+                           if line.disputed else note)
+
+    # Y aquí está lo que costó encontrar: cuatro personas contando la misma
+    # pieza a la vez leían las cuatro la línea **sin contar**, así que ninguna
+    # veía a nadie con quien discutir. Se guardaban los cuatro números encima
+    # del anterior y la hoja quedaba diciendo que la contó uno solo, limpio. No
+    # es que se perdiera el aviso: es que el inventario mentía justo en el caso
+    # para el que se escribió el aviso.
+    #
+    # Mirar antes no sirve —entre mirar y escribir cabe otra persona—, así que
+    # se pregunta al escribir: «cámbialo solo si sigue como lo vi». Lo resuelve
+    # la base dentro de su propio candado, y de dos que lo intenten a la vez se
+    # lo lleva exactamente una.
+    if not locking.claim(session, MeatCountLine, line.id, {"counted_at": visto},
+                         valores):
+        # Perdimos: alguien escribió entre nuestra lectura y la nuestra. Se
+        # relee lo que dejó, se mira si hay que decir algo —casi siempre sí— y
+        # se escribe encima, que es lo pactado: manda el último, el que está
+        # delante de la pieza ahora. Pero ya no en silencio.
+        session.expire(line)
+        _decir_si_hay_lio(session, line, user, kg, lang)
+        valores["disputed"] = line.disputed
+        valores["note"] = ((" · ".join(x for x in (line.note, note) if x)[:1000]
+                            if note and line.disputed else (note or line.note)))
+        session.query(MeatCountLine).filter_by(id=line.id).update(
+            valores, synchronize_session=False)
+        session.expire(line)
     session.flush()
     return line
+
+
+def _linea(session: Session, count: MeatCount, serial: str) -> MeatCountLine:
+    """La línea de esa pieza en la hoja; si no estaba, se añade.
+
+    Una pieza que aparece en la cámara y no estaba en la lista la pueden
+    apuntar dos personas en el mismo segundo, y la hoja no admite dos líneas
+    con el mismo número. Sin red, la segunda reventaba con un fallo de la base
+    —un 500 en la cara, y su recuento a la basura— en vez de entender lo
+    único que había pasado: que llegó segunda. Se intenta dentro de un punto
+    de retorno, y si choca, se deshace solo eso y se sigue con la línea que
+    creó el otro, que es la misma pieza.
+    """
+    line = next((l for l in count.lines if l.serial == serial), None)
+    if line is not None:
+        return line
+    nueva = MeatCountLine(count_id=count.id, kind=CountItemKind.CUT, serial=serial,
+                          label=serial, expected_kg=0.0)
+    try:
+        with session.begin_nested():
+            # Va colgada de la hoja, no suelta en la sesión: el cierre recorre
+            # `count.lines`, y una línea que se guarda pero no entra en esa
+            # lista queda escrita en la base y fuera del cuadre. La pieza que
+            # aparece en la cámara es justo la que no puede perderse.
+            count.lines.append(nueva)
+            session.flush()
+    except IntegrityError:
+        # La creó otro en el mismo segundo. Se deshace solo esto y se sigue con
+        # la suya, que es la misma pieza; la hoja se relee para que la lista no
+        # se quede con la línea que no llegó a existir.
+        session.expire(count, ["lines"])
+        ya = (session.query(MeatCountLine)
+              .filter_by(count_id=count.id, serial=serial).one_or_none())
+        if ya is None:                                   # pragma: no cover
+            raise InventoryError("Vuelve a intentarlo: esa pieza se está "
+                                 "apuntando ahora mismo") from None
+        return ya
+    return nueva
+
+
+def _decir_si_hay_lio(session: Session, line: MeatCountLine, user: User,
+                      kg: float, lang: str | None) -> None:
+    """Si otra persona ya contó esta pieza y no les da lo mismo, queda escrito.
+
+    No se decide nada aquí sobre qué número manda —eso está pactado: manda el
+    último—, solo que la discusión no se pierda. Una pieza en discusión no es
+    una pieza contada, y al cerrar se avisa.
+    """
+    otro = (line.counted_by is not None and line.counted_by != user.id
+            and line.counted_kg is not None)
+    if not (otro and abs((line.counted_kg or 0.0) - kg) > EPSILON):
+        return
+    lang = lang or service.restaurant_language(session, user.restaurant_id)
+    quien = session.get(User, line.counted_by)
+    aviso = t(lang, "inv.clash", who=(quien.name if quien else "?"),
+              kg=f"{line.counted_kg:.10g}",
+              when=(line.counted_at or datetime.utcnow()).strftime("%H:%M"))
+    line.note = " · ".join(x for x in (line.note, aviso) if x)[:1000]
+    line.disputed = True
 
 
 # ----------------------------------------------------------------- cierre
