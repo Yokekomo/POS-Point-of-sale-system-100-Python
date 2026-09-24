@@ -804,3 +804,45 @@ def test_the_tab_has_a_face_and_nobody_asks_for_it_twice(client):
 def test_the_face_is_kept_for_when_there_is_no_signal(client):
     """La pantalla de «sin señal» también lleva icono, y sin línea no se baja."""
     assert "/static/icono.svg" in client.get("/sw.js").text
+
+
+def test_a_site_manager_never_touches_the_staff_of_the_next_site(client):
+    """El encargado de un local lleva el suyo y su gente. No al de al lado.
+
+    La regla estaba escrita en el módulo desde el principio y no se comprobaba:
+    la última línea daba por bueno a cualquier manager de la casa. El encargado
+    de Playa podía cambiarle la contraseña a la carnicera de Sierra y entrar
+    como ella. En un grupo con cuatro locales son cuatro puertas abiertas entre
+    sí, y el rastro de quién apuntó qué deja de valer: cualquiera puede apuntar
+    como cualquiera.
+    """
+    from thegrill.meat import perms
+    from thegrill.models import Site, SiteKind
+    from thegrill.web import auth
+
+    con_carne(client)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        playa = Site(restaurant_id=rest.id, name="Playa", kind=SiteKind.OUTLET)
+        sierra = Site(restaurant_id=rest.id, name="Sierra", kind=SiteKind.OUTLET)
+        s.add_all([playa, sierra]); s.flush()
+
+        def alguien(email, nombre, rol, sede):
+            u = User(restaurant_id=rest.id, email=email, name=nombre, role=rol,
+                     site_id=sede, password_hash=auth.hash_password("clave-larga-9"))
+            s.add(u); s.flush()
+            return u
+
+        paco = alguien("paco2@marina.com", "Paco", Role.MANAGER, playa.id)
+        eva = alguien("eva2@marina.com", "Eva", Role.BUTCHER, sierra.id)
+        luis = alguien("luis2@marina.com", "Luis", Role.BUTCHER, playa.id)
+
+        assert not perms.can_manage(paco, eva), "entra en el local de al lado"
+        assert perms.can_manage(paco, luis), "no puede con los suyos"
+
+        # Y quien lleva la casa entera —el manager sin sede— sí entra a todos.
+        general = s.query(User).filter_by(restaurant_id=rest.id, role=Role.MANAGER,
+                                          site_id=None).first()
+        assert general is not None
+        assert perms.can_manage(general, eva)
+        assert perms.can_manage(general, luis)

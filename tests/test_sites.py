@@ -154,6 +154,50 @@ def test_a_primal_already_there_does_not_travel(ctx):
         sites.send_primal(s, ana, "8017", playa.id, on=HOY)
 
 
+def test_a_piece_moved_by_somebody_else_is_not_sent_on_from_a_stale_screen(ctx):
+    """Eva veía la pieza en el obrador; Ana la mandó a Playa mientras tanto.
+
+    Si el envío de Eva sale adelante, el papel dice que la pieza salió de Playa
+    camino de Sierra y en Playa la están esperando: nunca llegó, porque de
+    Playa no salió nunca —salió del obrador y se fue derecha a Sierra—. El
+    número de la pieza deja de decir dónde ha estado, que es lo único que se
+    pregunta el día que hay que retirar un lote.
+
+    El envío lleva la sede en la que se vio la pieza. Si ya no está ahí, no se
+    manda: se le dice a quien lo intentó, con esas palabras.
+    """
+    s, rest, ana, _ = ctx
+    obrador = sites.main(s, rest.id)
+    playa = sites.create(s, ana, "Playa")
+    sierra = sites.create(s, ana, "Sierra")
+    p = pieza(s, rest, site_id=obrador.id)
+    p.status = PrimalStatus.IN_STOCK
+    s.flush()
+
+    sites.send_primal(s, ana, "8017", playa.id, on=HOY, desde=obrador.id)
+
+    with pytest.raises(sites.SiteError, match="donde la viste"):
+        sites.send_primal(s, ana, "8017", sierra.id, on=HOY, desde=obrador.id)
+    assert s.query(Transfer).count() == 1
+
+
+def test_a_lot_moved_by_somebody_else_is_not_sent_on_from_a_stale_screen(ctx):
+    """Lo mismo con un lote de cortes: no se manda desde donde ya no está."""
+    s, rest, ana, _ = ctx
+    obrador = sites.main(s, rest.id)
+    playa = sites.create(s, ana, "Playa")
+    sierra = sites.create(s, ana, "Sierra")
+    row = lote(s, rest, ana, kg=6.0, coste=40.0)
+    row.site_id = obrador.id
+    s.flush()
+
+    sites.send_cut(s, ana, row.serial, 6.0, playa.id, on=HOY, desde=obrador.id)
+
+    with pytest.raises(sites.SiteError, match="donde lo viste"):
+        sites.send_cut(s, ana, row.serial, 6.0, sierra.id, on=HOY, desde=obrador.id)
+    assert s.query(Transfer).count() == 1
+
+
 def test_a_piece_that_is_gone_does_not_travel(ctx):
     s, rest, ana, _ = ctx
     playa = sites.create(s, ana, "Playa")
@@ -362,6 +406,59 @@ class TestScreens:
         assert "ya está en Playa" in client.get("/traslados").text
         with db.session_scope() as s:
             assert s.query(Primal).one().site_id == self._outlet_id()
+
+    def test_the_form_carries_the_site_where_the_meat_was_seen(self, client):
+        """Y un envío desde una pantalla vieja se para, en vez de inventar un viaje.
+
+        Ana y Eva tienen la misma pantalla abierta, las dos ven la pieza en el
+        obrador. Ana la manda a Playa. Si el envío de Eva sale adelante, queda
+        escrito que la pieza salió de Playa hacia Sierra sin haber llegado
+        nunca a Playa, y en Playa la esperan.
+        """
+        from thegrill.models import Restaurant
+
+        client.post("/sedes/nueva", data={"name": "Playa", "kind": "OUTLET",
+                                          "csrf": self.csrf(client, "/sedes")})
+        client.post("/sedes/nueva", data={"name": "Sierra", "kind": "OUTLET",
+                                          "csrf": self.csrf(client, "/sedes")})
+        with db.session_scope() as s:
+            rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+            obrador = sites.main(s, rest.id)
+            pieza(s, rest, serial="8017", site_id=obrador.id)
+            obrador_id = obrador.id
+            playa_id, sierra_id = [x.id for x in s.query(Site)
+                                   .filter_by(kind=SiteKind.OUTLET)
+                                   .order_by(Site.id)]
+
+        pantalla = client.get("/traslados").text
+        assert f'value="8017|{obrador_id}"' in pantalla     # viaja la sede, sin javascript
+
+        assert client.post("/traslados/pieza",
+                           data={"serial": f"8017|{obrador_id}", "site": playa_id,
+                                 "csrf": self.csrf(client)}).status_code == 303
+
+        tarde = client.post("/traslados/pieza",
+                            data={"serial": f"8017|{obrador_id}", "site": sierra_id,
+                                  "csrf": self.csrf(client)})
+        assert tarde.status_code == 200                     # se queda en la pantalla
+        assert "ya no está donde la viste" in tarde.text
+        with db.session_scope() as s:
+            assert s.query(Transfer).count() == 1
+            assert s.query(Primal).one().site_id == playa_id
+
+    def test_a_phone_that_queued_the_old_screen_still_gets_its_transfer_through(self, client):
+        """Sin sede en el envío se manda igual: lo de la cola no se pierde."""
+        from thegrill.models import Restaurant
+
+        client.post("/sedes/nueva", data={"name": "Playa", "kind": "OUTLET",
+                                          "csrf": self.csrf(client, "/sedes")})
+        with db.session_scope() as s:
+            rest = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+            pieza(s, rest, serial="8017", site_id=sites.main(s, rest.id).id)
+
+        assert client.post("/traslados/pieza",
+                           data={"serial": "8017", "site": self._outlet_id(),
+                                 "csrf": self.csrf(client)}).status_code == 303
 
     def _outlet_id(self) -> int:
         with db.session_scope() as s:

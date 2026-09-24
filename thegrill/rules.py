@@ -46,6 +46,7 @@ def resolve_from_label(sheet_value: str | None, label_value: str | None) -> Labe
 
 
 def _norm(s: str) -> str:
+    """Deja un texto comparable: minúsculas y un solo espacio entre palabras."""
     return " ".join(str(s).lower().split())
 
 
@@ -59,6 +60,16 @@ class TGInput:
 
 
 def validate_tg(tg_in: TGInput) -> list[Issue]:
+    """Repasa un despiece antes de darlo por bueno y devuelve lo que falla.
+
+    Dos cosas distintas: lo que es un error —un despiece sin piezas de entrada
+    o sin cortes de salida— y lo que solo hay que mirar. Una pieza importada
+    sin número de serie es lo segundo: no se puede rechazar, porque la carne ya
+    está en la cámara, pero es una pieza fantasma y hay que recuperarla.
+
+    Un corte que sale entero para cortarlo al vender no tiene piezas ni gramos
+    por pieza que exigir; los kilos que se lleva, sí.
+    """
     issues: list[Issue] = []
     if not tg_in.serials:
         issues.append(Issue("TG_NO_PRIMALS", f"{tg_in.tg}: sin primales de entrada", "ERROR"))
@@ -89,6 +100,7 @@ ALLOWED_CUT_EVIDENCE = {"despiece", "physical_count"}
 
 
 def can_mark_cut(evidence: str) -> bool:
+    """Si esa prueba vale para dar un corte por hecho."""
     return evidence in ALLOWED_CUT_EVIDENCE
 
 
@@ -96,22 +108,34 @@ def can_mark_cut(evidence: str) -> bool:
 def weekly_count_is_complete(counted_pieces: int,
                              expected_pieces: int = config.WEEKLY_COUNT_EXPECTED_PIECES,
                              tolerance: float = 0.05) -> bool:
+    """Si el recuento semanal cubre lo bastante para darlo por bueno.
+
+    Con un margen: pedir la cifra exacta dejaría el recuento abierto para
+    siempre por dos piezas que estaban en el otro carro.
+    """
     return counted_pieces >= expected_pieces * (1 - tolerance)
 
 
 def weekly_count_is_stale(last_count: date | None, today: date,
                           max_age_days: int = config.WEEKLY_COUNT_MAX_AGE_DAYS) -> bool:
+    """Si hace demasiado del último recuento —o si no ha habido ninguno."""
     return last_count is None or (today - last_count) > timedelta(days=max_age_days)
 
 
 # Regla 6 --------------------------------- pescado/marisco excluido de carne
 def is_meat_entry(description: str, category: str | None = None) -> bool:
+    """Si una línea de factura es carne. El pescado no entra aquí."""
     text = f"{description} {category or ''}".lower()
     return not any(k in text for k in FISH_KEYWORDS)
 
 
 # Regla 12 --------------------------------------------------- tres estados
 def classify_source(posted: bool, readable: bool) -> SourceStatus:
+    """En qué estado queda un origen de datos.
+
+    Tres cosas distintas: aún no lo han publicado —no es un fallo, se vuelve a
+    mirar—, está publicado pero no hay quien lo lea —eso sí—, o está.
+    """
     if not posted:
         return SourceStatus.NOT_POSTED_YET
     if not readable:
@@ -121,21 +145,33 @@ def classify_source(posted: bool, readable: bool) -> SourceStatus:
 
 # Flags de precio ---------------------------------------------------------
 def price_change_pct(old: float, new: float) -> float:
+    """Cuánto ha cambiado un precio, en tanto por ciento y sin signo.
+
+    Desde cero no hay porcentaje que valga: si antes era cero y ahora no,
+    infinito, que es lo que hace saltar cualquier aviso.
+    """
     if old == 0:
         return float("inf") if new else 0.0
     return abs(new - old) / old * 100.0
 
 
 def bill_price_flag(old: float, new: float) -> bool:
+    """Si el precio de una factura ha subido o bajado lo bastante para mirarlo."""
     return price_change_pct(old, new) >= config.PRICE_FLAG_BILLS_PCT
 
 
 def pos_price_flag(old: float, new: float) -> bool:
+    """Lo mismo con un precio de carta, que tiene su propio margen."""
     return price_change_pct(old, new) >= config.PRICE_FLAG_POS_PCT
 
 
 # HACCP -------------------------------------------------------------------
 def haccp_status(kind: str, reading_c: float | None) -> str:
+    """Cómo queda una temperatura frente al límite legal.
+
+    Que falte la lectura no es que esté bien: es que nadie la ha tomado, y eso
+    se dice aparte. Refrigerado y congelado tienen su propio tope.
+    """
     if reading_c is None:
         return "MISSING"
     limit = config.HACCP_LIMIT_CHILLED_C if kind.upper() == "CHILLED" else config.HACCP_LIMIT_FROZEN_C
@@ -157,4 +193,5 @@ def haccp_problems(checks: list[dict]) -> list[dict]:
 
 # Importe ilegible ---------------------------------------------------------
 def bill_status(amount: float | None) -> str:
+    """Una factura sin importe hay que mirarla; con importe, está."""
     return "CHECK" if amount is None else "OK"

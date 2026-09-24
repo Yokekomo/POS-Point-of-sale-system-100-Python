@@ -299,11 +299,17 @@ def _save_primals(session: Session, user: User, rows: list[PrimalRow], lot: str,
     automaticos = [r for r in rows if getattr(r, "auto", False)]
 
     def otros_numeros():
+        """Qué hacer cuando el número ya está cogido: renumerar, o parar.
+
+        Solo se renumera lo que puso la máquina. Un número que escribió una
+        persona no se toca: si lo ha repetido, lo tiene que ver.
+        """
         if not automaticos:
             raise MeatError(t(lang, "m.rec.dup", serial=rows[0].serial)) from None
         _renumber(session, user.restaurant_id, rows, automaticos, lang)
 
     def escribir():
+        """Mete las piezas. Se llama otra vez si hubo que renumerar."""
         return _insert_primals(session, user, rows, lot, received, destino, chamber)
 
     try:
@@ -330,6 +336,12 @@ def _renumber(session: Session, restaurant_id: int, rows: list[PrimalRow],
 
 def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: str,
                     received: date, destino, chamber: str | None) -> list[Primal]:
+    """Da de alta las piezas de una recepción, una fila por pieza.
+
+    Cada una se queda con todo lo que venía en la etiqueta del proveedor —lote,
+    matadero, registro sanitario, raza, sacrificio— porque el día que hay que
+    retirar un lote se pregunta por eso y no por nuestro número.
+    """
     created = []
     for row in rows:
         primal = Primal(
@@ -485,6 +497,7 @@ def store_label_photo(session: Session, primal: Primal, content_type: str,
 
 
 def recent_primals(session: Session, restaurant_id: int, limit: int = 50) -> list[Primal]:
+    """Las últimas piezas que entraron, de la más nueva a la más vieja."""
     return (session.query(Primal).filter_by(restaurant_id=restaurant_id)
             .order_by(Primal.received_date.desc(), Primal.id.desc()).limit(limit).all())
 
@@ -553,6 +566,7 @@ def to_base(unit: Unit, qty_small: float) -> float:
 
 
 def to_small(unit: Unit, qty_base: float) -> float:
+    """Pasa de la unidad de la base a la de la mano: kilos a gramos, litros a mililitros."""
     return round(qty_base * SMALL.get(unit, ("", 1.0))[1], 4)
 
 
@@ -616,12 +630,14 @@ def set_extra_cost(session: Session, user: User, ingredient_id: int, cost: float
 
 
 def extras(session: Session, restaurant_id: int) -> list[Ingredient]:
+    """Los acompañamientos que se pueden poner en un plato."""
     return (session.query(Ingredient)
             .filter_by(restaurant_id=restaurant_id, active=True, category=EXTRA)
             .order_by(Ingredient.name).all())
 
 
 def extra_cost(extra: Ingredient) -> float | None:
+    """Lo que costó la última vez ese acompañamiento, si consta."""
     return extra.items[0].last_cost if extra.items else None
 
 
@@ -639,6 +655,7 @@ def extras_usage(session: Session, restaurant_id: int) -> dict[int, int]:
 
 
 def articles(session: Session, restaurant_id: int) -> list[IngredientItem]:
+    """Los artículos de compra que están de alta, por nombre."""
     return (session.query(IngredientItem)
             .filter_by(restaurant_id=restaurant_id, active=True)
             .order_by(IngredientItem.name).all())
@@ -721,6 +738,10 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
     numero = {"tg": tg}
 
     def otro_numero():
+        """Busca el siguiente número de despiece libre, si el número lo puso la máquina.
+
+        Uno escrito a mano no se cambia: que se vea que está repetido.
+        """
         libre = (_free_tg(session, user.restaurant_id)
                  if AUTO_TG.match(numero["tg"]) else None)
         if libre is None:
@@ -728,6 +749,7 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
         numero["tg"] = libre
 
     def montar():
+        """Escribe el despiece. Se llama otra vez si hubo que cambiarle el número."""
         return _write_despiece(session, user, numero["tg"], serials, before_kg, rows,
                                waste_kg, on, staff, country, grade)
 
@@ -783,6 +805,7 @@ def _write_despiece(session: Session, user: User, tg: str, serials: list[str],
 
 
 def recent_butchery(session: Session, restaurant_id: int, limit: int = 30) -> list[Despiece]:
+    """Los últimos despieces, del más nuevo al más viejo."""
     return (session.query(Despiece).filter_by(restaurant_id=restaurant_id)
             .order_by(Despiece.date.desc(), Despiece.id.desc()).limit(limit).all())
 
@@ -987,10 +1010,12 @@ class Plate:
 
     @property
     def meat(self) -> PlateLine | None:
+        """La línea de carne del plato. Es la que manda en el escandallo."""
         return next((l for l in self.lines if l.is_meat), None)
 
     @property
     def extras(self) -> list[PlateLine]:
+        """Todo lo demás del plato: guarnición, salsa, pan."""
         return [l for l in self.lines if not l.is_meat]
 
 
@@ -1045,10 +1070,12 @@ class DailyReport:
 
     @property
     def waste_kg(self) -> float:
+        """Los kilos tirados en el día."""
         return round(sum(w.kg for w in self.waste), 3)
 
     @property
     def waste_cost(self) -> float:
+        """Lo que costó lo que se tiró."""
         return round(sum(w.cost or 0.0 for w in self.waste), 2)
 
     @property
@@ -1203,6 +1230,11 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
 
     def anotar(clave: str, cuantas: int, donde: str, nombre: str,
                cosas: list[PendingThing]) -> None:
+        """Añade una línea al parte de pendientes, con unos pocos ejemplos.
+
+        Se enseñan los primeros y se dice cuántos más quedan: una lista de
+        cuarenta piezas sin pesar no la lee nadie, y el número sí se ve.
+        """
         pending.append(PendingLine(
             text=t(lang, clave, n=cuantas), where=donde, where_label=nombre,
             things=cosas[:A_LA_VISTA], more=max(0, len(cosas) - A_LA_VISTA)))

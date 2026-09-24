@@ -126,6 +126,7 @@ class CutNode:
 
     @property
     def label(self) -> str:
+        """La etiqueta completa, con el food cost. Para quien ve dinero."""
         return self.label_with(True)
 
     @property
@@ -140,9 +141,15 @@ class CutNode:
 
     @property
     def waste_pieces(self) -> int | None:
+        """Piezas tiradas, al peso medio. Estimación, como las demás."""
         return self._pieces_of(self.waste_kg)
 
     def _pieces_of(self, kg: float) -> int | None:
+        """Cuántas piezas son esos kilos, al peso medio del corte.
+
+        Sin peso medio no hay cuenta que hacer: un corte que se vende entero no
+        sale en piezas y devuelve nada en vez de un cero que engañaría.
+        """
         average = self.avg_piece_g
         if not average or kg <= 0:
             return None
@@ -150,6 +157,11 @@ class CutNode:
 
     @property
     def food_cost_pct(self) -> float | None:
+        """A qué porcentaje sale el corte: lo que costó lo vendido sobre lo cobrado.
+
+        Sin ingreso no hay porcentaje —dividir por cero— y se devuelve nada: un
+        corte recién hecho no tiene food cost todavía, no lo tiene del 0 %.
+        """
         if self.revenue <= EPSILON:
             return None
         return round(self.sold_cost / self.revenue * 100, 2)
@@ -220,10 +232,12 @@ class ButcheryNode:
 
     @property
     def shared(self) -> bool:
+        """Si el despiece llevaba más de una pieza dentro."""
         return bool(self.shared_with)
 
     @property
     def share_pct(self) -> float:
+        """La parte de este despiece que es de esta pieza, en tanto por ciento."""
         return round(self.share * 100, 1)
 
     @property
@@ -312,27 +326,38 @@ class PrimalHistory:
     # —limpiezas y ventas al peso— entero, porque es suyo y de nadie más.
     @property
     def share(self) -> float:
+        """Qué parte del despiece le toca. Sin despiece, todo lo suyo es suyo."""
         return self.butchery.share if self.butchery else 1.0
 
     def _suma(self, campo: str) -> float:
+        """Suma un campo de todos los cortes, cada cosa con su parte.
+
+        Lo que salió del despiece se apunta por la parte que le toca a esta pieza
+        —un despiece de tres piezas no vendió tres veces lo mismo—; lo suyo
+        —limpiezas y lo que colgó de ellas— entero, porque no lo comparte.
+        """
         del_despiece = sum(getattr(c, campo) for c in self._branch)
         propio = sum(getattr(c, campo) for c in self._propios)
         return del_despiece * self.share + propio
 
     @property
     def sold_kg(self) -> float:
+        """Kilos vendidos de esta pieza, por escandallo y al peso."""
         return round(self._suma("sold_kg") + self.weight_sold_kg, 4)
 
     @property
     def sold_cost(self) -> float:
+        """Lo que costó la carne vendida de esta pieza."""
         return round(self._suma("sold_cost") + self.weight_cost, 4)
 
     @property
     def revenue(self) -> float:
+        """Lo ingresado con esta pieza: su parte de los platos más el corte al peso."""
         return round(self._suma("revenue") + self.weight_revenue, 2)
 
     @property
     def remaining_kg(self) -> float:
+        """Lo que queda en cámara de esta pieza, sumando todos sus cortes."""
         return round(self._suma("remaining_kg"), 4)
 
     @property
@@ -350,14 +375,17 @@ class PrimalHistory:
     # --- la venta al corte
     @property
     def weight_sold_kg(self) -> float:
+        """Kilos cortados y cobrados al peso, sin pasar por el escandallo."""
         return round(sum(v.kg for v in self.weight_sales), 4)
 
     @property
     def weight_revenue(self) -> float:
+        """Lo cobrado en la venta al corte."""
         return round(sum(v.revenue for v in self.weight_sales), 2)
 
     @property
     def weight_cost(self) -> float:
+        """Lo que costó la carne que se vendió al corte."""
         return round(sum(v.cost for v in self.weight_sales), 4)
 
     @property
@@ -367,6 +395,11 @@ class PrimalHistory:
 
     @property
     def food_cost_pct(self) -> float | None:
+        """El food cost real de la pieza: lo que costó lo vendido sobre lo cobrado.
+
+        Mientras no se haya vendido nada no hay número que dar, y se devuelve
+        nada en vez de inventarse un cero.
+        """
         if self.revenue <= EPSILON:
             return None
         return round(self.sold_cost / self.revenue * 100, 2)
@@ -392,6 +425,7 @@ class PrimalHistory:
 
     @property
     def _cuts(self) -> list[CutNode]:
+        """Los cortes de primer nivel del despiece, si lo hubo."""
         return self.butchery.cuts if self.butchery else []
 
     @property
@@ -435,6 +469,12 @@ def revenue_ratios(session: Session, restaurant_id: int) -> dict[tuple[str, int]
 
 
 def _ingredients_of(recipe, _seen=()) -> set[int]:
+    """Los ingredientes de una receta, entrando en las subrecetas.
+
+    Lleva la cuenta de por dónde ha pasado: una salsa que se llama a sí misma
+    —o dos que se llaman la una a la otra— colgaría el reparto de ingresos en
+    un bucle sin fin, y con las recetas las hace cualquiera sin darse cuenta.
+    """
     if recipe.id in _seen:
         return set()
     chain = _seen + (recipe.id,)
@@ -601,6 +641,13 @@ def _node(session: Session, lot: IngredientLot, ratios: dict, names: dict,
 
 
 def _fill_movements(session: Session, node: CutNode, lot: IngredientLot, ratios: dict) -> None:
+    """Vuelca sobre el nodo lo que pasó con ese lote: ventas, merma y traslados.
+
+    Cada venta se lleva su parte del ingreso por el plato en el que acabó. Si
+    la venta no dice el plato —el conteo del descongelado no lo dice— se usa
+    la media de los platos que llevan ese ingrediente, que es mejor que
+    apuntarle cero ingreso a carne que se vendió de verdad.
+    """
     fallback = day_ratio(ratios, lot.ingredient_id)
     for mv in (session.query(IngredientMovement)
                .filter_by(restaurant_id=lot.restaurant_id, lot_id=lot.id)

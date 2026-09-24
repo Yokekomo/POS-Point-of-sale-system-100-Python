@@ -528,11 +528,23 @@ def test_two_people_closing_the_shift_at_once_only_close_it_once(casa):
 
 # ======================================================== mandar y recibir
 def test_a_piece_cannot_be_sent_to_two_outlets_at_once(casa):
-    rest_id, _obrador, playa, sierra, _item = casa
+    """Las dos la ven en el obrador y las dos la mandan: solo sale una.
+
+    Las dos mandan «desde el obrador», que es donde la tienen en la pantalla, y
+    ahí se cierran las dos puertas: si coinciden en el mismo segundo, la orden
+    de escribir lleva dentro dónde estaba y una de las dos no encuentra la
+    pieza donde la dejó; y si una acaba antes de que la otra empiece, la
+    segunda ve que ya no está en el obrador y tampoco la manda. Sin lo
+    segundo quedaba escrito un viaje que no existió —«de Playa a Sierra» de una
+    pieza que en Playa no estuvo nunca— y en Playa esperando una pieza que no
+    iba.
+    """
+    rest_id, obrador, playa, sierra, _item = casa
 
     def mandar(s, i):
         ana = _usuario(s, rest_id, "Ana")
-        sites.send_primal(s, ana, "8017", playa if i == 0 else sierra, on=HOY)
+        sites.send_primal(s, ana, "8017", playa if i == 0 else sierra, on=HOY,
+                          desde=obrador)
 
     fallos = a_la_vez(mandar)
 

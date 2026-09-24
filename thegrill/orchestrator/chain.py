@@ -25,19 +25,29 @@ class StepResult:
 
 
 class CheckpointStore(Protocol):
-    def get(self, run_date: date, step: str) -> SourceStatus | None: ...
-    def set(self, run_date: date, step: str, state: SourceStatus, detail: str) -> None: ...
+    """Dónde se apunta por dónde va la cadena: en memoria o en la base."""
+
+    def get(self, run_date: date, step: str) -> SourceStatus | None:
+        """Cómo acabó ese paso ese día, o nada si no se ha corrido todavía."""
+        ...
+
+    def set(self, run_date: date, step: str, state: SourceStatus, detail: str) -> None:
+        """Apunta cómo acabó el paso, para no repetirlo si se relanza el día."""
+        ...
 
 
 class MemoryCheckpoints:
     def __init__(self):
+        """Checkpoints en memoria: para las pruebas y para una pasada suelta."""
         self.data: dict[tuple[date, str], tuple[SourceStatus, str]] = {}
 
     def get(self, run_date, step):
+        """Cómo acabó ese paso ese día, si consta."""
         v = self.data.get((run_date, step))
         return v[0] if v else None
 
     def set(self, run_date, step, state, detail):
+        """Guarda el resultado del paso en el diccionario."""
         self.data[(run_date, step)] = (state, detail)
 
 
@@ -45,10 +55,12 @@ class DbCheckpoints:
     """Checkpoints persistidos en `chain_checkpoints`, por restaurante."""
 
     def __init__(self, session_scope, restaurant_id: int):
+        """Los checkpoints de un restaurante, contra la base de datos."""
         self.session_scope = session_scope
         self.restaurant_id = restaurant_id
 
     def get(self, run_date, step):
+        """Cómo acabó ese paso ese día, según la tabla."""
         from thegrill.models import ChainCheckpoint
         with self.session_scope() as s:
             row = (s.query(ChainCheckpoint)
@@ -57,6 +69,7 @@ class DbCheckpoints:
             return row.state if row else None
 
     def set(self, run_date, step, state, detail):
+        """Guarda o actualiza la fila del paso, con la hora en que terminó."""
         from thegrill.models import ChainCheckpoint
         with self.session_scope() as s:
             row = (s.query(ChainCheckpoint)
@@ -87,28 +100,48 @@ class RunReport:
 
     @property
     def blocked(self) -> list[str]:
+        """Los pasos que se atascaron: lo que hay que mirar a mano."""
         return [n for n, r in self.results.items() if r.state == SourceStatus.BLOCKED]
 
     @property
     def not_posted(self) -> list[str]:
+        """Los pasos cuyo origen aún no había publicado los datos.
+
+        No es un fallo: la caja todavía no ha cerrado, la factura no ha llegado.
+        Se vuelve a intentar en la pasada siguiente y por eso no se marcan hechos.
+        """
         return [n for n, r in self.results.items() if r.state == SourceStatus.NOT_POSTED_YET]
 
 
 class Chain:
     def __init__(self, checkpoints: CheckpointStore, sleep_fn=_time.sleep,
                  backoff=config.RETRY_BACKOFF_SECONDS):
+        """La cadena, con dónde apuntar los checkpoints y cuánto esperar entre intentos."""
         self.steps: list[Step] = []
         self.checkpoints = checkpoints
         self.sleep = sleep_fn
         self.backoff = backoff
 
     def step(self, name: str, only_weekday: int | None = None):
+        """Registra un paso. Se usa como decorador sobre la función que lo hace.
+
+        Con `only_weekday` el paso solo corre ese día de la semana —el inventario
+        los lunes, el plan de pan los martes—: el resto de días se salta y consta
+        como saltado, no como hecho.
+        """
         def deco(fn):
+            """Apunta la función en la lista de pasos y la devuelve intacta."""
             self.steps.append(Step(name, fn, only_weekday))
             return fn
         return deco
 
     def run(self, run_date: date, stop_on_blocked: bool = False) -> RunReport:
+        """Corre la cadena entera de un día y devuelve el parte.
+
+        Un paso que ya consta hecho no se repite: la cadena se puede relanzar
+        tantas veces como haga falta y solo trabaja lo que quedó pendiente, que es
+        lo que se necesita la mañana que algo se atascó a las tres de la noche.
+        """
         report = RunReport(run_date)
         for st in self.steps:
             if st.only_weekday is not None and run_date.weekday() != st.only_weekday:
@@ -128,6 +161,12 @@ class Chain:
         return report
 
     def _run_with_retry(self, st: Step, run_date: date) -> StepResult:
+        """Corre un paso, reintentando solo lo que tiene sentido reintentar.
+
+        Un corte de red o un 500 se vuelven a intentar esperando cada vez un poco
+        más. Un fichero ilegible o una columna que no está, no: por muchas veces
+        que se pida, va a venir igual de mal, y lo que hay que hacer es avisar.
+        """
         attempts = len(self.backoff) + 1
         for i in range(attempts):
             try:
@@ -172,6 +211,12 @@ def build_default_chain(checkpoints: CheckpointStore, handlers: dict[str, Callab
 
 
 def _not_implemented(name):
+    """El relleno de un paso que todavía no existe: siempre atascado.
+
+    Nunca «hecho». Un paso sin código que dijera que sí dejaría el día cerrado
+    con un trozo de la cadena sin correr y sin que nadie se enterara.
+    """
     def fn(run_date):
+        """Devuelve siempre atascado, diciendo qué paso falta por escribir."""
         return StepResult(SourceStatus.BLOCKED, f"{name}: handler no implementado")
     return fn

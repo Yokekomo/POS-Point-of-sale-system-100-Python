@@ -1569,6 +1569,27 @@ def _transfers(request, user, auth_session, session, *, done="", error=""):
                                    site_id=mine.id if mine else None))
 
 
+def _donde_se_veia(valor: str) -> tuple[str, int | None]:
+    """Parte «8017|3» en el número de la pieza y la sede donde se la veía.
+
+    El desplegable manda las dos cosas juntas porque un `<select>` solo manda
+    un valor, y así viaja sin depender de que haya javascript: lo que sale del
+    teléfono es lo que había en la pantalla.
+
+    Un envío sin la sede —uno guardado en la cola de un teléfono con la
+    pantalla de antes— se admite igual y se manda como se mandaba: perder un
+    traslado que ya se hizo sería peor que la duda que evita la comprobación.
+    Y cero es lo mismo que nada: una pieza de las de antes, que se dio de alta
+    cuando la casa no tenía sedes, no tiene ninguna apuntada.
+    """
+    texto = (valor or "").strip()
+    numero, barra, sede = texto.rpartition("|")
+    if not barra:
+        return texto, None
+    sede = sede.strip()
+    return numero.strip(), ((int(sede) or None) if sede.isdigit() else None)
+
+
 @app.post("/traslados/pieza", response_class=HTMLResponse)
 def send_primal(request: Request, serial: str = Form(...), site: str = Form(...),
                 note: str = Form(""), csrf: str = Form(""), envio: str = Form(""),
@@ -1580,9 +1601,10 @@ def send_primal(request: Request, serial: str = Form(...), site: str = Form(...)
     repetido = _ya_estaba(request, session, user, envio, "/traslados")
     if repetido is not None:
         return repetido
+    numero, visto_en = _donde_se_veia(serial)
     try:
-        sent = sites.send_primal(session, user, serial.strip(), int(site or 0),
-                                 note=note.strip() or None)
+        sent = sites.send_primal(session, user, numero, int(site or 0),
+                                 note=note.strip() or None, desde=visto_en)
     except (sites.SiteError, ValueError) as e:
         return _transfers(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     return _hecho(auth_session, "/traslados",
@@ -1603,12 +1625,14 @@ def send_cut(request: Request, serial: str = Form(...), g: str = Form(""),
     repetido = _ya_estaba(request, session, user, envio, "/traslados")
     if repetido is not None:
         return repetido
+    numero, visto_en = _donde_se_veia(serial)
     try:
         # `kg` es el nombre de antes: de la cola de un teléfono con la
         # pantalla vieja, donde esa casilla se escribía en kilos.
-        sent = sites.send_cut(session, user, serial.strip(),
+        sent = sites.send_cut(session, user, numero,
                               pesos.de_dos(g, kg, 0.0) or 0.0,
-                              int(site or 0), note=note.strip() or None)
+                              int(site or 0), note=note.strip() or None,
+                              desde=visto_en)
     except (sites.SiteError, ValueError) as e:
         return _transfers(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     partido = (i18n.t(lang, "m.tr.split", serial=sent.new_serial) if sent.new_serial else "")

@@ -38,7 +38,7 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <label for="sp_serial" data-tour="piezas">{{ t("m.rec.serial") }}</label>
       <select id="sp_serial" name="serial" required>
-        {% for p in primals %}<option value="{{ p.serial }}">{{ p.serial }} · {{ p.sku }} · {{ "%.3f"|format(p.weight_kg or 0) }} kg · {{ t("m.st." ~ storage_of(p).value) }}</option>{% endfor %}
+        {% for p in primals %}<option value="{{ p.serial }}|{{ p.site_id or 0 }}">{{ p.serial }} · {{ p.sku }} · {{ "%.3f"|format(p.weight_kg or 0) }} kg · {{ t("m.st." ~ storage_of(p).value) }}</option>{% endfor %}
       </select>
       <label for="sp_site" data-tour="destino">{{ t("m.tr.to") }}</label>
       <select id="sp_site" name="site" required>
@@ -57,7 +57,7 @@
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <label for="sc_serial">{{ t("m.tr.lot") }}</label>
       <select id="sc_serial" name="serial" required>
-        {% for l in lots %}<option value="{{ l.serial }}">{{ l.serial }} · {{ "%.3f"|format(l.qty_remaining) }} kg</option>{% endfor %}
+        {% for l in lots %}<option value="{{ l.serial }}|{{ l.site_id or 0 }}">{{ l.serial }} · {{ "%.3f"|format(l.qty_remaining) }} kg</option>{% endfor %}
       </select>
       <label for="sc_g">{{ t("m.rec.kg_g") }}</label>
       {{ peso("g", requerido=true, id="sc_g") }}

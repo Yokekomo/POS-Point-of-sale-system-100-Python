@@ -102,7 +102,18 @@ def can_manage(actor, target) -> bool:
     if target.role == Role.MANAGER:
         # A un manager solo le entra el general, y solo si el otro es de local.
         return is_general_manager(actor) and not is_general_manager(target)
-    return actor.role == Role.MANAGER
+    if actor.role != Role.MANAGER:
+        return False
+    # Y el de un local, solo a los suyos. Estaba escrito arriba —«no toca al
+    # de al lado»— y no se comprobaba: el encargado de Playa podía cambiarle
+    # la contraseña a la carnicera de Sierra y entrar como ella. En un grupo
+    # con cuatro locales eso son cuatro puertas abiertas entre sí, y el rastro
+    # de quién apuntó qué deja de valer: cualquiera puede apuntar como
+    # cualquiera. Quien lleva la casa entera —el manager sin sede— sí entra a
+    # todos, que para eso la lleva.
+    if is_general_manager(actor):
+        return True
+    return getattr(actor, "site_id", None) == getattr(target, "site_id", None)
 
 
 def grantable_roles(actor) -> list:

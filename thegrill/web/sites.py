@@ -247,8 +247,17 @@ def set_par(session: Session, user: User, site_id: int, *, ingredient_id: int | 
 
 # --------------------------------------------------------------- traslados
 def send_primal(session: Session, user: User, serial: str, to_site_id: int,
-                on: date | None = None, note: str | None = None) -> Sent:
-    """Manda una pieza entera a otra sede. Va entera: no se parte por el camino."""
+                on: date | None = None, note: str | None = None,
+                desde: int | None = None) -> Sent:
+    """Manda una pieza entera a otra sede. Va entera: no se parte por el camino.
+
+    `desde` es la sede en la que el que manda **veía** la pieza cuando le dio a
+    mandar. Se compara con dónde está de verdad, y es lo que separa un traslado
+    de una cadena inventada: si mientras tenía la pantalla abierta otra persona
+    la mandó al local de la playa, este envío escribiría un albarán que dice
+    «de Playa a Sierra» de una pieza que de Playa no salió nunca, y en Playa se
+    quedan esperando una pieza que no va. Se dice y no se manda.
+    """
     on = on or jornada.del_usuario(session, user)
     primal = (session.query(Primal)
               .filter_by(restaurant_id=user.restaurant_id, serial=(serial or "").strip())
@@ -259,6 +268,9 @@ def send_primal(session: Session, user: User, serial: str, to_site_id: int,
         raise SiteError(f"La pieza {primal.serial} ya no está en stock")
     destino = _site(session, user, to_site_id)
     origen = guard(session, user, primal)      # no se manda lo que no es tuyo
+    if desde is not None and origen.id != desde:
+        raise SiteError(f"La pieza {primal.serial} ya no está donde la viste: "
+                        f"ahora está en {origen.name}. Mírala antes de mandarla.")
     if origen.id == destino.id:
         raise SiteError(f"La pieza {primal.serial} ya está en {destino.name}")
 
@@ -285,8 +297,12 @@ def send_primal(session: Session, user: User, serial: str, to_site_id: int,
 
 
 def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: int,
-             on: date | None = None, note: str | None = None) -> Sent:
+             on: date | None = None, note: str | None = None,
+             desde: int | None = None) -> Sent:
     """Manda cortes a otra sede: el lote entero o unos kilos de él.
+
+    `desde` es la sede en la que se veía el lote al darle a mandar, y hace lo
+    mismo que en una pieza: si ya no está ahí, no se manda.
 
     Si va entero, viaja el lote con su número. Si van unos kilos, el lote se
     parte y lo que sale nace con su propio número colgando del de origen: lo
@@ -306,6 +322,9 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
             f"{lot.qty_remaining:.10g}.")
     destino = _site(session, user, to_site_id)
     origen = guard(session, user, lot)         # no se manda lo que no es tuyo
+    if desde is not None and origen.id != desde:
+        raise SiteError(f"El corte {lot.serial} ya no está donde lo viste: "
+                        f"ahora está en {origen.name}. Míralo antes de mandarlo.")
     if origen.id == destino.id:
         raise SiteError(f"El corte {lot.serial} ya está en {destino.name}")
 

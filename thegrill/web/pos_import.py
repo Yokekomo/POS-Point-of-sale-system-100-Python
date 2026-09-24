@@ -72,14 +72,17 @@ class Parsed:
 
     @property
     def units(self) -> float:
+        """Las unidades vendidas que trae el parte, todas sumadas."""
         return round(sum(r.units for r in self.rows), 4)
 
     @property
     def kg(self) -> float:
+        """Los kilos del parte, para lo que se vende al peso."""
         return round(sum(r.kg or 0.0 for r in self.rows), 4)
 
     @property
     def amount(self) -> float:
+        """Lo facturado según el parte."""
         return round(sum(r.amount or 0.0 for r in self.rows), 2)
 
 
@@ -107,6 +110,12 @@ Celda = str | float
 
 # ------------------------------------------------------------------ lectura
 def _from_text(data: bytes) -> list[list[str]]:
+    """Lee un fichero de texto separado por comas, puntos y comas o tabuladores.
+
+    Cada caja escribe el suyo a su manera, así que el separador se adivina
+    mirando las primeras líneas; si no hay quien lo adivine, gana el que más
+    veces sale en la cabecera. Las filas vacías se tiran.
+    """
     text = _decode(data)
     sample = "\n".join(text.splitlines()[:20])
     try:
@@ -121,6 +130,11 @@ def _from_text(data: bytes) -> list[list[str]]:
 
 
 def _decode(data: bytes) -> str:
+    """Averigua con qué juego de letras está escrito el fichero.
+
+    Se prueban de más moderno a más viejo. Sin esto, un parte guardado en
+    Windows llega con la eñe rota y el artículo no casa con el de la carta.
+    """
     for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
         try:
             return data.decode(encoding)
@@ -168,6 +182,13 @@ def _from_excel(data: bytes) -> list[list[Celda]]:
 
 # --------------------------------------------------------------- lo que dice
 def _understand(table: list[list[Celda]]) -> Parsed:
+    """Convierte la tabla en ventas: qué columna es cada cosa y qué dice cada fila.
+
+    Dos cosas hay que acertar antes de leer nada: dónde está la cabecera —los
+    partes traen encima el nombre del local y la fecha— y cómo escribe los
+    decimales este fichero. Lo segundo se decide mirando el parte entero: en
+    uno donde «1,236» es un kilo y pico, no puede ser mil en la fila de abajo.
+    """
     out = Parsed()
     header, start = _find_header(table)
     if header is None:
@@ -220,6 +241,12 @@ def _find_header(table: list[list[Celda]]) -> tuple[list[Celda] | None, int]:
 
 
 def _map_columns(header: list[Celda]) -> dict[str, int]:
+    """Qué columna es cada cosa, por el nombre de la cabecera.
+
+    Cada caja llama a las cosas a su manera —«artículo», «producto», «plu»— y
+    aquí se traducen todas al mismo sitio. La primera que casa se queda con el
+    puesto: un parte con dos columnas parecidas no se queda sin ninguna.
+    """
     mapping: dict[str, int] = {}
     for index, cell in enumerate(header):
         key = _norm(cell)
@@ -236,7 +263,13 @@ def _map_columns(header: list[Celda]) -> dict[str, int]:
 
 def _row(row: list[Celda], mapping: dict[str, int], number: int,
          decimal: str = ".") -> SaleRow | None:
+    """Una fila del parte convertida en venta, o nada si no lo es.
+
+    Se cae lo que no es una venta: los totales, los subtotales y las filas sin
+    artículo. Vender cero o menos tampoco es vender.
+    """
     def cell(field_name: str) -> Celda:
+        """El valor de esa columna en esta fila, o vacío si no está."""
         index = mapping.get(field_name)
         if index is None or index >= len(row):
             return ""
@@ -244,6 +277,11 @@ def _row(row: list[Celda], mapping: dict[str, int], number: int,
         return valor.strip() if isinstance(valor, str) else valor
 
     def texto(field_name: str) -> str:
+        """Ese valor como texto, sin que un código numérico salga con decimales.
+
+        Una hoja de cálculo devuelve el código 4070 como 4070.0, y así no casa con
+        ningún artículo de la carta.
+        """
         valor = cell(field_name)
         if isinstance(valor, float):        # un código de artículo numérico
             return f"{valor:.10g}"

@@ -116,21 +116,30 @@ class TrimResult:
 
     @property
     def trim_serial(self) -> str | None:
+        """Los números que se le dieron a lo que se quitó, separados por comas."""
         seriales = [p.serial for p in self.parts if p.serial]
         return ", ".join(seriales) if seriales else None
 
     @property
     def waste_pct(self) -> float:
+        """De lo que se quitó, qué parte fue a la basura y no se guardó."""
         return 0.0 if self.removed_kg <= EPSILON else round(
             self.waste_kg / self.removed_kg * 100, 1)
 
     @property
     def removed_pct(self) -> float:
+        """Qué parte de la pieza entera se quitó al limpiarla."""
         whole = self.kg + self.removed_kg
         return 0.0 if whole <= EPSILON else round(self.removed_kg / whole * 100, 2)
 
     @property
     def cost_rise_pct(self) -> float | None:
+        """Cuánto sube el kilo al limpiar la pieza.
+
+        La grasa y el hueso que salen no devuelven su dinero: lo que costó la pieza
+        entera se queda sobre los kilos que quedan. Limpiar un 20 % sube el kilo
+        un 25 %, y quien siga cobrando al precio de antes regala esa diferencia.
+        """
         if not self.cost_per_kg_before or not self.cost_per_kg:
             return None
         return round((self.cost_per_kg - self.cost_per_kg_before)
@@ -172,16 +181,23 @@ class BoardRow:
 
     @property
     def ready_on(self) -> date | None:
+        """El día en que la pieza cumple los días de maduración pedidos.
+
+        Solo para lo que está madurando: en el congelador el reloj está parado y
+        en cámara no hay cuenta atrás que llevar.
+        """
         if self.storage != Storage.AGING or not self.since or not self.target_days:
             return None
         return self.since + timedelta(days=self.target_days)
 
     @property
     def ready(self) -> bool:
+        """Si ya ha cumplido los días que se le pidieron."""
         return bool(self.target_days) and self.days >= (self.target_days or 0)
 
     @property
     def days_left(self) -> int | None:
+        """Días que le faltan. Sin objetivo, no hay cuenta que dar."""
         if not self.target_days:
             return None
         return max(0, self.target_days - self.days)
@@ -200,10 +216,12 @@ class SaleResult:
 
     @property
     def margin(self) -> float:
+        """Lo ganado en ese corte: lo cobrado menos lo que costó la carne."""
         return round(self.price - self.cost, 4)
 
     @property
     def food_cost_pct(self) -> float | None:
+        """A qué food cost ha salido el corte. Regalado —precio cero—, ninguno."""
         if self.price <= EPSILON:
             return None
         return round(self.cost / self.price * 100, 2)
@@ -350,6 +368,12 @@ def total_cost(primal: Primal) -> float | None:
 
 
 def days_in(primal: Primal, on: date | None = None) -> int:
+    """Cuántos días lleva la pieza donde está.
+
+    Se cuenta desde que entró, y por eso congelar y descongelar reinicia la
+    cuenta: lo que importa no es la edad de la pieza sino el tiempo que lleva
+    en ese sitio.
+    """
     since = primal.storage_since
     if not since:
         return 0
@@ -467,6 +491,7 @@ def weigh(session: Session, user: User, serial: str, kg: float,
 
 
 def _pct(part: float, whole: float) -> float:
+    """El tanto por ciento de una parte sobre un total, sin dividir por cero."""
     if whole <= EPSILON:
         return 0.0
     return round(part / whole * 100, 2)
@@ -733,14 +758,21 @@ class DailyCount:
 
     @property
     def loss_kg(self) -> float:
+        """Los kilos que faltan en el recuento del día, sumando todas las líneas."""
         return round(sum(l.loss_kg for l in self.lines), 6)
 
     @property
     def cost(self) -> float:
+        """Lo que cuesta esa falta, en dinero."""
         return round(sum(l.cost or 0.0 for l in self.lines), 4)
 
     @property
     def counted(self) -> int:
+        """Cuántas líneas se han contado de verdad.
+
+        Una línea sin peso no es un cero: es que nadie la ha pesado todavía, y
+        contarla como cero convertiría lo que falta por hacer en carne perdida.
+        """
         return len([l for l in self.lines if l.kg is not None])
 
 
@@ -905,6 +937,12 @@ def _sold_kg(session: Session, restaurant_id: int) -> dict[str, list[tuple[date,
 
 
 def _last_weighings(session: Session, restaurant_id: int) -> dict[str, date]:
+    """El día de la última pesada de cada pieza.
+
+    Se recorre de la más vieja a la más nueva y cada una pisa a la anterior:
+    al acabar, lo que queda es la última. Es lo que dice si una pieza que
+    lleva cuarenta días madurando se pesó ayer o hace tres semanas.
+    """
     found: dict[str, date] = {}
     for row in (session.query(PrimalWeighing)
                 .filter_by(restaurant_id=restaurant_id)
@@ -949,6 +987,12 @@ class Summary:
 
 def summary(session: Session, restaurant_id: int, on: date | None = None,
             site_id: int | None = None, rows: list[BoardRow] | None = None) -> Summary:
+    """Los totales del tablero: cuánta carne hay madurando y congelada, y qué vale.
+
+    Se cuenta sobre las mismas filas que se pintan —si se las pasan, no se
+    vuelve a la base— para que el total y el detalle no puedan decir cosas
+    distintas.
+    """
     out = Summary()
     if rows is None:
         rows = board(session, restaurant_id, on=on, site_id=site_id)

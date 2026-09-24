@@ -134,12 +134,24 @@ def add_missing_columns() -> list[str]:
     tables = set(inspector.get_table_names())
     added: list[str] = []
     dialect = _engine.dialect
-    with _engine.begin() as connection:
-        for table in Base.metadata.sorted_tables:
-            if table.name not in tables:
-                continue
-            existing = {c["name"] for c in inspector.get_columns(table.name)}
+    # Cada orden en su propia transacción, y no todas en una. PostgreSQL, en
+    # cuanto una falla, deja la transacción abortada: **todas** las siguientes
+    # fallan también, aunque no tengan nada que ver. Con una sola transacción
+    # para todo, una columna problemática en la primera tabla se llevaba por
+    # delante las de las veinte siguientes, y el parte lo decía tabla por tabla
+    # como si cada una tuviera su propio problema. La aplicación arrancaba con
+    # media base sin columnas. En SQLite no pasa, que es donde se prueba; en el
+    # servidor, que es PostgreSQL, sí.
+    #
+    # Lo de las reglas de «no puede haber dos iguales», más abajo, ya se hacía
+    # así desde siempre.
+    for table in Base.metadata.sorted_tables:
+        if table.name not in tables:
+            continue
+        existing = {c["name"] for c in inspector.get_columns(table.name)}
+        with _engine.connect() as connection:
             vacia = _esta_vacia(connection, table.name)
+        if True:
             for column in table.columns:
                 if column.name in existing:
                     continue
@@ -156,7 +168,8 @@ def add_missing_columns() -> list[str]:
                         continue
                     orden += " NOT NULL" + (f" DEFAULT {relleno}" if relleno else "")
                 try:
-                    connection.execute(text(orden))
+                    with _engine.begin() as connection:
+                        connection.execute(text(orden))
                 except Exception as e:                       # noqa: BLE001
                     PENDIENTES.append(Pendiente(
                         f"{table.name}.{column.name}", str(e)[:200], orden))
