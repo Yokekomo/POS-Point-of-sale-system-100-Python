@@ -11,7 +11,12 @@
     {{ t("inv.monthly_pending", days=month.days_left) }}</div>
 {% endif %}
 <p class="muted">{{ t("inv.monthly_help") }}</p>
-{% if done %}<div class="banner ok">{{ t("inv.recovered") }}</div>{% endif %}
+{% if recuperada %}<div class="banner ok">{{ t("inv.recovered") }}</div>{% endif %}
+{# El recado de lo último que se hizo. Antes esta pantalla usaba `done` como
+   interruptor con texto fijo, así que cualquier mensaje que llegara aquí
+   —«no se apuntaron dos líneas del recuento»— salía convertido en «pieza
+   recuperada», que dice otra cosa. #}
+{% if done %}<div class="banner warn">{{ done }}</div>{% endif %}
 
 {% if count %}
 <div class="card">

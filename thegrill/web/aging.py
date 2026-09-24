@@ -724,6 +724,12 @@ class DailyCount:
     lines: list[DailyLine] = field(default_factory=list)
     alerts: list[Alert] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)      # las que no se han pesado
+    # Las que se intentaron y no entraron, con el motivo. Antes una sola de
+    # estas tumbaba el conteo entero a mitad: la excepción subía a la ruta, la
+    # ruta la enseñaba... y lo ya pesado se quedaba guardado igual, porque la
+    # sesión se cierra bien y se confirma. Quien contaba veía un error, volvía
+    # a pesarlo todo, y las primeras piezas quedaban pesadas dos veces.
+    rechazadas: list[str] = field(default_factory=list)
 
     @property
     def loss_kg(self) -> float:
@@ -798,7 +804,15 @@ def count_day(session: Session, user: User, readings: list[tuple[str, float]],
             out.missing.append(line.serial)
             out.lines.append(line)
             continue
-        pesada = weigh(session, user, line.serial, kg, on=on, source="daily", lang=lang)
+        try:
+            pesada = weigh(session, user, line.serial, kg, on=on, source="daily",
+                           lang=lang)
+        except (AgingError, ValueError) as e:
+            # Una lectura mala no puede llevarse por delante las otras nueve,
+            # pero tampoco puede callarse: se dice cuál y por qué.
+            out.rechazadas.append(f"{line.serial}: {e}")
+            out.lines.append(line)
+            continue
         line.kg = pesada.kg
         line.loss_kg = pesada.loss_kg
         line.cost = (round(pesada.loss_kg * pesada.cost_per_kg_before, 4)

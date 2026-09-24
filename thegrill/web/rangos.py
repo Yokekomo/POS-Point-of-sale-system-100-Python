@@ -57,9 +57,20 @@ PIEZA_PESADA = 80.0              # más que esto ya no lo sube una persona
 # congelada. El número importa por lo que significa: a cero grados una pieza
 # no está congelada, está descongelándose, y aceptarla sin avisar es firmar
 # que llegó bien.
+# El suelo del congelado no es una norma: es un detector de sondas rotas. En
+# congelado, más frío nunca es un peligro —lo que estropea la carne es que
+# suba, no que baje—, y un contenedor va a −18 o −22 °C de serie. Con el suelo
+# en −20, cada camión de congelado normal disparaba una alarma crítica
+# diciendo «se ha congelado en el viaje», que además no significa nada: ya
+# venía congelado. Una alarma que salta siempre enseña a no mirarlas, y eso es
+# peor que no tenerla.
+#
+# Se deja en −30 para lo que sí es un aviso de verdad: una sonda que devuelve
+# −80, o un dedo que escribe −220 en vez de −22. Quien quiera apretarlo en su
+# casa lo tiene en la configuración.
 LEGAL = {
     Storage.CHILLED: (-5.0, 5.0),
-    Storage.FROZEN: (-20.0, -12.0),
+    Storage.FROZEN: (-30.0, -12.0),
 }
 
 # Cómo se llama cada límite en la casa, para leerlo y para escribirlo.

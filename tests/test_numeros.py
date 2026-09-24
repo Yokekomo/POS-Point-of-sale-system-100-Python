@@ -261,3 +261,30 @@ class TestLoQuePesaUnaUnidad:
         assert pesos.a_gramos(2, self.casa(Unit.UNIT, 55)) == 110.0
         assert pesos.a_gramos(1.5, self.casa(Unit.L, 916)) == 1374.0
         assert pesos.a_gramos(2, self.casa(Unit.UNIT)) is None
+
+
+class TestElKiloManda:
+    """Un kilo pesa mil gramos y eso no lo cambia una casilla.
+
+    La casilla de «cuánto pesa una unidad» está para el huevo y para el
+    aceite. En un ingrediente que ya va en kilos no significa nada, pero
+    invita a escribir ahí los gramos de la ración —que es lo que parece—, y
+    entonces 5000 g de entrecot entraban en cámara como veinte kilos. Cuatro
+    veces la carne, con su coste detrás.
+    """
+
+    def casa(self, unidad, gramos=None):
+        from types import SimpleNamespace
+        return SimpleNamespace(unit=unidad, grams_per_unit=gramos)
+
+    def test_a_kilo_weighs_a_kilo_whatever_the_box_says(self):
+        from thegrill.models import Unit
+        con_numero = self.casa(Unit.KG, 250)
+        assert pesos.por_unidad(con_numero) == 1000.0
+        assert pesos.en_su_unidad(pesos.leer("5000"), con_numero) == 5.0
+
+    def test_and_where_it_does_mean_something_it_is_used(self):
+        from thegrill.models import Unit
+        assert pesos.en_su_unidad(pesos.leer("110"), self.casa(Unit.UNIT, 55)) == 2.0
+        assert pesos.en_su_unidad(pesos.leer("916"),
+                                  self.casa(Unit.L, 916)) == pytest.approx(1.0)

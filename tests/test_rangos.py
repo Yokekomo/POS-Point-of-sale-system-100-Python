@@ -105,7 +105,12 @@ def test_the_manager_sees_it_the_same_day(client):
 
 
 def test_frozen_that_arrives_above_minus_twelve_is_not_frozen(client):
-    """De serie, congelado es de −20 a −12: es lo que pide el 853/2004."""
+    """De serie el techo del congelado es −12, que es lo que pide el 853/2004.
+
+    El techo es lo que importa: por encima de ahí la carne no está congelada.
+    El suelo no es una norma —más frío nunca es un peligro— y está mucho más
+    abajo, solo para cazar una sonda rota.
+    """
     signup(client)
     form = client.get("/recepcion")
     client.post("/recepcion", data={
@@ -215,7 +220,7 @@ def test_touching_one_limit_leaves_the_other_alone(client):
         "csrf": csrf_from(form.text), "language": "es", "frozen_max_c": "-18"})
     with db.session_scope() as s:
         casa = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
-        assert rangos.banda(Storage.FROZEN, casa) == (-20.0, -18.0)
+        assert rangos.banda(Storage.FROZEN, casa) == (-30.0, -18.0)
         assert rangos.banda(Storage.CHILLED, casa) == (-5.0, 5.0)
 
 
@@ -248,3 +253,40 @@ def test_the_screen_shows_the_band_of_the_house(client):
     pantalla = client.get("/configuracion").text
     assert 'name="chilled_max_c" inputmode="decimal" value="4.0"' in pantalla
     assert 'name="frozen_max_c" inputmode="decimal" value="-18.0"' in pantalla
+
+
+# ------------------------------------------ el suelo del congelado
+def test_a_normal_frozen_delivery_does_not_raise_an_alarm():
+    """Un contenedor de congelado va a −18 o −22 °C. Eso es lo normal.
+
+    En congelado, más frío nunca es un peligro: lo que estropea la carne es
+    que suba, no que baje. Con el suelo en −20 cada camión normal disparaba
+    una alarma crítica diciendo «se ha congelado en el viaje» —que además no
+    significa nada, ya venía congelado—. Una alarma que salta siempre enseña a
+    no mirar las alarmas, y eso es peor que no tenerla.
+    """
+    from thegrill.models import Storage
+    from thegrill.web import rangos
+
+    for grados in (-25.0, -22.0, -18.0, -15.0, -12.0):
+        assert rangos.llegada(grados, Storage.FROZEN, "8017", lang="es") == [], grados
+
+
+def test_but_a_broken_probe_still_says_something():
+    """El suelo no es una norma, es un detector de sondas rotas y de dedos."""
+    from thegrill.models import Storage
+    from thegrill.web import rangos
+
+    for grados in (-220.0, -35.0):
+        avisos = rangos.llegada(grados, Storage.FROZEN, "8017", lang="es")
+        assert [a.code for a in avisos] == ["haccp.arrival_cold"], grados
+
+
+def test_and_frozen_that_arrives_warm_is_still_the_one_that_matters():
+    """Lo que de verdad hay que cazar: que suba de −12."""
+    from thegrill.models import Storage
+    from thegrill.web import rangos
+
+    for grados in (-8.0, 0.0, 4.0):
+        avisos = rangos.llegada(grados, Storage.FROZEN, "8017", lang="es")
+        assert [a.code for a in avisos] == ["haccp.arrival_warm"], grados

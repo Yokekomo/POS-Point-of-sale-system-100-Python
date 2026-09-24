@@ -1473,10 +1473,12 @@ async def aging_daily_count(request: Request, ctx=Depends(needs(perms.COUNT)),
         result = aging.count_day(session, user, lecturas, lang=lang)
     except (aging.AgingError, ValueError) as e:
         return _aging(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
-    return _hecho(auth_session, "/maduracion",
-                  i18n.t(lang, "m.ag.counted", n=result.counted,
-                         kg=f"{result.loss_kg:.10g}"),
-                  counted=_en_texto(result))
+    dicho = i18n.t(lang, "m.ag.counted", n=result.counted,
+                   kg=f"{result.loss_kg:.10g}")
+    if result.rechazadas:
+        dicho += " · " + i18n.t(lang, "inv.not_written", n=len(result.rechazadas),
+                                cuales=" · ".join(result.rechazadas[:4]))
+    return _hecho(auth_session, "/maduracion", dicho, counted=_en_texto(result))
 
 
 @app.post("/maduracion/limpiar", response_class=HTMLResponse)
@@ -2027,7 +2029,8 @@ def inventory_page(request: Request, ctx=Depends(needs(perms.COUNT)),
     mia = sites.of_user(session, user)
     suya = mia.id if mia else None
     open_count = inventory.open_now(session, user.restaurant_id, suya)
-    return page(request, "inventory.html", user, auth_session, session, done=bool(done),
+    return page(request, "inventory.html", user, auth_session, session,
+                recuperada=bool(done),
                 count=open_count, site=mia,
                 counters={u.id: u.name for u in
                           session.query(User).filter_by(restaurant_id=user.restaurant_id)},
@@ -2092,6 +2095,12 @@ async def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
     if repetido is not None:
         return repetido
     count = _open_sheet(session, user, str(form.get("hoja") or ""), lang)
+    # Lo que no se pudo apuntar, para decirlo. Una hoja de inventario manda
+    # cincuenta líneas de golpe y una mal escrita no puede tumbar las otras
+    # cuarenta y nueve; pero callársela es peor que tumbarlas: la pieza se
+    # queda «sin contar» y quien la acaba de pesar se ha ido de la cámara
+    # convencido de que la contó. En el cierre aparece como que falta.
+    mudas: list[str] = []
     for key, value in form.multi_items():
         # `g:` es la casilla de ahora; `kg:` la de antes, que solo puede venir
         # de la cola de un teléfono con la pantalla vieja abierta.
@@ -2105,8 +2114,12 @@ async def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
             inventory.record(session, user, count, serial, pesado,
                              pieces=int(_num(form.get(f"pieces:{serial}"), 0) or 0) or None,
                              lang=lang)
-        except (inventory.InventoryError, ValueError):
-            continue
+        except (inventory.InventoryError, ValueError) as e:
+            mudas.append(f"{serial}: {_dicho(e, lang)}")
+    if mudas:
+        return _hecho(auth_session, "/inventario",
+                      i18n.t(lang, "inv.not_written", n=len(mudas),
+                             cuales=" · ".join(mudas[:4])))
     return RedirectResponse("/inventario", status_code=303)
 
 

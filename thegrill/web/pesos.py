@@ -146,14 +146,21 @@ def se_pesa(ingrediente) -> bool:
 
 
 def por_unidad(ingrediente) -> float | None:
-    """Los gramos que pesa una unidad de este ingrediente, si se sabe."""
+    """Los gramos que pesa una unidad de este ingrediente, si se sabe.
+
+    El kilo manda sobre lo que haya escrito en la casilla: un kilo pesa mil
+    gramos y eso no lo cambia nadie. Si en un ingrediente que ya va en kilos
+    alguien escribe 250 —pensando que era «gramos por ración», que es lo que
+    parece—, 5000 g de entrecot entraban en cámara como **veinte kilos**.
+    Cuatro veces la carne, y con su coste detrás.
+    """
     if ingrediente is None:
         return None
     unidad = getattr(getattr(ingrediente, "unit", None), "value", None)
+    if unidad == "KG":
+        return GRAMOS_POR_KILO
     puesto = getattr(ingrediente, "grams_per_unit", None)
-    if puesto:
-        return float(puesto)
-    return GRAMOS_POR_KILO if unidad == "KG" else None
+    return float(puesto) if puesto else None
 
 
 def en_su_unidad(kilos: float | None, ingrediente) -> float | None:

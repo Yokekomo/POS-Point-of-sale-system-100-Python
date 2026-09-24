@@ -614,6 +614,10 @@ def set_grams_per_unit(ingredient_id: int, request: Request,
         cuanto = exacto.leer(escrito, decimales=0) if escrito else None
     except ValueError:
         cuanto = None
+    # En kilos no se pregunta y tampoco se acepta: un kilo pesa mil gramos.
+    # La pantalla ya no lo enseña, pero una pantalla no es la única puerta.
+    if ing.unit == Unit.KG:
+        cuanto = None
     ing.grams_per_unit = cuanto if cuanto and cuanto > 0 else None
     return RedirectResponse(f"/ingredientes/{ingredient_id}", status_code=303)
 
@@ -747,7 +751,7 @@ def inventory_page(request: Request, ctx=Depends(require_user),
     from thegrill.models import MeatCount
     open_count = (session.query(MeatCount)
                   .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
-    return page(request, "inventory.html", user, auth_session, session, done=bool(done),
+    return page(request, "inventory.html", user, auth_session, session, recuperada=bool(done),
                 count=open_count, last=inventory.last_closed(session, user.restaurant_id),
                 counters={u.id: u.name for u in
                           session.query(User).filter_by(restaurant_id=user.restaurant_id)},

@@ -131,6 +131,24 @@ def explode(recipe, units: float = 1.0, _seen: tuple = ()) -> dict[int, float]:
     return {k: round(v, 6) for k, v in totals.items()}
 
 
+def por_raciones(recipe, servings: float = 1.0) -> dict[int, float]:
+    """Lo que hay que descontar por haber vendido `servings` raciones.
+
+    `explode` reparte «la receta entera, tantas veces», y una receta entera no
+    es una ración: la hoja dice cuántas salen. Un plato para cuatro con 1,2 kg
+    de entrecot son 300 g por ración, y la pantalla del escandallo ya lo
+    contaba así —divide el coste entre las raciones—. Lo que no lo contaba era
+    el descuento del almacén: se vendía **un** plato y salían de la cámara los
+    1,2 kg de los cuatro. Cuatro veces la carne, cada vez.
+
+    Los platos de la edición de carne salen siempre con una ración, así que
+    esto no les cambia nada; a una cocina con recetas de varias raciones le
+    cambia el inventario entero.
+    """
+    salen = max(1, int(getattr(recipe, "portions", 1) or 1))
+    return explode(recipe, servings / salen)
+
+
 # ------------------------------------------------------------------ coste
 def unit_cost_of(recipe, costs: dict[int, float], _seen: tuple = ()) -> float | None:
     """Cuánto cuesta una unidad de una elaboración (por kg, litro o unidad)."""

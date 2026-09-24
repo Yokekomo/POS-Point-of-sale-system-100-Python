@@ -290,3 +290,46 @@ def test_with_both_the_code_wins_over_a_reused_name(ctx):
     s.flush()
     index = costing.pos_index(s, rest.id)
     assert index["1042"].recipe_id == plato.id     # gana el que lo lleva como código
+
+
+# ------------------------------- una ración no es la receta entera
+def test_selling_one_serving_of_a_four_serving_dish_takes_one_serving(tmp_path):
+    """Una receta que dice «salen cuatro» y se vende una: se descuenta una.
+
+    La pantalla del escandallo ya lo contaba bien —divide el coste entre las
+    raciones—. Lo que no lo contaba era el descuento del almacén: `explode`
+    reparte «la receta entera, tantas veces», y se le pasaba el número de
+    platos vendidos. Un plato para cuatro con 1,2 kg de entrecot sacaba de la
+    cámara 1,2 kg por **cada** plato vendido: cuatro veces la carne, cada vez,
+    y el inventario del mes sin explicación posible.
+
+    Los platos de la edición de carne salen siempre con una ración, así que
+    esto no les cambia nada; a una cocina con recetas de varias raciones le
+    cambia el inventario entero.
+    """
+    from types import SimpleNamespace
+
+    from thegrill.engine.recipes import cost_recipe, por_raciones
+
+    class Linea:
+        def __init__(self, ingrediente, qty):
+            self.qty, self.waste_pct = qty, 0.0
+            self.ingredient_id, self.sub_recipe_id, self.sub_recipe = ingrediente, None, None
+            self.ingredient = SimpleNamespace(id=ingrediente, name="Entrecot",
+                                              unit=SimpleNamespace(value="KG"))
+
+    para_cuatro = SimpleNamespace(id=1, code="P1", name="Entrecot para cuatro",
+                                  portions=4, sale_price=None, vat_pct=0.0,
+                                  lines=[Linea(7, 1.2)])
+    escandallo = cost_recipe(para_cuatro, {7: 30.0})
+    assert escandallo.total_cost == pytest.approx(36.0)      # la receta entera
+    assert escandallo.cost_per_portion == pytest.approx(9.0)  # y una ración
+
+    # El almacén tiene que ir con la ración, no con la receta.
+    assert por_raciones(para_cuatro, 1)[7] == pytest.approx(0.3)
+    assert por_raciones(para_cuatro, 4)[7] == pytest.approx(1.2)
+
+    # Y un plato de una ración sigue igual que siempre.
+    de_una = SimpleNamespace(id=2, code="P2", name="Entrecot", portions=1,
+                             sale_price=None, vat_pct=0.0, lines=[Linea(7, 0.3)])
+    assert por_raciones(de_una, 1)[7] == pytest.approx(0.3)

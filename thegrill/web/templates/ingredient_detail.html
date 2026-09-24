@@ -8,7 +8,13 @@
   {% if costs.get(ing.id) %}<b>{{ "%.4f"|format(costs[ing.id]) }}</b>{% else %}{{ t("ing.no_price") }}{% endif %}</p>
 
 {# El número que permite escribirlo todo en gramos. Va arriba del todo y
-   antes que nada porque cambia cómo se escribe el resto de la pantalla. #}
+   antes que nada porque cambia cómo se escribe el resto de la pantalla.
+
+   En un ingrediente que ya va en kilos no se pregunta: un kilo pesa mil
+   gramos y no hay nada que decidir. Preguntarlo invita a escribir ahí los
+   gramos de la ración —que es lo que parece— y eso multiplicaba las entradas
+   por cuatro. #}
+{% if ing.unit.value != "KG" %}
 <h2>{{ t("ing.gpu_title") }}</h2>
 <div class="card">
 <form method="post" action="/ingredientes/{{ ing.id }}/gramos" class="rowflex"
@@ -25,6 +31,7 @@
      unit=ing.unit.value, g=ing.grams_per_unit | round | int) }}{% else %}{{
      t("ing.gpu_unset", unit=ing.unit.value) }}{% endif %}</p>
 </div>
+{% endif %}
 
 <h2>{{ t("ing.items") }}</h2>
 <div class="card scroll">

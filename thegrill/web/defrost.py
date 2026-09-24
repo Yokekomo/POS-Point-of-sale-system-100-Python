@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from thegrill import config
 from thegrill.engine.defrost import Consumed, SerialState, Variance, reconcile, variances
-from thegrill.engine.recipes import explode
+from thegrill.engine.recipes import explode, por_raciones
 from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, DefrostEntry, DefrostKind,
                              Ingredient, IngredientLot, IngredientMovement, MovementKind,
                              SalesByProduct, ShiftClosure, User)
@@ -279,7 +279,7 @@ def theoretical_for(session: Session, restaurant_id: int, on: date) -> tuple[dic
         product = index.get(" ".join(line.pos_name.strip().upper().split()))
         if product is None or product.recipe is None:
             continue
-        for ingredient_id, qty in explode(product.recipe, line.units).items():
+        for ingredient_id, qty in por_raciones(product.recipe, line.units).items():
             needed[ingredient_id] = round(needed.get(ingredient_id, 0.0) + qty, 6)
             units[ingredient_id] = units.get(ingredient_id, 0) + int(line.units)
     return needed, units
@@ -294,10 +294,21 @@ def _taken_before(session: Session, restaurant_id: int, on: date,
     se puede rehacer es el descuento: la carne solo sale una vez.
     """
     out: dict[str, dict] = {}
+    # Solo lo que escribe el propio cierre: la venta y la merma de goteo. Sacar
+    # del arcón también deja apuntes con `source="defrost"` —el lote se parte y
+    # los kilos salen de un número y entran en otro—, y esos son un MOVE y un
+    # IN, no un consumo. Contándolos, un turno en el que además se hubiera
+    # sacado algo del congelado ese mismo día se daba por descontado sin
+    # estarlo: el cierre decía «tres kilos consumidos» y los tres kilos seguían
+    # en la cámara. La carne se comía y no salía de los libros, y el sobrante
+    # fantasma aparecía en el inventario de fin de mes como una merma que nadie
+    # sabe explicar.
     rows = (session.query(IngredientMovement)
             .filter(IngredientMovement.restaurant_id == restaurant_id,
                     IngredientMovement.date == on,
-                    IngredientMovement.source == "defrost").all())
+                    IngredientMovement.source == "defrost",
+                    IngredientMovement.kind.in_((MovementKind.SALE,
+                                                 MovementKind.WASTE))).all())
     for movement in rows:
         ref = (movement.source_ref or "").split(" · ")[0].strip()
         partes = ref.split(" ", 1)

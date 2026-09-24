@@ -299,3 +299,35 @@ def test_grams_with_a_comma_say_which_figure_to_write(client):
     assert "9400" in r.text                       # la cifra que hay que poner
     with db.session_scope() as s:
         assert s.query(Primal).filter_by(serial="8060").count() == 0
+
+
+def test_a_count_line_that_cannot_be_written_is_said_out_loud(client):
+    """Una hoja de inventario manda cincuenta líneas: una mala no tumba el resto.
+
+    Pero callarla es peor que tumbarlas. La pieza se queda «sin contar», quien
+    la acaba de pesar se ha ido de la cámara convencido de que la contó, y en
+    el cierre aparece como que falta. El recuento se guarda a medias y nadie
+    lo sabe hasta el cuadre.
+    """
+    from thegrill.models import MeatCount
+    _recibir(client, **{"serial:0": "8070", "g:0": "9400"})
+    pantalla = client.get("/inventario")
+    client.post("/inventario/abrir",
+                data={"csrf": csrf_from(pantalla.text), "period": "MONTHLY"})
+    pantalla = client.get("/inventario")
+
+    # Una en gramos de verdad y otra escrita con coma, que en gramos no existe.
+    r = client.post("/inventario/contar", data={
+        "csrf": csrf_from(pantalla.text), "g:8070": "9,4"})
+    assert r.status_code == 303
+    pantalla = client.get("/inventario").text
+    # Y se dice: con la pieza y con la cifra que había que escribir.
+    assert "8070" in pantalla
+    assert "9400" in pantalla, "no se dice qué había que escribir"
+    assert "banner warn" in pantalla, "la línea se perdió en silencio"
+
+    with db.session_scope() as s:
+        hoja = s.query(MeatCount).order_by(MeatCount.id.desc()).first()
+        linea = next((l for l in hoja.lines if l.serial == "8070"), None)
+        if linea is not None:
+            assert linea.counted_kg is None, "se apuntó un peso que no se entendía"

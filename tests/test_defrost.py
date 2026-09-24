@@ -228,3 +228,57 @@ def test_defrost_never_crosses_between_restaurants(ctx):
     with pytest.raises(DefrostError):
         defrost.intake(s, eva, "8017-01", pieces=5, total_kg=1.0, on=HOY)
     assert defrost.close(s, eva, on=HOY).consumed == []
+
+
+def test_closing_a_shift_still_takes_the_meat_out_when_something_was_thawed_today(tmp_path):
+    """Sacar del arcón y cerrar el turno el mismo día: la carne tiene que salir.
+
+    Sacar del congelado parte el lote, y ese reparto deja dos apuntes —un MOVE
+    y un IN— con el mismo `source="defrost"` que usa el cierre. El contador de
+    «lo que este turno ya descontó» los estaba sumando, así que daba el turno
+    por descontado sin estarlo: el cierre decía «tres kilos consumidos» y los
+    tres kilos seguían en la cámara. La carne se comía y no salía de los
+    libros, y el sobrante fantasma aparecía en el inventario de fin de mes
+    como una merma que nadie sabe explicar.
+    """
+    from datetime import date, timedelta
+
+    from thegrill.models import (ConsumptionMode, DefrostKind, Ingredient,
+                                 IngredientItem, IngredientLot, Rotation, Unit, User)
+    from thegrill.web import auth, defrost
+
+    hoy = date.today()
+    db.init_engine(f"sqlite:///{tmp_path/'df.db'}")
+    db.create_all()
+    with db.session_scope() as s:
+        casa, ana = auth.create_restaurant(s, "Marina", "ana@m.com", "Ana",
+                                           "clave-larga-1", language="es")
+        corte = Ingredient(restaurant_id=casa.id, name="Entrecot", unit=Unit.KG,
+                           rotation=Rotation.FEFO, consumption=ConsumptionMode.COUNT)
+        s.add(corte); s.flush()
+        art = IngredientItem(restaurant_id=casa.id, ingredient_id=corte.id, name="AUS")
+        s.add(art); s.flush()
+        s.add(IngredientLot(restaurant_id=casa.id, item_id=art.id, ingredient_id=corte.id,
+                            serial="8017-01", lot_code="TG-1",
+                            expiry=hoy + timedelta(days=30), received=hoy,
+                            qty=10.0, qty_remaining=10.0, unit_cost=30.0,
+                            frozen=True, pieces=20))
+        s.flush()
+        aid = ana.id
+
+    with db.session_scope() as s:
+        ana = s.get(User, aid)
+        lote = s.query(IngredientLot).filter_by(serial="8017-01").one()
+        hijo = defrost.thaw(s, ana, lote, 4.0, pieces=8, on=hoy)   # parte el lote
+        nacido = hijo.serial
+        defrost.record(s, ana, DefrostKind.INTAKE, nacido, 8, 4.0, on=hoy)
+        defrost.record(s, ana, DefrostKind.COUNT, nacido, 2, 1.0, on=hoy)
+
+    with db.session_scope() as s:
+        cierre = defrost.close(s, s.get(User, aid), on=hoy)
+        assert [(c.serial, c.kg) for c in cierre.consumed] == [(nacido, 3.0)]
+
+    with db.session_scope() as s:
+        queda = s.query(IngredientLot).filter_by(serial=nacido).one().qty_remaining
+        assert queda == pytest.approx(1.0), (
+            f"se consumieron 3 kg y en la cámara quedan {queda}: no salieron")

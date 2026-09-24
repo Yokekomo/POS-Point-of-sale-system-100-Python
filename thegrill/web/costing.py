@@ -24,7 +24,8 @@ from datetime import date, datetime
 from sqlalchemy.orm import Session
 
 from thegrill.engine import fefo
-from thegrill.engine.recipes import RecipeCost, cost_recipe, explode, menu_ranking
+from thegrill.engine.recipes import (RecipeCost, cost_recipe, explode, menu_ranking,
+                                      por_raciones)
 from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, Ingredient,
                              IngredientItem, IngredientLot, IngredientMovement,
                              MovementKind, PosMatch, PosProduct, Recipe, RecipeKind,
@@ -329,7 +330,7 @@ def consume_sales(session: Session, user: User, sales: list[tuple],
             continue
         result.lines += 1
         recipe = product.recipe
-        exploded = explode(recipe, units)
+        exploded = por_raciones(recipe, units)
         weighed = _by_weight_line(recipe)
         if weighed is not None and kg and kg > EPSILON:
             # Manda la balanza: los gramos de esta venta sustituyen a la ración
