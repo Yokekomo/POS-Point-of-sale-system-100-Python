@@ -167,8 +167,23 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       lleva el formulario desde que se pinta, con red y sin ella. Y como es la
       misma mientras la pantalla no se vuelva a pintar, recargar tampoco
       repite el apunte.
-- [ ] **Recargar una pantalla de merma vuelve a apuntar los mismos kilos.** Doce
-      rutas contestan al POST con HTML en vez de redirigir.
+- [x] **Recargar una pantalla de merma vuelve a apuntar los mismos kilos.**
+      Contestar a un POST con la pantalla entera es lo que hace que recargar
+      pregunte «¿reenviar formulario?», y esa pregunta, con una pieza en la
+      mano y guantes puestos, no la sabe contestar nadie. Merma, los dos
+      traslados, el descongelado y las ventas contestan ya con una
+      redirección, y el recado de lo que se guardó viaja aparte —en la sesión,
+      no en la barra de direcciones— y se enseña una sola vez.
+
+- [ ] **Siete pantallas siguen contestando al POST con la pantalla entera:**
+      recepción, despiece, el cierre de descongelado y las cuatro de
+      maduración. No es un descuido: esas no contestan con una frase sino con
+      un bloque —los avisos del despiece, el cuadre del turno, lo del camión
+      que se queda puesto para la siguiente bolsa—, y meterlo en un recado de
+      texto perdería la mitad. Llevar ese estado entero de una pantalla a la
+      siguiente es otro trabajo, no un retoque. En ellas el apunte doble ya lo
+      impide la llave del envío: lo que queda es la pregunta del navegador,
+      que es molesta y no peligrosa.
 - [x] **Un error deja la pantalla en blanco** con el título «Error 400». Ahora
       cuando el error no trae texto se dice qué ha pasado —si te has
       equivocado tú, si no te toca, o si eso ya no está—, en el idioma de
@@ -247,6 +262,10 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       guardaba 15, el «1.250» que se guardaba 1,25 y los rangos de proceso.
       `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
       `tests/test_rangos.py`.
+
+- [x] **Guardar contesta con una redirección.** En las pantallas donde lo que
+      se dice cabe en una frase. El recado viaja en la sesión y se enseña una
+      vez: ni se queda pegado ni vive en la barra de direcciones.
 
 - [x] **La cámara, de verdad.** La cola se enciende por lo que pasa y no por lo
       que diga el navegador, y lo que se apunta lleva la hora a la que se

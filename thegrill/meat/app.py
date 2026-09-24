@@ -188,6 +188,13 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
                                   forzar=request.query_params.get("tour") == "1"),
             "tour_aqui": tours.RUTAS.get(request.url.path.rstrip("/") or "/")}
     base.update(ctx)
+    # El recado de lo último que se guardó, si lo hay. Se enseña una vez y se
+    # borra: la pantalla que lo enseña es una de verdad —se llegó a ella con
+    # una redirección— y recargarla no vuelve a mandar nada.
+    if auth_session is not None and getattr(auth_session, "flash", None):
+        if not base.get("done"):
+            base["done"] = auth_session.flash
+        auth_session.flash = None
     return templates.TemplateResponse(request, name, base)
 
 
@@ -261,6 +268,21 @@ def _num(raw: str | None, default: float | None = None,
     que es la única duda que tiene un número escrito a mano.
     """
     return exacto.leer(raw, default, decimales)
+
+
+def _hecho(auth_session, destino: str, recado: str = "") -> RedirectResponse:
+    """Guardado: se deja el recado y se manda a la pantalla, que es otra cosa.
+
+    Contestar a un POST con la pantalla entera parece lo más corto y es lo que
+    hace que recargar vuelva a mandar el formulario: el navegador pregunta si
+    quieres reenviarlo y esa pregunta, con una pieza en la mano y guantes
+    puestos, no la sabe contestar nadie. Se contesta con una redirección, la
+    pantalla se pide de nuevo —una petición que se puede recargar mil veces— y
+    lo que había que decir viaja aparte.
+    """
+    if auth_session is not None:
+        auth_session.flash = recado or None
+    return RedirectResponse(destino, status_code=303)
 
 
 def _cuando(form, session, user) -> date:
@@ -1200,7 +1222,7 @@ def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form
                       left=f"{(queda.qty_remaining if queda else 0):.10g}")
     elif congelado:
         done = i18n.t(lang, "m.df.thawed", serial=entry.lot_serial)
-    return RedirectResponse(f"/descongelado?shift={shift}&done={done}", status_code=303)
+    return _hecho(auth_session, f"/descongelado?shift={shift}", done)
 
 
 @app.post("/descongelado/recuento", response_class=HTMLResponse)
@@ -1448,9 +1470,9 @@ def send_primal(request: Request, serial: str = Form(...), site: str = Form(...)
                                  note=note.strip() or None)
     except (sites.SiteError, ValueError) as e:
         return _transfers(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
-    return _transfers(request, user, auth_session, session,
-                      done=i18n.t(lang, "m.tr.sent_primal", serial=sent.serial,
-                                  site=sent.to_site.name))
+    return _hecho(auth_session, "/traslados",
+                  i18n.t(lang, "m.tr.sent_primal", serial=sent.serial,
+                         site=sent.to_site.name))
 
 
 @app.post("/traslados/corte", response_class=HTMLResponse)
@@ -1471,9 +1493,9 @@ def send_cut(request: Request, serial: str = Form(...), kg: str = Form(...),
     except (sites.SiteError, ValueError) as e:
         return _transfers(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     partido = (i18n.t(lang, "m.tr.split", serial=sent.new_serial) if sent.new_serial else "")
-    return _transfers(request, user, auth_session, session,
-                      done=i18n.t(lang, "m.tr.sent_cut", kg=f"{sent.kg:.10g}",
-                                  label=sent.label, site=sent.to_site.name, split=partido))
+    return _hecho(auth_session, "/traslados",
+                  i18n.t(lang, "m.tr.sent_cut", kg=f"{sent.kg:.10g}", label=sent.label,
+                         site=sent.to_site.name, split=partido))
 
 
 @app.get("/sedes", response_class=HTMLResponse)
@@ -1876,7 +1898,7 @@ async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
     if result.missing_weight:
         summary += " · " + i18n.t(lang, "sale.no_weight",
                                   products=", ".join(result.missing_weight[:4]))
-    return RedirectResponse(f"/ventas?done={summary}", status_code=303)
+    return _hecho(auth_session, "/ventas", summary)
 
 
 # =========================================================== INVENTARIO
@@ -2028,21 +2050,22 @@ def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(.
 
 # ================================================================ MERMA
 def _waste_page(request, user, auth_session, session, *, result=None, error="",
-                serial="", previo=None):
+                serial="", previo=None, aviso=False):
     """Todo lo que se tira, junto: lo de cámara y lo que se va limpiando piezas."""
     lines = waste.everything(session, user.restaurant_id)
     return page(request, "waste.html", user, auth_session, session,
                 result=result, error=error, serial=serial, lines=lines,
-                previo=(previo or {}),
+                previo=(previo or {}), aviso=aviso,
                 totals=waste.totals(lines),
                 ingredients=meat.cuts(session, user.restaurant_id))
 
 
 @app.get("/merma", response_class=HTMLResponse)
 def waste_page(request: Request, ctx=Depends(needs(perms.WASTE)),
-               session: Session = Depends(get_db), serial: str = ""):
+               session: Session = Depends(get_db), serial: str = "", aviso: int = 0):
     user, auth_session = ctx
-    return _waste_page(request, user, auth_session, session, serial=serial)
+    return _waste_page(request, user, auth_session, session, serial=serial,
+                       aviso=bool(aviso))
 
 
 @app.post("/merma", response_class=HTMLResponse)
@@ -2071,7 +2094,23 @@ def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
                            serial=serial.strip(),
                            previo={"kg": kg, "pieces": pieces, "reason": reason,
                                    "ingredient_id": ingredient_id})
-    return _waste_page(request, user, auth_session, session, result=result)
+    # Guardado. Se contesta con una redirección y el recado viaja aparte: así
+    # la pantalla que se queda delante es una que se puede recargar mil veces
+    # sin volver a tirar los mismos kilos.
+    lang = lang_for(request, session, user)
+    partes = [i18n.t(lang, "waste.done"),
+              f"{result.ingredient} · {result.kg:.3f} kg"]
+    if result.pieces:
+        partes.append(f"{result.pieces} pz")
+    if perms.can(user, perms.MONEY):
+        partes.append(f"{result.cost:.2f}")
+    dicho = " · ".join(partes) + " — " + (
+        i18n.t(lang, "waste.absorbed", pct=butchery.ceil_pct(result.cost_increase_pct))
+        if result.absorbed else i18n.t(lang, "waste.all_gone"))
+    # Sin nada que absorba el coste el aviso no es una buena noticia: se dice
+    # con el color de aviso y no con el de hecho.
+    destino = "/merma" if result.absorbed else "/merma?aviso=1"
+    return _hecho(auth_session, destino, dicho)
 
 
 # ========================================================= TRAZABILIDAD

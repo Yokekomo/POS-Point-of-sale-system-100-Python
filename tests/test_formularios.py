@@ -215,3 +215,33 @@ def test_but_from_the_second_bag_on_the_cursor_does_help(client):
     y el cursor ahí ahorra un toque por pieza."""
     despues = _recibir(client, envio="r-1").text
     assert "autofocus" in despues
+
+
+# ------------------------- recargar no vuelve a mandar lo que ya se guardó
+#
+# Contestar a un POST con la pantalla entera es lo que hace que recargar
+# pregunte «¿reenviar formulario?», y esa pregunta, con una pieza en la mano y
+# guantes puestos, no la sabe contestar nadie. Se contesta con una redirección
+# y el recado de lo que se guardó viaja aparte, en la sesión.
+def test_the_message_of_what_was_saved_survives_the_redirect(client):
+    from thegrill.models import AuthSession
+    with db.session_scope() as s:
+        sesion = s.query(AuthSession).order_by(AuthSession.id.desc()).first()
+        sesion.flash = "Merma apuntada · Entrecot · 1,200 kg"
+
+    primera = client.get("/merma").text
+    assert "Merma apuntada · Entrecot · 1,200 kg" in primera
+
+
+def test_and_it_is_shown_once_and_only_once(client):
+    """Un recado que se queda pegado a la pantalla miente al día siguiente."""
+    from thegrill.models import AuthSession
+    with db.session_scope() as s:
+        sesion = s.query(AuthSession).order_by(AuthSession.id.desc()).first()
+        sesion.flash = "Merma apuntada · Entrecot · 1,200 kg"
+
+    assert "Merma apuntada" in client.get("/merma").text
+    assert "Merma apuntada" not in client.get("/merma").text
+    with db.session_scope() as s:
+        sesion = s.query(AuthSession).order_by(AuthSession.id.desc()).first()
+        assert sesion.flash is None

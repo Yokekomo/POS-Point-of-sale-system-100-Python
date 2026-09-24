@@ -17,6 +17,10 @@
   </div>
 {% endif %}
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{# El recado de lo último que se apuntó, que llega con la pantalla y no como
+   respuesta al POST: recargar aquí no vuelve a tirar los mismos kilos. #}
+{% if done %}<div class="banner {{ 'warn' if aviso is defined and aviso else 'ok' }}"
+  >{{ done }}</div>{% endif %}
 
 <div class="card">
 <form method="post" action="/merma" data-tour="apuntar" data-cola>

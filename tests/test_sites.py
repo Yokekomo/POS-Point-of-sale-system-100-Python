@@ -355,8 +355,11 @@ class TestScreens:
         enviado = client.post("/traslados/pieza",
                               data={"serial": "8017", "site": self._outlet_id(),
                                     "csrf": self.csrf(client)})
-        assert enviado.status_code == 200
-        assert "ya está en Playa" in enviado.text
+        # Guardar contesta con una redirección, no con la pantalla: así
+        # recargar no vuelve a mandar la pieza. El recado se lee en la
+        # pantalla que viene detrás.
+        assert enviado.status_code == 303
+        assert "ya está en Playa" in client.get("/traslados").text
         with db.session_scope() as s:
             assert s.query(Primal).one().site_id == self._outlet_id()
 

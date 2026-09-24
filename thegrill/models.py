@@ -349,6 +349,12 @@ class AuthSession(Base):
     # La sesión que ha pasado la contraseña pero aún no los seis dígitos: existe
     # para nada más que enseñar esa pantalla.
     pending_2fa: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    # El recado de lo último que se guardó, para enseñarlo **después** de
+    # redirigir. Sin esto, la pantalla que contesta a un POST es la respuesta
+    # del POST: recargar vuelve a mandarlo, y el navegador pregunta si quieres
+    # reenviar el formulario, que es una pregunta que nadie sabe contestar con
+    # una pieza en la mano. Se guarda aquí, se enseña una vez y se borra.
+    flash: Mapped[str | None] = mapped_column(Text)
 
 
 class RecordTemplate(TenantMixin, Base):
