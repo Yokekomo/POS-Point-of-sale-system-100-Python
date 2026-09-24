@@ -124,9 +124,21 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       del servicio de anoche, y meterlo en el día siguiente deja dos días mal,
       el de ayer corto y el de hoy largo. Los cuarenta y tantos `date.today()`
       del programa pasan por ahí.
-- [ ] **La trazabilidad no sirve para lo único que tiene que servir:** lo
-      trasladado a otra sede, lo que se limpia y la venta al corte no aparecen;
-      y en un despiece de varias piezas cada una se apunta el 100 %.
+- [x] **La trazabilidad no sirve para lo único que tiene que servir.** Eran
+      cuatro agujeros y los cuatro del mismo tamaño, porque lo que la
+      trazabilidad no enseña no existe:
+      **lo trasladado** —la historia se acababa en el muelle del obrador; ahora
+      se sigue el número hijo hasta donde llegue, con su sede delante, y lo
+      que se venda allí cuenta para la pieza;
+      **lo que se limpia** —una pieza que se limpia y se vende entera no tiene
+      despiece, y su historia era una línea: «llegó»—;
+      **la venta al corte**, que no deja lote ni pasa por el escandallo, así
+      que una pieza madurada vendida entera salía como carne que no se vendió
+      nunca;
+      y **el despiece de varias piezas**, donde cada una se apuntaba el
+      despiece entero: tres piezas de nueve kilos vendiendo veintisiete cada
+      una, con el food cost a un tercio de la verdad. Ahora se reparte por
+      peso, se dice en pantalla y las partes suman uno.
 
 ## 5. Formularios: lo tecleado se pierde
 
@@ -180,6 +192,9 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       guardaba 15, el «1.250» que se guardaba 1,25 y los rangos de proceso.
       `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
       `tests/test_rangos.py`.
+
+- [x] **La historia de una pieza llega hasta el final.** Traslados, limpiezas,
+      venta al corte y el reparto del despiece compartido. `tracing.py`.
 
 - [x] **Lo descongelado sale primero.** Caduca como lo descongelado y no como
       lo congelado, que es lo que decide su sitio en la cola de rotación. Los

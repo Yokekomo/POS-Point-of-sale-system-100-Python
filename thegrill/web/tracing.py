@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 from thegrill.engine.recipes import cost_recipe
 from thegrill.models import (Despiece, DespieceCut, DespiecePrimal, Ingredient,
                              IngredientLot, IngredientMovement, MovementKind, PosProduct,
-                             Primal, PrimalStatus)
+                             Primal, PrimalStatus, Site, WeightSale)
 from thegrill.web import costing
 
 EPSILON = 1e-9
@@ -68,6 +68,21 @@ class CutNode:
     moved_kg: float = 0.0        # lo que salió a otra sede o del arcón, con su número
     is_trim: bool = False
     sales: list[SaleLine] = field(default_factory=list)
+    # Dónde está, y lo que salió de él con su propio número. Un corte que viaja
+    # al local de la playa o unas piezas que salen del arcón nacen con su
+    # número colgando de este: si no se les sigue, la historia de la pieza se
+    # acaba en el muelle del obrador y el día que hay que retirar un lote no
+    # se sabe a qué local llamar.
+    site: str | None = None
+    children: list["CutNode"] = field(default_factory=list)
+
+    @property
+    def rama(self) -> list["CutNode"]:
+        """Este nodo y todo lo que salió de él, de cualquier profundidad."""
+        out = [self]
+        for hijo in self.children:
+            out.extend(hijo.rama)
+        return out
 
     @property
     def avg_piece_g(self) -> float | None:
@@ -195,6 +210,21 @@ class ButcheryNode:
     yield_pct: float | None
     shared_with: list[str] = field(default_factory=list)   # otros primales del mismo TG
     cuts: list[CutNode] = field(default_factory=list)
+    # Qué parte de este despiece es de esta pieza. Con una sola, todo. Con
+    # tres, lo que pesaba ella entre lo que pesaban las tres: los cortes salen
+    # revueltos y nadie puede decir de cuál de las tres salió este filete, pero
+    # apuntarle a cada una el despiece entero era peor —tres piezas de nueve
+    # kilos vendiendo veintisiete cada una— y dejaba el food cost de la pieza a
+    # un tercio de la verdad.
+    share: float = 1.0
+
+    @property
+    def shared(self) -> bool:
+        return bool(self.shared_with)
+
+    @property
+    def share_pct(self) -> float:
+        return round(self.share * 100, 1)
 
     @property
     def pieces(self) -> int:
@@ -267,29 +297,68 @@ class PrimalHistory:
     awaiting_price: bool = False
     label: Label = field(default_factory=Label)
     butchery: ButcheryNode | None = None
+    # Lo que se limpió de la pieza antes de cortarla —o en vez de cortarla—.
+    # Cuelga del primal y no del despiece: una pieza que se limpia y se vende
+    # entera no tiene despiece, y su historia se acababa en «llegó».
+    trims: list[CutNode] = field(default_factory=list)
+    # Y lo que se cortó y se cobró al peso, que no pasa por el escandallo ni
+    # deja lote: sin esto, una pieza madurada vendida entera al corte salía en
+    # la trazabilidad como carne que no se vendió nunca.
+    weight_sales: list[SaleLine] = field(default_factory=list)
 
     # --- resumen
+    #
+    # Lo del despiece se cuenta por la parte que le toca a esta pieza; lo suyo
+    # —limpiezas y ventas al peso— entero, porque es suyo y de nadie más.
+    @property
+    def share(self) -> float:
+        return self.butchery.share if self.butchery else 1.0
+
+    def _suma(self, campo: str) -> float:
+        del_despiece = sum(getattr(c, campo) for c in self._branch)
+        propio = sum(getattr(c, campo) for c in self._propios)
+        return del_despiece * self.share + propio
+
     @property
     def sold_kg(self) -> float:
-        return round(sum(c.sold_kg for c in self._cuts), 4)
+        return round(self._suma("sold_kg") + self.weight_sold_kg, 4)
 
     @property
     def sold_cost(self) -> float:
-        return round(sum(c.sold_cost for c in self._cuts), 4)
+        return round(self._suma("sold_cost") + self.weight_cost, 4)
 
     @property
     def revenue(self) -> float:
-        return round(sum(c.revenue for c in self._cuts), 2)
+        return round(self._suma("revenue") + self.weight_revenue, 2)
 
     @property
     def remaining_kg(self) -> float:
-        return round(sum(c.remaining_kg for c in self._cuts), 4)
+        return round(self._suma("remaining_kg"), 4)
+
+    @property
+    def moved_kg(self) -> float:
+        """Lo que se fue a otra sede o salió del arcón con su propio número."""
+        return round(self._suma("moved_kg"), 4)
 
     @property
     def waste_kg(self) -> float:
         """Merma del despiece más lo tirado después."""
-        butchery_waste = self.butchery.waste_kg if self.butchery else 0.0
-        return round(butchery_waste + sum(c.waste_kg for c in self._cuts), 4)
+        del_despiece = (self.butchery.waste_kg if self.butchery else 0.0)
+        return round((del_despiece + sum(c.waste_kg for c in self._branch)) * self.share
+                     + sum(c.waste_kg for c in self._propios), 4)
+
+    # --- la venta al corte
+    @property
+    def weight_sold_kg(self) -> float:
+        return round(sum(v.kg for v in self.weight_sales), 4)
+
+    @property
+    def weight_revenue(self) -> float:
+        return round(sum(v.revenue for v in self.weight_sales), 2)
+
+    @property
+    def weight_cost(self) -> float:
+        return round(sum(v.cost for v in self.weight_sales), 4)
 
     @property
     def margin(self) -> float:
@@ -324,6 +393,21 @@ class PrimalHistory:
     @property
     def _cuts(self) -> list[CutNode]:
         return self.butchery.cuts if self.butchery else []
+
+    @property
+    def _branch(self) -> list[CutNode]:
+        """Los cortes del despiece y todo lo que salió de ellos."""
+        return [n for c in self._cuts for n in c.rama]
+
+    @property
+    def _propios(self) -> list[CutNode]:
+        """Las limpiezas de esta pieza y lo que salió de ellas."""
+        return [n for t in self.trims for n in t.rama]
+
+    @property
+    def todo(self) -> list[CutNode]:
+        """Todo lo que lleva el número de esta pieza, para recorrerlo."""
+        return self._branch + self._propios
 
 
 # ------------------------------------------------- reparto de los ingresos
@@ -397,40 +481,123 @@ def history(session: Session, restaurant_id: int, serial: str) -> PrimalHistory:
                             arrival_c=primal.arrival_c,
                             frozen_on_arrival=primal.frozen_on_arrival))
 
+    ratios = revenue_ratios(session, restaurant_id)
+    names = {i.id: i for i in session.query(Ingredient).filter_by(restaurant_id=restaurant_id)}
+    sedes = {s.id: s.name for s in session.query(Site).filter_by(restaurant_id=restaurant_id)}
+
+    # Lo que se cortó y se cobró al peso. No deja lote ni pasa por el
+    # escandallo —cada trozo pesa lo que pesa—, así que si no se lee de su
+    # propia tabla no aparece en ninguna parte: una pieza madurada vendida
+    # entera al corte salía como carne que no se vendió nunca.
+    out.weight_sales = [
+        SaleLine(date=v.date, dish=v.dish or "—", kg=round(v.grams / 1000, 4),
+                 cost=round(v.cost or 0.0, 4), revenue=round(v.price or 0.0, 4),
+                 source="weight")
+        for v in (session.query(WeightSale)
+                  .filter_by(restaurant_id=restaurant_id, serial=primal.serial)
+                  .order_by(WeightSale.date, WeightSale.id))]
+
     link = (session.query(DespiecePrimal)
             .filter_by(serial=primal.serial)
             .join(Despiece, Despiece.id == DespiecePrimal.despiece_id)
             .filter(Despiece.restaurant_id == restaurant_id).first())
-    if link is None:
-        return out                      # todavía entero, no hay más historia
 
-    despiece = session.get(Despiece, link.despiece_id)
-    out.butchery = ButcheryNode(
-        tg=despiece.tg, date=despiece.date, weight_before_kg=despiece.weight_before_kg,
-        waste_kg=despiece.waste_kg, trim_kg=despiece.trim_kg,
-        total_cuts_kg=despiece.total_cuts_kg, yield_pct=despiece.yield_pct,
-        shared_with=[p.serial for p in despiece.primals
-                     if p.serial and p.serial != primal.serial])
+    de_cortes: set[int] = set()
+    if link is not None:
+        despiece = session.get(Despiece, link.despiece_id)
+        out.butchery = ButcheryNode(
+            tg=despiece.tg, date=despiece.date, weight_before_kg=despiece.weight_before_kg,
+            waste_kg=despiece.waste_kg, trim_kg=despiece.trim_kg,
+            total_cuts_kg=despiece.total_cuts_kg, yield_pct=despiece.yield_pct,
+            shared_with=[p.serial for p in despiece.primals
+                         if p.serial and p.serial != primal.serial],
+            share=_share(session, despiece, primal))
 
-    ratios = revenue_ratios(session, restaurant_id)
-    names = {i.id: i for i in session.query(Ingredient).filter_by(restaurant_id=restaurant_id)}
-    for cut in sorted(despiece.cuts, key=lambda c: c.cut_name):
-        lot = session.get(IngredientLot, cut.lot_id) if cut.lot_id else None
-        if lot is None:
-            continue
-        ingredient = names.get(lot.ingredient_id)
-        node = CutNode(serial=lot.serial or cut.cut_name,
-                       name=ingredient.name if ingredient else cut.cut_name,
-                       unit=ingredient.unit.value if ingredient else "KG",
-                       pieces=lot.pieces, piece_weight_g=lot.piece_weight_g,
-                       nominal_piece_g=lot.nominal_piece_g,
-                       grade=lot.grade, origin=lot.origin,
-                       produced_kg=round(lot.qty, 4), cost=round(lot.qty * lot.unit_cost, 4),
-                       unit_cost=lot.unit_cost, remaining_kg=round(lot.qty_remaining, 4),
-                       is_trim=cut.is_trim)
-        _fill_movements(session, node, lot, ratios)
-        out.butchery.cuts.append(node)
+        for cut in sorted(despiece.cuts, key=lambda c: c.cut_name):
+            lot = session.get(IngredientLot, cut.lot_id) if cut.lot_id else None
+            if lot is None:
+                continue
+            de_cortes.add(lot.id)
+            out.butchery.cuts.append(
+                _node(session, lot, ratios, names, sedes,
+                      nombre=cut.cut_name, is_trim=cut.is_trim))
+
+    # Las limpiezas: lo que se quitó de la pieza y se guardó con su número.
+    # Cuelgan del primal, no del despiece, porque una pieza se limpia antes de
+    # cortarla y a veces en vez de cortarla.
+    for lot in (session.query(IngredientLot)
+                .filter_by(restaurant_id=restaurant_id, parent_serial=primal.serial)
+                .order_by(IngredientLot.serial)):
+        if lot.id in de_cortes or "·" in (lot.serial or ""):
+            continue                     # un corte, o algo que salió de un corte
+        out.trims.append(_node(session, lot, ratios, names, sedes, is_trim=True))
     return out
+
+
+def _share(session: Session, despiece, primal) -> float:
+    """Qué parte de un despiece de varias piezas es de esta.
+
+    Por peso, que es lo único que las distingue: los cortes salen revueltos y
+    nadie puede decir de cuál de las tres salió este filete. Sin esto, cada
+    pieza de un despiece de tres se apuntaba el despiece **entero** —el triple
+    de kilos vendidos y el triple de ingreso—, y el food cost de cada una salía
+    a un tercio de la verdad.
+    """
+    cuantas = len(despiece.primals)
+    if cuantas <= 1:
+        return 1.0
+    a_partes_iguales = round(1 / cuantas, 6)
+
+    pesos: dict[str, float] = {}
+    for fila in despiece.primals:
+        if not fila.serial:
+            continue
+        kg = fila.label_kg or 0.0
+        if kg <= EPSILON:
+            pieza = (session.query(Primal)
+                     .filter_by(restaurant_id=despiece.restaurant_id,
+                                serial=fila.serial).first())
+            kg = (pieza.received_kg or pieza.weight_kg or 0.0) if pieza else 0.0
+        pesos[fila.serial] = kg
+
+    total = sum(pesos.values())
+    mia = pesos.get(primal.serial, 0.0)
+    if total <= EPSILON or mia <= EPSILON:
+        # Sin pesos no hay reparto posible: a partes iguales, que es lo único
+        # que no favorece a ninguna.
+        return a_partes_iguales
+    return round(mia / total, 6)
+
+
+def _node(session: Session, lot: IngredientLot, ratios: dict, names: dict,
+          sedes: dict, nombre: str | None = None, is_trim: bool = False,
+          hondo: int = 0) -> CutNode:
+    """Un lote con su historia y, colgando, lo que salió de él con otro número."""
+    ingredient = names.get(lot.ingredient_id)
+    node = CutNode(serial=lot.serial or nombre or "—",
+                   name=ingredient.name if ingredient else (nombre or lot.serial or "—"),
+                   unit=ingredient.unit.value if ingredient else "KG",
+                   pieces=lot.pieces, piece_weight_g=lot.piece_weight_g,
+                   nominal_piece_g=lot.nominal_piece_g,
+                   grade=lot.grade, origin=lot.origin,
+                   produced_kg=round(lot.qty, 4), cost=round(lot.qty * lot.unit_cost, 4),
+                   unit_cost=lot.unit_cost, remaining_kg=round(lot.qty_remaining, 4),
+                   is_trim=is_trim, site=sedes.get(lot.site_id))
+    _fill_movements(session, node, lot, ratios)
+    if hondo >= 6 or not lot.serial:
+        return node                       # una cadena así no existe en una cocina
+    for hijo in (session.query(IngredientLot)
+                 .filter(IngredientLot.restaurant_id == lot.restaurant_id,
+                         IngredientLot.serial.like(f"{lot.serial}·%"),
+                         IngredientLot.id != lot.id)
+                 .order_by(IngredientLot.serial)):
+        # Solo los hijos directos: «8017-01·T1» sí, «8017-01·T1·D1» cuelga de
+        # aquel y ya lo recoge él.
+        if "·" in hijo.serial[len(lot.serial) + 1:]:
+            continue
+        node.children.append(
+            _node(session, hijo, ratios, names, sedes, is_trim=is_trim, hondo=hondo + 1))
+    return node
 
 
 def _fill_movements(session: Session, node: CutNode, lot: IngredientLot, ratios: dict) -> None:

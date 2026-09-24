@@ -88,29 +88,19 @@
   <div class="kpi"><b>{{ "%.3f"|format(h.waste_kg) }}</b><span>{{ t("trace.waste_kg") }}</span></div>
 </div>
 
-{% if not h.butchery %}
-<div class="card"><p class="muted" style="margin:0">{{ t("trace.whole") }}</p></div>
-{% else %}
-<h2>{{ t("trace.butchery") }} {{ h.butchery.tg }}</h2>
-<p class="sub">{{ h.butchery.date }} · {{ t("trace.yield") }}:
-   {{ "%.1f"|format(h.butchery.yield_pct or 0) }}% ·
-   {{ t("trace.cuts_total") }}: {{ "%.3f"|format(h.butchery.total_cuts_kg) }} kg ·
-   {% if h.butchery.pieces %}{{ h.butchery.pieces }} {{ t("meat.pieces")|lower }}{% if h.butchery.avg_piece_g %} ·
-     {{ t("trace.avg_piece") }} {{ "%.10g"|format(h.butchery.avg_piece_g) }} g{% endif %} ·
-   {% endif %}
-   {{ t("trace.waste_kg") }}: {{ h.butchery.waste_kg }}
-   {% if h.butchery.trim_kg %} · {{ t("trace.trim_kg") }}: {{ "%.3f"|format(h.butchery.trim_kg) }} kg{% endif %}
-   {% if h.butchery.shared_with %} · {{ t("trace.shared") }}:
-     {% for other in h.butchery.shared_with %}<a href="/trazabilidad?serial={{ other }}">{{ other }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
-   {% endif %}</p>
-
-{% for cut in h.butchery.cuts %}
-<div class="card">
+{# Una tarjeta por lote, y debajo lo que salió de él con su propio número:
+   lo que viajó al local de la playa o lo que salió del arcón. Es una macro
+   y no un bucle porque un hijo puede tener hijos —se manda a la playa y
+   allí se saca del congelador— y la historia tiene que llegar hasta el
+   final o no sirve para retirar un lote. #}
+{% macro tarjeta(cut, hondo=0) %}
+<div class="card"{% if hondo %} style="margin-left:{{ [hondo, 3]|min * 14 }}px;border-left:3px solid var(--linea)"{% endif %}>
   <div class="rowflex">
     <b style="flex:1">{{ cut.name }} <span class="muted">{{ cut.serial }}</span>
       {% set etiqueta = cut.label_with(can("money")) %}
       {% if etiqueta %}<span class="tag ok">{{ etiqueta }}</span>{% endif %}
-      {% if cut.is_trim %}<span class="tag warn">{{ t("trace.trim") }}</span>{% endif %}</b>
+      {% if cut.is_trim %}<span class="tag warn">{{ t("trace.trim") }}</span>{% endif %}
+      {% if cut.site %}<span class="tag">{{ cut.site }}</span>{% endif %}</b>
   </div>
   {% if cut.pieces %}
   <p class="muted" style="margin:4px 0 0">
@@ -199,7 +189,68 @@
   </details>
   {% endif %}
 </div>
+{% for hijo in cut.children %}{{ tarjeta(hijo, hondo + 1) }}{% endfor %}
+{% endmacro %}
+
+{% if not h.butchery %}
+<div class="card"><p class="muted" style="margin:0">{{ t("trace.whole") }}</p></div>
+{% else %}
+<h2>{{ t("trace.butchery") }} {{ h.butchery.tg }}</h2>
+<p class="sub">{{ h.butchery.date }} · {{ t("trace.yield") }}:
+   {{ "%.1f"|format(h.butchery.yield_pct or 0) }}% ·
+   {{ t("trace.cuts_total") }}: {{ "%.3f"|format(h.butchery.total_cuts_kg) }} kg ·
+   {% if h.butchery.pieces %}{{ h.butchery.pieces }} {{ t("meat.pieces")|lower }}{% if h.butchery.avg_piece_g %} ·
+     {{ t("trace.avg_piece") }} {{ "%.10g"|format(h.butchery.avg_piece_g) }} g{% endif %} ·
+   {% endif %}
+   {{ t("trace.waste_kg") }}: {{ h.butchery.waste_kg }}
+   {% if h.butchery.trim_kg %} · {{ t("trace.trim_kg") }}: {{ "%.3f"|format(h.butchery.trim_kg) }} kg{% endif %}
+   {% if h.butchery.shared_with %} · {{ t("trace.shared") }}:
+     {% for other in h.butchery.shared_with %}<a href="/trazabilidad?serial={{ other }}">{{ other }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+   {% endif %}</p>
+{% if h.butchery.shared %}
+{# Los cortes salen revueltos: de cuál de las tres piezas salió este filete no
+   lo sabe nadie. Lo que se puede decir es qué parte del despiece es de esta, y
+   es lo que se le apunta. #}
+<div class="banner warn">{{ t("trace.share", pct="%.10g"|format(h.butchery.share_pct),
+                            n=h.butchery.shared_with|length + 1) }}</div>
+{% endif %}
+
+{% for cut in h.butchery.cuts %}{{ tarjeta(cut) }}{% endfor %}
+{% endif %}
+
+{% if h.trims %}
+{# Lo que se quitó de la pieza antes de cortarla, o en vez de cortarla. Cuelga
+   del primal y no del despiece: una pieza que se limpia y se vende entera no
+   tiene despiece, y su historia se acababa en «llegó». #}
+<h2>{{ t("trace.trims") }}</h2>
+<p class="sub">{{ t("trace.trims_help") }}</p>
+{% for trim in h.trims %}{{ tarjeta(trim) }}{% endfor %}
+{% endif %}
+
+{% if h.weight_sales %}
+{# La venta al corte no deja lote ni pasa por el escandallo: cada trozo pesa lo
+   que pesa. Sin leerla de su tabla, una pieza madurada vendida entera al corte
+   salía como carne que no se vendió nunca. #}
+<h2>{{ t("trace.weight_sales") }}</h2>
+<div class="card scroll"><table>
+<tr><th>{{ t("common.date") }}</th><th>{{ t("trace.dish") }}</th>
+    <th class="num">kg</th>
+    {% if can("money") %}<th class="num">{{ t("rec.line_cost") }}</th>
+    <th class="num">{{ t("trace.revenue") }}</th>{% endif %}</tr>
+{% for line in h.weight_sales %}
+<tr>
+  <td class="when">{{ line.date }}</td>
+  <td>{{ line.dish }}</td>
+  <td class="num">{{ "%.3f"|format(line.kg) }}</td>
+  {% if can("money") %}<td class="num">{{ "%.2f"|format(line.cost) }}</td>
+  <td class="num">{{ "%.2f"|format(line.revenue) }}</td>{% endif %}
+</tr>
 {% endfor %}
+<tr><th colspan="2">{{ t("common.total") }}</th>
+    <th class="num">{{ "%.3f"|format(h.weight_sold_kg) }}</th>
+    {% if can("money") %}<th class="num">{{ "%.2f"|format(h.weight_cost) }}</th>
+    <th class="num">{{ "%.2f"|format(h.weight_revenue) }}</th>{% endif %}</tr>
+</table></div>
 {% endif %}
 
 <p class="muted">{{ t("trace.avg_help") }}</p>

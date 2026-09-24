@@ -505,3 +505,205 @@ def test_a_cut_says_which_dishes_it_ended_up_in():
 
     # Un corte que no se ha vendido no inventa platos.
     assert CutNode(serial="x", name="y", unit="KG").by_dish == []
+
+
+# ================================================== lo que faltaba de la historia
+#
+# Tres agujeros, y los tres del mismo tamaño: lo que la trazabilidad no enseña
+# no existe. Lo trasladado a otra sede, lo que se limpia de la pieza y lo que
+# se corta y se cobra al peso no salían por ninguna parte; y en un despiece de
+# varias piezas cada una se apuntaba el cien por cien de lo que salió.
+from thegrill.models import IngredientLot, Site, SiteKind, Storage, WeightSale  # noqa: E402
+from thegrill.web import aging, sites                             # noqa: E402
+
+
+def _sede(s, rest, nombre, kind=SiteKind.OUTLET):
+    site = Site(restaurant_id=rest.id, name=nombre, kind=kind, active=True)
+    s.add(site); s.flush(); return site
+
+
+# ------------------------------------------------------- lo que se trasladó
+def test_a_cut_sent_to_another_site_is_still_followed(ctx):
+    """Antes la historia de la pieza se acababa en el muelle del obrador."""
+    s, rest, ana, luis = ctx
+    obrador = _sede(s, rest, "Obrador", SiteKind.WAREHOUSE)
+    playa = _sede(s, rest, "Playa")
+    p, filete_m, _burger_m = montar_burger(s, rest, ana)
+    for lote in s.query(IngredientLot).filter_by(restaurant_id=rest.id):
+        lote.site_id = obrador.id
+    s.flush()
+
+    filete = (s.query(IngredientLot)
+              .filter_by(restaurant_id=rest.id, ingredient_id=filete_m.id).one())
+    sites.send_cut(s, ana, filete.serial, 2.0, playa.id, on=HOY)
+
+    h = tracing.history(s, rest.id, "8017")
+    corte = next(c for c in h.butchery.cuts if c.serial == filete.serial)
+    assert corte.moved_kg == 2.0
+    assert [hijo.serial for hijo in corte.children] == [f"{filete.serial}·T1"]
+    hijo = corte.children[0]
+    assert hijo.site == "Playa"                 # y se dice dónde está
+    assert hijo.remaining_kg == 2.0
+
+
+def test_and_what_it_sells_over_there_counts_for_the_piece(ctx):
+    s, rest, ana, luis = ctx
+    obrador = _sede(s, rest, "Obrador", SiteKind.WAREHOUSE)
+    playa = _sede(s, rest, "Playa")
+    p, filete_m, _b = montar_burger(s, rest, ana)
+    for lote in s.query(IngredientLot).filter_by(restaurant_id=rest.id):
+        lote.site_id = obrador.id
+    s.flush()
+    filete = (s.query(IngredientLot)
+              .filter_by(restaurant_id=rest.id, ingredient_id=filete_m.id).one())
+    enviado = sites.send_cut(s, ana, filete.serial, 2.0, playa.id, on=HOY)
+
+    hijo = (s.query(IngredientLot)
+            .filter_by(restaurant_id=rest.id, serial=enviado.new_serial).one())
+    s.add(IngredientMovement(
+        restaurant_id=rest.id, ingredient_id=filete_m.id, lot_id=hijo.id, date=HOY,
+        kind=MovementKind.SALE, qty=-1.0, cost=round(1.0 * hijo.unit_cost, 6),
+        source="pos", source_ref="ENTRECOT", created_by=ana.id))
+    hijo.qty_remaining = round(hijo.qty_remaining - 1.0, 6)
+    s.flush()
+
+    h = tracing.history(s, rest.id, "8017")
+    corte = next(c for c in h.butchery.cuts if c.serial == filete.serial)
+    assert corte.children[0].sold_kg == 1.0
+    assert corte.children[0].revenue > 0
+    assert h.sold_kg >= 1.0                     # y sube el total de la pieza
+    assert h.revenue >= corte.children[0].revenue
+
+
+def test_a_grandchild_is_followed_too(ctx):
+    """Se manda a la playa, y allí lo sacan del arcón: dos saltos."""
+    s, rest, ana, luis = ctx
+    obrador = _sede(s, rest, "Obrador", SiteKind.WAREHOUSE)
+    playa = _sede(s, rest, "Playa")
+    p, filete_m, _b = montar_burger(s, rest, ana)
+    for lote in s.query(IngredientLot).filter_by(restaurant_id=rest.id):
+        lote.site_id = obrador.id
+    s.flush()
+    filete = (s.query(IngredientLot)
+              .filter_by(restaurant_id=rest.id, ingredient_id=filete_m.id).one())
+    enviado = sites.send_cut(s, ana, filete.serial, 3.0, playa.id, on=HOY)
+    hijo = (s.query(IngredientLot)
+            .filter_by(restaurant_id=rest.id, serial=enviado.new_serial).one())
+    hijo.frozen = True
+    s.flush()
+    defrost.thaw(s, ana, hijo, 1.0, 2, on=HOY)
+
+    h = tracing.history(s, rest.id, "8017")
+    corte = next(c for c in h.butchery.cuts if c.serial == filete.serial)
+    nieto = corte.children[0].children[0]
+    assert nieto.serial == f"{enviado.new_serial}·D1"
+    assert nieto.produced_kg == 1.0
+
+
+# -------------------------------------------------------- lo que se limpió
+def test_what_was_cleaned_off_the_piece_shows_up(ctx):
+    """Una pieza que se limpia y no se despieza tenía historia de una línea."""
+    s, rest, ana, luis = ctx
+    recorte_m = madre(s, rest, "Recorte de limpieza")
+    item = articulo(s, rest, recorte_m, "Recorte")
+    pieza = primal(s, rest, "8020", kg=10.0, usd_kg=20.0)
+    pieza.expiry_label = HOY + timedelta(days=10)
+    s.flush()
+    aging.trim(s, ana, "8020", removed_kg=1.2,
+               parts=[aging.TrimPart(kg=0.8, item_id=item.id, value_index=0.45)],
+               on=HOY)
+
+    h = tracing.history(s, rest.id, "8020")
+    assert h.butchery is None                   # no se ha cortado
+    assert [t.produced_kg for t in h.trims] == [0.8]
+    assert h.trims[0].is_trim
+    assert h.remaining_kg == 0.8                # y cuenta en lo que queda
+
+
+def test_a_trim_that_travels_is_followed_as_well(ctx):
+    s, rest, ana, luis = ctx
+    obrador = _sede(s, rest, "Obrador", SiteKind.WAREHOUSE)
+    playa = _sede(s, rest, "Playa")
+    recorte_m = madre(s, rest, "Recorte de limpieza")
+    item = articulo(s, rest, recorte_m, "Recorte")
+    pieza = primal(s, rest, "8021", kg=10.0, usd_kg=20.0)
+    pieza.expiry_label = HOY + timedelta(days=10)
+    s.flush()
+    aging.trim(s, ana, "8021", removed_kg=1.2,
+               parts=[aging.TrimPart(kg=0.8, item_id=item.id, value_index=0.45)],
+               on=HOY)
+    lote = (s.query(IngredientLot)
+            .filter_by(restaurant_id=rest.id, parent_serial="8021").one())
+    lote.site_id = obrador.id
+    s.flush()
+    sites.send_cut(s, ana, lote.serial, 0.3, playa.id, on=HOY)
+
+    h = tracing.history(s, rest.id, "8021")
+    assert h.trims[0].moved_kg == 0.3
+    assert h.trims[0].children[0].site == "Playa"
+
+
+# ----------------------------------------------------- lo que se cortó al peso
+def test_what_was_cut_and_charged_by_the_kilo_shows_up(ctx):
+    """Sin esto, una pieza madurada vendida entera al corte no se vendió nunca."""
+    s, rest, ana, luis = ctx
+    pieza = primal(s, rest, "8022", kg=9.0, usd_kg=30.0)
+    pieza.storage = Storage.AGING
+    s.flush()
+    aging.sell_by_weight(s, ana, "8022", grams=400, price=48.0, dish="Chuletón", on=HOY)
+
+    h = tracing.history(s, rest.id, "8022")
+    assert len(h.weight_sales) == 1
+    assert h.weight_sold_kg == 0.4
+    assert h.weight_revenue == 48.0
+    assert h.sold_kg == 0.4 and h.revenue == 48.0
+    assert h.food_cost_pct is not None          # y ya se le puede calcular el FC
+
+
+# ---------------------------------------- el despiece que comparten varias
+def test_a_butchery_of_three_does_not_credit_each_one_with_everything(ctx):
+    """El agujero que multiplicaba por tres los kilos vendidos de cada pieza."""
+    s, rest, ana, luis = ctx
+    filete_m = madre(s, rest, "Striploin steak")
+    item = articulo(s, rest, filete_m, "Filete 250g")
+    primal(s, rest, "9001", kg=10.0, usd_kg=20.0)
+    primal(s, rest, "9002", kg=5.0, usd_kg=20.0)
+    primal(s, rest, "9003", kg=5.0, usd_kg=20.0)
+    despiezar(s, rest, ana, "TG-0020", ["9001", "9002", "9003"], 20.0, [
+        ("Striploin steak", item, 60, 250, 1.0, False),
+    ], merma=5.0)
+
+    grande = tracing.history(s, rest.id, "9001")
+    pequeña = tracing.history(s, rest.id, "9002")
+    assert grande.butchery.shared
+    assert grande.butchery.share == 0.5          # diez kilos de veinte
+    assert pequeña.butchery.share == 0.25
+    # Y lo que se le apunta a cada una es su parte, no el despiece entero.
+    assert grande.remaining_kg == round(15.0 * 0.5, 4)
+    assert pequeña.remaining_kg == round(15.0 * 0.25, 4)
+    # Las tres partes suman el despiece: ni sobra ni falta.
+    tercera = tracing.history(s, rest.id, "9003")
+    assert round(grande.butchery.share + pequeña.butchery.share
+                 + tercera.butchery.share, 6) == 1.0
+
+
+def test_with_no_weights_the_butchery_splits_evenly(ctx):
+    s, rest, ana, luis = ctx
+    filete_m = madre(s, rest, "Striploin steak")
+    item = articulo(s, rest, filete_m, "Filete 250g")
+    for serial in ("9101", "9102"):
+        pieza = primal(s, rest, serial, kg=10.0, usd_kg=20.0)
+        pieza.weight_kg = 0.0
+        pieza.received_kg = 0.0
+    s.flush()
+    despiezar(s, rest, ana, "TG-0021", ["9101", "9102"], 20.0, [
+        ("Striploin steak", item, 60, 250, 1.0, False),
+    ], merma=5.0)
+    assert tracing.history(s, rest.id, "9101").butchery.share == 0.5
+
+
+def test_one_piece_alone_still_gets_all_of_it(ctx):
+    s, rest, ana, luis = ctx
+    montar_burger(s, rest, ana)
+    h = tracing.history(s, rest.id, "8017")
+    assert h.butchery.share == 1.0 and not h.butchery.shared
