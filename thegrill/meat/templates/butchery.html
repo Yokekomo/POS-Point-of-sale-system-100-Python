@@ -94,15 +94,17 @@
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="grid">
     <div><label for="tg">{{ t("m.tg.number") }}</label>
-      <input id="tg" name="tg" value="{{ tg }}" required></div>
+      <input id="tg" name="tg" value="{{ previo.get('tg') if previo is defined and previo.get('tg') else tg }}" required></div>
     <div><label for="date">{{ t("common.date") }}</label>
       <input id="date" name="date" type="date" value="{{ today }}"></div>
     <div><label for="staff">{{ t("m.tg.staff") }}</label>
       <input id="staff" name="staff"></div>
     <div><label for="before_kg">{{ t("m.tg.before_kg") }}</label>
-      <input id="before_kg" name="before_kg" inputmode="decimal" required></div>
+      <input id="before_kg" name="before_kg" inputmode="decimal" required
+             value="{{ previo.get('before_kg','') if previo is defined else '' }}"></div>
     <div data-tour="merma"><label for="waste_kg">{{ t("m.tg.waste_kg") }}</label>
-      <input id="waste_kg" name="waste_kg" inputmode="decimal" value="0"></div>
+      <input id="waste_kg" name="waste_kg" inputmode="decimal"
+             value="{{ previo.get('waste_kg','0') if previo is defined else '0' }}"></div>
   </div>
 
   <h2 data-tour="piezas">{{ t("m.tg.primals") }}</h2>
@@ -148,12 +150,14 @@
   <fieldset class="pieza corte" data-corte="{{ i }}">
     <div class="campos">
       <label>{{ t("m.tg.cut_name") }}
-        <input name="cut:{{ i }}" autocomplete="off"
+        <input name="cut:{{ i }}" autocomplete="off" value="{{ previo.get('cut:' ~ i, '') if previo is defined else '' }}"
                title="{{ t('m.tg.h_cut') }}"></label>
       <label>{{ t("m.tg.article") }}
         <select name="item:{{ i }}" title="{{ t('m.tg.h_article') }}">
           <option value="">—</option>
-          {% for a in articles %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+          {% for a in articles %}<option value="{{ a.id }}"
+            {% if previo is defined and previo.get("item:" ~ i) == a.id|string %}selected{% endif %}
+            >{{ a.name }}</option>{% endfor %}
         </select></label>
     </div>
 
@@ -166,13 +170,13 @@
       {# La casilla de verdad, la que viaja: el desplegable solo la mueve. #}
       <input type="checkbox" name="weight:{{ i }}" value="1" class="espeso" hidden>
       <label class="enpiezas">{{ t("meat.pieces") }}
-        <input name="pieces:{{ i }}" inputmode="numeric"
+        <input name="pieces:{{ i }}" inputmode="numeric" value="{{ previo.get('pieces:' ~ i, '') if previo is defined else '' }}"
                title="{{ t('m.tg.h_pieces') }}"></label>
       <label class="enpiezas">{{ t("m.tg.total_kg") }}
-        <input name="total:{{ i }}" inputmode="decimal" class="total"
+        <input name="total:{{ i }}" inputmode="decimal" class="total" value="{{ previo.get('total:' ~ i, '') if previo is defined else '' }}"
                title="{{ t('m.tg.h_grams') }}"></label>
       <label class="apeso" hidden>kg
-        <input name="kg:{{ i }}" inputmode="decimal"
+        <input name="kg:{{ i }}" inputmode="decimal" value="{{ previo.get('kg:' ~ i, '') if previo is defined else '' }}"
                title="{{ t('m.tg.h_kg') }}"></label>
     </div>
     {# Lo que sale de dividir: se enseña mientras se escribe, que es lo que
@@ -183,7 +187,7 @@
       <summary>{{ t("m.tg.more_of_cut") }}</summary>
       <div class="campos">
         <label>{{ t("m.tg.value_index") }}
-          <input name="index:{{ i }}" inputmode="decimal" placeholder="1"
+          <input name="index:{{ i }}" inputmode="decimal" placeholder="1" value="{{ previo.get('index:' ~ i, '') if previo is defined else '' }}"
                  title="{{ t('m.tg.h_index') }}"></label>
       </div>
       <div class="help">{{ t("m.tg.index_help") }}</div>

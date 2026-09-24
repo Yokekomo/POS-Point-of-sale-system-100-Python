@@ -808,7 +808,12 @@ async def _recibir(request, user, auth_session, session, form, lang):
                                     kg=f"{created[0].weight_kg:.10g}"))
     else:
         hecho = i18n.t(lang, "m.rec.done", n=len(created), lot=lot or "—")
-    return _reception(request, user, auth_session, session, previo=_lo_escrito(form),
+    # Salió bien: se queda lo del camión y **solo** lo del camión. La siguiente
+    # bolsa es de la misma caja pero no es la misma pieza: dejarle puestos el
+    # número y los kilos de la anterior es la manera de dar de alta dos veces
+    # lo mismo. Lo escrito entero se devuelve cuando algo falla, que es cuando
+    # hace falta, y no cuando se ha guardado.
+    return _reception(request, user, auth_session, session, previo=_del_camion(form),
                       done=hecho)
 
 

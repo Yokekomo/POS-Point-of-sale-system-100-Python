@@ -142,12 +142,16 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 
 ## 5. Formularios: lo tecleado se pierde
 
-- [x] **Cualquier error borra lo que acabas de escribir** en recepción y en
-      merma. Ahora vuelve puesto todo lo que había: el número de la pieza, los
-      kilos tal y como se escribieron, el artículo, el lote del proveedor, la
-      temperatura que hay que corregir y lo del camión. La foto no vuelve —un
-      fichero no se puede devolver escrito en una casilla— y quien la hizo la
-      tiene todavía en el teléfono. *Quedan despiece y precios.*
+- [x] **Cualquier error borra lo que acabas de escribir** en recepción,
+      despiece, precios y merma. En las cuatro vuelve puesto todo lo que
+      había: el número de la pieza, los kilos tal y como se escribieron, el
+      artículo, el lote del proveedor, las diez líneas del despiece, los
+      precios uno a uno y la casilla que hay que corregir, que vuelve con lo
+      que se escribió y no vacía. Cuando **sale bien** es al revés y también
+      importa: se queda lo del camión y solo lo del camión, porque la
+      siguiente bolsa es de la misma caja pero no es la misma pieza. La foto
+      no vuelve —un fichero no se puede devolver escrito en una casilla— y
+      quien la hizo la tiene todavía en el teléfono.
 - [x] **Dos toques con guante crean dos apuntes.** La llave del envío la
       lleva el formulario desde que se pinta, con red y sin ella. Y como es la
       misma mientras la pantalla no se vuelva a pintar, recargar tampoco
@@ -165,7 +169,12 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       nada del formulario fuera de él, y un número mal escrito se contesta
       enseñando lo que se escribió —«4 C» se arregla mirando la C— en el
       idioma de la casa y con la hoja entera todavía puesta.
-- [ ] **Recepción se abre 1050 px por debajo del formulario** en el móvil.
+- [x] **Recepción se abre 1050 px por debajo del formulario** en el móvil. Era
+      el `autofocus` de los kilos: con el bloque del lote abierto —la primera
+      bolsa de la descarga— esa casilla está mil píxeles más abajo, y el móvil
+      abría ahí, enseñando media hoja de nada. Ahora el cursor va a los kilos
+      solo de la segunda bolsa en adelante, que es cuando el lote ya está
+      puesto, el bloque viene plegado y ese toque se agradece.
 
 ## 6. Lo que se romperá con cien casas dentro
 
@@ -203,6 +212,12 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       guardaba 15, el «1.250» que se guardaba 1,25 y los rangos de proceso.
       `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
       `tests/test_rangos.py`.
+
+- [x] **Los seis de los formularios**: el «4 C» de la temperatura y el
+      «32 eur» de los precios, que tumbaban la pantalla; lo tecleado que se
+      borraba en las cuatro hojas; el doble toque con guante; la pantalla de
+      error en blanco; y el móvil que abría mil píxeles por debajo del
+      formulario. `tests/test_formularios.py` (19).
 
 - [x] **Los cuatro de los formularios**: el «4 C» que tumbaba la recepción, lo
       tecleado que se borraba, el doble toque con guante y la pantalla de

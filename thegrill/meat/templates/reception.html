@@ -95,7 +95,13 @@
                value="{{ previo.get('serial:0','') }}"
                title="{{ t('m.rec.serial_help') }}"></label>
       <label>{{ t("m.rec.kg") }}
-        <input name="kg:0" inputmode="decimal" autofocus
+        {# El cursor va a los kilos solo cuando el lote ya está puesto, que es de la
+         segunda bolsa en adelante y es cuando se agradece. Con el bloque del lote
+         abierto —la primera pieza de la descarga— esta casilla está mil píxeles
+         más abajo, y el `autofocus` abría la pantalla ahí: en el móvil se veía
+         media hoja de nada, sin saber siquiera en qué lote se estaba. #}
+        <input name="kg:0" inputmode="decimal"
+               {% if previo.get("lot") %}autofocus{% endif %}
                value="{{ previo.get('kg:0','') }}"
                title="{{ t('m.rec.kg_help') }}"></label>
       <label>{{ t("m.rec.row_sku") }}

@@ -163,3 +163,55 @@ def test_the_waste_form_keeps_what_was_typed(client):
     assert 'value="3"' in r.text
     assert 'value="Se cayó al suelo"' in r.text
     assert 'value="8017"' in r.text
+
+
+# ------------------------------------ las dos pantallas que quedaban del bloque
+def test_a_bad_price_for_all_no_longer_takes_the_screen_down(client):
+    """El mismo fallo que el «4 C», en los precios: se leía fuera del `try`."""
+    _recibir(client, price_kg="")                # entra sin precio
+    pantalla = client.get("/recepcion/precios")
+    r = client.post("/recepcion/precios", data={
+        "csrf": csrf_from(pantalla.text), "all_price": "32 eur",
+        "serial": "8017", "envio": "p-1"})
+    assert r.status_code == 200                  # ni 500 ni pantalla en blanco
+    assert "32 eur" in r.text                    # y lo que se escribió, delante
+
+
+def test_the_prices_screen_keeps_what_was_typed(client):
+    _recibir(client, price_kg="")
+    pantalla = client.get("/recepcion/precios")
+    r = client.post("/recepcion/precios", data={
+        "csrf": csrf_from(pantalla.text), "all_price": "treinta",
+        "price:8017": "35", "serial": "8017", "envio": "p-2"})
+    assert 'value="treinta"' in r.text and 'value="35"' in r.text
+
+
+def test_the_butchery_sheet_comes_back_with_its_ten_lines(client):
+    """Un despiece son diez líneas de números: un error no las borra todas."""
+    pantalla = client.get("/despiece")
+    r = client.post("/despiece", data={
+        "csrf": csrf_from(pantalla.text), "tg": "TG-0001",
+        "before_kg": "nueve coma cuatro", "waste_kg": "1,2",
+        "cut:0": "Striploin steak", "pieces:0": "20", "total:0": "5",
+        "envio": "d-1"})
+    assert r.status_code == 200
+    assert 'value="nueve coma cuatro"' in r.text
+    assert 'value="Striploin steak"' in r.text
+    assert 'value="20"' in r.text and 'value="5"' in r.text
+    assert 'value="1,2"' in r.text
+
+
+# ----------------------------------------------- y el móvil abre por arriba
+def test_the_reception_screen_does_not_open_a_thousand_pixels_down(client):
+    """El cursor iba a los kilos, y con el bloque del lote abierto eso está
+    mil píxeles más abajo: en el móvil la pantalla abría ahí, enseñando media
+    hoja de nada y sin poder ver siquiera en qué lote se estaba."""
+    primera = client.get("/recepcion").text
+    assert "autofocus" not in primera             # la primera bolsa, por arriba
+
+
+def test_but_from_the_second_bag_on_the_cursor_does_help(client):
+    """Con el lote ya puesto el bloque viene plegado, los kilos están arriba
+    y el cursor ahí ahorra un toque por pieza."""
+    despues = _recibir(client, envio="r-1").text
+    assert "autofocus" in despues
