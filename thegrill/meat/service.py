@@ -14,12 +14,12 @@ import os
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from thegrill.models import (AlertSeverity, ConsumptionMode, CountStatus, Despiece,
+from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, CountStatus, Despiece,
                              DespieceCut, DespiecePrimal, Ingredient, IngredientItem,
                              IngredientLot, MeatCount, NotificationKind, PosProduct,
                              Primal, PrimalStatus, Recipe, RecipeKind, RecipeLine,
@@ -28,7 +28,7 @@ from thegrill.meat import novedades
 from thegrill.web import aging as aging_mod
 from thegrill.web import waste as waste_mod
 from thegrill.web import service as plataforma
-from thegrill.web import butchery, costing, defrost, inventory, locking, sites
+from thegrill.web import butchery, costing, defrost, inventory, locking, rangos, sites
 from thegrill.web.i18n import t
 
 MAX_CUTS = 10
@@ -179,7 +179,46 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
                      kg=sum(p.weight_kg or 0.0 for p in created),
                      site_id=destino.id if destino else None)
     _ask_for_prices(session, user, created, lot, lang)
+    _haccp_de_llegada(session, user, created, lang)
     return created
+
+
+def _haccp_de_llegada(session: Session, user: User, created: list[Primal],
+                      lang: str) -> list[Alert]:
+    """Lo que bajó del camión fuera de norma: guardado, y en los avisos de hoy.
+
+    La pieza entra igual. Una carne que llega a doce grados es carne que ha
+    llegado a doce grados, y borrarla del sistema no la enfría: lo único que
+    hace es dejar sin prueba al que tiene que decidir si se devuelve. Así que
+    se guarda el número tal cual y se le pone delante al responsable el mismo
+    día, que es cuando todavía se puede hacer algo.
+    """
+    ahora = datetime.utcnow()
+    avisos: list[Alert] = []
+    for pieza in created:
+        for aviso in rangos.llegada(pieza.arrival_c, pieza.arrival or Storage.CHILLED,
+                                    pieza.serial, kg=pieza.weight_kg, lang=lang):
+            alerta = Alert(restaurant_id=user.restaurant_id, code=aviso.code,
+                           message=aviso.message,
+                           severity=(AlertSeverity.CRITICAL
+                                     if aviso.code.startswith("haccp.") else
+                                     AlertSeverity.WARNING),
+                           created_at=ahora)
+            session.add(alerta)
+            avisos.append(alerta)
+    if not avisos:
+        return []
+    session.flush()
+    graves = [a for a in avisos if a.severity == AlertSeverity.CRITICAL]
+    destinatarios = [uid for uid in plataforma.manager_ids(session, user.restaurant_id)
+                     if uid != user.id]
+    if destinatarios and graves:
+        plataforma.notify(
+            session, user.restaurant_id, destinatarios,
+            title=t(lang, "alert.haccp_title", n=len(graves)),
+            body=graves[0].message, severity=AlertSeverity.CRITICAL,
+            alert_id=graves[0].id, now=ahora, kind=NotificationKind.ALERT)
+    return avisos
 
 
 def _ask_for_prices(session: Session, user: User, created: list[Primal], lot: str,
@@ -227,6 +266,13 @@ def _check_label(row: PrimalRow, received: date, lang: str) -> None:
     se contesta mal. Una fecha de sacrificio de la semana que viene, o una
     carne envasada antes de sacrificarla, es un dedo en el teclado.
     """
+    # Un peso o una temperatura que no pueden ser son lo mismo que una fecha
+    # que no puede ser: el dedo en la tecla de al lado. Se paran aquí, antes de
+    # que el registro sanitario quede completo y falso.
+    rangos.peso_pieza(row.kg, lang, serial=row.serial.strip() or "—")
+    rangos.temperatura(row.arrival_c, lang)
+    rangos.precio_kg(row.price_kg, lang)
+
     sacrificio, envasado = row.slaughter_date, row.pack_date
     if sacrificio and sacrificio > received:
         raise MeatError(t(lang, "m.rec.bad_slaughter", serial=row.serial.strip() or "—"))

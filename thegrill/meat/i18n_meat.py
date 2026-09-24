@@ -710,6 +710,17 @@ ES = {
     "m.cu.finger_fair": "Esto no acusa a nadie: dice que unos números no salen del azar. Antes de hablar con alguien, mira si su báscula funciona y si tiene una donde trabaja.",
     "m.cu.finger_none": "Aún no hay pesadas suficientes para decir nada de nadie.",
     "m.ag.trim_needs_price": "El primal {serial} todavía no tiene precio, así que sus recortes entrarían a cero euros y eso se llevaría por delante el coste de los platos. Ponle precio primero.",
+    # --- Rangos de proceso y control de llegada (HACCP)
+    "alert.haccp_title": "{n} pieza(s) han llegado fuera de temperatura",
+    "rango.peso": "El peso de {serial} no puede ser {kg} kg. Una pieza pesa entre {min} y {max} kg: mira si se ha colado un cero.",
+    "rango.peso_corte": "{kg} kg no puede ser. Aquí se escriben entre {min} y {max} kg.",
+    "rango.temp": "{c} °C no lo marca ninguna sonda. Tiene que estar entre {min} y {max} °C.",
+    "rango.precio": "{eur} no puede ser un precio por kilo. Se espera entre {min} y {max}.",
+    "rango.gramos": "{g} g no puede ser una ración. Se esperan entre {min} y {max} g.",
+    "alert.chilled_warm": "{serial} bajó del camión a {c} °C. Refrigerado tiene que venir a {limit} °C o menos.",
+    "alert.frozen_warm": "{serial} bajó del camión a {c} °C. Congelado tiene que venir a {limit} °C o menos.",
+    "alert.arrival_cold": "{serial} bajó del camión a {c} °C, por debajo de {limit} °C: se ha congelado en el viaje.",
+    "alert.heavy_piece": "{serial} pesa {kg} kg, más de {limit} kg. Compruébalo antes de que entre en cámara.",
 }
 
 EN = {
@@ -1405,6 +1416,17 @@ EN = {
     "m.cu.finger_fair": "This accuses nobody: it says some numbers do not come from chance. Before talking to anyone, check that their scale works and that they have one where they work.",
     "m.cu.finger_none": "Not enough weighings yet to say anything about anyone.",
     "m.ag.trim_needs_price": "Primal {serial} has no price yet, so its trimmings would come in at zero and that would wreck the cost of every dish using them. Price it first.",
+    # --- Rangos de proceso y control de llegada (HACCP)
+    "alert.haccp_title": "{n} piece(s) arrived out of temperature",
+    "rango.peso": "{serial} cannot weigh {kg} kg. A piece weighs between {min} and {max} kg: check for a stray zero.",
+    "rango.peso_corte": "{kg} kg cannot be right. This field takes between {min} and {max} kg.",
+    "rango.temp": "No probe reads {c} °C. It has to be between {min} and {max} °C.",
+    "rango.precio": "{eur} cannot be a price per kilo. Expected between {min} and {max}.",
+    "rango.gramos": "{g} g cannot be a portion. Expected between {min} and {max} g.",
+    "alert.chilled_warm": "{serial} came off the lorry at {c} °C. Chilled has to arrive at {limit} °C or below.",
+    "alert.frozen_warm": "{serial} came off the lorry at {c} °C. Frozen has to arrive at {limit} °C or below.",
+    "alert.arrival_cold": "{serial} came off the lorry at {c} °C, below {limit} °C: it froze on the way.",
+    "alert.heavy_piece": "{serial} weighs {kg} kg, over {limit} kg. Check it before it goes into the chiller.",
 }
 
 FR = {
@@ -2100,6 +2122,17 @@ FR = {
     "m.cu.finger_fair": "Cela n'accuse personne : cela dit que certains chiffres ne viennent pas du hasard. Avant de parler à quelqu'un, vérifie que sa balance marche et qu'il en a une là où il travaille.",
     "m.cu.finger_none": "Pas encore assez de pesées pour dire quoi que ce soit de quiconque.",
     "m.ag.trim_needs_price": "La primale {serial} n'a pas encore de prix : ses parures entreraient à zéro euro et cela fausserait le coût de tous les plats qui en contiennent. Mets-lui un prix d'abord.",
+    # --- Rangos de proceso y control de llegada (HACCP)
+    "alert.haccp_title": "{n} pièce(s) arrivées hors température",
+    "rango.peso": "{serial} ne peut pas peser {kg} kg. Une pièce pèse entre {min} et {max} kg : vérifiez s'il y a un zéro en trop.",
+    "rango.peso_corte": "{kg} kg, ce n'est pas possible. Ici on écrit entre {min} et {max} kg.",
+    "rango.temp": "Aucune sonde n'affiche {c} °C. Il faut être entre {min} et {max} °C.",
+    "rango.precio": "{eur} ne peut pas être un prix au kilo. On attend entre {min} et {max}.",
+    "rango.gramos": "{g} g ne peut pas être une portion. On attend entre {min} et {max} g.",
+    "alert.chilled_warm": "{serial} est descendue du camion à {c} °C. Le réfrigéré doit arriver à {limit} °C ou moins.",
+    "alert.frozen_warm": "{serial} est descendue du camion à {c} °C. Le surgelé doit arriver à {limit} °C ou moins.",
+    "alert.arrival_cold": "{serial} est descendue du camion à {c} °C, sous {limit} °C : elle a gelé en route.",
+    "alert.heavy_piece": "{serial} pèse {kg} kg, plus de {limit} kg. Vérifiez avant de la mettre en chambre.",
 }
 
 DE = {
@@ -2795,6 +2828,17 @@ DE = {
     "m.cu.finger_fair": "Das beschuldigt niemanden: es sagt, dass manche Zahlen nicht vom Zufall kommen. Bevor du jemanden ansprichst, sieh nach, ob seine Waage funktioniert und ob er überhaupt eine hat, wo er arbeitet.",
     "m.cu.finger_none": "Noch nicht genug Wiegungen, um über jemanden etwas zu sagen.",
     "m.ag.trim_needs_price": "Das Primal {serial} hat noch keinen Preis, also kämen seine Parüren mit null Euro herein und das würde die Kosten jedes Gerichts damit ruinieren. Zuerst bepreisen.",
+    # --- Rangos de proceso y control de llegada (HACCP)
+    "alert.haccp_title": "{n} Stück außerhalb der Temperatur angekommen",
+    "rango.peso": "{serial} kann nicht {kg} kg wiegen. Ein Stück wiegt zwischen {min} und {max} kg: Prüfe, ob eine Null zu viel ist.",
+    "rango.peso_corte": "{kg} kg kann nicht sein. Hier stehen zwischen {min} und {max} kg.",
+    "rango.temp": "Keine Sonde zeigt {c} °C. Es muss zwischen {min} und {max} °C liegen.",
+    "rango.precio": "{eur} kann kein Kilopreis sein. Erwartet werden {min} bis {max}.",
+    "rango.gramos": "{g} g kann keine Portion sein. Erwartet werden {min} bis {max} g.",
+    "alert.chilled_warm": "{serial} kam mit {c} °C vom Lkw. Gekühlt muss mit {limit} °C oder weniger ankommen.",
+    "alert.frozen_warm": "{serial} kam mit {c} °C vom Lkw. Tiefgekühlt muss mit {limit} °C oder weniger ankommen.",
+    "alert.arrival_cold": "{serial} kam mit {c} °C vom Lkw, unter {limit} °C: unterwegs eingefroren.",
+    "alert.heavy_piece": "{serial} wiegt {kg} kg, mehr als {limit} kg. Prüfe es, bevor es in die Kammer geht.",
 }
 
 NL = {
@@ -3490,6 +3534,17 @@ NL = {
     "m.cu.finger_fair": "Dit beschuldigt niemand: het zegt dat sommige cijfers niet van toeval komen. Voordat je iemand aanspreekt, kijk of zijn weegschaal werkt en of hij er wel een heeft waar hij werkt.",
     "m.cu.finger_none": "Nog niet genoeg wegingen om iets over iemand te zeggen.",
     "m.ag.trim_needs_price": "Primal {serial} heeft nog geen prijs, dus zijn afsnijdsels komen op nul binnen en dat sloopt de kostprijs van elk gerecht ermee. Geef er eerst een prijs aan.",
+    # --- Rangos de proceso y control de llegada (HACCP)
+    "alert.haccp_title": "{n} stuk(s) buiten temperatuur aangekomen",
+    "rango.peso": "{serial} kan geen {kg} kg wegen. Een stuk weegt tussen {min} en {max} kg: kijk of er een nul te veel staat.",
+    "rango.peso_corte": "{kg} kg kan niet. Hier staat tussen {min} en {max} kg.",
+    "rango.temp": "Geen enkele sonde leest {c} °C. Het moet tussen {min} en {max} °C liggen.",
+    "rango.precio": "{eur} kan geen kiloprijs zijn. Verwacht tussen {min} en {max}.",
+    "rango.gramos": "{g} g kan geen portie zijn. Verwacht tussen {min} en {max} g.",
+    "alert.chilled_warm": "{serial} kwam van de wagen op {c} °C. Gekoeld moet op {limit} °C of lager aankomen.",
+    "alert.frozen_warm": "{serial} kwam van de wagen op {c} °C. Diepvries moet op {limit} °C of lager aankomen.",
+    "alert.arrival_cold": "{serial} kwam van de wagen op {c} °C, onder {limit} °C: onderweg bevroren.",
+    "alert.heavy_piece": "{serial} weegt {kg} kg, meer dan {limit} kg. Controleer het voor het de koeling in gaat.",
 }
 
 AR = {
@@ -4185,6 +4240,17 @@ AR = {
     "m.cu.finger_fair": "هذا لا يتهم أحداً: يقول إن بعض الأرقام لا تأتي من الصدفة. قبل الحديث مع أحد، تحقّق من أن ميزانه يعمل وأن لديه ميزاناً حيث يعمل.",
     "m.cu.finger_none": "لا توجد بعد عمليات وزن كافية لقول شيء عن أحد.",
     "m.ag.trim_needs_price": "القطعة {serial} بلا سعر بعد، فتدخل قصاصاتها بصفر وهذا يُفسد تكلفة كل طبق يستعملها. ضع لها سعراً أولاً.",
+    # --- Rangos de proceso y control de llegada (HACCP)
+    "alert.haccp_title": "وصلت {n} قطعة خارج نطاق الحرارة",
+    "rango.peso": "لا يمكن أن يزن {serial} مقدار {kg} كجم. القطعة تزن بين {min} و{max} كجم: تحقق من صفر زائد.",
+    "rango.peso_corte": "{kg} كجم غير ممكن. هنا تُكتب بين {min} و{max} كجم.",
+    "rango.temp": "لا يوجد مسبار يقرأ {c} °م. يجب أن تكون بين {min} و{max} °م.",
+    "rango.precio": "{eur} لا يمكن أن يكون سعر الكيلو. المتوقع بين {min} و{max}.",
+    "rango.gramos": "{g} غ لا يمكن أن تكون حصة. المتوقع بين {min} و{max} غ.",
+    "alert.chilled_warm": "نزلت {serial} من الشاحنة عند {c} °م. المبرَّد يجب أن يصل عند {limit} °م أو أقل.",
+    "alert.frozen_warm": "نزلت {serial} من الشاحنة عند {c} °م. المجمَّد يجب أن يصل عند {limit} °م أو أقل.",
+    "alert.arrival_cold": "نزلت {serial} من الشاحنة عند {c} °م، دون {limit} °م: تجمدت في الطريق.",
+    "alert.heavy_piece": "تزن {serial} مقدار {kg} كجم، أكثر من {limit} كجم. تحقق قبل إدخالها الغرفة.",
 }
 
 
@@ -4882,6 +4948,17 @@ HU = {
     "m.cu.finger_fair": "Ez senkit nem vádol: azt mondja, hogy egyes számok nem a véletlenből jönnek. Mielőtt bárkivel beszélnél, nézd meg, működik-e a mérlege, és van-e egyáltalán ott, ahol dolgozik.",
     "m.cu.finger_none": "Még nincs elég mérés ahhoz, hogy bárkiről bármit mondjunk.",
     "m.ag.trim_needs_price": "A(z) {serial} darabnak még nincs ára, így a nyesedéke nulla forinton kerülne be, és ez tönkretenné minden vele készülő étel költségét. Előbb árazd be.",
+    # --- Rangos de proceso y control de llegada (HACCP)
+    "alert.haccp_title": "{n} darab a hőmérsékleti tartományon kívül érkezett",
+    "rango.peso": "{serial} nem lehet {kg} kg. Egy darab {min} és {max} kg között van: nézd meg, nem csúszott-e be egy nulla.",
+    "rango.peso_corte": "{kg} kg nem lehet. Ide {min} és {max} kg közötti érték kerül.",
+    "rango.temp": "Semmilyen szonda nem mutat {c} °C-ot. {min} és {max} °C között kell lennie.",
+    "rango.precio": "{eur} nem lehet kilónkénti ár. {min} és {max} között várható.",
+    "rango.gramos": "{g} g nem lehet egy adag. {min} és {max} g között várható.",
+    "alert.chilled_warm": "{serial} {c} °C-on jött le a kocsiról. A hűtöttnek {limit} °C-on vagy az alatt kell érkeznie.",
+    "alert.frozen_warm": "{serial} {c} °C-on jött le a kocsiról. A fagyasztottnak {limit} °C-on vagy az alatt kell érkeznie.",
+    "alert.arrival_cold": "{serial} {c} °C-on jött le a kocsiról, {limit} °C alatt: útközben lefagyott.",
+    "alert.heavy_piece": "{serial} súlya {kg} kg, több mint {limit} kg. Ellenőrizd, mielőtt hűtőbe kerül.",
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

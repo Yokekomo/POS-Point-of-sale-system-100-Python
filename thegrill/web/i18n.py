@@ -17,6 +17,8 @@ cualquier clave que a un idioma le falte — pero eso es cosa de dentro.
 """
 from dataclasses import dataclass
 
+from thegrill.web import cifras
+
 DEFAULT_LANG = "es"      # catálogo de referencia: de aquí salen las claves que falten
 VISITOR_LANG = "en"      # con quien llega sin idioma conocido, inglés
 COOKIE_NAME = "grill_lang"
@@ -101,7 +103,7 @@ def t(lang: str, key: str, **kw) -> str:
                       if c in TRANSLATIONS[DEFAULT_LANG]), key)
     if kw:
         try:
-            return value.format(**kw)
+            return value.format(**{k: cifras.local(v, lang) for k, v in kw.items()})
         except (KeyError, IndexError):
             return value
     return value

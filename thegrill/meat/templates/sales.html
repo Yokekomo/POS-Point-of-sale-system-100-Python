@@ -100,11 +100,11 @@
     <td class="muted">{{ m.pos_code or "" }}</td>
     <td>{{ m.pos_name }}</td>
     <td class="muted">{{ m.recipe.name }}</td>
-    <td class="num"><input name="units:{{ m.pos_name }}" type="number" step="any" min="0"
-        inputmode="decimal" style="max-width:120px"></td>
+    <td class="num"><input name="units:{{ m.pos_name }}" type="text" inputmode="decimal"
+        style="max-width:120px"></td>
     <td class="num">{% if m.recipe.by_weight %}
-        <input name="grams:{{ m.pos_name }}" type="number" step="any" min="0"
-               inputmode="decimal" style="max-width:120px">
+        <input name="grams:{{ m.pos_name }}" type="text" inputmode="decimal"
+               style="max-width:120px">
         <div class="muted">{% if m.recipe.price_per_kg %}{{ t("m.menu.price_kg") }}
           {{ "%.2f"|format(m.recipe.price_per_kg) }}{% endif %}</div>
         {% else %}<span class="muted">—</span>{% endif %}</td>

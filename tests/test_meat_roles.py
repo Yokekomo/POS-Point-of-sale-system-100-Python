@@ -217,7 +217,7 @@ def test_the_butcher_sees_the_cuts_of_a_piece_without_its_money(client):
     assert "Food cost" not in historia
     # El precio del kilo del corte se colaba en la cabecera de cada corte, sin
     # mirar quién estaba delante: es dinero y no es suyo.
-    assert "43.0000" not in historia
+    assert "43,0000" not in historia
     assert "/ KG" not in historia
     # Y el food cost iba escondido dentro de la etiqueta verde del corte
     # —«330 g (28 % FC) · MB9+»—, que se pintaba igual para todos. El peso y la
@@ -237,7 +237,7 @@ def test_the_manager_sees_what_each_cut_of_the_piece_left(client):
     assert "8017-01" in historia
     for cifra in ("Salió", "Vendido", "Queda", "Ingresó", "Coste", "Ganado"):
         assert cifra in historia, cifra
-    assert "43.0000" in historia                # el coste del kilo, para quien lo ve
+    assert "43,0000" in historia                # el coste del kilo, para quien lo ve
     # Y el food cost todavía no: de este corte no se ha vendido nada, y un
     # porcentaje sobre cero no es un número que dar.
     assert "Food cost" not in historia
@@ -381,7 +381,7 @@ def test_the_butcher_moves_and_weighs_but_does_not_sell_by_weight(client):
 
     # Ve los kilos y los días; el coste del kilo, no.
     texto = luis.get("/maduracion").text
-    assert "7.600" in texto and "45" in texto
+    assert "7,600" in texto and "45" in texto
     assert "35.53" not in texto
     assert luis.post("/maduracion/venta", data={"csrf": token, "serial": "9001",
                                                 "grams": "400", "price": "52"}).status_code == 403
@@ -411,7 +411,7 @@ def test_the_piece_list_groups_by_where_it_is_and_says_what_tells_them_apart(cli
 
     assert '<optgroup label="Maduración">' in pantalla
     # Las dos piezas salen con sus kilos, no con el estado repetido.
-    assert pantalla.count('<option value="9011">9011 · Ribeye AUS · 9.000 kg') >= 1
+    assert pantalla.count('<option value="9011">9011 · Ribeye AUS · 9,000 kg') >= 1
     assert "9011 · Ribeye AUS · Maduración" not in pantalla
     assert "9012 · Ribeye AUS · Maduración" not in pantalla
 
@@ -741,11 +741,11 @@ def test_the_waste_screen_shows_both_sources_and_hides_the_money(client):
     del_manager = ana.get("/merma").text
     assert "De limpieza" in del_manager and "De cámara" in del_manager
     assert "9100" in del_manager
-    assert "36.00" in del_manager          # 1,2 kg a 30 €, el coste de lo tirado
+    assert "36,00" in del_manager          # 1,2 kg a 30 €, el coste de lo tirado
 
     del_carnicero = luis.get("/merma").text
-    assert "De limpieza" in del_carnicero and "1.200" in del_carnicero
-    assert "36.00" not in del_carnicero    # los kilos sí, el dinero no
+    assert "De limpieza" in del_carnicero and "1,200" in del_carnicero
+    assert "36,00" not in del_carnicero    # los kilos sí, el dinero no
 
 
 def test_the_daily_count_of_the_aging_fridge_is_the_butchers_job(client):

@@ -207,7 +207,8 @@ def test_two_people_counting_the_same_piece_leave_it_in_writing(casa):
         linea = next(l for l in s.get(MeatCount, hoja_id).lines if l.serial == "8017")
         assert linea.counted_kg == 8.2             # vale el que está delante ahora
         assert linea.disputed
-        assert "Ana" in linea.note and "8.8" in linea.note
+        # La nota va en el idioma de la casa, y en español los kilos llevan coma.
+        assert "Ana" in linea.note and "8,8" in linea.note
         assert linea.counted_by == _usuario(s, rest_id, "Eva").id
 
 

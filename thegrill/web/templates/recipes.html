@@ -66,15 +66,15 @@
   <input id="portions" name="portions" type="number" min="1" value="1">
   <label for="yield_qty">{{ t("rec.yield") }}</label>
   <div class="rowflex">
-    <input id="yield_qty" name="yield_qty" type="number" step="any" style="flex:1">
+    <input id="yield_qty" name="yield_qty" type="text" inputmode="decimal" style="flex:1">
     <select name="yield_unit" style="width:auto">
       {% for u in units %}<option value="{{ u.value }}">{{ u.value }}</option>{% endfor %}
     </select>
   </div>
   <label for="sale_price">{{ t("rec.price") }}</label>
-  <input id="sale_price" name="sale_price" type="number" step="any">
+  <input id="sale_price" name="sale_price" type="text" inputmode="decimal">
   <label for="vat_pct">{{ t("rec.vat") }}</label>
-  <input id="vat_pct" name="vat_pct" type="number" step="any" value="10">
+  <input id="vat_pct" name="vat_pct" type="text" inputmode="decimal" value="10">
   <div class="help">{{ t("rec.vat_help") }}</div>
   <button class="wide" type="submit">{{ t("rec.new") }}</button>
 </form>

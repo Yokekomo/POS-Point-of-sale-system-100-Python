@@ -82,9 +82,9 @@
     </optgroup>
   </select>
   <label for="qty">{{ t("rec.net_qty") }}</label>
-  <input id="qty" name="qty" type="number" step="any" required>
+  <input id="qty" name="qty" type="text" inputmode="decimal" required>
   <label for="waste_pct">{{ t("rec.waste") }}</label>
-  <input id="waste_pct" name="waste_pct" type="number" step="any" value="0">
+  <input id="waste_pct" name="waste_pct" type="text" inputmode="decimal" value="0">
   <div class="help">{{ t("rec.net_help") }}</div>
   <button class="wide" type="submit">{{ t("rec.add_line") }}</button>
 </form>

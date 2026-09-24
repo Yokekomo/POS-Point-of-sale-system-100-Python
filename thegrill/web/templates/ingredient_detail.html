@@ -58,9 +58,9 @@
     {% for it in ing.items %}<option value="{{ it.id }}">{{ it.brand or it.name }}</option>{% endfor %}
   </select>
   <label for="qty">{{ t("ing.qty") }} ({{ ing.unit.value }})</label>
-  <input id="qty" name="qty" type="number" step="any" required>
+  <input id="qty" name="qty" type="text" inputmode="decimal" required>
   <label for="unit_cost">{{ t("ing.unit_cost") }}</label>
-  <input id="unit_cost" name="unit_cost" type="number" step="any" required>
+  <input id="unit_cost" name="unit_cost" type="text" inputmode="decimal" required>
   <label for="expiry">{{ t("ing.expiry") }}</label>
   <input id="expiry" name="expiry" type="date" required>
   <label for="lot_code">{{ t("ing.lot_code") }}</label>

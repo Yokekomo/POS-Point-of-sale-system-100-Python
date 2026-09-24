@@ -34,9 +34,9 @@ from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, Cou
                              PrimalStatus, Recipe, RequestStatus, Restaurant, Role,
                              Rotation, Site, SiteKind, Storage, Unit, User)
 from thegrill.models import BugStatus
-from thegrill.web import (aging, auth, butchery, costing, cuadre, defrost, i18n, inventory,
-                          money, pos_import, service, sites, tracing, twofactor,
-                          waste)
+from thegrill.web import (aging, auth, butchery, cifras, costing, cuadre, defrost,
+                          exacto, i18n, inventory, money, pos_import, service, sites,
+                          tracing, twofactor, waste)
 
 log = logging.getLogger(__name__)
 
@@ -63,6 +63,10 @@ PHOTO_SLOTS = ("primal", "cortes", "plato")
 # Las plantillas propias mandan; lo que no esté aquí se hereda de la cocina.
 templates = Jinja2Templates(directory=[MEAT_TEMPLATES, KITCHEN_TEMPLATES])
 templates.env.filters["ceil_pct"] = butchery.ceil_pct
+# Los decimales, con el separador del idioma de la casa: «9,400 kg» en
+# español y «9.400 kg» en inglés, en las doscientas y pico cifras que salen
+# por pantalla, sin tocar ninguna plantilla.
+cifras.enganchar(templates.env)
 # Sin documentación automática: /docs y /openapi.json enseñaban el mapa entero
 # de la aplicación a cualquiera que pasara por ahí.
 app = FastAPI(title="Control de carnes", docs_url=None, redoc_url=None, openapi_url=None)
@@ -238,11 +242,27 @@ def _own(session: Session, user: User, model, obj_id: int, request: Request):
     return row
 
 
-def _num(raw: str | None, default: float | None = None) -> float | None:
-    """Los teclados de cocina escriben comas."""
-    if raw is None or not str(raw).strip():
-        return default
-    return float(str(raw).replace(",", "."))
+def _num(raw: str | None, default: float | None = None,
+         decimales: int = exacto.GRAMOS_DECIMALES) -> float | None:
+    """Los teclados de cocina escriben comas, y a veces escriben los miles.
+
+    `decimales` dice qué mide el campo: 3 un peso, 2 un precio. Con eso
+    `exacto.leer` sabe si «1.250» es kilo y cuarto o mil doscientos cincuenta,
+    que es la única duda que tiene un número escrito a mano.
+    """
+    return exacto.leer(raw, default, decimales)
+
+
+def _eur(raw: str | None, default: float | None = None) -> float | None:
+    """Un precio. Como el dinero lleva dos decimales y no tres, «1.250» aquí
+    son mil doscientos cincuenta euros y no un euro con veinticinco."""
+    return _num(raw, default, exacto.CENTIMOS_DECIMALES)
+
+
+def _g(raw: str | None, default: float | None = None) -> float | None:
+    """Gramos y unidades: no llevan decimales, así que «1.250» son mil
+    doscientos cincuenta gramos y no un gramo y cuarto."""
+    return _num(raw, default, 0)
 
 
 @app.middleware("http")
@@ -692,7 +712,7 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
             fecha_sac = (form.get(f"slaughter:{i}") or "").strip() or sacrificio
             rows.append(meat.PrimalRow(
                 serial=serial, kg=_num(kg, 0.0) or 0.0,
-                price_kg=(_num(form.get(f"price:{i}"), _num(price))
+                price_kg=(_eur(form.get(f"price:{i}"), _eur(price))
                           if puede_dinero else None),
                 sku=(form.get(f"sku:{i}") or "").strip() or sku,
                 grade=(form.get(f"grade:{i}") or "").strip() or grade,
@@ -796,11 +816,11 @@ async def save_prices(request: Request, ctx=Depends(needs(perms.MONEY)),
 
     # «El mismo a todas» es lo normal: un albarán trae un precio por artículo.
     # Lo que se escriba en la línea de una pieza manda sobre eso.
-    todas = _num(form.get("all_price"))
+    todas = _eur(form.get("all_price"))
     puestas = 0
     try:
         for serial in form.getlist("serial"):
-            precio = _num(form.get(f"price:{serial}"), todas)
+            precio = _eur(form.get(f"price:{serial}"), todas)
             if precio is None:
                 continue
             meat.set_price(session, user, serial, precio, lang=lang)
@@ -873,7 +893,7 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
             # papel los pide así, y la cola de un teléfono puede traerlos—,
             # pero el total manda cuando viene.
             cuantas = int(_num(pieces, 0) or 0)
-            gramos = _num(grams, 0.0) or 0.0
+            gramos = _g(grams, 0.0) or 0.0
             total = _num(form.get(f"total:{i}"))
             if total and cuantas > 0:
                 gramos = round(total * 1000 / cuantas, 4)
@@ -1266,8 +1286,8 @@ def aging_sale(request: Request, serial: str = Form(...), grams: str = Form(...)
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
     try:
-        result = aging.sell_by_weight(session, user, serial.strip(), _num(grams, 0.0) or 0.0,
-                                      price=_num(price, 0.0) or 0.0,
+        result = aging.sell_by_weight(session, user, serial.strip(), _g(grams, 0.0) or 0.0,
+                                      price=_eur(price, 0.0) or 0.0,
                                       dish=dish.strip() or None, note=note.strip() or None)
     except (aging.AgingError, ValueError) as e:
         return _aging(request, user, auth_session, session, error=str(e))
@@ -1521,10 +1541,10 @@ def new_dish(request: Request, name: str = Form(...), cut_id: int = Form(...),
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
     try:
-        meat.add_dish(session, user, name, cut_id, _num(grams, 0.0) or 0.0,
-                      sale_price=_num(sale_price), vat_pct=_num(vat_pct, 0.0) or 0.0,
+        meat.add_dish(session, user, name, cut_id, _g(grams, 0.0) or 0.0,
+                      sale_price=_eur(sale_price), vat_pct=_num(vat_pct, 0.0) or 0.0,
                       pos_code=pos_code, pos_name=pos_name,
-                      by_weight=bool(by_weight), price_per_kg=_num(price_per_kg), lang=lang)
+                      by_weight=bool(by_weight), price_per_kg=_eur(price_per_kg), lang=lang)
     except (meat.MeatError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
     return RedirectResponse("/carta", status_code=303)
@@ -1554,7 +1574,7 @@ def new_extra(request: Request, name: str = Form(...), unit: str = Form("KG"),
     try:
         meat.create_extra(session, user, name,
                           unit=Unit[unit] if unit in Unit.__members__ else Unit.KG,
-                          cost=_num(cost), portion_g=_num(portion))
+                          cost=_eur(cost), portion_g=_g(portion))
     except (meat.MeatError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
     return RedirectResponse("/ingredientes?saved=1", status_code=303)
@@ -1568,8 +1588,8 @@ def update_extra_cost(ingredient_id: int, request: Request, cost: str = Form(...
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
-        meat.set_extra_cost(session, user, ingredient_id, _num(cost, 0.0) or 0.0,
-                            portion_g=_num(portion, 0.0))
+        meat.set_extra_cost(session, user, ingredient_id, _eur(cost, 0.0) or 0.0,
+                            portion_g=_g(portion, 0.0))
     except (meat.MeatError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
     return RedirectResponse("/ingredientes?saved=1", status_code=303)
@@ -1636,7 +1656,7 @@ def set_plate_grams(code: str, request: Request, grams: str = Form(...), csrf: s
     _guard(request, session, user, auth_session, csrf)
     dish = _dish(session, user, code, request)
     try:
-        meat.set_plate_grams(session, user, dish, _num(grams, 0.0) or 0.0,
+        meat.set_plate_grams(session, user, dish, _g(grams, 0.0) or 0.0,
                              lang=lang_for(request, session, user))
     except (meat.MeatError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
@@ -1724,10 +1744,10 @@ async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
             continue
         name = key.split(":", 1)[1]
         try:
-            units = _num(value, 0.0) or 0.0
+            units = _g(value, 0.0) or 0.0
             # Lo que se cobra por kilo llega con su peso: son los gramos que
             # se cortaron, no los de la carta.
-            grams = _num(form.get(f"grams:{name}"), None)
+            grams = _g(form.get(f"grams:{name}"), None)
         except ValueError:
             continue
         if units > 0:
@@ -2023,9 +2043,9 @@ def save_pricing(request: Request, currency: str = Form("EUR"),
     try:
         tarifa.guardar(
             session, user, currency=currency,
-            per_outlet=_num(per_outlet, 0.0) or 0.0,
-            extra_outlet=_num(extra_outlet),
-            sale_on=bool(sale_on), sale_price=_num(sale_price),
+            per_outlet=_eur(per_outlet, 0.0) or 0.0,
+            extra_outlet=_eur(extra_outlet),
+            sale_on=bool(sale_on), sale_price=_eur(sale_price),
             sale_label=sale_label, sale_until=hasta,
             yearly_on=bool(yearly_on), yearly_months=_num(yearly_months, 10.0) or 10.0)
     except tarifa.TarifaError as e:
@@ -2094,7 +2114,7 @@ async def create_account(request: Request, ctx=Depends(require_owner),
             group=form.get("group") or None,
             plan=Plan[plan] if plan in Plan.__members__ else Plan.SINGLE,
             outlets=int(_num(form.get("outlets"), 1) or 1),
-            monthly_fee=_num(form.get("monthly_fee")),
+            monthly_fee=_eur(form.get("monthly_fee")),
             language=(form.get("language") or "es"),
             request_id=int(form.get("request_id")) if (form.get("request_id") or "").strip() else None,
             legal_name=(form.get("legal_name") or "").strip(),
@@ -2172,15 +2192,25 @@ def cancel_account(restaurant_id: int, request: Request, reason: str = Form(""),
 # ======================================================== AVISOS Y EQUIPO
 @app.get("/manager/alertas", response_class=HTMLResponse)
 def alerts_page(request: Request, ctx=Depends(require_manager_user),
-                session: Session = Depends(get_db), days: int = 14):
+                session: Session = Depends(get_db), show: str = "open"):
+    """Lo que ha salido mal y todavía no ha arreglado nadie.
+
+    Esta pantalla estuvo saliendo vacía: la ruta mandaba la lista con un
+    nombre y la plantilla la leía con otro, así que no fallaba nada —no había
+    error, no había aviso— y simplemente no aparecía ni una línea. La carne
+    que llegaba caliente, la pieza que se pasaba de fecha y la merma de
+    maduración se guardaban bien y no las veía nadie, que para un registro
+    sanitario es exactamente igual que no guardarlas.
+    """
     user, auth_session = ctx
-    since = date.today() - timedelta(days=days)
-    rows = (session.query(Alert)
-            .filter(Alert.restaurant_id == user.restaurant_id,
-                    Alert.created_at >= datetime.combine(since, datetime.min.time()))
-            .order_by(Alert.acknowledged_at.is_(None).desc(), Alert.created_at.desc())
-            .limit(200).all())
-    return page(request, "alerts.html", user, auth_session, session, alerts=rows, days=days)
+    q = session.query(Alert).filter(Alert.restaurant_id == user.restaurant_id)
+    if show == "open":
+        q = q.filter(Alert.acknowledged_at.is_(None))
+    rows = q.order_by(Alert.created_at.desc()).limit(200).all()
+    names = {u.id: u.name
+             for u in session.query(User).filter_by(restaurant_id=user.restaurant_id)}
+    return page(request, "alerts.html", user, auth_session, session,
+                rows=rows, show=show, names=names)
 
 
 @app.post("/manager/alertas/{alert_id}/cerrar")

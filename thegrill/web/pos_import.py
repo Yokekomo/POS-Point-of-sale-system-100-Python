@@ -99,6 +99,12 @@ def parse(data: bytes, filename: str = "") -> Parsed:
     return _understand(table)
 
 
+# Una celda es texto —y entonces hay que averiguar cómo escribe los decimales—
+# o es un número que ya venía leído de Excel, y entonces no hay nada que
+# averiguar.
+Celda = str | float
+
+
 # ------------------------------------------------------------------ lectura
 def _from_text(data: bytes) -> list[list[str]]:
     text = _decode(data)
@@ -123,7 +129,16 @@ def _decode(data: bytes) -> str:
     raise ImportError_("No se entiende cómo está escrito el fichero")
 
 
-def _from_excel(data: bytes) -> list[list[str]]:
+def _from_excel(data: bytes) -> list[list[Celda]]:
+    """Lo que Excel ya leyó como número no se vuelve a interpretar.
+
+    Pasarlo por `str()` lo convierte en «12.5», y si el resto del parte
+    escribe los decimales con coma, ese punto se lee después como separador de
+    miles: 12,5 kg entran como 125 y el escandallo del mes queda multiplicado
+    por diez sin que nadie vea nada raro. Un número que viene de una celda
+    numérica ya no tiene ninguna duda que resolver, así que viaja como número
+    hasta el final.
+    """
     try:
         from openpyxl import load_workbook
     except ImportError:                                   # pragma: no cover
@@ -135,8 +150,15 @@ def _from_excel(data: bytes) -> list[list[str]]:
     sheet = book.worksheets[0]
     table = []
     for row in sheet.iter_rows(values_only=True):
-        cells = ["" if c is None else str(c).strip() for c in row]
-        if any(cells):
+        cells: list[Celda] = []
+        for c in row:
+            if c is None or isinstance(c, bool):
+                cells.append("" if c is None else str(c))
+            elif isinstance(c, (int, float)):
+                cells.append(float(c))        # ya es un número: no se toca
+            else:
+                cells.append(str(c).strip())
+        if any(c != "" for c in cells):
             table.append(cells)
         if len(table) > MAX_ROWS + 5:
             break
@@ -145,7 +167,7 @@ def _from_excel(data: bytes) -> list[list[str]]:
 
 
 # --------------------------------------------------------------- lo que dice
-def _understand(table: list[list[str]]) -> Parsed:
+def _understand(table: list[list[Celda]]) -> Parsed:
     out = Parsed()
     header, start = _find_header(table)
     if header is None:
@@ -158,14 +180,15 @@ def _understand(table: list[list[str]]) -> Parsed:
         raise ImportError_("No hay columna de unidades vendidas")
     if "code" not in mapping and "name" not in mapping:
         raise ImportError_("No hay columna de artículo: ni código ni nombre")
-    out.columns = {field: header[index] for field, index in mapping.items()}
+    out.columns = {field: str(header[index]) for field, index in mapping.items()}
 
     # Cómo escribe los decimales este fichero. Se decide mirándolo entero y no
     # celda a celda: «1,236» es un kilo y pico o son mil, pero dentro del mismo
     # parte no son las dos cosas.
     decimal, clear = _decimal_separator(_numeric_cells(table[start:], mapping))
     if not clear:
-        ejemplo = next((c for c in _numeric_cells(table[start:], mapping) if "," in c), None)
+        ejemplo = next((c for c in _numeric_cells(table[start:], mapping)
+                        if "," in c or "." in c), None)
         if ejemplo:
             out.warnings.append(
                 f"No está claro cómo escribe los decimales: «{ejemplo}» se ha leído como "
@@ -187,7 +210,7 @@ def _understand(table: list[list[str]]) -> Parsed:
     return out
 
 
-def _find_header(table: list[list[str]]) -> tuple[list[str] | None, int]:
+def _find_header(table: list[list[Celda]]) -> tuple[list[Celda] | None, int]:
     """La cabecera es la primera fila que nombra al menos dos cosas conocidas."""
     for index, row in enumerate(table[:10]):
         found = _map_columns(row)
@@ -196,7 +219,7 @@ def _find_header(table: list[list[str]]) -> tuple[list[str] | None, int]:
     return None, 0
 
 
-def _map_columns(header: list[str]) -> dict[str, int]:
+def _map_columns(header: list[Celda]) -> dict[str, int]:
     mapping: dict[str, int] = {}
     for index, cell in enumerate(header):
         key = _norm(cell)
@@ -211,16 +234,25 @@ def _map_columns(header: list[str]) -> dict[str, int]:
     return mapping
 
 
-def _row(row: list[str], mapping: dict[str, int], number: int,
+def _row(row: list[Celda], mapping: dict[str, int], number: int,
          decimal: str = ".") -> SaleRow | None:
-    def cell(field_name: str) -> str:
+    def cell(field_name: str) -> Celda:
         index = mapping.get(field_name)
-        return row[index].strip() if index is not None and index < len(row) else ""
+        if index is None or index >= len(row):
+            return ""
+        valor = row[index]
+        return valor.strip() if isinstance(valor, str) else valor
+
+    def texto(field_name: str) -> str:
+        valor = cell(field_name)
+        if isinstance(valor, float):        # un código de artículo numérico
+            return f"{valor:.10g}"
+        return str(valor)
 
     units = number_of(cell("units"), decimal)
     if units is None or units <= 0:
         return None
-    code, name = cell("code"), cell("name")
+    code, name = texto("code"), texto("name")
     if not code and not name:
         return None
 
@@ -233,13 +265,15 @@ def _row(row: list[str], mapping: dict[str, int], number: int,
                    amount=number_of(cell("amount"), decimal))
 
 
-def _numeric_cells(rows: list[list[str]], mapping: dict[str, int]) -> list[str]:
-    """Las celdas que llevan números, que son las que dicen cómo se escriben."""
+def _numeric_cells(rows: list[list[Celda]], mapping: dict[str, int]) -> list[str]:
+    """Las celdas de texto que llevan números: las únicas que dicen cómo se
+    escriben los decimales en este fichero. Las que ya venían como número no
+    opinan, porque no tienen separador que interpretar."""
     columnas = [mapping[f] for f in ("units", "kg", "grams", "amount") if f in mapping]
     out = []
     for row in rows[:200]:
         for index in columnas:
-            if index < len(row) and row[index].strip():
+            if index < len(row) and isinstance(row[index], str) and row[index].strip():
                 out.append(row[index].strip())
     return out
 
@@ -270,7 +304,12 @@ def _decimal_separator(cells: list[str]) -> tuple[str, bool]:
         for trozo in re.findall(r"\.(\d+)", text):
             if len(trozo) != 3:
                 return ".", True
-    return ".", not any("," in c for c in cells)
+    # Todos los grupos de tres cifras y ninguno detrás de un cero: «1.234» son
+    # mil doscientos treinta y cuatro o son uno y pico, y el fichero no lo
+    # dice. Antes se tomaba el punto por decimal y se daba por seguro, que es
+    # la peor de las dos opciones: el parte entraba dividido entre mil y no
+    # había manera de enterarse. Se sigue tomando el punto, pero se avisa.
+    return ".", not any(("," in c or "." in c) for c in cells)
 
 
 # ------------------------------------------------------------------ números
@@ -281,6 +320,8 @@ def number_of(raw: str | None, decimal: str = ".") -> float | None:
     """
     if raw is None:
         return None
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        return float(raw)                               # venía de una celda numérica
     text = re.sub(r"[^\d,.\-]", "", str(raw).strip())   # fuera monedas y unidades
     if not text or text in ("-", ".", ","):
         return None

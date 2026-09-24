@@ -33,8 +33,8 @@
         <span class="tag warn">{{ t("meat.primals") }}</span>{% endif %}</td>
     <td class="muted">{{ line.serial }}</td>
     <td class="num">{{ "%.3f"|format(line.expected_kg) }}</td>
-    <td class="num"><input name="kg:{{ line.serial }}" type="number" step="any" min="0"
-        inputmode="decimal" style="max-width:130px"
+    <td class="num"><input name="kg:{{ line.serial }}" type="text" inputmode="decimal"
+        style="max-width:130px"
         value="{{ '%.3f'|format(line.counted_kg) if line.counted_kg is not none else '' }}"></td>
     <td class="muted">{% if line.counted_by %}{{ counters.get(line.counted_by, "") }}
         {%- if line.counted_at %} · {{ line.counted_at.strftime("%H:%M") }}{% endif %}
@@ -46,7 +46,7 @@
   <label for="extra_serial" data-tour="ados">Serial</label>
   <div class="rowflex">
     <input id="extra_serial" name="extra_serial" placeholder="9999-01" style="flex:1">
-    <input name="extra_kg" type="number" step="any" min="0" placeholder="kg" style="max-width:130px">
+    <input name="extra_kg" type="text" inputmode="decimal" placeholder="kg" style="max-width:130px">
   </div>
   <button class="wide" type="submit">{{ t("common.save") }}</button>
 </form>
@@ -141,7 +141,7 @@
   <label for="rserial">{{ t("inv.recover_serial") }}</label>
   <input id="rserial" name="serial" required placeholder="8017-01">
   <label for="rkg">{{ t("inv.recover_kg") }}</label>
-  <input id="rkg" name="kg" type="number" step="any" min="0">
+  <input id="rkg" name="kg" type="text" inputmode="decimal">
   <label for="rnote">{{ t("inv.recover_note") }}</label>
   <input id="rnote" name="note" placeholder="Estaba en el abatidor">
   <div class="help">{{ t("inv.recover_help") }}</div>
@@ -160,9 +160,9 @@
     {% for it in items %}<option value="{{ it.id }}">{{ it.name }}</option>{% endfor %}
   </select>
   <label for="akg">{{ t("ing.qty") }}</label>
-  <input id="akg" name="kg" type="number" step="any" min="0" required>
+  <input id="akg" name="kg" type="text" inputmode="decimal" required>
   <label for="acost">{{ t("ing.unit_cost") }}</label>
-  <input id="acost" name="unit_cost" type="number" step="any" min="0" required>
+  <input id="acost" name="unit_cost" type="text" inputmode="decimal" required>
   <label for="aexpiry">{{ t("ing.expiry") }}</label>
   <input id="aexpiry" name="expiry" type="date" required>
   <label for="anote">{{ t("inv.recover_note") }}</label>

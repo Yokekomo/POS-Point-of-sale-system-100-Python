@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Alert, AlertSeverity, AuditLog, IngredientItem, IngredientLot,
                              IngredientMovement, LossKind, MovementKind, Primal,
                              PrimalStatus, PrimalWeighing, Storage, User, WeightSale)
-from thegrill.web import exacto, service, sites
+from thegrill.web import exacto, rangos, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -409,6 +409,7 @@ def weigh(session: Session, user: User, serial: str, kg: float,
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     if kg <= 0:
         raise AgingError("El peso tiene que ser mayor que cero")
+    rangos.peso_pieza(kg, lang)
 
     primal = here(session, user, find(session, user.restaurant_id, serial))
     previous = round(primal.weight_kg or 0.0, 6)

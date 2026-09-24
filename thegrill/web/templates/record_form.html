@@ -36,7 +36,7 @@
           {% for o in (f.options or "").split("|") if o.strip() %}<option>{{ o.strip() }}</option>{% endfor %}
         </select>
       {% elif f.type == FieldType.NUMBER %}
-        <input id="f_{{ f.key }}" name="{{ f.key }}" type="number" step="any" inputmode="decimal">
+        <input id="f_{{ f.key }}" name="{{ f.key }}" type="text" inputmode="decimal">
       {% elif f.type == FieldType.DATE %}
         <input id="f_{{ f.key }}" name="{{ f.key }}" type="date">
       {% elif f.type == FieldType.BOOL %}

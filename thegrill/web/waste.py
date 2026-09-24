@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Alert, AlertSeverity, Ingredient, IngredientLot,
                              IngredientMovement, LossKind, MovementKind, Primal,
                              PrimalWeighing, User)
-from thegrill.web import costing, locking, service, sites
+from thegrill.web import costing, locking, rangos, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -64,6 +64,7 @@ def record(session: Session, user: User, kg: float, serial: str | None = None,
     """
     if kg <= 0:
         raise WasteError("Los kilos tirados tienen que ser mayores que cero")
+    rangos.peso_corte(kg, lang or "es")
     if pieces is not None and pieces < 0:
         raise WasteError("Las piezas no pueden ser negativas")
     on = on or date.today()

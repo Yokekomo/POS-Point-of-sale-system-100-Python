@@ -262,7 +262,7 @@ def test_the_plate_can_be_built_from_the_screen(client):
     form = client.get("/ingredientes")
     client.post("/ingredientes/nuevo", data={"csrf": csrf_from(form.text), "name": "Patata",
                                              "unit": "KG", "cost": "1,20"})
-    assert "1.20" in client.get("/ingredientes").text
+    assert "1,20" in client.get("/ingredientes").text
 
     detalle = client.get("/carta/entrecot_a_la_brasa")
     assert detalle.status_code == 200
@@ -390,7 +390,7 @@ def test_the_screen_shows_grams_the_price_per_kilo_and_the_portion(client):
     client.post("/ingredientes/nuevo", data={"csrf": csrf_from(form.text), "name": "Patata",
                                              "unit": "KG", "cost": "1,20", "portion": "200"})
     html = client.get("/ingredientes").text
-    assert "1.2" in html and "200 g" in html and "0.240" in html   # precio, gramos y ración
+    assert "1,2" in html and "200 g" in html and "0,240" in html   # precio, gramos y ración
 
     form = client.get("/cortes")
     client.post("/cortes/nuevo", data={"csrf": csrf_from(form.text), "name": "Striploin"})

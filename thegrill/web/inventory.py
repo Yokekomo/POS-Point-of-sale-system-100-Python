@@ -21,7 +21,7 @@ from thegrill.engine.inventory import (MATCH, NOT_FOUND, OVER, SHORT, UNCOUNTED,
 from thegrill.models import (Alert, AlertSeverity, CountItemKind, CountPeriod, CountStatus,
                              Ingredient, IngredientLot, IngredientMovement, MeatCount,
                              MeatCountLine, MovementKind, Primal, PrimalStatus, Storage, User)
-from thegrill.web import aging, costing, locking, service, sites
+from thegrill.web import aging, costing, locking, rangos, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -142,6 +142,7 @@ def record(session: Session, user: User, count: MeatCount, serial: str, kg: floa
         raise InventoryError("El inventario ya está cerrado")
     if kg < 0:
         raise InventoryError("El peso contado no puede ser negativo")
+    rangos.peso_corte(kg, lang or "es")
     line = next((l for l in count.lines if l.serial == serial), None)
     if line is None:
         line = MeatCountLine(count_id=count.id, kind=CountItemKind.CUT, serial=serial,

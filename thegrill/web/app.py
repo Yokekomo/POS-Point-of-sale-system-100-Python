@@ -24,8 +24,8 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, Co
                              RecipeKind, RecipeLine, Restaurant, Role, Rotation,
                              TemplateField, Unit, User)
 
-from thegrill.web import (auth, butchery, costing, i18n, inventory, money, seguridad,
-                          service, sheets, tracing, waste)
+from thegrill.web import (auth, butchery, cifras, costing, exacto, i18n, inventory,
+                          money, seguridad, service, sheets, tracing, waste)
 from thegrill.web.seed import seed_templates
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
@@ -33,6 +33,10 @@ UPLOAD_DIR = os.environ.get("GRILL_UPLOAD_DIR", "uploads")
 
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 templates.env.filters["ceil_pct"] = butchery.ceil_pct
+# Los decimales, con el separador del idioma de la casa: «9,400 kg» en
+# español y «9.400 kg» en inglés, en las doscientas y pico cifras que salen
+# por pantalla, sin tocar ninguna plantilla.
+cifras.enganchar(templates.env)
 app = FastAPI(title="Plataforma de gestión de cocina")
 # Las mismas cabeceras que la otra edición. Esta no tenía ninguna, y sus
 # plantillas escribían `<script nonce="">`: parecía que había política.
@@ -581,7 +585,7 @@ def add_item(ingredient_id: int, request: Request, name: str = Form(...), brand:
 
 @app.post("/ingredientes/{ingredient_id}/entrada")
 def add_lot(ingredient_id: int, request: Request, item_id: int = Form(...),
-            qty: float = Form(...), unit_cost: float = Form(...), expiry: str = Form(...),
+            qty: str = Form(...), unit_cost: str = Form(...), expiry: str = Form(...),
             lot_code: str = Form(""), csrf: str = Form(""), ctx=Depends(require_user),
             session: Session = Depends(get_db)):
     """Registrar una entrada lo puede hacer cualquiera: se hace en el muelle."""
@@ -589,7 +593,9 @@ def add_lot(ingredient_id: int, request: Request, item_id: int = Form(...),
     _guard(request, session, user, auth_session, csrf)
     item = _own(session, user, IngredientItem, item_id, request)
     try:
-        costing.receive(session, user, item, qty=qty, unit_cost=unit_cost,
+        costing.receive(session, user, item,
+                        qty=exacto.leer(qty) or 0.0,
+                        unit_cost=exacto.leer(unit_cost, decimales=exacto.CENTIMOS_DECIMALES) or 0.0,
                         expiry=date.fromisoformat(expiry), lot_code=lot_code.strip() or None)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
@@ -645,7 +651,7 @@ def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
     _guard(request, session, user, auth_session, csrf)
     try:
         result = waste.record(
-            session, user, kg=float(kg.replace(",", ".")),
+            session, user, kg=exacto.leer(kg) or 0.0,
             serial=serial.strip() or None,
             ingredient_id=int(ingredient_id) if ingredient_id.strip() else None,
             pieces=int(pieces) if pieces.strip() else None,
@@ -704,7 +710,7 @@ def recover_piece(request: Request, serial: str = Form(...), kg: str = Form(""),
     _guard(request, session, user, auth_session, csrf)
     try:
         inventory.recover(session, user, serial.strip(),
-                          kg=float(kg.replace(",", ".")) if kg.strip() else None,
+                          kg=exacto.leer(kg) if kg.strip() else None,
                           note=note.strip() or None,
                           lang=lang_for(request, session, user))
     except (inventory.InventoryError, ValueError) as e:
@@ -714,14 +720,16 @@ def recover_piece(request: Request, serial: str = Form(...), kg: str = Form(""),
 
 @app.post("/inventario/alta")
 def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(...),
-                kg: float = Form(...), unit_cost: float = Form(...), expiry: str = Form(...),
+                kg: str = Form(...), unit_cost: str = Form(...), expiry: str = Form(...),
                 note: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     """Estaba en cámara y el sistema no la tenía."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
-        inventory.adopt(session, user, serial.strip(), item_id, kg=kg, unit_cost=unit_cost,
+        inventory.adopt(session, user, serial.strip(), item_id,
+                        kg=exacto.leer(kg) or 0.0,
+                        unit_cost=exacto.leer(unit_cost, decimales=exacto.CENTIMOS_DECIMALES) or 0.0,
                         expiry=date.fromisoformat(expiry), note=note.strip() or None,
                         lang=lang_for(request, session, user))
     except (inventory.InventoryError, ValueError) as e:
@@ -776,7 +784,7 @@ async def record_count(request: Request, ctx=Depends(require_user),
         if not key.startswith("kg:") or not str(value).strip():
             continue
         try:
-            kg = float(str(value).replace(",", "."))
+            kg = exacto.leer(value)
         except ValueError:
             continue
         try:
@@ -787,7 +795,7 @@ async def record_count(request: Request, ctx=Depends(require_user),
     if extra and str(form.get("extra_kg") or "").strip():
         try:
             inventory.record(session, user, count, extra,
-                             float(str(form.get("extra_kg")).replace(",", ".")))
+                             exacto.leer(form.get("extra_kg")) or 0.0)
         except (ValueError, inventory.InventoryError):
             pass
     return RedirectResponse("/inventario", status_code=303)
@@ -828,7 +836,7 @@ def recipes_page(request: Request, ctx=Depends(require_user),
 @app.post("/recetas/nueva")
 def create_recipe(request: Request, name: str = Form(...), kind: str = Form("DISH"),
                   portions: int = Form(1), yield_qty: str = Form(""), yield_unit: str = Form("KG"),
-                  sale_price: str = Form(""), vat_pct: float = Form(0.0), csrf: str = Form(""),
+                  sale_price: str = Form(""), vat_pct: str = Form("0"), csrf: str = Form(""),
                   ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -838,10 +846,12 @@ def create_recipe(request: Request, name: str = Form(...), kind: str = Form("DIS
         code = f"{code}_{int(datetime.utcnow().timestamp())}"
     recipe = Recipe(restaurant_id=user.restaurant_id, code=code, name=name.strip(),
                     kind=RecipeKind[kind] if kind in RecipeKind.__members__ else RecipeKind.DISH,
-                    portions=max(1, portions), vat_pct=vat_pct,
-                    yield_qty=float(yield_qty) if yield_qty else None,
+                    portions=max(1, portions),
+                    vat_pct=exacto.leer(vat_pct, 0.0) or 0.0,
+                    yield_qty=exacto.leer(yield_qty),
                     yield_unit=Unit[yield_unit] if yield_unit in Unit.__members__ else None,
-                    sale_price=float(sale_price) if sale_price else None)
+                    sale_price=exacto.leer(sale_price,
+                                           decimales=exacto.CENTIMOS_DECIMALES))
     session.add(recipe)
     session.flush()
     return RedirectResponse(f"/recetas/{recipe.code}", status_code=303)
@@ -958,7 +968,7 @@ async def register_sales(request: Request, ctx=Depends(require_user),
     for key, value in form.multi_items():
         if key.startswith("units:") and str(value).strip():
             try:
-                units = float(str(value).replace(",", "."))
+                units = exacto.leer(value, decimales=0) or 0.0
             except ValueError:
                 continue
             if units > 0:

@@ -65,19 +65,38 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 - [x] **La pérdida del mes sale al doble.** `defrost.py:493`: el desvío del
       turno y el agua del descongelado son el mismo dinero y se suman dos veces.
       Y hay una prueba que garantiza el error en vez de cazarlo.
-- [ ] **El Excel del POS multiplica por diez o por cien.** `pos_import.py:138`:
-      convierte a texto celdas que ya venían como número y luego las pasa por el
-      adivinador de separador decimal.
-- [ ] **Un parte con miles en punto se lee dividido por mil, en silencio.**
-      `pos_import.py:273`: el aviso que promete el comentario no se da nunca.
-- [ ] **«1,5» en los kilos del inventario se guarda 15.**
-      `web/templates/inventory.html:36` es `type="number"` y el navegador tira
-      la coma. El servidor sabe leer comas; nunca ve ninguna.
-- [ ] **«1.250» se guarda 1,25.** `_num` solo cambia coma por punto.
-- [ ] **Entran 1370 kg de solomillo y 240 °C de temperatura de llegada.** No hay
-      rango de proceso en ninguna parte. El registro sanitario queda completo y
-      falso, que es peor que no tenerlo.
-- [ ] **Los kilos salen con punto decimal en los siete idiomas.**
+- [x] **El Excel del POS multiplica por diez o por cien.** `pos_import.py:138`:
+      convertía a texto celdas que ya venían como número y luego las pasaba por
+      el adivinador de separador decimal. Ahora un número que Excel ya leyó
+      viaja como número hasta el final y no vota sobre cómo se escriben los
+      decimales, porque no tiene separador que interpretar.
+- [x] **Un parte con miles en punto se lee dividido por mil, en silencio.**
+      `pos_import.py:273`. Se sigue tomando el punto —no hay manera de saberlo
+      con ese fichero delante— pero ya no se da por seguro: sale el aviso con
+      el número de ejemplo y cómo se ha leído.
+- [x] **«1,5» en los kilos del inventario se guarda 15.** Los dieciséis
+      campos decimales de las dos ediciones pasan de `type="number"` a
+      `type="text" inputmode="decimal"`: el teclado del móvil sigue saliendo
+      numérico y la coma llega entera al servidor, que sí sabe leerla.
+- [x] **«1.250» se guarda 1,25.** `exacto.leer` sustituye al `replace(",", ".")`
+      en los veinticinco sitios que leían un número de un formulario. Con los
+      dos separadores manda el último; repetido, son los miles; y cuando hay
+      uno solo con tres cifras detrás lo decide el campo, que es lo único que
+      lo sabe: una báscula da tres decimales y el dinero da dos.
+- [x] **Entran 1370 kg de solomillo y 240 °C de temperatura de llegada.**
+      `rangos.py`, y con dos niveles que no se confunden: lo **imposible** no se
+      guarda y la pantalla dice el rango que esperaba; lo que es **verdad y está
+      mal** —refrigerado a 12 °C— se guarda tal cual, porque es la prueba, y
+      sale hoy en los avisos del manager. Los límites de norma son los del
+      Reglamento (CE) 853/2004.
+- [x] **Los kilos salen con punto decimal en los siete idiomas.** Una casa
+      española leía «9.400 kg» y entendía nueve mil cuatrocientos. Arreglado en
+      dos sitios y no en doscientas plantillas: el filtro `format` de Jinja
+      —que no es más que el `%` de Python— pasa a poner el separador del
+      idioma, y `t()` hace lo mismo con los números que van metidos dentro de
+      una frase, que eran los que se escapaban. Se toca solo lo que es un
+      número y nada más que un número: un serial, una fecha o un nombre salen
+      intactos. `cifras.py`.
 
 ## 4. Fechas y trazabilidad
 
@@ -140,3 +159,20 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       commits antes: `cost` es un derivado y estaba donde van los importes.
 - [x] **Importes con milésimas y pesos con miligramos llegaban al disco.**
       Doscientos treinta y siete en una casa de veinticinco días; ahora cero.
+
+- [x] **Los cinco del dinero escrito a mano**: el Excel que multiplicaba por
+      diez, el parte que se dividía entre mil sin avisar, el «1,5» que se
+      guardaba 15, el «1.250» que se guardaba 1,25 y los rangos de proceso.
+      `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
+      `tests/test_rangos.py`.
+
+- [x] **Los números se escriben y se leen como en el país de la casa.**
+      `exacto.leer` para lo que se escribe y `cifras` para lo que se lee.
+
+- [x] **La pantalla de alertas del manager salía vacía siempre.** Encontrado
+      escribiendo las pruebas de los rangos: la ruta de carne mandaba la lista
+      como `alerts` y la plantilla la leía como `rows`. Sin error y sin aviso:
+      simplemente no aparecía ni una línea. Todo lo que el programa levanta
+      —carne caliente, pieza pasada de fecha, merma de maduración, corte bajo
+      mínimo— se guardaba bien y no lo veía nadie, que en un registro sanitario
+      es lo mismo que no guardarlo.

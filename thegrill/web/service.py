@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Alert, AlertSeverity, Attachment, FieldType, Notification,
                              NotificationKind, Record, RecordStatus, RecordTemplate,
                              RecordValue, Restaurant, Role, TemplateField, User)
+from thegrill.web import exacto
 from thegrill.web.i18n import DEFAULT_LANG, t
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
@@ -140,7 +141,7 @@ def parse_field(fld: TemplateField, raw: str | None, today: date,
 
     if fld.type == FieldType.NUMBER:
         try:
-            pv.number = float(raw.replace(",", "."))
+            pv.number = exacto.leer(raw)
         except ValueError:
             raise ValidationError({fld.key: t(lang, "valid.not_a_number", label=fld.label)}) from None
         if fld.min_value is not None and pv.number < fld.min_value:

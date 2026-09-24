@@ -827,7 +827,7 @@ class TestNovedades:
         assert len(avisa["items"]) == 1
         texto = avisa["items"][0]["texto"]
         assert "2 ×" in texto and "Striploin AUS" in texto      # cuántas y de qué
-        assert "18.8 kg" in texto                               # los kilos que entran
+        assert "18,8 kg" in texto                               # los kilos que entran
         assert "DXB20260910" in texto                           # con qué lote: FEFO
         assert "Marta" in texto                                 # y quién
 
@@ -1279,7 +1279,7 @@ class TestRecepcionDeUnaEnUna:
             "csrf": csrf_from(form.text), "lot": "L-ROTU", "sku": "Ribeye AUS",
             "price_kg": "30", "serial:0": "9210", "kg:0": "9,1"})
         # Con el número y el peso, que es lo que hay que escribir encima.
-        assert "9210 · 9.1 kg" in r.text and "en el primal" in r.text
+        assert "9210 · 9,1 kg" in r.text and "en el primal" in r.text
 
     def test_a_phone_with_no_signal_still_books_the_piece(self, client):
         """La foto necesita línea; lo escrito, no. Lo escrito manda."""
@@ -1402,5 +1402,5 @@ class TestComoLlega:
         self.recibir(client, arrival="CHILLED", arrival_c="2,4", frozen_on_arrival="1")
         ficha = client.get("/trazabilidad?serial=9400").text
         assert "Cómo llegó" in ficha
-        assert "Refrigerada a 2.4 °C" in ficha
+        assert "Refrigerada a 2,4 °C" in ficha
         assert "Congelada al entrar" in ficha

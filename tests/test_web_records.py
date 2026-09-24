@@ -68,7 +68,7 @@ def test_temperature_out_of_range_is_saved_and_raises_critical_alert(ctx):
     assert result.record.status == RecordStatus.ALERT      # el dato real queda registrado
     assert len(result.alerts) == 1
     assert result.alerts[0].severity == AlertSeverity.CRITICAL
-    assert "9.4°C" in result.alerts[0].message and "máximo 5°C" in result.alerts[0].message
+    assert "9,4°C" in result.alerts[0].message and "máximo 5°C" in result.alerts[0].message
     assert [v.out_of_range for v in result.record.values if v.field_key == "temperatura"] == [True]
 
 

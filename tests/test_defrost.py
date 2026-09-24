@@ -145,7 +145,8 @@ def test_the_close_compares_the_real_weight_with_the_recipe(ctx):
     assert v.units_sold == 34
     assert v.real_g_per_unit == 275.0 and v.theoretical_g_per_unit == 250.0
     assert v.overcut and v.gap_pct == 10.0
-    assert any("Striploin steak" in a.message and "+10.0" in a.message for a in result.alerts)
+    assert any("Striploin steak" in a.message and "+10,0" in a.message
+                   for a in result.alerts)
 
 
 def test_cutting_to_the_gram_raises_nothing(ctx):

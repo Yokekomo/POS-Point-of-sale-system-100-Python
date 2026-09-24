@@ -27,8 +27,12 @@ exacto. La coma flotante es el camión, no la báscula.
 """
 from __future__ import annotations
 
+import re
+
 CENTIMOS = 100          # un euro
 GRAMOS = 1000           # un kilo
+GRAMOS_DECIMALES = 3    # las cifras que da una báscula de cocina
+CENTIMOS_DECIMALES = 2  # las que da el dinero
 
 
 def a_enteros(valor: float, por: int = CENTIMOS) -> int:
@@ -106,6 +110,85 @@ def kilos(valor: float | None) -> float | None:
     if valor is None:
         return None
     return a_decimal(a_enteros(valor, GRAMOS), GRAMOS)
+
+
+# ----------------------------------------------------- leer lo que escriben
+# Un número escrito a mano no viene en un solo idioma. El mismo peso se teclea
+# «1,250» en Madrid, «1.250» en Londres y «1 250» en Budapest, y el teclado
+# del móvil pone el separador que le da la gana. Leerlo con un
+# `replace(",", ".")` funciona hasta el día que alguien escribe los miles: ese
+# día «1.250 €» entran como 1,25 € y nadie lo ve.
+#
+# Las reglas son, por orden, las que usa cualquiera que lea números de gente:
+#
+# 1. Si aparecen los dos separadores, el último es el decimal. «1.234,56» y
+#    «1,234.56» son el mismo dinero.
+# 2. Si aparece uno solo pero más de una vez, es el de los miles: «1.234.567»
+#    no tiene decimales.
+# 3. Si aparece uno solo y una sola vez, hay que decidir, y decide el campo.
+#    Tres cifras detrás es a la vez lo que escribe una báscula de gramos y lo
+#    que escribe quien separa los miles; sabiendo cuántos decimales mide ese
+#    campo se acaba la duda. Una báscula da tres, así que «1,250 kg» es kilo y
+#    cuarto. El dinero da dos, así que «1.250 €» son mil doscientos cincuenta.
+#    Por eso `decimales` no es un detalle: es lo que distingue un kilo de una
+#    tonelada.
+#
+# Detrás de un cero no hay miles —nadie escribe «0.500» por quinientos—, y un
+# número con cuatro cifras delante tampoco los lleva, porque entonces se
+# habrían escrito también: «1234.567» no es «1.234.567».
+
+_ESPACIOS = re.compile(r"[\s\u00a0\u202f\u2009\u2007']")
+
+
+def leer(raw: object, default: float | None = None,
+         decimales: int = GRAMOS_DECIMALES) -> float | None:
+    """El número que quiso escribir quien lo escribió, venga como venga.
+
+    `decimales` es la resolución del campo: 3 para kilos, 2 para dinero, 0
+    para contar unidades. Solo se usa para resolver el caso dudoso.
+
+    Levanta `ValueError` si aquello no es un número, igual que `float`.
+    """
+    if raw is None:
+        return default
+    if isinstance(raw, bool):
+        raise ValueError(f"no es un número: {raw!r}")
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    texto = _ESPACIOS.sub("", str(raw))
+    if not texto:
+        return default
+    negativo = texto[0] in "-\u2212"
+    cuerpo = texto[1:] if texto[0] in "+-\u2212" else texto
+    if not cuerpo or any(c not in "0123456789,." for c in cuerpo):
+        raise ValueError(f"no es un número: {raw!r}")
+
+    comas, puntos = cuerpo.count(","), cuerpo.count(".")
+    if comas and puntos:                       # 1. el último manda
+        decimal = "," if cuerpo.rfind(",") > cuerpo.rfind(".") else "."
+    elif comas + puntos > 1:                   # 2. repetido: son los miles
+        decimal = ""
+    elif comas + puntos == 1:                  # 3. uno solo: decide el campo
+        sep = "," if comas else "."
+        corte = cuerpo.rfind(sep)
+        delante, detras = cuerpo[:corte], len(cuerpo) - corte - 1
+        son_miles = (detras == 3 and delante.isdigit() and 1 <= len(delante) <= 3
+                     and not delante.startswith("0")
+                     and decimales < GRAMOS_DECIMALES)
+        decimal = "" if son_miles else sep
+    else:
+        decimal = ""
+
+    limpio = cuerpo
+    for sep in (",", "."):
+        if sep != decimal:
+            limpio = limpio.replace(sep, "")
+    if decimal:
+        limpio = limpio.replace(decimal, ".")
+    if not any(c.isdigit() for c in limpio):
+        raise ValueError(f"no es un número: {raw!r}")
+    valor = float(limpio)
+    return -valor if negativo else valor
 
 
 def es_justo(valor: float | None, por: int = CENTIMOS) -> bool:

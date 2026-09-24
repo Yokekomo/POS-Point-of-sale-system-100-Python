@@ -165,7 +165,7 @@ def test_a_scale_wobble_never_makes_the_aged_kilo_cheaper(casa):
         assert resultado.cost_per_kg == pytest.approx(30.0)
         apunte = (session.query(PrimalWeighing).filter_by(serial="9999")
                   .order_by(PrimalWeighing.id.desc()).first())
-        assert "9.03" in (apunte.note or "")        # lo leído queda escrito
+        assert "9,03" in (apunte.note or "")        # lo leído queda escrito
         # Y un kilo de más ya no es la báscula: eso se rechaza.
         with pytest.raises(aging.AgingError):
             aging.weigh(session, ana, "9999", 10.0, on=HOY, lang="es")

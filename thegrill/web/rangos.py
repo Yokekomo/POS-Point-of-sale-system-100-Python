@@ -1,0 +1,140 @@
+"""Lo que puede ser y lo que no. Un número imposible no se guarda.
+
+Un registro sanitario mal relleno es peor que no tenerlo: queda completo,
+queda firmado, y es mentira. El día de la inspección nadie lo mira dos veces,
+y el día del brote no sirve de nada. Por eso aquí hay dos cosas distintas y no
+se confunden:
+
+**Imposible** es un número que no puede describir lo que pasó. Un solomillo no
+pesa 1370 kg y un termómetro de cámara no marca 240 °C: son el dedo, que ha
+resbalado en la tecla. Eso no se guarda. Se para la pantalla y se dice lo que
+se esperaba, con el rango delante, para que quien lo escribió lo vea sin
+pensar.
+
+**Fuera de norma** es un número que sí puede ser y que está mal. Carne
+refrigerada que baja del camión a 12 °C es un hecho, y es un hecho grave: hay
+que **guardarlo**, porque es la prueba de que ese camión vino caliente, y hay
+que avisar al responsable el mismo día. Rechazarlo sería borrar la única
+anotación que importa.
+
+Los límites de norma vienen del Reglamento (CE) 853/2004, anexo III: 7 °C en
+carne de ungulados, 3 °C en despojos, y −12 °C en carne congelada. Los de lo
+imposible no vienen de ninguna ley: vienen de lo que cabe en una cámara y de
+lo que marca un termómetro de sonda.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from thegrill.models import Storage
+from thegrill.web.i18n import t
+
+# --------------------------------------------------------------- lo imposible
+# Mínimo y máximo de cada magnitud. Anchos a propósito: esto no es el control
+# de calidad, es el filtro del dedo gordo. Lo que pasa por aquí y aun así es
+# raro lo dice el aviso de más abajo, no el rechazo.
+PESO_PIEZA = (0.1, 250.0)        # de una pularda a un cuarto de vacuno entero
+PESO_CORTE = (0.0, 250.0)        # contar cero es contar; 1370 no es contar
+TEMPERATURA = (-60.0, 60.0)      # fuera de esto no hay sonda, hay un teclazo
+PRECIO_KG = (0.01, 2000.0)       # el wagyu sube, pero no tanto
+GRAMOS_RACION = (1.0, 5000.0)
+
+# ---------------------------------------------------------- lo que es raro
+# Posible, pero merece que alguien lo mire. No para la pantalla: deja el
+# número y levanta un aviso.
+PIEZA_PESADA = 80.0              # más que esto ya no lo sube una persona
+
+# ------------------------------------------------------------ lo que es norma
+# Reglamento (CE) 853/2004, anexo III. La carne que llega por encima de esto se
+# apunta igual —es la prueba— y sale en los avisos del manager el mismo día.
+LEGAL = {
+    Storage.CHILLED: (-2.0, 7.0),
+    Storage.FROZEN: (-60.0, -12.0),
+}
+
+
+class FueraDeRango(ValueError):
+    """El número no puede describir lo que pasó: no se guarda."""
+
+
+@dataclass(frozen=True)
+class Aviso:
+    """El número sí puede ser, y está mal. Se guarda y se avisa."""
+    code: str
+    message: str
+
+
+def _dentro(valor: float, limites: tuple[float, float]) -> bool:
+    return limites[0] <= valor <= limites[1]
+
+
+def _numero(valor: float) -> str:
+    """Sin ceros de adorno: 1370 y no 1370.000000."""
+    return f"{valor:.10g}"
+
+
+def peso_pieza(kg: float | None, lang: str = "es", serial: str = "") -> None:
+    """El peso de un primal al entrar. Levanta si es imposible."""
+    if kg is None or _dentro(kg, PESO_PIEZA):
+        return
+    raise FueraDeRango(t(lang, "rango.peso", serial=serial or "—", kg=_numero(kg),
+                         min=_numero(PESO_PIEZA[0]), max=_numero(PESO_PIEZA[1])))
+
+
+def peso_corte(kg: float | None, lang: str = "es") -> None:
+    """Kilos de un corte, una merma, un recuento. Levanta si es imposible."""
+    if kg is None or _dentro(kg, PESO_CORTE):
+        return
+    raise FueraDeRango(t(lang, "rango.peso_corte", kg=_numero(kg),
+                         min=_numero(PESO_CORTE[0]), max=_numero(PESO_CORTE[1])))
+
+
+def temperatura(grados: float | None, lang: str = "es") -> None:
+    """Lo que marca la sonda. Levanta si no lo puede marcar ninguna sonda."""
+    if grados is None or _dentro(grados, TEMPERATURA):
+        return
+    raise FueraDeRango(t(lang, "rango.temp", c=_numero(grados),
+                         min=_numero(TEMPERATURA[0]), max=_numero(TEMPERATURA[1])))
+
+
+def precio_kg(eur: float | None, lang: str = "es") -> None:
+    """El precio de la factura. Levanta si es imposible."""
+    if eur is None or _dentro(eur, PRECIO_KG):
+        return
+    raise FueraDeRango(t(lang, "rango.precio", eur=_numero(eur),
+                         min=_numero(PRECIO_KG[0]), max=_numero(PRECIO_KG[1])))
+
+
+def gramos_racion(gramos: float | None, lang: str = "es") -> None:
+    """Los gramos que se ponen en el plato. Levanta si es imposible."""
+    if gramos is None or _dentro(gramos, GRAMOS_RACION):
+        return
+    raise FueraDeRango(t(lang, "rango.gramos", g=_numero(gramos),
+                         min=_numero(GRAMOS_RACION[0]), max=_numero(GRAMOS_RACION[1])))
+
+
+def llegada(grados: float | None, almacen: Storage, serial: str,
+            kg: float | None = None, lang: str = "es") -> list[Aviso]:
+    """Lo que hay que mirar de una pieza que acaba de bajar del camión.
+
+    Devuelve avisos, no excepciones: todo lo que llega aquí ya pasó el filtro
+    de lo imposible, así que es verdad y se guarda. Lo que sale de esta
+    función es lo que el manager ve hoy en sus alertas, no dentro de un mes en
+    un cuadre.
+    """
+    fuera: list[Aviso] = []
+    banda = LEGAL.get(almacen)
+    if grados is not None and banda and not _dentro(grados, banda):
+        frio = almacen == Storage.FROZEN
+        caliente = grados > banda[1]
+        clave = ("haccp.arrival_warm" if caliente else "haccp.arrival_cold")
+        fuera.append(Aviso(clave, t(
+            lang, "alert." + ("frozen_warm" if frio and caliente else
+                              "chilled_warm" if caliente else "arrival_cold"),
+            serial=serial, c=_numero(grados),
+            limit=_numero(banda[1] if caliente else banda[0]))))
+    if kg is not None and kg > PIEZA_PESADA:
+        fuera.append(Aviso("meat.heavy_piece", t(
+            lang, "alert.heavy_piece", serial=serial, kg=_numero(kg),
+            limit=_numero(PIEZA_PESADA))))
+    return fuera
