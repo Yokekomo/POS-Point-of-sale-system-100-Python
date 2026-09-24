@@ -23,7 +23,7 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, Co
                              FieldType, Ingredient, IngredientItem,
                              Notification, PosMatch, PosProduct, Record, RecordTemplate, Recipe,
                              RecipeKind, RecipeLine, Restaurant, Role, Rotation,
-                             TemplateField, Unit, User)
+                             Storage, TemplateField, Unit, User)
 
 from thegrill.web import (auth, butchery, caducidad, cifras, costing, exacto, i18n,
                           inventory, jornada, money, rangos, seguridad, service,

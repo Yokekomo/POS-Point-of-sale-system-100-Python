@@ -17,9 +17,9 @@ que **guardarlo**, porque es la prueba de que ese camión vino caliente, y hay
 que avisar al responsable el mismo día. Rechazarlo sería borrar la única
 anotación que importa.
 
-Las bandas de llegada las pone la casa, y las de aquí están por encima de lo
-que exige el Reglamento (CE) 853/2004 en refrigerado —5 °C frente a los 7 °C
-de la norma—, que es como tiene que ser: la norma es el mínimo y no el
+Las bandas de llegada las pone la casa. Las que trae de serie cumplen el
+Reglamento (CE) 853/2004 y en refrigerado van por debajo —5 °C frente a los
+7 °C de la norma—, que es como tiene que ser: la norma es el suelo y no el
 objetivo. Los límites de lo imposible no vienen de ninguna ley: vienen de lo
 que cabe en una cámara y de lo que marca un termómetro de sonda.
 """
@@ -53,14 +53,13 @@ PIEZA_PESADA = 80.0              # más que esto ya no lo sube una persona
 # Refrigerado a 5 °C es **más estricto** que el 7 °C que exige el Reglamento
 # (CE) 853/2004, y eso es como debe ser: la norma es el mínimo, no el objetivo.
 #
-# En congelado la banda llega hasta 0 °C. Esa es la decisión de la casa y aquí
-# se respeta, pero conviene saber lo que significa: el 853/2004 pide −12 °C
-# para la carne congelada, y una pieza que baja del camión a cero no está
-# congelada, está descongelándose. Si algún día se quiere apretar, este es el
-# único sitio donde se toca.
+# Y congelado hasta −12 °C, que es lo que pide el 853/2004 para la carne
+# congelada. El número importa por lo que significa: a cero grados una pieza
+# no está congelada, está descongelándose, y aceptarla sin avisar es firmar
+# que llegó bien.
 LEGAL = {
     Storage.CHILLED: (-5.0, 5.0),
-    Storage.FROZEN: (-20.0, 0.0),
+    Storage.FROZEN: (-20.0, -12.0),
 }
 
 # Cómo se llama cada límite en la casa, para leerlo y para escribirlo.

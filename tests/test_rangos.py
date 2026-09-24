@@ -104,8 +104,8 @@ def test_the_manager_sees_it_the_same_day(client):
     assert pagina.status_code == 200 and "8017" in pagina.text
 
 
-def test_frozen_that_arrives_above_zero_is_not_frozen(client):
-    """La banda de la casa para congelado es de −20 a 0: a dos grados, aviso."""
+def test_frozen_that_arrives_above_minus_twelve_is_not_frozen(client):
+    """De serie, congelado es de −20 a −12: es lo que pide el 853/2004."""
     signup(client)
     form = client.get("/recepcion")
     client.post("/recepcion", data={
@@ -212,10 +212,10 @@ def test_touching_one_limit_leaves_the_other_alone(client):
     signup(client)
     form = client.get("/configuracion")
     client.post("/configuracion", data={
-        "csrf": csrf_from(form.text), "language": "es", "frozen_max_c": "-12"})
+        "csrf": csrf_from(form.text), "language": "es", "frozen_max_c": "-18"})
     with db.session_scope() as s:
         casa = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
-        assert rangos.banda(Storage.FROZEN, casa) == (-20.0, -12.0)
+        assert rangos.banda(Storage.FROZEN, casa) == (-20.0, -18.0)
         assert rangos.banda(Storage.CHILLED, casa) == (-5.0, 5.0)
 
 
@@ -244,7 +244,7 @@ def test_the_screen_shows_the_band_of_the_house(client):
     form = client.get("/configuracion")
     client.post("/configuracion", data={
         "csrf": csrf_from(form.text), "language": "es",
-        "chilled_max_c": "4", "frozen_max_c": "-12"})
+        "chilled_max_c": "4", "frozen_max_c": "-18"})
     pantalla = client.get("/configuracion").text
     assert 'name="chilled_max_c" inputmode="decimal" value="4.0"' in pantalla
-    assert 'name="frozen_max_c" inputmode="decimal" value="-12.0"' in pantalla
+    assert 'name="frozen_max_c" inputmode="decimal" value="-18.0"' in pantalla
