@@ -1,0 +1,21 @@
+{#
+  La casilla de un peso: gramos dentro, kilos debajo.
+
+  El eco no es decoración. Un cero de más en gramos es un error de diez veces,
+  y en un inventario de carne eso son miles de euros que nadie ve hasta el
+  cuadre. Nadie relee una cifra que acaba de teclear; sí mira la de al lado si
+  no cuadra con lo que tiene en la mano. Por eso el eco va en kilos: es la
+  cifra que quien está delante lleva toda la vida mirando y sabe de memoria
+  cuánto pesa un lomo. «94350 g» no dice nada; «94,350 kg» grita.
+
+  El separador del eco lo pone el idioma de la casa, como en cualquier otra
+  cifra de la pantalla.
+#}
+{% macro peso(nombre, valor="", autofoco=false, requerido=false, titulo="", id="") -%}
+<input {% if id %}id="{{ id }}" {% endif %}name="{{ nombre }}" inputmode="numeric"
+       data-peso value="{{ valor }}"
+       {%- if autofoco %} autofocus{% endif %}
+       {%- if requerido %} required{% endif %}
+       {%- if titulo %} title="{{ titulo }}"{% endif %}>
+<small class="eco muted" data-eco aria-live="polite"></small>
+{%- endmacro %}

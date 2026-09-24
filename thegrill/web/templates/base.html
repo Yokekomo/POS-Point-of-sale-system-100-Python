@@ -130,6 +130,13 @@ input[type=file]{padding:9px}
 .bar i{display:block;height:100%;background:var(--accent)}
 .rowflex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .muted{color:var(--muted);font-size:13px}
+/* El eco de una casilla de peso: los gramos que se acaban de escribir, en
+   kilos. Queda pegado debajo de la casilla y ocupa sitio siempre —aunque
+   esté vacío— para que la hoja no dé un salto al escribir el primer dígito:
+   una pantalla que se mueve sola debajo del dedo hace fallar el toque
+   siguiente, y aquí se teclea de pie y con guantes. */
+.eco{display:block;min-height:1.2em;margin-top:2px;font-variant-numeric:tabular-nums}
+.eco[data-mal]{color:var(--bad, #b00)}
 .tree td:first-child{white-space:nowrap}
 .lvl{display:inline-block}
 .num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -227,6 +234,64 @@ img,svg,video{max-width:100%;height:auto}
 </div></header>
 {% endif %}
 <main>{% block body %}{% endblock %}</main>
+<script nonce="{{ nonce }}">
+// El eco de las casillas de peso: se escriben gramos y debajo aparecen los
+// kilos. Quien está delante teclea 9435 y lee «9,435 kg», que es la cifra que
+// sabe de memoria; un 94350 por un cero de más canta solo.
+//
+// Se hace aquí y no con el `pattern` del navegador porque no es una
+// validación: es una segunda lectura. El navegador puede decir «esto no vale»
+// y aun así dejar pasar un peso diez veces mayor, que es un número
+// perfectamente válido y perfectamente equivocado. Lo único que lo caza es
+// verlo en la unidad de la báscula.
+(function () {
+  var COMA = {es: 1, fr: 1, de: 1, nl: 1, hu: 1};
+  var idioma = (document.documentElement.lang || "en").slice(0, 2);
+  var sep = COMA[idioma] ? "," : ".";
+  var textos = {kg: {{ t("units.kg")|tojson }}, mal: {{ t("valid.whole_grams")|tojson }}};
+
+  function kilos(gramos) {
+    // Tres decimales siempre: «9,400» y no «9,4». Una báscula da tres cifras
+    // y quitarle los ceros hace dudar de si faltan dígitos.
+    var s = (gramos / 1000).toFixed(3);
+    return s.replace(".", sep) + " " + textos.kg;
+  }
+
+  function pintar(casilla) {
+    var eco = casilla.parentNode && casilla.parentNode.querySelector("[data-eco]");
+    if (!eco) return;
+    var escrito = (casilla.value || "").replace(/[\s.  ]/g, "");
+    if (!escrito) { eco.textContent = ""; eco.removeAttribute("data-mal"); return; }
+    // Una coma en gramos casi siempre son kilos mal puestos. Se dice aquí,
+    // antes de darle al botón, y no después de haber perdido la hoja.
+    if (!/^\d+$/.test(escrito)) {
+      eco.textContent = textos.mal;
+      eco.setAttribute("data-mal", "1");
+      return;
+    }
+    eco.removeAttribute("data-mal");
+    eco.textContent = kilos(parseInt(escrito, 10));
+  }
+
+  function enganchar(raiz) {
+    (raiz || document).querySelectorAll("input[data-peso]").forEach(function (c) {
+      if (c.getAttribute("data-eco-puesto")) return;
+      c.setAttribute("data-eco-puesto", "1");
+      c.addEventListener("input", function () { pintar(c); });
+      pintar(c);                       // y al cargar, que puede venir con valor
+    });
+  }
+
+  enganchar(document);
+  // Las filas de los cortes y de las piezas se añaden con un botón: el eco
+  // tiene que aparecer también en las que no existían al cargar la pantalla.
+  if (window.MutationObserver) {
+    new MutationObserver(function () { enganchar(document); })
+      .observe(document.body, {childList: true, subtree: true});
+  }
+  window.eco = {enganchar: enganchar};
+})();
+</script>
 <script nonce="{{ nonce }}">
 // Refresca el contador de avisos sin recargar la página. Si la persona ha
 // autorizado los avisos del navegador, una alerta crítica salta a su pantalla.

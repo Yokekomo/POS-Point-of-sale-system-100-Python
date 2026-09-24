@@ -39,8 +39,8 @@ from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, Cou
 from thegrill.models import BugStatus
 from thegrill.web import (aging, auth, butchery, caducidad, cifras, costing, cuadre,
                           defrost, exacto, i18n, inventory, jornada, money,
-                          pos_import, rangos, service, sites, tracing, twofactor,
-                          waste)
+                          pesos, pos_import, rangos, service, sites, tracing,
+                          twofactor, waste)
 
 log = logging.getLogger(__name__)
 
@@ -391,6 +391,11 @@ def _dicho(e: Exception, lang: str = "es") -> str:
     programa: es una tecla de al lado, y se contesta enseñando lo que se
     escribió y en el idioma de la casa.
     """
+    if isinstance(e, pesos.ConDecimales):
+        # El aviso trae la cifra que hay que escribir, no solo la queja: quien
+        # está delante tiene la pieza en la mano y no va a echar la cuenta.
+        return i18n.t(lang, "valid.grams_have_no_decimals", value=e.escrito,
+                      kg=f"{e.como_kilos:.10g}", g=e.gramos)
     if isinstance(e, exacto.NoEsUnNumero):
         return i18n.t(lang, "valid.not_a_number_value", value=e.escrito)
     return str(e)
