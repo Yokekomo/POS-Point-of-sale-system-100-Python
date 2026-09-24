@@ -70,6 +70,11 @@ header nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 header nav a{padding:8px 12px;border-radius:10px;text-decoration:none;font-size:15px;
   color:var(--dim)}
 header nav a:hover{color:var(--ink);background:var(--card)}
+/* Entrar es lo único que queda en la cabecera, así que se ve: quien ya tiene
+   cuenta abre esto para entrar, no para leer la página otra vez. */
+header nav a.entrar{color:var(--ink);font-weight:650;font-size:16px;
+  border:1px solid var(--line);padding:10px 18px}
+header nav a.entrar:hover{border-color:var(--ember);color:var(--ember);background:transparent}
 
 /* --- botones */
 .btn{display:inline-block;padding:15px 26px;border-radius:12px;text-decoration:none;
@@ -105,7 +110,20 @@ header nav a:hover{color:var(--ink);background:var(--card)}
 .mock th{text-align:start;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
   color:var(--dim);font-weight:600;padding:0 0 10px}
 .mock td{padding:11px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
-.mock td.n{text-align:end}
+/* Aire entre columnas. Sin él las cifras se tocaban y en un teléfono el «6»
+   de vendido y el «2» de lo que queda se leían «62»: un número que no existe,
+   en la maqueta que está para enseñar que aquí los números cuadran. */
+.mock th+th,.mock td+td{padding-inline-start:16px}
+/* Un número no se parte. «2 · 0,70» cortado en dos líneas deja un «2 ·»
+   suelto arriba que no significa nada; las cabeceras sí pueden doblarse,
+   que son etiquetas y se leen igual. */
+.mock td.n{white-space:nowrap}
+/* La cabecera va donde va su número. La regla decía `td.n` y las cabeceras
+   son `th`: se quedaban a la izquierda con sus cifras a la derecha, así que
+   «Vendido (POS)» salía encima de otra columna y el 6 debajo de nada. En una
+   maqueta que está para enseñar que aquí los números cuadran, es lo último
+   que puede pasar. */
+.mock .n{text-align:end}
 .mock .big{font-size:19px;font-weight:700;color:var(--ember)}
 .mock .tag{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;
   font-weight:650;background:var(--ember-soft);color:var(--ember)}
@@ -201,6 +219,27 @@ footer a:hover{color:var(--ink)}
   text-decoration:none;color:var(--dim)}
 .langs a.on{border-color:var(--ember);color:var(--ember)}
 
+/* --- la barra de pedir acceso, abajo */
+#pidebarra{position:fixed;z-index:25;inset:auto 0 0 0;background:var(--header);
+  backdrop-filter:blur(10px);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom)}
+#pidebarra[hidden]{display:none}
+#pidebarra .wrap{display:flex;gap:16px;align-items:center;justify-content:space-between;
+  padding-top:12px;padding-bottom:12px}
+#pidebarra span{color:var(--dim);font-size:14px}
+#pidebarra .btn{white-space:nowrap}
+@media (max-width:620px){
+  #pidebarra span{display:none}      /* en un teléfono, el botón y ya */
+  #pidebarra .btn{width:100%;text-align:center}
+}
+/* Tumbado hay ancho de sobra y falta alto. Una barra pegada abajo y el aviso
+   de cookies encima se comían la mitad de una pantalla de 390 px, y lo que
+   quedaba tapado era el botón de entrar: no es que estorbara, es que no se
+   podía pulsar. Con tan poco alto, el botón de la página y el pie bastan. */
+@media (max-height:520px){
+  #pidebarra{display:none}
+}
+
 /* --- aviso de cookies */
 #cookiebar{position:fixed;z-index:30;max-width:var(--max);
   inset:auto max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom))
@@ -221,6 +260,10 @@ body:has(#cookiebar:not([hidden])){padding-bottom:150px}
 @media (min-width:760px){
   body:has(#cookiebar:not([hidden])){padding-bottom:110px}
 }
+/* Lo mismo con la barra de pedir acceso: flota, así que hay que dejarle su
+   hueco o tapa el pie —los idiomas y la puerta de entrar—. */
+body:has(#pidebarra:not([hidden])){padding-bottom:88px}
+body:has(#cookiebar:not([hidden])):has(#pidebarra:not([hidden])){padding-bottom:228px}
 
 /* De ancho a estrecho, y en ese orden. Dos bloques que se cumplen a la vez
    —en un móvil de 412 px se cumplen los tres— los resuelve el navegador por
@@ -266,6 +309,11 @@ body:has(#cookiebar:not([hidden])){padding-bottom:150px}
   .brand span{width:8px;height:8px}
   header nav a{font-size:13px;padding:8px 8px}
   header nav a.btn{padding:9px 12px}
+  /* Cuatro columnas de números en 300 px: la maqueta necesita respirar. */
+  .mock{padding:16px}
+  .mock table{font-size:13px}
+  .mock th+th,.mock td+td{padding-inline-start:12px}
+  .mock th{font-size:10px;letter-spacing:.04em}
 }
 /* Y los teléfonos estrechos de verdad, que siguen siendo muchos. A 360 px la
    marca y los dos botones se quedaban a dos píxeles de caber, y dos píxeles
@@ -374,14 +422,30 @@ a.back:hover{color:var(--ember)}
       <a class="menor" href="/">{{ t("pub.home") }}</a>
       <a class="menor" href="/precios">{{ t("pub.pricing") }}</a>
       <a class="menor" href="/cookies">{{ t("cook.title") }}</a>
-      <a href="#entrar">{{ t("pub.enter") }}</a>
-      <a class="btn primary small" href="/solicitar">{{ t("pub.request") }}</a>
+      <a class="entrar" href="#entrar">{{ t("pub.enter") }}</a>
       {% endblock %}
     </nav>
   </div>
 </header>
 
 {% block shell %}{% endblock %}
+
+{# La puerta de entrada, abajo y a mano. Aparece cuando el botón de la portada
+   se va de la pantalla al bajar: mientras se ve el de arriba, dos botones
+   iguales a la vez son ruido. En las páginas que no tienen ese botón —precios,
+   cookies— se queda puesta desde el principio, que es cuando hace falta.
+
+   Sin guiones no aparece nunca, y no pasa nada: la portada tiene su botón
+   arriba y el pie los lleva todos. Una barra que no se puede cerrar y tapa
+   contenido es peor que no tenerla. #}
+{% if here not in ("/login", "/solicitar") %}
+<div id="pidebarra" hidden>
+  <div class="wrap">
+    <span>{{ t("ld.trial_badge", days=trial_days) if trial_days is defined else t("ld.sub") }}</span>
+    <a class="btn primary" href="/solicitar">{{ t("pub.request") }}</a>
+  </div>
+</div>
+{% endif %}
 
 <footer>
   <div class="wrap">
@@ -476,6 +540,48 @@ if (window.caches) {
     ks.forEach(function (k) { if (k.indexOf("armazon") < 0) caches.delete(k); });
   });
 }
+</script>
+
+<script nonce="{{ nonce }}">
+// La barra de pedir acceso sale cuando el botón de la portada se va de la
+// pantalla al bajar, y se esconde cuando vuelve. Mientras se ve el de arriba,
+// dos botones iguales a la vez no ayudan: estorban.
+//
+// Se mira con `IntersectionObserver`, que es el navegador quien avisa cuando
+// algo entra o sale de la vista. La alternativa —escuchar cada scroll y medir
+// posiciones— hace cuentas sesenta veces por segundo mientras alguien baja con
+// el dedo, y eso en un teléfono de cocina se nota.
+(function () {
+  var barra = document.getElementById("pidebarra");
+  if (!barra) return;
+  var aviso = document.getElementById("cookiebar");
+
+  // Dónde se pone. El aviso de cookies vive abajo del todo también, y cambia
+  // de alto con el idioma y con lo ancha que sea la pantalla: en alemán ocupa
+  // una línea más que en inglés. Un número escrito a mano acierta en un sitio
+  // y se solapa en los otros seis, así que lo mide el navegador.
+  function sitio() {
+    if (barra.hidden) return;
+    var alto = (aviso && !aviso.hidden) ? aviso.getBoundingClientRect().height : 0;
+    barra.style.bottom = alto ? (alto + 24) + "px" : "";
+  }
+  function enseñar(si) { barra.hidden = !si; sitio(); }
+
+  window.addEventListener("resize", sitio);
+  // Y se vuelve a medir al cerrar el aviso, que es cuando la barra baja a su
+  // sitio de siempre.
+  if (aviso && window.MutationObserver) {
+    new MutationObserver(sitio).observe(aviso, {attributes: true,
+                                                attributeFilter: ["hidden"]});
+  }
+
+  var arriba = document.querySelector(".hero .cta-row");
+  // En precios y en cookies no hay botón arriba: la barra se queda puesta.
+  if (!arriba || !window.IntersectionObserver) { enseñar(true); return; }
+  new IntersectionObserver(function (entradas) {
+    enseñar(!entradas[0].isIntersecting);
+  }, {threshold: 0}).observe(arriba);
+})();
 </script>
 </body>
 </html>

@@ -1262,3 +1262,201 @@ def test_the_public_header_fits_in_one_row(browser):
         assert r["filas"] == 1, (ruta, f"el menú sale en {r['filas']} filas", r)
         assert r["alto"] <= 80, (ruta, f"la cabecera ocupa {r['alto']}px", r)
     context.close()
+
+
+def test_the_mock_numbers_line_up_under_their_own_heading(browser):
+    """La maqueta de la portada es el argumento entero: aquí cuadran.
+
+    Dos fallos vivían en ella. Las cabeceras llevan `class="n"` y la regla
+    decía `td.n`: se quedaban a la izquierda con sus cifras a la derecha, así
+    que «Vendido (POS)» salía encima de otra columna. Y sin aire entre
+    columnas, en un teléfono el «6» de vendido y el «2» de lo que queda se
+    tocaban y se leían **62**: un número que no existe, en la maqueta que está
+    para enseñar que aquí los números no mienten.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    page.goto(base)
+    page.wait_for_load_state("networkidle")
+    medido = page.evaluate("""() => {
+        const t = document.querySelector('.mock table');
+        // Se mide la tinta, no la celda: una cifra pegada a la derecha de su
+        // celda y una cabecera pegada a la izquierda de la misma celda ocupan
+        // la misma caja y se ven en sitios distintos. La caja no dice nada de
+        // lo que ve quien mira la pantalla.
+        const tinta = el => { const r = document.createRange();
+            r.selectNodeContents(el); const b = r.getBoundingClientRect();
+            return {i: b.left, d: b.right, an: b.width, alto: b.height,
+                    txt: el.textContent.trim()}; };
+        const cab = [...t.querySelectorAll('tr:first-child th')].map(tinta);
+        const val = [...t.querySelectorAll('tr:nth-child(2) td')].map(tinta);
+        // Lo que de verdad se ve: dónde acaba una cifra y dónde empieza la de
+        // al lado. Hay que medir el texto, no la celda: las cifras van
+        // pegadas a la derecha de la suya, así que el borde de la celda no
+        // dice nada de lo que ve quien mira. Es la distancia que decide si un
+        // 6 y un 2 son dos números o uno.
+        const huecos = [];
+        for (let i = 1; i < val.length; i++) {
+            huecos.push(Math.round(val[i].i - val[i - 1].d));
+        }
+        return {cab, val, huecos,
+                lineas: val.map(v => Math.round(v.alto / 24))};
+    }""")
+    # Cada cabecera acaba donde acaba su cifra: la de la izquierda es texto y
+    # va al principio, las de números van al final, las dos igual.
+    for cab, val in zip(medido["cab"][1:], medido["val"][1:]):
+        assert abs(cab["d"] - val["d"]) <= 2, (cab["txt"], val["txt"], cab, val)
+    # Y entre una cifra y la siguiente hay un hueco que se ve.
+    assert min(medido["huecos"]) >= 8, (medido["huecos"], "las cifras se tocan")
+    context.close()
+
+
+# ------------------------- la puerta de entrada, abajo y cuando toca
+def test_the_header_keeps_only_the_mark_and_the_door(browser):
+    """Arriba, la marca y entrar. Nada más.
+
+    Quien ya tiene cuenta abre esto para entrar; quien no la tiene está
+    leyendo la página y tiene el botón donde está mirando. Dos botones a la
+    vez compitiendo por el mismo dedo no ayudan a ninguno de los dos.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    for ruta in ("/", "/precios", "/cookies"):
+        page.goto(f"{base}{ruta}")
+        page.wait_for_load_state("networkidle")
+        textos = page.evaluate("""() => [...document.querySelectorAll('header nav a')]
+            .filter(a => getComputedStyle(a).display !== 'none')
+            .map(a => a.textContent.trim())""")
+        assert len(textos) == 1, (ruta, textos)
+        # Y con cuerpo: es lo único que queda, tiene que verse.
+        alto = page.evaluate("() => Math.round(document.querySelector"
+                             "('header nav a.entrar').getBoundingClientRect().height)")
+        assert alto >= 40, f"entrar mide {alto}px de alto"
+    context.close()
+
+
+def test_the_bottom_bar_shows_up_when_the_top_button_leaves(browser):
+    """Aparece al bajar y se va al volver arriba.
+
+    Mientras se ve el botón de la portada, la barra sobra. Cuando ese botón se
+    va de la pantalla es cuando alguien que ha seguido leyendo ya no tiene
+    dónde pulsar, y ahí sale.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    page.goto(base)
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(300)
+
+    def se_ve():
+        return page.evaluate("""() => {
+            const b = document.getElementById('pidebarra');
+            return !!b && !b.hidden && b.getBoundingClientRect().height > 0;
+        }""")
+
+    assert not se_ve(), "la barra sale con el botón de arriba a la vista"
+    page.evaluate("window.scrollTo(0, 1400)")
+    page.wait_for_timeout(400)
+    assert se_ve(), "se bajó y la barra no salió"
+    page.evaluate("window.scrollTo(0, 0)")
+    page.wait_for_timeout(400)
+    assert not se_ve(), "se volvió arriba y la barra sigue puesta"
+    context.close()
+
+
+def test_and_stays_put_where_there_is_no_top_button(browser):
+    """En precios y en cookies no hay botón arriba: la barra se queda."""
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    for ruta in ("/precios", "/cookies"):
+        page.goto(f"{base}{ruta}")
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(300)
+        assert page.evaluate("""() => {
+            const b = document.getElementById('pidebarra');
+            return !!b && !b.hidden && b.getBoundingClientRect().height > 0;
+        }""") is True, ruta
+    context.close()
+
+
+def test_the_two_floating_bars_do_not_sit_on_top_of_each_other(browser):
+    """El aviso de cookies también vive abajo, y cambia de alto con el idioma.
+
+    Un número escrito a mano acierta en un sitio y se solapa en los otros
+    seis, así que el hueco lo mide el navegador.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    page.goto(f"{base}/precios")
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(400)
+    solape = page.evaluate("""() => {
+        const b = document.getElementById('pidebarra');
+        const c = document.getElementById('cookiebar');
+        if (!b || !c || b.hidden || c.hidden) return null;
+        return Math.round(b.getBoundingClientRect().bottom - c.getBoundingClientRect().top);
+    }""")
+    if solape is not None:
+        assert solape <= 0, f"la barra pisa el aviso de cookies por {solape}px"
+    context.close()
+
+
+def test_the_bottom_bar_never_covers_the_way_in(browser):
+    """Una barra que tapa el botón de entrar no estorba: impide entrar.
+
+    Tumbado sobran píxeles de ancho y faltan de alto. En una pantalla de 390 px
+    de alto, la barra de pedir acceso y el aviso de cookies se comían la mitad,
+    y lo que quedaba debajo era el botón de entrar. Se descubrió porque la
+    prueba de la pantalla girada se quedó esperando treinta segundos a poder
+    pulsar un botón que estaba ahí y no se podía tocar.
+
+    Dos reglas: en la página de entrar y en la de pedir acceso la barra no
+    aparece —allí no vende nada—, y con poco alto tampoco.
+    """
+    base, chromium = browser
+    # De pie: en entrar y en pedir acceso no sale.
+    context = telefono(chromium)
+    page = context.new_page()
+    for ruta in ("/login", "/solicitar"):
+        page.goto(f"{base}{ruta}")
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(300)
+        assert page.locator("#pidebarra").count() == 0, ruta
+    context.close()
+
+    # Tumbado: en ninguna, y el botón de entrar se puede pulsar de verdad.
+    tumbado = chromium.new_context(viewport={"width": 844, "height": 390}, has_touch=True)
+    page = tumbado.new_page()
+    page.goto(f"{base}/")
+    page.wait_for_load_state("networkidle")
+    page.evaluate("window.scrollTo(0, 1400)")
+    page.wait_for_timeout(400)
+    assert page.evaluate("""() => {
+        const b = document.getElementById('pidebarra');
+        return !b || b.hidden || b.getBoundingClientRect().height === 0;
+    }""") is True, "tumbado la barra se come el alto que no hay"
+
+    # Y el botón de entrar se puede tocar: lo que hay en su centro es él
+    # mismo y no otra cosa encima. Se pregunta al navegador quién ocupa ese
+    # punto, que es exactamente lo que se pregunta el dedo. Entrar de verdad
+    # no se prueba aquí —eso ya tiene las suyas—: aquí se prueba que se puede.
+    page.goto(f"{base}/login")
+    page.wait_for_load_state("networkidle")
+    boton = page.locator("section.inner form[action='/login'] button[type=submit]")
+    boton.scroll_into_view_if_needed()
+    page.wait_for_timeout(300)
+    encima = page.evaluate("""() => {
+        const b = document.querySelector(
+            "section.inner form[action='/login'] button[type=submit]");
+        const r = b.getBoundingClientRect();
+        const quien = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return {suyo: b.contains(quien) || quien === b,
+                quien: quien ? (quien.id || quien.tagName) : "nada"};
+    }""")
+    assert encima["suyo"], f"algo tapa el botón de entrar: {encima['quien']}"
+    tumbado.close()
