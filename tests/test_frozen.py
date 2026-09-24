@@ -259,8 +259,10 @@ class TestScreens:
                              data={"serial": "TG-0001·01", "pieces": 5, "total_kg": "1,5",
                                    "shift": "", "csrf": csrf_from(pagina.text)})
         assert salida.status_code == 303
-        destino = salida.headers["location"]
-        assert "TG-0001%C2%B701%C2%B7D1" in destino or "TG-0001·01·D1" in destino
+        # El número con el que sale del arcón se dice en la pantalla de
+        # detrás, no en la barra de direcciones: un recado no vive en la URL.
+        assert salida.headers["location"].startswith("/descongelado")
+        assert "TG-0001·01·D1" in client.get("/descongelado").text
 
         with db.session_scope() as s:
             hijo = s.query(IngredientLot).filter_by(serial="TG-0001·01·D1").one()

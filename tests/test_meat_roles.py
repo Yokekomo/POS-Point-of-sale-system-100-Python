@@ -182,8 +182,10 @@ def test_the_butcher_can_do_the_whole_meat_round(client):
     assert luis.post("/inventario/abrir", data={"csrf": csrf_from(inventario.text),
                                                 "period": "MONTHLY"}).status_code == 303
     merma = luis.get("/merma")
+    # Guardar contesta con una redirección: recargar no vuelve a tirar los
+    # mismos kilos.
     assert luis.post("/merma", data={"csrf": csrf_from(merma.text), "serial": "8017-01",
-                                     "kg": "0,2", "pieces": "1"}).status_code == 200
+                                     "kg": "0,2", "pieces": "1"}).status_code == 303
 
 
 def test_the_butcher_sees_the_meat_but_never_the_money(client):
