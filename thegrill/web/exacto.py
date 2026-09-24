@@ -140,6 +140,15 @@ def kilos(valor: float | None) -> float | None:
 _ESPACIOS = re.compile(r"[\s\u00a0\u202f\u2009\u2007']")
 
 
+class NoEsUnNumero(ValueError):
+    """Ahí no hay un número. Lleva escrito lo que había, que es lo único que
+    le sirve a quien lo escribió: «4 C» se arregla mirando la C."""
+
+    def __init__(self, escrito: str):
+        self.escrito = escrito
+        super().__init__(f"no es un número: {escrito!r}")
+
+
 def leer(raw: object, default: float | None = None,
          decimales: int = GRAMOS_DECIMALES) -> float | None:
     """El número que quiso escribir quien lo escribió, venga como venga.
@@ -152,7 +161,7 @@ def leer(raw: object, default: float | None = None,
     if raw is None:
         return default
     if isinstance(raw, bool):
-        raise ValueError(f"no es un número: {raw!r}")
+        raise NoEsUnNumero(str(raw)[:32])
     if isinstance(raw, (int, float)):
         return float(raw)
     texto = _ESPACIOS.sub("", str(raw))
@@ -161,7 +170,7 @@ def leer(raw: object, default: float | None = None,
     negativo = texto[0] in "-\u2212"
     cuerpo = texto[1:] if texto[0] in "+-\u2212" else texto
     if not cuerpo or any(c not in "0123456789,." for c in cuerpo):
-        raise ValueError(f"no es un número: {raw!r}")
+        raise NoEsUnNumero(str(raw)[:32])
 
     comas, puntos = cuerpo.count(","), cuerpo.count(".")
     if comas and puntos:                       # 1. el último manda
@@ -186,7 +195,7 @@ def leer(raw: object, default: float | None = None,
     if decimal:
         limpio = limpio.replace(decimal, ".")
     if not any(c.isdigit() for c in limpio):
-        raise ValueError(f"no es un número: {raw!r}")
+        raise NoEsUnNumero(str(raw)[:32])
     valor = float(limpio)
     return -valor if negativo else valor
 

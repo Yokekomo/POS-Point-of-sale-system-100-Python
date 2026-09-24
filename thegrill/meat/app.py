@@ -268,6 +268,20 @@ def _eur(raw: str | None, default: float | None = None) -> float | None:
     return _num(raw, default, exacto.CENTIMOS_DECIMALES)
 
 
+def _dicho(e: Exception, lang: str = "es") -> str:
+    """Lo que se le enseña a quien acaba de escribir algo que no se entiende.
+
+    Un «4 C» en la casilla de la temperatura tumbaba la recepción entera con
+    un error 500 y una pantalla en blanco en inglés, con el camión en el muelle
+    y la hoja por volver a teclear. Un número mal escrito no es un fallo del
+    programa: es una tecla de al lado, y se contesta enseñando lo que se
+    escribió y en el idioma de la casa.
+    """
+    if isinstance(e, exacto.NoEsUnNumero):
+        return i18n.t(lang, "valid.not_a_number_value", value=e.escrito)
+    return str(e)
+
+
 def _g(raw: str | None, default: float | None = None) -> float | None:
     """Gramos y unidades: no llevan decimales, así que «1.250» son mil
     doscientos cincuenta gramos y no un gramo y cuarto."""
@@ -320,17 +334,46 @@ def client_ip(request: Request) -> str:
     return (request.client.host if request.client else "") or "desconocido"
 
 
+# Lo que se dice cuando el error no trae texto. «Error 400» y una pantalla en
+# blanco no le dicen nada a nadie: quien está delante necesita saber si se ha
+# equivocado él, si no le toca, o si eso ya no está.
+SIN_TEXTO = {400: "error.bad_request", 403: "error.forbidden",
+             404: "error.not_found", 409: "error.conflict",
+             413: "error.too_big", 429: "error.too_many"}
+
+
 @app.exception_handler(HTTPException)
 async def redirect_handler(request: Request, exc: HTTPException):
     if exc.status_code == 303 and "Location" in (exc.headers or {}):
         return RedirectResponse(exc.headers["Location"], status_code=303)
-    lang = i18n.resolve(cookie=request.cookies.get(i18n.COOKIE_NAME),
-                        accept_header=request.headers.get("accept-language"))
+    # En el idioma de quien está delante, no en el del navegador. La pantalla
+    # de error se pintaba sin mirar quién era, así que una casa española que
+    # se equivocaba en una casilla recibía el aviso en inglés.
+    user = None
+    try:
+        with db.session_scope() as sesion:
+            encontrado = current(request, sesion)
+            if encontrado is not None:
+                lang = lang_for(request, sesion, encontrado[0])
+                user = encontrado[0]
+            else:
+                lang = lang_for(request)
+    except Exception:                                    # noqa: BLE001
+        lang = lang_for(request)
+    detalle = exc.detail or ""
+    if not str(detalle).strip():
+        detalle = i18n.t(lang, SIN_TEXTO.get(exc.status_code, "error.other"))
+    # Volver a donde se estaba, no a la portada: el que se equivoca en una
+    # casilla quiere la misma pantalla, no empezar de cero.
+    volver = request.headers.get("referer") or ""
+    if not volver.startswith(str(request.base_url).rstrip("/")):
+        volver = "/"
     return templates.TemplateResponse(request, "error.html",
-                                      {"user": None, "csrf": "", "unread": 0,
+                                      {"user": user, "csrf": "", "unread": 0,
                                        "t": i18n.translator(lang), "lang": lang,
                                        "dir": i18n.direction(lang), "languages": i18n.LANGUAGES,
-                                       "code": exc.status_code, "detail": exc.detail,
+                                       "code": exc.status_code, "detail": detalle,
+                                       "volver": volver,
                                        "nonce": getattr(request.state, "nonce", ""),
                                        "can": lambda capability: False,
                                        "here": request.url.path},
@@ -682,6 +725,17 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
     if repetido is not None:
         return repetido
 
+    # Todo lo que se lee del formulario va dentro del `try`. La temperatura se
+    # leía una línea por encima, y un «4 C» —la tecla de al lado— reventaba la
+    # pantalla entera con un 500 en vez de contestar «ahí va un número».
+    try:
+        return await _recibir(request, user, auth_session, session, form, lang)
+    except (meat.MeatError, ValueError) as e:
+        return _reception(request, user, auth_session, session, error=_dicho(e, lang),
+                          previo=_lo_escrito(form))
+
+
+async def _recibir(request, user, auth_session, session, form, lang):
     lot = (form.get("lot") or "").strip()
     sku = (form.get("sku") or "").strip()
     grade = (form.get("grade") or "").strip() or None
@@ -711,41 +765,37 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
     llegada = Storage.FROZEN if form.get("arrival") == "FROZEN" else Storage.CHILLED
     grados = _num(form.get("arrival_c"))
     al_arcon = bool(form.get("frozen_on_arrival")) and llegada == Storage.CHILLED
-    try:
-        rows = []
-        for i in range(MAX_RECEPCION):
-            serial = (form.get(f"serial:{i}") or "").strip()
-            kg = form.get(f"kg:{i}")
-            if not serial and not (kg or "").strip():
-                continue
-            fecha_sac = (form.get(f"slaughter:{i}") or "").strip() or sacrificio
-            rows.append(meat.PrimalRow(
-                serial=serial, kg=_num(kg, 0.0) or 0.0,
-                price_kg=(_eur(form.get(f"price:{i}"), _eur(price))
-                          if puede_dinero else None),
-                sku=(form.get(f"sku:{i}") or "").strip() or sku,
-                grade=(form.get(f"grade:{i}") or "").strip() or grade,
-                origin=(form.get(f"origin:{i}") or "").strip() or origin,
-                use_by=date.fromisoformat(use_by) if use_by else None,
-                supplier_lot=(form.get(f"slot:{i}") or "").strip() or None,
-                producer_plant=planta, est_code=registro, breed=raza,
-                label_product=etiqueta, halal=halal,
-                arrival=llegada, arrival_c=grados, frozen_on_arrival=al_arcon,
-                slaughter_date=date.fromisoformat(fecha_sac) if fecha_sac else None,
-                pack_date=date.fromisoformat(envasado) if envasado else None))
-        created = meat.receive_primals(session, user, lot, rows, lang=lang)
-        # La foto de la etiqueta viaja con la pieza, en el mismo envío: se hace
-        # al coger la bolsa, antes de teclear nada, que es cuando la etiqueta
-        # está delante. Va aparte del texto solo cuando no hay cobertura, y
-        # entonces no viaja: lo escrito se guarda igual y la foto se hace luego.
-        subida = form.get("foto")
-        if created and isinstance(subida, UploadFile) and subida.filename:
-            meat.store_label_photo(session, created[0], subida.content_type or "",
-                                   await _leer_foto(request, subida, lang),
-                                   UPLOAD_DIR, lang=lang)
-    except (meat.MeatError, ValueError) as e:
-        return _reception(request, user, auth_session, session, error=str(e),
-                          previo=_del_camion(form))
+    rows = []
+    for i in range(MAX_RECEPCION):
+        serial = (form.get(f"serial:{i}") or "").strip()
+        kg = form.get(f"kg:{i}")
+        if not serial and not (kg or "").strip():
+            continue
+        fecha_sac = (form.get(f"slaughter:{i}") or "").strip() or sacrificio
+        rows.append(meat.PrimalRow(
+            serial=serial, kg=_num(kg, 0.0) or 0.0,
+            price_kg=(_eur(form.get(f"price:{i}"), _eur(price))
+                      if puede_dinero else None),
+            sku=(form.get(f"sku:{i}") or "").strip() or sku,
+            grade=(form.get(f"grade:{i}") or "").strip() or grade,
+            origin=(form.get(f"origin:{i}") or "").strip() or origin,
+            use_by=date.fromisoformat(use_by) if use_by else None,
+            supplier_lot=(form.get(f"slot:{i}") or "").strip() or None,
+            producer_plant=planta, est_code=registro, breed=raza,
+            label_product=etiqueta, halal=halal,
+            arrival=llegada, arrival_c=grados, frozen_on_arrival=al_arcon,
+            slaughter_date=date.fromisoformat(fecha_sac) if fecha_sac else None,
+            pack_date=date.fromisoformat(envasado) if envasado else None))
+    created = meat.receive_primals(session, user, lot, rows, lang=lang)
+    # La foto de la etiqueta viaja con la pieza, en el mismo envío: se hace
+    # al coger la bolsa, antes de teclear nada, que es cuando la etiqueta
+    # está delante. Va aparte del texto solo cuando no hay cobertura, y
+    # entonces no viaja: lo escrito se guarda igual y la foto se hace luego.
+    subida = form.get("foto")
+    if created and isinstance(subida, UploadFile) and subida.filename:
+        meat.store_label_photo(session, created[0], subida.content_type or "",
+                               await _leer_foto(request, subida, lang),
+                               UPLOAD_DIR, lang=lang)
     # Lo del camión se queda escrito: la siguiente pieza es de la misma caja y
     # nadie vuelve a teclear el matadero veinte veces.
     # Una pieza cada vez es lo normal; varias, solo cuando vuelve la cola de un
@@ -758,7 +808,7 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
                                     kg=f"{created[0].weight_kg:.10g}"))
     else:
         hecho = i18n.t(lang, "m.rec.done", n=len(created), lot=lot or "—")
-    return _reception(request, user, auth_session, session, previo=_del_camion(form),
+    return _reception(request, user, auth_session, session, previo=_lo_escrito(form),
                       done=hecho)
 
 
@@ -787,6 +837,20 @@ async def _leer_foto(request: Request, subida, lang: str = "es") -> bytes:
             raise demasiado
         trozos.append(trozo)
     return b"".join(trozos)
+
+
+def _lo_escrito(form) -> dict:
+    """Todo lo que había escrito, para devolverlo puesto.
+
+    Antes solo se devolvía lo del camión y las líneas de las piezas —el número,
+    los kilos, el precio, el lote del proveedor— se borraban: un error en una
+    casilla obligaba a teclear la hoja entera otra vez, con el camión esperando.
+    La foto no vuelve: un fichero no se puede devolver escrito en un campo, y
+    quien la hizo la tiene todavía en el teléfono.
+    """
+    fuera = {"csrf", "envio", "foto"}
+    return {clave: str(valor) for clave, valor in form.multi_items()
+            if clave not in fuera and isinstance(valor, str)}
 
 
 def _del_camion(form) -> dict:
@@ -836,7 +900,7 @@ async def save_prices(request: Request, ctx=Depends(needs(perms.MONEY)),
             puestas += 1
     except (meat.MeatError, ValueError) as e:
         session.rollback()
-        return _prices(request, user, auth_session, session, error=str(e))
+        return _prices(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     if not puestas:
         return _prices(request, user, auth_session, session,
                        error=i18n.t(lang, "m.price.nothing"))
@@ -921,7 +985,7 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
             on=date.fromisoformat(on) if on else None,
             staff=(form.get("staff") or "").strip() or None, lang=lang)
     except (meat.MeatError, ValueError) as e:
-        return _butchery(request, user, auth_session, session, error=str(e))
+        return _butchery(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     return _butchery(request, user, auth_session, session, issues=result.issues,
                      done=i18n.t(lang, "m.tg.posted", tg=result.tg, cuts=len(result.lots),
                                  kg=f"{sum(l.qty for l in result.lots):.10g}"))
@@ -1093,7 +1157,7 @@ def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form
         entry = defrost.intake(session, user, pedido, pieces, _num(total_kg, 0.0) or 0.0,
                                shift=shift.strip(), note=note.strip() or None)
     except (defrost.DefrostError, ValueError) as e:
-        return _defrost(request, user, auth_session, session, shift=shift, error=str(e))
+        return _defrost(request, user, auth_session, session, shift=shift, error=_dicho(e, lang_for(request, session, user)))
     done = ""
     if congelado and entry.lot_serial != pedido:
         queda = (session.query(IngredientLot)
@@ -1121,7 +1185,7 @@ def defrost_count(request: Request, serial: str = Form(...), pieces: int = Form(
         defrost.count(session, user, serial.strip(), pieces, _num(total_kg, 0.0) or 0.0,
                       shift=shift.strip(), note=note.strip() or None)
     except (defrost.DefrostError, ValueError) as e:
-        return _defrost(request, user, auth_session, session, shift=shift, error=str(e),
+        return _defrost(request, user, auth_session, session, shift=shift, error=_dicho(e, lang_for(request, session, user)),
                         tab="recuento")
     return RedirectResponse(f"/descongelado/recuento?shift={shift}", status_code=303)
 
@@ -1136,7 +1200,7 @@ def defrost_close(request: Request, shift: str = Form(""), csrf: str = Form(""),
     try:
         result = defrost.close(session, user, shift=shift.strip(), lang=lang)
     except (defrost.DefrostError, ValueError) as e:
-        return _defrost(request, user, auth_session, session, shift=shift, error=str(e),
+        return _defrost(request, user, auth_session, session, shift=shift, error=_dicho(e, lang_for(request, session, user)),
                         tab="recuento")
     return _defrost(request, user, auth_session, session, shift=shift, closed=result,
                     tab="recuento",
@@ -1198,7 +1262,7 @@ def aging_move(request: Request, serial: str = Form(...), storage: str = Form(..
                    use_by=date.fromisoformat(use_by) if use_by.strip() else None,
                    note=note.strip() or None)
     except (aging.AgingError, ValueError) as e:
-        return _aging(request, user, auth_session, session, error=str(e))
+        return _aging(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     return RedirectResponse("/maduracion", status_code=303)
 
 
@@ -1214,7 +1278,7 @@ def aging_weigh(request: Request, serial: str = Form(...), kg: str = Form(...),
         result = aging.weigh(session, user, serial.strip(), _num(kg, 0.0) or 0.0,
                              note=note.strip() or None, lang=lang)
     except (aging.AgingError, ValueError) as e:
-        return _aging(request, user, auth_session, session, error=str(e))
+        return _aging(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     return _aging(request, user, auth_session, session, weighed=result,
                   done=i18n.t(lang, "m.ag.weighed", serial=result.serial,
                               kg=f"{result.kg:.10g}", loss=f"{result.loss_kg:.10g}",
@@ -1245,7 +1309,7 @@ async def aging_daily_count(request: Request, ctx=Depends(needs(perms.COUNT)),
     try:
         result = aging.count_day(session, user, lecturas, lang=lang)
     except (aging.AgingError, ValueError) as e:
-        return _aging(request, user, auth_session, session, error=str(e))
+        return _aging(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     return _aging(request, user, auth_session, session, counted=result,
                   done=i18n.t(lang, "m.ag.counted", n=result.counted,
                               kg=f"{result.loss_kg:.10g}"))
@@ -1276,7 +1340,7 @@ async def aging_trim(request: Request, ctx=Depends(needs(perms.AGE)),
                             waste_kg=_num(form.get("waste_kg")),
                             note=(form.get("note") or "").strip() or None, lang=lang)
     except (aging.AgingError, ValueError) as e:
-        return _aging(request, user, auth_session, session, error=str(e))
+        return _aging(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     return _aging(request, user, auth_session, session, trimmed=result,
                   done=i18n.t(lang, "m.ag.trimmed", serial=result.serial,
                               kg=f"{result.removed_kg:.10g}",
@@ -1299,7 +1363,7 @@ def aging_sale(request: Request, serial: str = Form(...), grams: str = Form(...)
                                       price=_eur(price, 0.0) or 0.0,
                                       dish=dish.strip() or None, note=note.strip() or None)
     except (aging.AgingError, ValueError) as e:
-        return _aging(request, user, auth_session, session, error=str(e))
+        return _aging(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     return _aging(request, user, auth_session, session, sold=result,
                   done=i18n.t(lang, "m.ag.sold", serial=result.serial,
                               grams=f"{result.grams:.10g}",
@@ -1349,7 +1413,7 @@ def send_primal(request: Request, serial: str = Form(...), site: str = Form(...)
         sent = sites.send_primal(session, user, serial.strip(), int(site or 0),
                                  note=note.strip() or None)
     except (sites.SiteError, ValueError) as e:
-        return _transfers(request, user, auth_session, session, error=str(e))
+        return _transfers(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     return _transfers(request, user, auth_session, session,
                       done=i18n.t(lang, "m.tr.sent_primal", serial=sent.serial,
                                   site=sent.to_site.name))
@@ -1371,7 +1435,7 @@ def send_cut(request: Request, serial: str = Form(...), kg: str = Form(...),
         sent = sites.send_cut(session, user, serial.strip(), _num(kg, 0.0) or 0.0,
                               int(site or 0), note=note.strip() or None)
     except (sites.SiteError, ValueError) as e:
-        return _transfers(request, user, auth_session, session, error=str(e))
+        return _transfers(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     partido = (i18n.t(lang, "m.tr.split", serial=sent.new_serial) if sent.new_serial else "")
     return _transfers(request, user, auth_session, session,
                       done=i18n.t(lang, "m.tr.sent_cut", kg=f"{sent.kg:.10g}",
@@ -1709,7 +1773,7 @@ async def read_sales_file(request: Request, ctx=Depends(needs(perms.MENU)),
     try:
         parsed = pos_import.parse(await upload.read(), upload.filename)
     except (pos_import.ImportError_, ValueError) as e:
-        return _sales(request, user, auth_session, session, error=str(e))
+        return _sales(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
 
     index = costing.pos_index(session, user.restaurant_id)
     preview = []
@@ -1768,7 +1832,7 @@ async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
                                        on=date.fromisoformat(on) if on else None, lang=lang,
                                        site_id=int(sede) if sede else None)
     except ValueError as e:
-        return _sales(request, user, auth_session, session, error=str(e))
+        return _sales(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     summary = i18n.t(lang, "sale.done", n=result.lines, cost=f"{result.cost:.2f}")
     if result.site:
         summary += " · " + result.site
@@ -1928,11 +1992,13 @@ def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(.
 
 
 # ================================================================ MERMA
-def _waste_page(request, user, auth_session, session, *, result=None, error="", serial=""):
+def _waste_page(request, user, auth_session, session, *, result=None, error="",
+                serial="", previo=None):
     """Todo lo que se tira, junto: lo de cámara y lo que se va limpiando piezas."""
     lines = waste.everything(session, user.restaurant_id)
     return page(request, "waste.html", user, auth_session, session,
                 result=result, error=error, serial=serial, lines=lines,
+                previo=(previo or {}),
                 totals=waste.totals(lines),
                 ingredients=meat.cuts(session, user.restaurant_id))
 
@@ -1962,8 +2028,13 @@ def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
             pieces=int(pieces) if pieces.strip() else None,
             reason=reason.strip() or None, lang=lang_for(request, session, user))
     except (waste.WasteError, ValueError) as e:
-        return _waste_page(request, user, auth_session, session, error=str(e),
-                           serial=serial.strip())
+        # Con lo que había escrito puesto otra vez: un error en los kilos no
+        # puede obligar a volver a buscar el número de la pieza y el motivo.
+        return _waste_page(request, user, auth_session, session,
+                           error=_dicho(e, lang_for(request, session, user)),
+                           serial=serial.strip(),
+                           previo={"kg": kg, "pieces": pieces, "reason": reason,
+                                   "ingredient_id": ingredient_id})
     return _waste_page(request, user, auth_session, session, result=result)
 
 

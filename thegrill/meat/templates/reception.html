@@ -92,16 +92,20 @@
       <label>{{ t("m.rec.serial") }}
         <input name="serial:0" autocomplete="off"
                placeholder="{{ serials[0] if serials else '' }}"
+               value="{{ previo.get('serial:0','') }}"
                title="{{ t('m.rec.serial_help') }}"></label>
       <label>{{ t("m.rec.kg") }}
         <input name="kg:0" inputmode="decimal" autofocus
+               value="{{ previo.get('kg:0','') }}"
                title="{{ t('m.rec.kg_help') }}"></label>
       <label>{{ t("m.rec.row_sku") }}
         <input name="sku:0" placeholder="{{ t('m.rec.row_sku_ph') }}"
+               value="{{ previo.get('sku:0','') }}"
                title="{{ t('m.rec.row_sku_help') }}"></label>
       {% if can("money") %}
       <label>{{ t("m.rec.price_kg") }} ({{ moneda }}/kg)
         <input name="price:0" inputmode="decimal"
+               value="{{ previo.get('price:0','') }}"
                title="{{ t('m.rec.price_help') }}"></label>
       {% endif %}
     </div>
@@ -144,13 +148,15 @@
       <div class="campos">
         <label>{{ t("m.rec.supplier_lot") }}
           <input name="slot:0" autocomplete="off"
+                 value="{{ previo.get('slot:0','') }}"
                  title="{{ t('m.rec.supplier_lot_help') }}"></label>
         <label>{{ t("m.rec.grade") }}
-          <input name="grade:0" title="{{ t('m.rec.row_grade_help') }}"></label>
+          <input name="grade:0" value="{{ previo.get('grade:0','') }}"
+                 title="{{ t('m.rec.row_grade_help') }}"></label>
         <label>{{ t("m.rec.origin") }}
-          <input name="origin:0"></label>
+          <input name="origin:0" value="{{ previo.get('origin:0','') }}"></label>
         <label>{{ t("m.rec.slaughter") }}
-          <input name="slaughter:0" type="date"
+          <input name="slaughter:0" type="date" value="{{ previo.get('slaughter:0','') }}"
                  title="{{ t('m.rec.row_slaughter_help') }}"></label>
       </div>
     </details>

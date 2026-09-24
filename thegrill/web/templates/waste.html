@@ -31,21 +31,26 @@
       <select id="ingredient_id" name="ingredient_id">
         <option value="">—</option>
         {% for i in ingredients %}
-        <option value="{{ i.id }}">{{ i.name }}</option>
+        <option value="{{ i.id }}"
+          {% if previo is defined and previo.get("ingredient_id") == i.id|string %}selected{% endif %}
+          >{{ i.name }}</option>
         {% endfor %}
       </select>
     </div>
     <div>
       <label for="kg">{{ t("waste.kg") }} <span class="req">*</span></label>
-      <input id="kg" name="kg" inputmode="decimal" required>
+      <input id="kg" name="kg" inputmode="decimal" required
+             value="{{ previo.get('kg','') if previo is defined else '' }}">
     </div>
     <div>
       <label for="pieces">{{ t("waste.pieces") }}</label>
-      <input id="pieces" name="pieces" inputmode="numeric">
+      <input id="pieces" name="pieces" inputmode="numeric"
+             value="{{ previo.get('pieces','') if previo is defined else '' }}">
     </div>
     <div>
       <label for="reason">{{ t("waste.reason") }}</label>
-      <input id="reason" name="reason" maxlength="60">
+      <input id="reason" name="reason" maxlength="60"
+             value="{{ previo.get('reason','') if previo is defined else '' }}">
     </div>
   </div>
   <div class="help">{{ t("waste.help") }}</div>

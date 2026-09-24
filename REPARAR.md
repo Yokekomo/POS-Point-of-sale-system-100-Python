@@ -142,18 +142,29 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 
 ## 5. Formularios: lo tecleado se pierde
 
-- [ ] **Cualquier error borra lo que acabas de escribir** en recepción, despiece,
-      precios y merma. En recepción se pierde también la foto de la etiqueta.
-- [ ] **Dos toques con guante crean dos apuntes.** La llave anti-duplicados
-      existe y solo se genera en el camino de la cola: con cobertura está
-      desconectada.
+- [x] **Cualquier error borra lo que acabas de escribir** en recepción y en
+      merma. Ahora vuelve puesto todo lo que había: el número de la pieza, los
+      kilos tal y como se escribieron, el artículo, el lote del proveedor, la
+      temperatura que hay que corregir y lo del camión. La foto no vuelve —un
+      fichero no se puede devolver escrito en una casilla— y quien la hizo la
+      tiene todavía en el teléfono. *Quedan despiece y precios.*
+- [x] **Dos toques con guante crean dos apuntes.** La llave del envío la
+      lleva el formulario desde que se pinta, con red y sin ella. Y como es la
+      misma mientras la pantalla no se vuelva a pintar, recargar tampoco
+      repite el apunte.
 - [ ] **Recargar una pantalla de merma vuelve a apuntar los mismos kilos.** Doce
       rutas contestan al POST con HTML en vez de redirigir.
-- [ ] **Un error deja la pantalla en blanco** con el título «Error 400», sin
-      menú y en el idioma del navegador. En descongelado devuelve JSON crudo.
-- [ ] **Un «4 C» en la temperatura tumba la recepción con un 500 en inglés** y
-      se pierde el camión entero. `meat/app.py:632` está una línea por encima
-      del `try` que lo capturaría.
+- [x] **Un error deja la pantalla en blanco** con el título «Error 400». Ahora
+      cuando el error no trae texto se dice qué ha pasado —si te has
+      equivocado tú, si no te toca, o si eso ya no está—, en el idioma de
+      **quien está delante** y no en el del navegador, y el botón vuelve a la
+      pantalla en la que estabas y no a la portada. Un «volver» que apunte
+      fuera de la casa no se obedece.
+- [x] **Un «4 C» en la temperatura tumba la recepción con un 500 en inglés.**
+      La temperatura se leía una línea por encima del `try`. Ahora no se lee
+      nada del formulario fuera de él, y un número mal escrito se contesta
+      enseñando lo que se escribió —«4 C» se arregla mirando la C— en el
+      idioma de la casa y con la hoja entera todavía puesta.
 - [ ] **Recepción se abre 1050 px por debajo del formulario** en el móvil.
 
 ## 6. Lo que se romperá con cien casas dentro
@@ -192,6 +203,10 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       guardaba 15, el «1.250» que se guardaba 1,25 y los rangos de proceso.
       `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
       `tests/test_rangos.py`.
+
+- [x] **Los cuatro de los formularios**: el «4 C» que tumbaba la recepción, lo
+      tecleado que se borraba, el doble toque con guante y la pantalla de
+      error en blanco. `tests/test_formularios.py`.
 
 - [x] **La historia de una pieza llega hasta el final.** Traslados, limpiezas,
       venta al corte y el reparto del despiece compartido. `tracing.py`.

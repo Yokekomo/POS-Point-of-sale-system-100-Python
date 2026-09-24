@@ -158,17 +158,31 @@ def home_for(user: User) -> str:
     return "/manager" if user.role == Role.MANAGER else "/app"
 
 
+# Lo que se dice cuando el error no trae texto: «Error 400» y una pantalla en
+# blanco no le dicen nada a nadie.
+SIN_TEXTO = {400: "error.bad_request", 403: "error.forbidden",
+             404: "error.not_found", 409: "error.conflict",
+             413: "error.too_big", 429: "error.too_many"}
+
+
 @app.exception_handler(HTTPException)
 async def redirect_handler(request: Request, exc: HTTPException):
     if exc.status_code == 303 and "Location" in (exc.headers or {}):
         return RedirectResponse(exc.headers["Location"], status_code=303)
     lang = i18n.resolve(cookie=request.cookies.get(i18n.COOKIE_NAME),
                         accept_header=request.headers.get("accept-language"))
+    detalle = exc.detail or ""
+    if not str(detalle).strip():
+        detalle = i18n.t(lang, SIN_TEXTO.get(exc.status_code, "error.other"))
+    volver = request.headers.get("referer") or ""
+    if not volver.startswith(str(request.base_url).rstrip("/")):
+        volver = "/"
     return templates.TemplateResponse(request, "error.html",
                                       {"user": None, "csrf": "", "unread": 0,
                                        "t": i18n.translator(lang), "lang": lang,
                                        "dir": i18n.direction(lang), "languages": i18n.LANGUAGES,
-                                       "code": exc.status_code, "detail": exc.detail},
+                                       "code": exc.status_code, "detail": detalle,
+                                       "volver": volver},
                                       status_code=exc.status_code)
 
 
