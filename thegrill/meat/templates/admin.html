@@ -1,5 +1,19 @@
 {% extends "base.html" %}{% block title %}{{ t("adm.title") }}{% endblock %}
 {% block body %}
+{% if migracion %}
+{# Lo que la última actualización de la base no pudo poner. Va lo primero y en
+   rojo: mientras esto esté aquí, hay casas trabajando con una base que no
+   tiene la forma que el programa espera. #}
+<div class="banner bad">
+  <b>{{ t("admin.migration") }}</b>
+  <ul style="margin:8px 0 0;padding-left:18px">
+  {% for p in migracion %}
+    <li><code>{{ p.que }}</code> — {{ p.porque }}
+      {% if p.mano %}<div class="muted"><code>{{ p.mano }}</code></div>{% endif %}</li>
+  {% endfor %}
+  </ul>
+</div>
+{% endif %}
 <h1>{{ t("adm.title") }}</h1>
 <p class="sub">{{ t("adm.sub") }}</p>
 <p class="muted"><a href="/admin/fallos">{{ t("bug.admin") }}</a></p>

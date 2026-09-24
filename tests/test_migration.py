@@ -217,3 +217,115 @@ def test_a_brand_new_table_appears_by_itself_on_a_house_that_is_working(tmp_path
         assert tutorial.visto(s, persona, "recepcion", 1)
         assert s.query(TourVisto).count() == 1
         assert s.query(Primal).one().serial == "8017"
+
+
+# ==================== lo que la migración no hacía, y lo que ahora sí dice
+#
+# Hasta ahora solo volvían las columnas que admiten vacío. Una columna
+# obligatoria, una regla de «no puede haber dos iguales» o un valor nuevo de
+# una lista cerrada se quedaban fuera **sin decir una palabra**: el programa
+# arrancaba, parecía que todo iba bien, y lo que faltaba se descubría semanas
+# después con un error raro en una pantalla que no tenía nada que ver.
+def _quitar(tabla: str, columna: str) -> None:
+    with db.session_scope() as s:
+        s.execute(text(f'ALTER TABLE {tabla} DROP COLUMN {columna}'))
+
+
+def _quitar_indice(nombre: str) -> None:
+    with db.session_scope() as s:
+        s.execute(text(f'DROP INDEX IF EXISTS "{nombre}"'))
+
+
+def _una_casa(tmp_path, nombre="vieja.db"):
+    db.init_engine(f"sqlite:///{tmp_path/nombre}")
+    db.create_all()
+    with db.session_scope() as s:
+        auth.create_restaurant(s, "Asador", "ana@a.com", "Ana", "clave-larga-1",
+                               language="es")
+
+
+def test_a_required_column_with_a_default_comes_back_filled(tmp_path):
+    """`currency` es obligatoria y vale EUR: se puede poner, y se pone."""
+    _una_casa(tmp_path)
+    _quitar("restaurants", "currency")
+    assert "restaurants.currency" not in columnas("restaurants")
+
+    assert "restaurants.currency" in db.add_missing_columns()
+    assert "currency" in columnas("restaurants")
+    with db.session_scope() as s:
+        # Y la casa que ya estaba no se queda con el hueco vacío.
+        assert s.query(Restaurant).filter(
+            Restaurant.platform.isnot(True)).one().currency == "EUR"
+
+
+def test_a_required_column_with_no_default_is_not_hidden(tmp_path):
+    """`name` no dice con qué rellenar: no se inventa, pero se avisa."""
+    _una_casa(tmp_path)
+    _quitar("restaurants", "name")
+    db.add_missing_columns()
+    assert "name" not in columnas("restaurants")
+    faltan = {p.que for p in db.pendientes()}
+    assert "restaurants.name" in faltan
+    aviso = next(p for p in db.pendientes() if p.que == "restaurants.name")
+    assert "obligatoria" in aviso.porque and aviso.mano        # y cómo arreglarlo
+
+
+def test_an_empty_table_takes_the_column_anyway(tmp_path):
+    """Sin filas no hay nada que rellenar: la columna entra igual."""
+    db.init_engine(f"sqlite:///{tmp_path/'nueva.db'}")
+    db.create_all()                      # base recién hecha: sin ninguna casa
+    _quitar("restaurants", "name")
+    assert "restaurants.name" in db.add_missing_columns()
+    assert "name" in columnas("restaurants")
+    assert db.pendientes() == []
+
+
+def test_the_no_two_the_same_rule_comes_back_too(tmp_path):
+    """Sin la regla, el mismo nombre de sede se puede repetir en una casa que
+    viene de antes y no en una nueva. Y eso no se ve hasta que pasa."""
+    _una_casa(tmp_path)
+    with db.session_scope() as s:
+        s.execute(text("DROP TABLE sites"))
+        s.execute(text("CREATE TABLE sites (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                       "restaurant_id INTEGER, name VARCHAR(96), kind VARCHAR(16), "
+                       "address TEXT, active BOOLEAN, created_at DATETIME)"))
+    assert "uq_site_restaurant_name" not in indices("sites")
+
+    assert "uq_site_restaurant_name" in db.add_missing_columns()
+    assert "uq_site_restaurant_name" in indices("sites")
+    # Y una vez puesta, no se vuelve a poner en cada arranque.
+    assert db.add_missing_columns() == []
+
+
+def test_a_rule_that_the_data_already_breaks_is_reported_not_swallowed(tmp_path):
+    """Si ya hay dos iguales, la regla no se puede poner: eso hay que decirlo,
+    porque significa que algo se duplicó de verdad.
+
+    La tabla se rehace a mano tal y como la tenía una casa de antes de que la
+    regla existiera. Es la única manera de probarlo: en SQLite una regla que
+    viene en el `CREATE TABLE` no se puede quitar después.
+    """
+    _una_casa(tmp_path)
+    with db.session_scope() as s:
+        rest_id = s.query(Restaurant).filter(
+            Restaurant.platform.isnot(True)).one().id
+        s.execute(text("DROP TABLE sites"))
+        s.execute(text("CREATE TABLE sites (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                       "restaurant_id INTEGER, name VARCHAR(96), kind VARCHAR(16), "
+                       "address TEXT, active BOOLEAN, created_at DATETIME)"))
+        for _ in range(2):
+            s.execute(text(
+                "INSERT INTO sites (restaurant_id, name, kind, active, created_at) "
+                f"VALUES ({rest_id}, 'Playa', 'OUTLET', 1, '2026-09-24 10:00:00')"))
+
+    db.add_missing_columns()
+    aviso = next((p for p in db.pendientes()
+                  if p.que == "uq_site_restaurant_name"), None)
+    assert aviso is not None and "repetidas" in aviso.porque
+    assert aviso.mano.startswith("CREATE UNIQUE INDEX")      # y cómo arreglarlo
+
+
+def test_a_clean_update_has_nothing_to_report(tmp_path):
+    _una_casa(tmp_path)
+    assert db.add_missing_columns() == []
+    assert db.pendientes() == []

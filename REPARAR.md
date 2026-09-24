@@ -178,9 +178,20 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 
 ## 6. Lo que se romperá con cien casas dentro
 
-- [ ] **A una casa en marcha no le llega ninguna columna NOT NULL nueva**, ni
+- [x] **A una casa en marcha no le llega ninguna columna NOT NULL nueva**, ni
       las reglas UNIQUE, ni los valores nuevos de listas cerradas en PostgreSQL.
-      Y la migración no dice ni una palabra.
+      Y la migración no decía ni una palabra. Ahora: una columna obligatoria
+      entra con el valor por defecto del modelo puesto en las filas que ya
+      existen —que es lo que hace una migración de verdad— y, cuando ese valor
+      es una función y no hay uno que valga para todas, se queda fuera **pero
+      se dice**. Las reglas de «no puede haber dos iguales» se ponen como
+      índice único, comparando por columnas y no por nombre para no repetirlas
+      en cada arranque; si los datos de la casa ya traen un repetido, la orden
+      falla y eso también se dice, porque significa que algo se duplicó de
+      verdad. Y en PostgreSQL se añaden los valores nuevos de las listas
+      cerradas, que si no revientan el día que alguien usa ese estado.
+      El parte sale en `/admin`, en rojo y lo primero, con la orden que lo
+      arregla al lado.
 - [x] **El lote hijo se escribe antes de comprobar que quedan kilos:** aparecen
       kilos de la nada. Pasaba al sacar del arcón y al mandar a otra sede: si
       la resta fallaba —otra persona se había llevado esos kilos un segundo
@@ -220,6 +231,10 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       guardaba 15, el «1.250» que se guardaba 1,25 y los rangos de proceso.
       `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
       `tests/test_rangos.py`.
+
+- [x] **La actualización de una casa en marcha, y su parte.** Columnas
+      obligatorias, reglas de unicidad, listas cerradas de PostgreSQL, y lo
+      que no se pudo poner dicho en `/admin`. `tests/test_migration.py` (12).
 
 - [x] **El número que nacía sin kilos que llevar.** Al descongelar y al
       trasladar, el lote hijo se escribía antes de comprobar que quedaban

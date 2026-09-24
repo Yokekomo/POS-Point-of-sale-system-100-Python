@@ -1258,8 +1258,15 @@ class TestRecepcionDeUnaEnUna:
         assert r.status_code == 200
         for valor in ("L-CAMION", "Ribeye AUS", "Teys Biloela", "AUS 1234", "Angus"):
             assert f'value="{valor}"' in r.text, valor
-        # Y lo de la pieza se vacía: la siguiente es otra bolsa.
-        assert 'name="kg:0" inputmode="decimal" autofocus' in r.text.replace("\n", " ")
+        # Y lo de la pieza se vacía: la siguiente es otra bolsa. La casilla de
+        # los kilos vuelve en blanco y con el cursor puesto, que es donde va a
+        # escribir el de fuera. Se mira lo que hace la casilla, no cómo está
+        # escrita: el `autofocus` va detrás de una condición y no pegado.
+        import re
+        casilla = re.search(r'<input name="kg:0"[^>]*>', r.text, re.S)
+        assert casilla, "no está la casilla de los kilos"
+        assert "autofocus" in casilla.group(0)
+        assert 'value=""' in casilla.group(0)
 
     def test_the_screen_says_to_write_the_number_on_the_meat(self, client):
         """El número tiene que estar encima de la carne, no solo en la base.

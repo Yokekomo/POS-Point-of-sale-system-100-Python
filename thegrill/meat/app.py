@@ -2087,6 +2087,12 @@ def admin_home(request: Request, ctx=Depends(require_owner),
                 trial_left=billing.trial_left,
                 mail_ready=mailer.configured(),
                 encryption_on=privacy.encryption_on(),
+                # El parte de la última actualización de la base. Una
+                # migración que se calla es peor que una que falla: el
+                # programa arranca, parece que todo está bien, y lo que falta
+                # se descubre semanas después en una pantalla que no tiene
+                # nada que ver. Aquí se ve el día que pasa.
+                migracion=db.pendientes(),
                 retention_days=privacy.RETENTION_DAYS)
 
 
