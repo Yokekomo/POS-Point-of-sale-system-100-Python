@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Alert, AlertSeverity, Ingredient, IngredientLot,
                              IngredientMovement, LossKind, MovementKind, Primal,
                              PrimalWeighing, User)
-from thegrill.web import costing, locking, rangos, service, sites
+from thegrill.web import costing, jornada, locking, rangos, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -67,7 +67,7 @@ def record(session: Session, user: User, kg: float, serial: str | None = None,
     rangos.peso_corte(kg, lang or "es")
     if pieces is not None and pieces < 0:
         raise WasteError("Las piezas no pueden ser negativas")
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     lang = lang or service.restaurant_language(session, user.restaurant_id)
 
     lot = _find_lot(session, user, serial, ingredient_id)
@@ -172,7 +172,7 @@ def recent(session: Session, restaurant_id: int, days: int = 30,
     parte saldría sin la merma que sí se apuntó.
     """
     from datetime import timedelta
-    since = (on or date.today()) - timedelta(days=days)
+    since = (on or jornada.hoy(session, restaurant_id)) - timedelta(days=days)
     return (session.query(IngredientMovement)
             .filter(IngredientMovement.restaurant_id == restaurant_id,
                     IngredientMovement.kind == MovementKind.WASTE,
@@ -224,7 +224,7 @@ def everything(session: Session, restaurant_id: int, days: int = 30,
     para que el parte de un día pasado encuentre lo que se tiró ese día.
     """
     from datetime import timedelta
-    since = (on or date.today()) - timedelta(days=days)
+    since = (on or jornada.hoy(session, restaurant_id)) - timedelta(days=days)
     names = {i.id: i.name for i in session.query(Ingredient)
              .filter_by(restaurant_id=restaurant_id)}
     people = {u.id: u.name for u in session.query(User)

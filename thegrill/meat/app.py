@@ -14,6 +14,7 @@ import logging
 import os
 from urllib.parse import quote
 from datetime import date, datetime, timedelta, timezone
+import zoneinfo
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
@@ -35,8 +36,8 @@ from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, Cou
                              Rotation, Site, SiteKind, Storage, Unit, User)
 from thegrill.models import BugStatus
 from thegrill.web import (aging, auth, butchery, cifras, costing, cuadre, defrost,
-                          exacto, i18n, inventory, money, pos_import, service, sites,
-                          tracing, twofactor, waste)
+                          exacto, i18n, inventory, jornada, money, pos_import,
+                          service, sites, tracing, twofactor, waste)
 
 log = logging.getLogger(__name__)
 
@@ -56,6 +57,11 @@ PHOTO_DIR = os.path.join(STATIC_DIR, "fotos")
 # acertara la dirección. Se guardan fuera y se sirven por una ruta que primero
 # mira de qué casa es quien las pide.
 UPLOAD_DIR = os.environ.get("GRILL_UPLOAD_DIR", "uploads")
+
+# Las zonas horarias que existen, para el desplegable de la configuración y
+# para comprobar lo que llega. Se calcula una vez al arrancar: son unas
+# seiscientas y no cambian mientras el programa está en marcha.
+ZONAS = sorted(zoneinfo.available_timezones())
 # Las fotos de la portada. Se llaman así y se dejan caer en esa carpeta; la
 # portada usa las que encuentre y se arregla sin las que falten.
 PHOTO_SLOTS = ("primal", "cortes", "plato")
@@ -161,7 +167,10 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
     lang = ctx.pop("lang", None) or lang_for(request, session, user)
     base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
             "cookies_seen": bool(request.cookies.get(COOKIE_NOTICE)),
-            "today": date.today().isoformat(), "can": perms.checker(user),
+            # El día de trabajo de la casa, no el del servidor: es lo que se
+            # propone en cada campo de fecha y lo que se pinta en cada pantalla.
+            "today": jornada.hoy(session, user.restaurant_id if user else None).isoformat(),
+            "can": perms.checker(user),
             "here": request.url.path,
             "nonce": getattr(request.state, "nonce", ""),
             "unread": service.unread_count(session, user.id) if (user and session) else 0,
@@ -1043,7 +1052,7 @@ def defrost_count_page(request: Request, ctx=Depends(needs(perms.DEFROST)),
 
 def _defrost(request, user, auth_session, session, *, shift="", done="", error="",
              closed=None, tab="salida"):
-    on = date.today()
+    on = jornada.del_usuario(session, user)
     mia = sites.of_user(session, user)
     # No se saca a descongelar lo que está en otra sede: ese arcón no se abre
     # desde aquí.
@@ -2370,6 +2379,8 @@ def _settings(request: Request, user, auth_session, session, saved: bool = False
                 restaurant=restaurant, saved=saved, changed=changed,
                 off=off, error=error, pos_modes=list(PosMatch),
                 currencies=money.MONEDAS,
+                zonas=ZONAS, horas_cierre=list(range(jornada.MAXIMO + 1)),
+                cierre=jornada.corte(restaurant),
                 version=version.actual(),
                 codes=codes or [],
                 tfa_uri=twofactor.uri(user.totp_secret or "", user.email,
@@ -2381,7 +2392,8 @@ def _settings(request: Request, user, auth_session, session, saved: bool = False
 @app.post("/configuracion")
 def save_settings(request: Request, language: str = Form(...),
                   restaurant_language: str = Form(""), pos_match: str = Form(""),
-                  currency: str = Form(""), csrf: str = Form(""),
+                  currency: str = Form(""), timezone_name: str = Form("", alias="timezone"),
+                  day_cut_hour: str = Form(""), csrf: str = Form(""),
                   ctx=Depends(require_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -2396,6 +2408,17 @@ def save_settings(request: Request, language: str = Form(...),
                 restaurant.pos_match = PosMatch[pos_match]
             if money.es_valida(currency):
                 restaurant.currency = currency.upper()
+            # La zona se guarda solo si existe de verdad. Una mal escrita no
+            # rompe nada —se lee como UTC— pero deja a la casa creyendo que ha
+            # puesto la suya, y eso es peor que no haberla puesto.
+            if timezone_name.strip() and timezone_name.strip() in ZONAS:
+                restaurant.timezone = timezone_name.strip()
+            if day_cut_hour.strip():
+                try:
+                    restaurant.day_cut_hour = max(0, min(jornada.MAXIMO,
+                                                         int(day_cut_hour)))
+                except ValueError:
+                    pass
     response = RedirectResponse("/configuracion?saved=1", status_code=303)
     return set_lang_cookie(response, user.language or i18n.DEFAULT_LANG)
 
@@ -2573,7 +2596,7 @@ def cuadre_page(request: Request, ctx=Depends(needs(perms.MONEY)),
     no es algo que deba colgarse en el pase.
     """
     user, auth_session = ctx
-    hoy = date.today()
+    hoy = jornada.del_usuario(session, user)
     try:
         cuantos = max(1, min(12, int(meses)))
     except ValueError:
@@ -2603,9 +2626,10 @@ def daily_report_page(request: Request, ctx=Depends(needs(perms.STOCK)),
     lang = lang_for(request, session, user)
     mia = sites.of_user(session, user)
     try:
-        on = date.fromisoformat(fecha) if fecha.strip() else date.today()
+        on = (date.fromisoformat(fecha) if fecha.strip()
+              else jornada.del_usuario(session, user))
     except ValueError:
-        on = date.today()
+        on = jornada.del_usuario(session, user)
     return page(request, "report.html", user, auth_session, session, lang=lang, on=on,
                 restaurant=session.get(Restaurant, user.restaurant_id),
                 report=meat.daily_report(session, user.restaurant_id, on=on, lang=lang,

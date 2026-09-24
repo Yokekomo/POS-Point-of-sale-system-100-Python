@@ -28,7 +28,7 @@ from thegrill.meat import novedades
 from thegrill.web import aging as aging_mod
 from thegrill.web import waste as waste_mod
 from thegrill.web import service as plataforma
-from thegrill.web import butchery, costing, defrost, inventory, locking, rangos, sites
+from thegrill.web import butchery, costing, defrost, inventory, jornada, locking, rangos, sites
 from thegrill.web.i18n import t
 
 MAX_CUTS = 10
@@ -86,7 +86,7 @@ def next_lot(session: Session, restaurant_id: int, on: date | None = None) -> st
     Se propone uno —`L-260921-1`— y se confirma al dar de alta: hasta entonces
     no existe, así que abrir la pantalla y cerrarla no quema ningún número.
     """
-    on = on or date.today()
+    on = on or jornada.hoy(session, restaurant_id)
     base = f"L-{on:%y%m%d}"
     usados = {p.lot for p in session.query(Primal.lot)
               .filter(Primal.restaurant_id == restaurant_id,
@@ -128,7 +128,7 @@ def receive_primals(session: Session, user: User, lot: str, rows: list[PrimalRow
     destino = sites.of_user(session, user) or sites.main(session, user.restaurant_id)
     if not rows:
         raise MeatError(t(lang, "m.rec.empty"))
-    received = received or date.today()
+    received = received or jornada.del_usuario(session, user)
     lot = (lot or "").strip() or next_lot(session, user.restaurant_id, received)
 
     # Los números que no se hayan escrito se ponen aquí, al dar de alta, y no
@@ -754,7 +754,7 @@ def _write_despiece(session: Session, user: User, tg: str, serials: list[str],
                     on: date | None, staff: str | None, country: str | None,
                     grade: str | None) -> tuple[Despiece, butchery.PostResult]:
     """Escribe el despiece entero. Se monta de cero en cada intento."""
-    despiece = Despiece(restaurant_id=user.restaurant_id, tg=tg, date=on or date.today(),
+    despiece = Despiece(restaurant_id=user.restaurant_id, tg=tg, date=on or jornada.del_usuario(session, user),
                         staff=(staff or None), weight_before_kg=before_kg,
                         waste_kg=waste_kg, country=(country or None), grade=(grade or None))
     for serial in serials:
@@ -1061,7 +1061,7 @@ def daily_report(session: Session, restaurant_id: int, on: date | None = None,
     """El parte del día: lo que hay, lo que se ha ido y lo que falta por hacer."""
     from thegrill.models import SalesByProduct, ShiftClosure, Site
 
-    on = on or date.today()
+    on = on or jornada.hoy(session, restaurant_id)
     # Una lectura de las pesadas y una de la pizarra para todo el parte: antes
     # el parte pedía lo mismo cinco veces —la portada por dentro, y otras dos
     # para saber qué falta por pesar— y tardaba el doble que la pantalla más
@@ -1160,7 +1160,7 @@ def today(session: Session, restaurant_id: int, on: date | None = None,
     pizarra y otra para el resumen— era la mitad del tiempo de la portada.
     Quien ya las tenga leídas las pasa y aquí no se vuelven a pedir.
     """
-    on = on or date.today()
+    on = on or jornada.hoy(session, restaurant_id)
     # De la cámara de ahora: la portada habla de lo que hay, no de lo que hubo.
     history = history or aging_mod.history_of(session, restaurant_id, in_stock_only=True)
     status = butchery.status(session, restaurant_id, on=on, site_id=site_id)

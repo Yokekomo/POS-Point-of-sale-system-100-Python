@@ -29,7 +29,7 @@ from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, Ingredient,
                              IngredientItem, IngredientLot, IngredientMovement,
                              MovementKind, PosMatch, PosProduct, Recipe, RecipeKind,
                              Restaurant, SalesByProduct, Site, User)
-from thegrill.web import locking, service, sites
+from thegrill.web import jornada, locking, service, sites
 from thegrill.web.i18n import DEFAULT_LANG, t
 
 EPSILON = 1e-9
@@ -191,7 +191,7 @@ def receive(session: Session, user: User, item: IngredientItem, qty: float, unit
         raise ValueError("La cantidad recibida tiene que ser mayor que cero")
     if unit_cost < 0:
         raise ValueError("El precio no puede ser negativo")
-    on = on or received or date.today()
+    on = on or received or jornada.del_usuario(session, user)
     lot = IngredientLot(restaurant_id=user.restaurant_id, item_id=item.id,
                         ingredient_id=item.ingredient_id, lot_code=lot_code, expiry=expiry,
                         received=received or on, qty=qty, qty_remaining=qty, unit_cost=unit_cost)
@@ -304,7 +304,7 @@ def consume_sales(session: Session, user: User, sales: list[tuple],
     o la que se diga en `site_id` —el manager que sube el fichero de cada
     local—. Sin sede, la casa entera, como se ha trabajado siempre.
     """
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     result = ConsumptionResult(date=on)
     donde = sites.of_user(session, user) if site_id is None else session.get(Site, site_id)

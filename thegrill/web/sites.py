@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from thegrill.models import (Ingredient, IngredientLot, IngredientMovement, MovementKind,
                              Primal, PrimalStatus, Site, SiteKind, SitePar, Transfer, User)
-from thegrill.web import locking
+from thegrill.web import jornada, locking
 
 EPSILON = 1e-9
 PRIMAL = "PRIMAL"
@@ -249,7 +249,7 @@ def set_par(session: Session, user: User, site_id: int, *, ingredient_id: int | 
 def send_primal(session: Session, user: User, serial: str, to_site_id: int,
                 on: date | None = None, note: str | None = None) -> Sent:
     """Manda una pieza entera a otra sede. Va entera: no se parte por el camino."""
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     primal = (session.query(Primal)
               .filter_by(restaurant_id=user.restaurant_id, serial=(serial or "").strip())
               .first())
@@ -292,7 +292,7 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
     parte y lo que sale nace con su propio número colgando del de origen: lo
     que llega al local se puede seguir hasta el plato igual que lo que queda.
     """
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     if kg <= 0:
         raise SiteError("Los kilos que se mandan tienen que ser más de cero")
     lot = (session.query(IngredientLot)
@@ -433,7 +433,7 @@ def recent(session: Session, restaurant_id: int, days: int = 30,
     """Los últimos traslados, o los de una sede —lo que entra y lo que sale—."""
     query = (session.query(Transfer)
              .filter(Transfer.restaurant_id == restaurant_id,
-                     Transfer.date >= date.today() - timedelta(days=days)))
+                     Transfer.date >= jornada.hoy(session, restaurant_id) - timedelta(days=days)))
     if site_id:
         query = query.filter((Transfer.to_site_id == site_id)
                              | (Transfer.from_site_id == site_id))

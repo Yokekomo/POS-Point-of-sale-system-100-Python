@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session
 
 from thegrill.models import (Ingredient, IngredientLot, IngredientMovement,
                              MovementKind, Primal, PrimalWeighing, User)
+from thegrill.web import jornada
 
 # Cinco gramos: el juego de una báscula de muelle, no un agujero.
 NADA = 0.005
@@ -134,7 +135,7 @@ def cuadre(session: Session, restaurant_id: int, desde: date, hasta: date) -> Cu
 
 def del_mes(session: Session, restaurant_id: int, on: date | None = None) -> Cuadre:
     """El cuadre del mes que corre, que es el que se mira."""
-    on = on or date.today()
+    on = on or jornada.hoy(session, restaurant_id)
     return cuadre(session, restaurant_id, on.replace(day=1), on)
 
 
@@ -292,7 +293,7 @@ def dedo(valores: list[float], user_id: int = 0, nombre: str = "") -> Dedo | Non
 def dedos(session: Session, restaurant_id: int, desde: date | None = None,
           hasta: date | None = None) -> list[Dedo]:
     """Quién pesa y quién calcula a ojo, de las pesadas de piezas enteras."""
-    hasta = hasta or date.today()
+    hasta = hasta or jornada.hoy(session, restaurant_id)
     desde = desde or (hasta - timedelta(days=90))
     nombres = {u.id: u.name for u in
                session.query(User).filter_by(restaurant_id=restaurant_id)}

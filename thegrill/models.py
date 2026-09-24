@@ -211,6 +211,11 @@ class Restaurant(Base):
     slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     join_code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     timezone: Mapped[str] = mapped_column(String(64), default="UTC")
+    # A qué hora se cierra el día. Una cocina no cierra a medianoche: a las dos
+    # de la mañana se sigue sirviendo, y lo que se apunta entonces es del
+    # servicio de anoche, no del día que acaba de empezar. Vacío quiere decir
+    # «la de la casa», que son las tres; el manager puede poner otra.
+    day_cut_hour: Mapped[int | None] = mapped_column(Integer)
     # La moneda en la que cobra y paga esta casa. Se elige en la
     # configuración; lo que se enseña al lado de cada cifra sale de aquí.
     currency: Mapped[str] = mapped_column(String(3), default="EUR")

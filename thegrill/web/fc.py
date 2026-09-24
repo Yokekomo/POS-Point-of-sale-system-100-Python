@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 
 from thegrill.models import (IngredientMovement, MovementKind, PosProduct,
                              Recipe, RecipeKind, SalesByProduct)
-from thegrill.web import costing
+from thegrill.web import costing, jornada
 
 NADA = 0.005
 
@@ -121,7 +121,7 @@ def _salido_de_camara(session: Session, restaurant_id: int, on: date) -> tuple[f
 
 def dia(session: Session, restaurant_id: int, on: date | None = None) -> Dia:
     """El food cost de ese día: el de la carta y el de la cámara."""
-    on = on or (date.today() - timedelta(days=1))
+    on = on or (jornada.hoy(session, restaurant_id) - timedelta(days=1))
     salida = Dia(fecha=on)
 
     # Qué plato es cada artículo del POS. Lo que no esté atado se cuenta
@@ -155,5 +155,5 @@ def dia(session: Session, restaurant_id: int, on: date | None = None) -> Dia:
 
 def ayer(session: Session, restaurant_id: int, hoy: date | None = None) -> Dia:
     """Lo de ayer, que es el último día con todos los números hechos."""
-    hoy = hoy or date.today()
+    hoy = hoy or jornada.hoy(session, restaurant_id)
     return dia(session, restaurant_id, hoy - timedelta(days=1))

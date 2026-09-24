@@ -49,6 +49,26 @@
   </select>
   <div class="help">{{ t("settings.currency_help") }}</div>
 
+  {# Dónde está la casa y a qué hora cierra el día. Las dos cosas juntas son
+     las que deciden a qué día va lo que se apunta: a las dos y media de la
+     mañana se sigue sirviendo, y eso es del servicio de anoche. #}
+  <label for="timezone">{{ t("settings.timezone") }}</label>
+  <input id="timezone" name="timezone" list="zonas" autocomplete="off"
+         value="{{ restaurant.timezone or 'UTC' }}" placeholder="Europe/Madrid">
+  <datalist id="zonas">
+    {% for z in zonas %}<option value="{{ z }}">{% endfor %}
+  </datalist>
+  <div class="help">{{ t("settings.timezone_help") }}</div>
+
+  <label for="day_cut_hour">{{ t("settings.day_cut") }}</label>
+  <select id="day_cut_hour" name="day_cut_hour">
+    {% for h in horas_cierre %}
+      <option value="{{ h }}" {% if h == cierre %}selected{% endif %}
+        >{{ "%02d:00"|format(h) }}{% if h == 0 %} · {{ t("settings.day_cut_midnight") }}{% endif %}</option>
+    {% endfor %}
+  </select>
+  <div class="help">{{ t("settings.day_cut_help", hora="%02d:00"|format(cierre)) }}</div>
+
   <label for="pos_match">{{ t("settings.pos_match") }}</label>
   <select id="pos_match" name="pos_match">
     {% for m in pos_modes %}

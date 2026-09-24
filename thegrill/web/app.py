@@ -8,6 +8,7 @@
 Todo va contra el restaurante del usuario: nadie ve datos de otro.
 """
 import os
+import zoneinfo
 from datetime import date, datetime, timedelta
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
@@ -25,8 +26,12 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, Co
                              TemplateField, Unit, User)
 
 from thegrill.web import (auth, butchery, cifras, costing, exacto, i18n, inventory,
-                          money, seguridad, service, sheets, tracing, waste)
+                          jornada, money, seguridad, service, sheets, tracing, waste)
 from thegrill.web.seed import seed_templates
+
+# Las zonas horarias que existen, para el desplegable de la configuración y
+# para comprobar lo que llega.
+ZONAS = sorted(zoneinfo.available_timezones())
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 UPLOAD_DIR = os.environ.get("GRILL_UPLOAD_DIR", "uploads")
@@ -97,7 +102,8 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
          session: Session | None = None, **ctx):
     lang = ctx.pop("lang", None) or lang_for(request, session, user)
     base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
-            "today": date.today().isoformat(),
+            # El día de trabajo de la casa, no el del servidor.
+            "today": jornada.hoy(session, user.restaurant_id if user else None).isoformat(),
             # El número de esta respuesta, que es lo que marca nuestros
             # guiones. Sin esto las plantillas escribían `nonce=""` y con la
             # política puesta el navegador no ejecutaría ni uno.
@@ -367,7 +373,8 @@ def manager_home(request: Request, ctx=Depends(require_manager_user),
 def manager_records(request: Request, ctx=Depends(require_manager_user),
                     session: Session = Depends(get_db), code: str = "", days: int = 14):
     user, auth_session = ctx
-    since = date.today() - timedelta(days=max(1, min(days, 365)) - 1)
+    since = (jornada.del_usuario(session, user)
+             - timedelta(days=max(1, min(days, 365)) - 1))
     q = (session.query(Record).filter(Record.restaurant_id == user.restaurant_id,
                                       Record.business_date >= since))
     if code:
@@ -521,7 +528,7 @@ def toggle_user(user_id: int, request: Request, csrf: str = Form(""),
 def export_csv(request: Request, ctx=Depends(require_manager_user),
                session: Session = Depends(get_db), days: int = 30):
     user, _ = ctx
-    until = date.today()
+    until = jornada.del_usuario(session, user)
     since = until - timedelta(days=max(1, min(days, 365)) - 1)
     body = service.export_records_csv(session, user.restaurant_id, since, until)
     return PlainTextResponse(body, media_type="text/csv", headers={
@@ -1038,13 +1045,16 @@ def settings_page(request: Request, ctx=Depends(require_user),
     return page(request, "settings.html", user, auth_session, session,
                 restaurant=restaurant, saved=bool(saved), changed=bool(changed),
                 error=error, pos_modes=list(PosMatch), currencies=money.MONEDAS,
+                zonas=ZONAS, horas_cierre=list(range(jornada.MAXIMO + 1)),
+                cierre=jornada.corte(restaurant),
                 version=version.actual())
 
 
 @app.post("/configuracion")
 def save_settings(request: Request, language: str = Form(...),
                   restaurant_language: str = Form(""), pos_match: str = Form(""),
-                  currency: str = Form(""), csrf: str = Form(""),
+                  currency: str = Form(""), timezone_name: str = Form("", alias="timezone"),
+                  day_cut_hour: str = Form(""), csrf: str = Form(""),
                   ctx=Depends(require_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
     try:
@@ -1062,6 +1072,14 @@ def save_settings(request: Request, language: str = Form(...),
                 restaurant.pos_match = PosMatch[pos_match]
             if money.es_valida(currency):
                 restaurant.currency = currency.upper()
+            if timezone_name.strip() and timezone_name.strip() in ZONAS:
+                restaurant.timezone = timezone_name.strip()
+            if day_cut_hour.strip():
+                try:
+                    restaurant.day_cut_hour = max(0, min(jornada.MAXIMO,
+                                                         int(day_cut_hour)))
+                except ValueError:
+                    pass
     response = RedirectResponse("/configuracion?saved=1", status_code=303)
     return set_lang_cookie(response, user.language or i18n.DEFAULT_LANG)
 

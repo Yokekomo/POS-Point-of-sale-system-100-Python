@@ -28,7 +28,7 @@ from thegrill.models import (Despiece, DespieceCut, DespiecePrimal, IngredientIt
                              IngredientLot, IngredientMovement, MovementKind, Primal,
                              PrimalStatus, Storage, User)
 from thegrill.rules import TGInput, validate_tg
-from thegrill.web import exacto, locking
+from thegrill.web import exacto, jornada, locking
 
 EPSILON = 1e-9
 MAX_CUTS_PER_PRIMAL = 10      # lo que sale de un primal en la práctica
@@ -420,7 +420,7 @@ def status(session: Session, restaurant_id: int, on: date | None = None,
     from thegrill.models import (ConsumptionMode, DefrostEntry, DefrostKind, Ingredient,
                                  PrimalPar)
     from thegrill.web import costing, exacto, sites
-    on = on or date.today()
+    on = on or jornada.hoy(session, restaurant_id)
     result = MeatStatus(date=on)
     principal = sites.main(session, restaurant_id).id if site_id else None
 
@@ -566,7 +566,7 @@ def close_day(session: Session, user: User, on: date | None = None,
     from thegrill.web import service
     from thegrill.web.i18n import t
 
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     result = status(session, user.restaurant_id, on, expiry_days)
     now = datetime.utcnow()

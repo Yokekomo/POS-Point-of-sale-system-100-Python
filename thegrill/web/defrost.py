@@ -25,7 +25,7 @@ from thegrill.engine.recipes import explode
 from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, DefrostEntry, DefrostKind,
                              Ingredient, IngredientLot, IngredientMovement, MovementKind,
                              SalesByProduct, ShiftClosure, User)
-from thegrill.web import aging, costing, locking, service, sites
+from thegrill.web import aging, costing, jornada, locking, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-6
@@ -133,7 +133,7 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
     session.flush()
     # Lo que sale del arcón no se ha vendido ni se ha tirado, pero del número
     # han salido kilos: quedan apuntados en los dos, o el lote no se explica.
-    sites.journal_split(session, user, lot, hijo, movido, on or date.today(), "defrost",
+    sites.journal_split(session, user, lot, hijo, movido, on or jornada.del_usuario(session, user), "defrost",
                         "descongelado")
     return hijo
 
@@ -151,9 +151,9 @@ def record(session: Session, user: User, kind: DefrostKind, serial: str, pieces:
         raise DefrostError(str(e)) from None
     if kind == DefrostKind.INTAKE and lot.frozen:
         # Lo que sale del arcón deja de estar en espera, y lo que se queda no.
-        lot = thaw(session, user, lot, total_kg, pieces, on=on or date.today())
+        lot = thaw(session, user, lot, total_kg, pieces, on=on or jornada.del_usuario(session, user))
         serial = lot.serial
-    entry = DefrostEntry(restaurant_id=user.restaurant_id, date=on or date.today(),
+    entry = DefrostEntry(restaurant_id=user.restaurant_id, date=on or jornada.del_usuario(session, user),
                          shift=shift or "", kind=kind, lot_serial=serial,
                          ingredient_id=lot.ingredient_id, lot_id=lot.id, pieces=pieces,
                          total_kg=total_kg, note=note, created_by=user.id)
@@ -296,7 +296,7 @@ def _taken_before(session: Session, restaurant_id: int, on: date,
 def close(session: Session, user: User, on: date | None = None, shift: str = "",
           lang: str | None = None) -> ShiftClose:
     """Cierra el turno: descuenta lo consumido de verdad y lo compara con lo teórico."""
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     result = ShiftClose(date=on, shift=shift or "")
 
@@ -515,7 +515,7 @@ class MonthSoFar:
 def month_so_far(session: Session, restaurant_id: int, on: date | None = None,
                  site_id: int | None = None) -> MonthSoFar:
     """El mes en curso, turno a turno. Sin ir aviso por aviso."""
-    on = on or date.today()
+    on = on or jornada.hoy(session, restaurant_id)
     first = date(on.year, on.month, 1)
     query = (session.query(ShiftClosure)
              .filter(ShiftClosure.restaurant_id == restaurant_id,

@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Alert, AlertSeverity, AuditLog, IngredientItem, IngredientLot,
                              IngredientMovement, LossKind, MovementKind, Primal,
                              PrimalStatus, PrimalWeighing, Storage, User, WeightSale)
-from thegrill.web import exacto, rangos, service, sites
+from thegrill.web import exacto, jornada, rangos, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -365,7 +365,7 @@ def move(session: Session, user: User, serial: str, storage: Storage,
     decir después cuánto ha perdido. Congelar pide la fecha de consumo del
     congelador, porque la de la etiqueta original deja de valer.
     """
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     primal = here(session, user, find(session, user.restaurant_id, serial))
     was = where(primal)
     if was == storage:
@@ -405,7 +405,7 @@ def weigh(session: Session, user: User, serial: str, kg: float,
     Los kilos que faltan no se los ha llevado nadie: se han evaporado. Por eso
     el coste de la pieza no baja y el precio del kilo sube.
     """
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     if kg <= 0:
         raise AgingError("El peso tiene que ser mayor que cero")
@@ -515,7 +515,7 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
     no se lleva nada, así que su coste se queda en los kilos que quedan, igual
     que la merma de cámara de toda la vida.
     """
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     primal = here(session, user, find(session, user.restaurant_id, serial))
     previous = round(primal.weight_kg or 0.0, 6)
 
@@ -649,7 +649,7 @@ def sell_by_weight(session: Session, user: User, serial: str, grams: float,
     Se descuentan los gramos cortados y se lleva con ellos su parte del coste,
     de manera que el kilo de lo que queda sigue valiendo lo mismo.
     """
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     if grams <= 0:
         raise AgingError("Los gramos vendidos tienen que ser más de cero")
     if price < 0:
@@ -744,7 +744,7 @@ def to_count(session: Session, restaurant_id: int, on: date | None = None,
     Y se cuenta en cada sede: las piezas que maduran en el local las pesa el
     local todas las noches, que es quien tiene la cámara delante.
     """
-    on = on or date.today()
+    on = on or jornada.hoy(session, restaurant_id)
     history = history or history_of(session, restaurant_id, in_stock_only=True)
     ultimas = history.last
     out = []
@@ -763,7 +763,7 @@ def pending_today(session: Session, restaurant_id: int, on: date | None = None,
                   site_id: int | None = None,
                   rows: list[BoardRow] | None = None) -> list[str]:
     """Las piezas que madurando se han quedado hoy sin pesar, sede a sede."""
-    on = on or date.today()
+    on = on or jornada.hoy(session, restaurant_id)
     return [l.serial for l in to_count(session, restaurant_id, on, site_id, rows=rows)
             if l.kg is None]
 
@@ -777,7 +777,7 @@ def count_day(session: Session, user: User, readings: list[tuple[str, float]],
     vender, aunque su coste se quede en los que quedan. Y dice cuáles no se han
     pesado, porque un conteo a medias no cuadra nada.
     """
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     out = DailyCount(date=on)
     pesadas = {s.strip(): kg for s, kg in readings if s and s.strip() and kg and kg > 0}
@@ -811,7 +811,7 @@ def board(session: Session, restaurant_id: int, storage: Storage | None = None,
     Se madura donde se sirve: una pieza puesta a madurar en el local es del
     local, y es el local el que la pesa. Con `site_id` sale solo su cámara.
     """
-    on = on or date.today()
+    on = on or jornada.hoy(session, restaurant_id)
     query = (session.query(Primal)
              .filter_by(restaurant_id=restaurant_id, status=PrimalStatus.IN_STOCK))
     principal = sites.main(session, restaurant_id)
@@ -906,7 +906,7 @@ def sales(session: Session, restaurant_id: int, serial: str | None = None,
     if serial:
         query = query.filter(WeightSale.serial == serial.strip())
     else:
-        query = query.filter(WeightSale.date >= date.today() - timedelta(days=days))
+        query = query.filter(WeightSale.date >= jornada.hoy(session, restaurant_id) - timedelta(days=days))
     return query.order_by(WeightSale.date.desc(), WeightSale.id.desc()).limit(200).all()
 
 

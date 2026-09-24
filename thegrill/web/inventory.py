@@ -21,7 +21,7 @@ from thegrill.engine.inventory import (MATCH, NOT_FOUND, OVER, SHORT, UNCOUNTED,
 from thegrill.models import (Alert, AlertSeverity, CountItemKind, CountPeriod, CountStatus,
                              Ingredient, IngredientLot, IngredientMovement, MeatCount,
                              MeatCountLine, MovementKind, Primal, PrimalStatus, Storage, User)
-from thegrill.web import aging, costing, locking, rangos, service, sites
+from thegrill.web import aging, costing, jornada, locking, rangos, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -90,7 +90,7 @@ def open_count(session: Session, user: User, period: CountPeriod = CountPeriod.M
     Cada sede cuenta su cámara, y las dos pueden estar contando a la vez: lo
     que no se puede es tener dos hojas abiertas de la misma cámara.
     """
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     if site_id is None:
         mia = sites.of_user(session, user)
         site_id = mia.id if mia else None
@@ -398,7 +398,7 @@ def monthly_status(session: Session, restaurant_id: int, on: date | None = None,
     mismo que no cuadra: quedaron piezas sin mirar.
     """
     import calendar
-    on = on or date.today()
+    on = on or jornada.hoy(session, restaurant_id)
     first = date(on.year, on.month, 1)
     last_day = calendar.monthrange(on.year, on.month)[1]
     query = (session.query(MeatCount)
@@ -443,7 +443,7 @@ def recover(session: Session, user: User, serial: str, kg: float | None = None,
     inventario dejó a cero. Queda registrado quién lo hizo, cuándo y por qué:
     una corrección no se hace a escondidas.
     """
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     lang = lang or service.restaurant_language(session, user.restaurant_id)
 
     primal = (session.query(Primal)
@@ -514,7 +514,7 @@ def adopt(session: Session, user: User, serial: str, item_id: int, kg: float,
     un coste en blanco.
     """
     from thegrill.models import IngredientItem
-    on = on or date.today()
+    on = on or jornada.del_usuario(session, user)
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     if kg <= 0:
         raise InventoryError("La cantidad tiene que ser mayor que cero")

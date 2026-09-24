@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Alert, AlertSeverity, Attachment, FieldType, Notification,
                              NotificationKind, Record, RecordStatus, RecordTemplate,
                              RecordValue, Restaurant, Role, TemplateField, User)
-from thegrill.web import exacto
+from thegrill.web import exacto, jornada
 from thegrill.web.i18n import DEFAULT_LANG, t
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
@@ -313,7 +313,7 @@ class Dashboard:
 def dashboard(session: Session, restaurant_id: int, until: date | None = None,
               days: int = 7) -> Dashboard:
     """Panel del manager: cumplimiento, alertas y actividad del periodo."""
-    until = until or date.today()
+    until = until or jornada.hoy(session, restaurant_id)
     since = until - timedelta(days=days - 1)
 
     records = (session.query(Record)

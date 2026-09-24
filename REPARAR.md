@@ -106,9 +106,15 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 - [ ] **Descongelar una pieza entera borra su única fecha** (`aging.py:388`) y
       el despiece se planta con «una fecha no se inventa», sin sitio donde
       meterla.
-- [ ] **El día de trabajo sale del reloj del servidor.** `Restaurant.timezone`
-      se pide, se guarda y no lo lee nadie. En Dubái, un control a la 01:30 se
-      apunta el día anterior.
+- [x] **El día de trabajo sale del reloj del servidor.** `Restaurant.timezone`
+      se pedía, se guardaba y no lo leía nadie. Ahora hay un `jornada.py` que
+      responde a una sola pregunta —cuándo es hoy en esta casa— y lo hace con
+      dos datos: dónde está el local y **a qué hora cierra el día**, que el
+      manager elige en su configuración y de serie son las tres de la mañana.
+      Una cocina no cierra a medianoche: lo que se apunta a las dos y media es
+      del servicio de anoche, y meterlo en el día siguiente deja dos días mal,
+      el de ayer corto y el de hoy largo. Los cuarenta y tantos `date.today()`
+      del programa pasan por ahí.
 - [ ] **La trazabilidad no sirve para lo único que tiene que servir:** lo
       trasladado a otra sede, lo que se limpia y la venta al corte no aparecen;
       y en un despiece de varias piezas cada una se apunta el 100 %.
@@ -165,6 +171,9 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       guardaba 15, el «1.250» que se guardaba 1,25 y los rangos de proceso.
       `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
       `tests/test_rangos.py`.
+
+- [x] **Cuándo es hoy.** La zona horaria de la casa y la hora a la que cierra
+      el día, elegible por el manager. `jornada.py`, `tests/test_jornada.py`.
 
 - [x] **Los números se escriben y se leen como en el país de la casa.**
       `exacto.leer` para lo que se escribe y `cifras` para lo que se lee.
