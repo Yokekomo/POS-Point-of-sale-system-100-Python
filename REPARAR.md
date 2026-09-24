@@ -237,6 +237,12 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
       `tests/test_rangos.py`.
 
+- [x] **Las bandas de llegada las pone la casa.** Refrigerado y congelado, con
+      su mínimo y su máximo, en la configuración del manager. Límite a límite:
+      quien aprieta solo el máximo no vuelve a escribir el mínimo, y un número
+      que no es un número deja el que había —con algo que decide si una carne
+      se devuelve, lo prudente es no tocarlo—.
+
 - [x] **O se cortan todas las piezas, o no se corta ninguna.** Y una prueba de
       velocidad que se ponía roja cuando la máquina estaba ocupada: se queda
       con la visita más rápida, que es la única en la que lo que se mide es la

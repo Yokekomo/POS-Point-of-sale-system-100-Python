@@ -50,7 +50,7 @@ def test_a_finger_cannot_give_a_tray_a_month_of_life():
     assert caducidad.dias(Casa()) == caducidad.MAXIMO
     class Cero:
         thaw_days = 0
-    assert caducidad.dias(Cero()) == 1
+    assert caducidad.dias(Cero()) == 1      # nada dura cero días
     class Letras:
         thaw_days = "tres"
     assert caducidad.dias(Letras()) == caducidad.POR_DEFECTO

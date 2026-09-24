@@ -76,6 +76,22 @@
          value="{{ dias_descongelado }}">
   <div class="help">{{ t("settings.thaw_days_help", n=dias_descongelado) }}</div>
 
+  {# A cuánto tiene que bajar del camión cada cosa. Lo pone el plan de
+     autocontrol de la casa, no el programa: la norma es el mínimo, y una casa
+     que se exige más no tiene por qué renunciar a que se lo controlen. #}
+  <label>{{ t("settings.bands") }}</label>
+  <div class="campos">
+    <label>{{ t("m.rec.arrival_chilled") }} · {{ t("settings.band_min") }}
+      <input name="chilled_min_c" inputmode="decimal" value="{{ bandas.chilled[0] }}"></label>
+    <label>{{ t("m.rec.arrival_chilled") }} · {{ t("settings.band_max") }}
+      <input name="chilled_max_c" inputmode="decimal" value="{{ bandas.chilled[1] }}"></label>
+    <label>{{ t("m.rec.arrival_frozen") }} · {{ t("settings.band_min") }}
+      <input name="frozen_min_c" inputmode="decimal" value="{{ bandas.frozen[0] }}"></label>
+    <label>{{ t("m.rec.arrival_frozen") }} · {{ t("settings.band_max") }}
+      <input name="frozen_max_c" inputmode="decimal" value="{{ bandas.frozen[1] }}"></label>
+  </div>
+  <div class="help">{{ t("settings.bands_help") }}</div>
+
   <label for="pos_match">{{ t("settings.pos_match") }}</label>
   <select id="pos_match" name="pos_match">
     {% for m in pos_modes %}

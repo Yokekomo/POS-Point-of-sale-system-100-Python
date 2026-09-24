@@ -17,10 +17,11 @@ que **guardarlo**, porque es la prueba de que ese camión vino caliente, y hay
 que avisar al responsable el mismo día. Rechazarlo sería borrar la única
 anotación que importa.
 
-Los límites de norma vienen del Reglamento (CE) 853/2004, anexo III: 7 °C en
-carne de ungulados, 3 °C en despojos, y −12 °C en carne congelada. Los de lo
-imposible no vienen de ninguna ley: vienen de lo que cabe en una cámara y de
-lo que marca un termómetro de sonda.
+Las bandas de llegada las pone la casa, y las de aquí están por encima de lo
+que exige el Reglamento (CE) 853/2004 en refrigerado —5 °C frente a los 7 °C
+de la norma—, que es como tiene que ser: la norma es el mínimo y no el
+objetivo. Los límites de lo imposible no vienen de ninguna ley: vienen de lo
+que cabe en una cámara y de lo que marca un termómetro de sonda.
 """
 from __future__ import annotations
 
@@ -44,13 +45,54 @@ GRAMOS_RACION = (1.0, 5000.0)
 # número y levanta un aviso.
 PIEZA_PESADA = 80.0              # más que esto ya no lo sube una persona
 
-# ------------------------------------------------------------ lo que es norma
-# Reglamento (CE) 853/2004, anexo III. La carne que llega por encima de esto se
-# apunta igual —es la prueba— y sale en los avisos del manager el mismo día.
+# --------------------------------------------------------- la banda de la casa
+# A cuánto tiene que bajar del camión cada cosa. La carne que llega fuera de
+# esto se apunta igual —es la prueba de que ese camión vino como vino— y sale
+# en los avisos del manager el mismo día.
+#
+# Refrigerado a 5 °C es **más estricto** que el 7 °C que exige el Reglamento
+# (CE) 853/2004, y eso es como debe ser: la norma es el mínimo, no el objetivo.
+#
+# En congelado la banda llega hasta 0 °C. Esa es la decisión de la casa y aquí
+# se respeta, pero conviene saber lo que significa: el 853/2004 pide −12 °C
+# para la carne congelada, y una pieza que baja del camión a cero no está
+# congelada, está descongelándose. Si algún día se quiere apretar, este es el
+# único sitio donde se toca.
 LEGAL = {
-    Storage.CHILLED: (-2.0, 7.0),
-    Storage.FROZEN: (-60.0, -12.0),
+    Storage.CHILLED: (-5.0, 5.0),
+    Storage.FROZEN: (-20.0, 0.0),
 }
+
+# Cómo se llama cada límite en la casa, para leerlo y para escribirlo.
+CAMPOS = {
+    Storage.CHILLED: ("chilled_min_c", "chilled_max_c"),
+    Storage.FROZEN: ("frozen_min_c", "frozen_max_c"),
+}
+
+
+def banda(almacen: Storage, restaurant=None) -> tuple[float, float] | None:
+    """Entre qué dos temperaturas tiene que bajar del camión, en esta casa.
+
+    Lo que diga la casa manda sobre lo de serie, límite a límite: una que
+    aprieta el máximo de refrigerado a 4 °C y deja el mínimo como estaba no
+    tiene por qué volver a escribir los dos.
+    """
+    de_serie = LEGAL.get(almacen)
+    if de_serie is None or restaurant is None:
+        return de_serie
+    minimo, maximo = de_serie
+    campo_min, campo_max = CAMPOS[almacen]
+    suyo_min = getattr(restaurant, campo_min, None)
+    suyo_max = getattr(restaurant, campo_max, None)
+    try:
+        if suyo_min is not None:
+            minimo = float(suyo_min)
+        if suyo_max is not None:
+            maximo = float(suyo_max)
+    except (TypeError, ValueError):
+        return de_serie
+    # Del revés no mide nada: si alguien cruza los dos números, se enderezan.
+    return (minimo, maximo) if minimo <= maximo else (maximo, minimo)
 
 
 class FueraDeRango(ValueError):
@@ -114,7 +156,8 @@ def gramos_racion(gramos: float | None, lang: str = "es") -> None:
 
 
 def llegada(grados: float | None, almacen: Storage, serial: str,
-            kg: float | None = None, lang: str = "es") -> list[Aviso]:
+            kg: float | None = None, lang: str = "es",
+            restaurant=None) -> list[Aviso]:
     """Lo que hay que mirar de una pieza que acaba de bajar del camión.
 
     Devuelve avisos, no excepciones: todo lo que llega aquí ya pasó el filtro
@@ -123,16 +166,16 @@ def llegada(grados: float | None, almacen: Storage, serial: str,
     un cuadre.
     """
     fuera: list[Aviso] = []
-    banda = LEGAL.get(almacen)
-    if grados is not None and banda and not _dentro(grados, banda):
+    suya = banda(almacen, restaurant)
+    if grados is not None and suya and not _dentro(grados, suya):
         frio = almacen == Storage.FROZEN
-        caliente = grados > banda[1]
+        caliente = grados > suya[1]
         clave = ("haccp.arrival_warm" if caliente else "haccp.arrival_cold")
         fuera.append(Aviso(clave, t(
             lang, "alert." + ("frozen_warm" if frio and caliente else
                               "chilled_warm" if caliente else "arrival_cold"),
             serial=serial, c=_numero(grados),
-            limit=_numero(banda[1] if caliente else banda[0]))))
+            limit=_numero(suya[1] if caliente else suya[0]))))
     if kg is not None and kg > PIEZA_PESADA:
         fuera.append(Aviso("meat.heavy_piece", t(
             lang, "alert.heavy_piece", serial=serial, kg=_numero(kg),

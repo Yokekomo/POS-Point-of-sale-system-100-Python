@@ -26,8 +26,8 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, Co
                              TemplateField, Unit, User)
 
 from thegrill.web import (auth, butchery, caducidad, cifras, costing, exacto, i18n,
-                          inventory, jornada, money, seguridad, service, sheets,
-                          tracing, waste)
+                          inventory, jornada, money, rangos, seguridad, service,
+                          sheets, tracing, waste)
 from thegrill.web.seed import seed_templates
 
 # Las zonas horarias que existen, para el desplegable de la configuración y
@@ -1063,6 +1063,8 @@ def settings_page(request: Request, ctx=Depends(require_user),
                 zonas=ZONAS, horas_cierre=list(range(jornada.MAXIMO + 1)),
                 cierre=jornada.corte(restaurant),
                 dias_descongelado=caducidad.dias(restaurant),
+                bandas={"chilled": rangos.banda(Storage.CHILLED, restaurant),
+                        "frozen": rangos.banda(Storage.FROZEN, restaurant)},
                 version=version.actual())
 
 
@@ -1071,6 +1073,8 @@ def save_settings(request: Request, language: str = Form(...),
                   restaurant_language: str = Form(""), pos_match: str = Form(""),
                   currency: str = Form(""), timezone_name: str = Form("", alias="timezone"),
                   day_cut_hour: str = Form(""), thaw_days: str = Form(""),
+                  chilled_min_c: str = Form(""), chilled_max_c: str = Form(""),
+                  frozen_min_c: str = Form(""), frozen_max_c: str = Form(""),
                   csrf: str = Form(""),
                   ctx=Depends(require_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
@@ -1103,6 +1107,23 @@ def save_settings(request: Request, language: str = Form(...),
                                                       int(thaw_days)))
                 except ValueError:
                     pass
+            # Las bandas de llegada, límite a límite: quien aprieta solo el
+            # máximo no tiene que volver a escribir el mínimo. Un número que no
+            # es un número deja el que había, que es lo prudente con algo que
+            # decide si una carne se devuelve o se acepta.
+            for campo in ("chilled_min_c", "chilled_max_c",
+                          "frozen_min_c", "frozen_max_c"):
+                escrito = locals()[campo]
+                if not escrito.strip():
+                    continue
+                try:
+                    grados = exacto.leer(escrito, decimales=1)
+                except ValueError:
+                    continue
+                if grados is None or not (rangos.TEMPERATURA[0] <= grados
+                                          <= rangos.TEMPERATURA[1]):
+                    continue
+                setattr(restaurant, campo, float(grados))
     response = RedirectResponse("/configuracion?saved=1", status_code=303)
     return set_lang_cookie(response, user.language or i18n.DEFAULT_LANG)
 

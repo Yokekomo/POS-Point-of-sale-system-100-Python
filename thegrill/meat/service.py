@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, CountStatus, Despiece,
                              DespieceCut, DespiecePrimal, Ingredient, IngredientItem,
                              IngredientLot, MeatCount, NotificationKind, PosProduct,
-                             Primal, PrimalStatus, Recipe, RecipeKind, RecipeLine,
+                             Primal, PrimalStatus, Recipe, RecipeKind, RecipeLine, Restaurant,
                              Rotation, Storage, Unit, User)
 from thegrill.meat import novedades
 from thegrill.web import aging as aging_mod
@@ -195,9 +195,11 @@ def _haccp_de_llegada(session: Session, user: User, created: list[Primal],
     """
     ahora = datetime.utcnow()
     avisos: list[Alert] = []
+    casa = session.get(Restaurant, user.restaurant_id)
     for pieza in created:
         for aviso in rangos.llegada(pieza.arrival_c, pieza.arrival or Storage.CHILLED,
-                                    pieza.serial, kg=pieza.weight_kg, lang=lang):
+                                    pieza.serial, kg=pieza.weight_kg, lang=lang,
+                                    restaurant=casa):
             alerta = Alert(restaurant_id=user.restaurant_id, code=aviso.code,
                            message=aviso.message,
                            severity=(AlertSeverity.CRITICAL

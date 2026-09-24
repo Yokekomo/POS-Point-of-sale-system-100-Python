@@ -219,6 +219,14 @@ class Restaurant(Base):
     # Cuántos días dura lo que se ha descongelado. Vacío quiere decir «los de
     # la casa», que son tres; cada plan de autocontrol pone los suyos.
     thaw_days: Mapped[int | None] = mapped_column(Integer)
+    # A cuánto tiene que bajar del camión cada cosa. Lo pone el plan de
+    # autocontrol de la casa y no el programa: la norma es el mínimo, y una
+    # casa que se exige más no tiene por qué renunciar a que el programa se lo
+    # controle. Vacío quiere decir «lo que trae de serie».
+    chilled_min_c: Mapped[float | None] = mapped_column(Float)
+    chilled_max_c: Mapped[float | None] = mapped_column(Float)
+    frozen_min_c: Mapped[float | None] = mapped_column(Float)
+    frozen_max_c: Mapped[float | None] = mapped_column(Float)
     # La moneda en la que cobra y paga esta casa. Se elige en la
     # configuración; lo que se enseña al lado de cada cifra sale de aquí.
     currency: Mapped[str] = mapped_column(String(3), default="EUR")

@@ -37,7 +37,8 @@ from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, Cou
 from thegrill.models import BugStatus
 from thegrill.web import (aging, auth, butchery, caducidad, cifras, costing, cuadre,
                           defrost, exacto, i18n, inventory, jornada, money,
-                          pos_import, service, sites, tracing, twofactor, waste)
+                          pos_import, rangos, service, sites, tracing, twofactor,
+                          waste)
 
 log = logging.getLogger(__name__)
 
@@ -2471,6 +2472,8 @@ def _settings(request: Request, user, auth_session, session, saved: bool = False
                 zonas=ZONAS, horas_cierre=list(range(jornada.MAXIMO + 1)),
                 cierre=jornada.corte(restaurant),
                 dias_descongelado=caducidad.dias(restaurant),
+                bandas={"chilled": rangos.banda(Storage.CHILLED, restaurant),
+                        "frozen": rangos.banda(Storage.FROZEN, restaurant)},
                 version=version.actual(),
                 codes=codes or [],
                 tfa_uri=twofactor.uri(user.totp_secret or "", user.email,
@@ -2484,6 +2487,8 @@ def save_settings(request: Request, language: str = Form(...),
                   restaurant_language: str = Form(""), pos_match: str = Form(""),
                   currency: str = Form(""), timezone_name: str = Form("", alias="timezone"),
                   day_cut_hour: str = Form(""), thaw_days: str = Form(""),
+                  chilled_min_c: str = Form(""), chilled_max_c: str = Form(""),
+                  frozen_min_c: str = Form(""), frozen_max_c: str = Form(""),
                   csrf: str = Form(""),
                   ctx=Depends(require_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
@@ -2516,6 +2521,23 @@ def save_settings(request: Request, language: str = Form(...),
                                                       int(thaw_days)))
                 except ValueError:
                     pass
+            # Las bandas de llegada, límite a límite: quien aprieta solo el
+            # máximo no tiene que volver a escribir el mínimo. Un número que no
+            # es un número deja el que había, que es lo prudente con algo que
+            # decide si una carne se devuelve o se acepta.
+            for campo in ("chilled_min_c", "chilled_max_c",
+                          "frozen_min_c", "frozen_max_c"):
+                escrito = locals()[campo]
+                if not escrito.strip():
+                    continue
+                try:
+                    grados = exacto.leer(escrito, decimales=1)
+                except ValueError:
+                    continue
+                if grados is None or not (rangos.TEMPERATURA[0] <= grados
+                                          <= rangos.TEMPERATURA[1]):
+                    continue
+                setattr(restaurant, campo, float(grados))
     response = RedirectResponse("/configuracion?saved=1", status_code=303)
     return set_lang_cookie(response, user.language or i18n.DEFAULT_LANG)
 

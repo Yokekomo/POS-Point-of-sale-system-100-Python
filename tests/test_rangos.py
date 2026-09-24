@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from thegrill import db
 from thegrill.meat import app as meatapp
-from thegrill.models import Alert, AlertSeverity, Primal, Storage
+from thegrill.models import Alert, AlertSeverity, Primal, Restaurant, Storage
 from thegrill.web import rangos
 
 from tests.meat_helpers import SPANISH, csrf_from, signup
@@ -104,15 +104,27 @@ def test_the_manager_sees_it_the_same_day(client):
     assert pagina.status_code == 200 and "8017" in pagina.text
 
 
-def test_frozen_at_minus_five_is_not_frozen(client):
+def test_frozen_that_arrives_above_zero_is_not_frozen(client):
+    """La banda de la casa para congelado es de −20 a 0: a dos grados, aviso."""
     signup(client)
     form = client.get("/recepcion")
     client.post("/recepcion", data={
         "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "32",
-        "arrival": "FROZEN", "arrival_c": "-5",
+        "arrival": "FROZEN", "arrival_c": "2",
         "serial:0": "8017", "kg:0": "9,4"})
     with db.session_scope() as s:
         assert s.query(Alert).filter(Alert.code == "haccp.arrival_warm").count() == 1
+
+
+def test_frozen_at_minus_eighteen_is_where_it_should_be(client):
+    signup(client)
+    form = client.get("/recepcion")
+    client.post("/recepcion", data={
+        "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "32",
+        "arrival": "FROZEN", "arrival_c": "-18",
+        "serial:0": "8017", "kg:0": "9,4"})
+    with db.session_scope() as s:
+        assert s.query(Alert).filter(Alert.code.startswith("haccp.")).count() == 0
 
 
 def test_meat_inside_the_band_raises_nothing(client):
@@ -159,8 +171,80 @@ def test_a_heavy_piece_is_flagged_but_allowed():
     assert [a.code for a in avisos] == ["meat.heavy_piece"]
 
 
+def test_the_house_band_is_tighter_than_the_law_on_chilled():
+    """Cinco grados, no siete: la norma es el mínimo y no el objetivo."""
+    assert rangos.LEGAL[Storage.CHILLED] == (-5.0, 5.0)
+    assert rangos.llegada(6.0, Storage.CHILLED, "8017") != []
+    assert rangos.llegada(5.0, Storage.CHILLED, "8017") == []
+
+
 def test_the_warning_speaks_every_language():
     for lang in ("es", "en", "fr", "de", "nl", "ar", "hu"):
         aviso = rangos.llegada(12.0, Storage.CHILLED, "8017", lang=lang)[0]
         assert "8017" in aviso.message and "12" in aviso.message
         assert not aviso.message.startswith("alert.")
+
+
+# ------------------------------------- las bandas las pone la casa, no el programa
+def test_the_house_can_tighten_the_band(client):
+    """La norma es el mínimo. Una casa que se exige más no tiene por qué
+    renunciar a que el programa se lo controle."""
+    signup(client)
+    form = client.get("/configuracion")
+    r = client.post("/configuracion", data={
+        "csrf": csrf_from(form.text), "language": "es", "chilled_max_c": "3"})
+    assert r.status_code == 303
+    with db.session_scope() as s:
+        casa = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        assert rangos.banda(Storage.CHILLED, casa) == (-5.0, 3.0)
+
+    form = client.get("/recepcion")
+    client.post("/recepcion", data={
+        "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "32",
+        "arrival": "CHILLED", "arrival_c": "4",
+        "serial:0": "8017", "kg:0": "9,4"})
+    with db.session_scope() as s:
+        aviso = s.query(Alert).filter(Alert.code == "haccp.arrival_warm").one()
+        assert "3" in aviso.message          # se le dice el límite de la casa
+
+
+def test_touching_one_limit_leaves_the_other_alone(client):
+    signup(client)
+    form = client.get("/configuracion")
+    client.post("/configuracion", data={
+        "csrf": csrf_from(form.text), "language": "es", "frozen_max_c": "-12"})
+    with db.session_scope() as s:
+        casa = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        assert rangos.banda(Storage.FROZEN, casa) == (-20.0, -12.0)
+        assert rangos.banda(Storage.CHILLED, casa) == (-5.0, 5.0)
+
+
+def test_a_limit_that_is_not_a_number_leaves_the_one_that_was(client):
+    """Con algo que decide si una carne se devuelve, lo prudente es no tocarlo."""
+    signup(client)
+    form = client.get("/configuracion")
+    client.post("/configuracion", data={
+        "csrf": csrf_from(form.text), "language": "es", "chilled_max_c": "cuatro"})
+    with db.session_scope() as s:
+        casa = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+        assert casa.chilled_max_c is None
+        assert rangos.banda(Storage.CHILLED, casa) == (-5.0, 5.0)
+
+
+def test_limits_the_wrong_way_round_still_measure(client):
+    """Si alguien cruza los dos números, se enderezan en vez de no medir nada."""
+    class Casa:
+        chilled_min_c, chilled_max_c = 5.0, -5.0
+        frozen_min_c = frozen_max_c = None
+    assert rangos.banda(Storage.CHILLED, Casa()) == (-5.0, 5.0)
+
+
+def test_the_screen_shows_the_band_of_the_house(client):
+    signup(client)
+    form = client.get("/configuracion")
+    client.post("/configuracion", data={
+        "csrf": csrf_from(form.text), "language": "es",
+        "chilled_max_c": "4", "frozen_max_c": "-12"})
+    pantalla = client.get("/configuracion").text
+    assert 'name="chilled_max_c" inputmode="decimal" value="4.0"' in pantalla
+    assert 'name="frozen_max_c" inputmode="decimal" value="-12.0"' in pantalla

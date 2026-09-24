@@ -11,10 +11,14 @@ lo que hay que hacer: la bandeja que hay que gastar esta semana esperando
 detrás de la que aguanta hasta el año que viene, hasta que alguien la
 encuentra mala. Y en el papel todo cuadraba.
 
-Tres días es lo que pone casi todo plan de autocontrol para carne
-descongelada que se mantiene a temperatura de refrigeración, y es lo que
-lleva de serie. La casa pone los suyos en su configuración, porque eso lo
-decide su plan y no un programa.
+Tres días de serie, que es lo que pone casi todo plan de autocontrol para
+carne descongelada que se mantiene a temperatura de refrigeración. La casa
+pone los suyos en su configuración, porque eso lo decide su plan y no un
+programa.
+
+Un apunte sobre el día y la hora: la fecha de consumo es un día y no un
+instante, porque es lo que se escribe en una etiqueta y lo que mira quien abre
+la cámara.
 
 Una regla, y es la que hace que no se pueda estropear: **la fecha nueva nunca
 puede ser más tarde que la que ya tenía**. Descongelar no alarga nada. Si la
