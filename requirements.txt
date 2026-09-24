@@ -6,6 +6,13 @@ jinja2>=3.1              # plantillas HTML
 python-multipart>=0.0.9  # subida de fotos
 openpyxl>=3.1            # hojas de registro en Excel para imprimir
 cryptography>=42         # cifrado de los datos de contacto (con GRILL_DATA_KEY)
+# Las zonas horarias, en el propio programa y no en el sistema. Windows no
+# trae ninguna, y las imágenes «slim» de Linux tampoco siempre: si falta, una
+# casa en «Europe/Budapest» trabaja con la hora corrida, y en marzo y octubre
+# eso es una hora entera de apuntes en el día que no es. Se instala en todas
+# partes a propósito, sin marcador de plataforma: así la hora de la casa no
+# depende de lo que traiga el sistema donde toque desplegar.
+tzdata>=2024.1
 
 # desarrollo
 pytest>=8

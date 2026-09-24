@@ -117,3 +117,67 @@ def de_dos(gramos: object, kilos: object, default: float | None = None) -> float
     if kilos not in (None, ""):
         return exacto.leer(kilos, default=default)
     return default
+
+
+# --------------------------------------------- de gramos a lo que sea
+#
+# Un huevo pesa 55 g y un litro de aceite, 916. Con ese número puesto en el
+# ingrediente, todo se puede escribir en gramos y guardarse en la unidad en la
+# que vive el stock: la cámara sigue contando bandejas y garrafas, que es como
+# llegan y como se cuentan, y la receta se escribe pesando, que es lo único
+# honesto cuando un huevo L pesa 68 g y uno M, 58.
+#
+# Lo que no se hace es adivinar ese número. Sin él no se convierte nada.
+GRAMOS_POR_KILO = float(GRAMO)
+
+
+def se_pesa(ingrediente) -> bool:
+    """¿Se puede escribir este ingrediente en gramos?
+
+    Si su unidad ya es el kilo, sí y sin más cuentas. Si no, solo cuando
+    alguien ha dicho lo que pesa una unidad.
+    """
+    if ingrediente is None:
+        return False
+    unidad = getattr(getattr(ingrediente, "unit", None), "value", None)
+    if unidad == "KG":
+        return True
+    return bool(getattr(ingrediente, "grams_per_unit", None))
+
+
+def por_unidad(ingrediente) -> float | None:
+    """Los gramos que pesa una unidad de este ingrediente, si se sabe."""
+    if ingrediente is None:
+        return None
+    unidad = getattr(getattr(ingrediente, "unit", None), "value", None)
+    puesto = getattr(ingrediente, "grams_per_unit", None)
+    if puesto:
+        return float(puesto)
+    return GRAMOS_POR_KILO if unidad == "KG" else None
+
+
+def en_su_unidad(kilos: float | None, ingrediente) -> float | None:
+    """El peso escrito, pasado a la unidad en la que vive el stock.
+
+    Entra lo que devuelve `leer` —kilos, que es como sale de una casilla de
+    gramos— y sale la cantidad en la unidad del ingrediente: 110 g de huevo
+    son dos huevos justos si uno pesa 55. La división deja decimales a
+    propósito: media garrafa de aceite es media garrafa, y redondear a la
+    unidad de arriba sería inventarse medio litro.
+    """
+    if kilos is None:
+        return None
+    cuanto = por_unidad(ingrediente)
+    if not cuanto:
+        return kilos               # sin el número, lo escrito es lo que vale
+    return kilos * GRAMOS_POR_KILO / cuanto
+
+
+def a_gramos(cantidad: float | None, ingrediente) -> float | None:
+    """Y de vuelta, para volver a pintar en la casilla lo que ya estaba."""
+    if cantidad is None:
+        return None
+    cuanto = por_unidad(ingrediente)
+    if not cuanto:
+        return None
+    return cantidad * cuanto

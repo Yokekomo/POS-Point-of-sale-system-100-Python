@@ -42,4 +42,7 @@ sqlalchemy==2.0.52
 starlette==1.6.0
 typing-extensions==4.16.0
 typing-inspection==0.4.4
+# Las zonas horarias van dentro del programa, no en el sistema: Windows no
+# trae ninguna y las imágenes «slim» tampoco siempre.
+tzdata==2026.1
 uvicorn==0.53.0

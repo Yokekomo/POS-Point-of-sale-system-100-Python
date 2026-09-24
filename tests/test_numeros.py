@@ -202,3 +202,62 @@ class TestLaColaDelTelefonoDeAyer:
         assert pesos.del_formulario(de_ayer, "g:0", "kg:0") == 9.4
         de_hoy = {"g:0": "9400", "serial:0": "8017"}
         assert pesos.del_formulario(de_hoy, "g:0", "kg:0") == 9.4
+
+
+class TestLoQuePesaUnaUnidad:
+    """El número que permite escribirlo todo en gramos sin mentir.
+
+    Un huevo pesa 55 g y un litro de aceite de oliva, 916. Con eso puesto, la
+    receta se escribe pesando —que es lo único honesto cuando un huevo L pesa
+    68 y uno M, 58— y la cámara se sigue contando en bandejas y garrafas, que
+    es como llegan. Sin eso puesto no se convierte nada: un programa que se
+    inventa cuánto pesa un huevo escandalla con un 20 % de error que nadie
+    vuelve a mirar.
+    """
+
+    def casa(self, unidad, gramos=None):
+        from types import SimpleNamespace
+        return SimpleNamespace(unit=unidad, grams_per_unit=gramos)
+
+    def test_what_is_already_in_kilos_needs_no_number(self):
+        from thegrill.models import Unit
+        assert pesos.se_pesa(self.casa(Unit.KG))
+
+    def test_an_egg_needs_someone_to_say_what_it_weighs(self):
+        from thegrill.models import Unit
+        assert not pesos.se_pesa(self.casa(Unit.UNIT))
+        assert pesos.se_pesa(self.casa(Unit.UNIT, 55))
+
+    def test_a_hundred_and_ten_grams_of_egg_are_two_eggs(self):
+        from thegrill.models import Unit
+        huevo = self.casa(Unit.UNIT, 55)
+        assert pesos.en_su_unidad(pesos.leer("110"), huevo) == 2.0
+
+    def test_and_the_litre_of_oil_is_its_density(self):
+        from thegrill.models import Unit
+        aceite = self.casa(Unit.L, 916)
+        assert pesos.en_su_unidad(pesos.leer("916"), aceite) == pytest.approx(1.0)
+        assert pesos.en_su_unidad(pesos.leer("458"), aceite) == pytest.approx(0.5)
+
+    def test_half_a_jug_stays_half_a_jug(self):
+        """Redondear a la unidad de arriba sería inventarse medio litro."""
+        from thegrill.models import Unit
+        aceite = self.casa(Unit.L, 916)
+        assert pesos.en_su_unidad(pesos.leer("1374"), aceite) == pytest.approx(1.5)
+
+    def test_meat_in_kilos_goes_through_untouched(self):
+        from thegrill.models import Unit
+        assert pesos.en_su_unidad(pesos.leer("250"), self.casa(Unit.KG)) == 0.25
+
+    def test_with_no_number_nothing_is_invented(self):
+        """Lo escrito vale tal cual: no se adivina cuánto pesa un huevo."""
+        from thegrill.models import Unit
+        sin_saber = self.casa(Unit.UNIT)
+        assert pesos.por_unidad(sin_saber) is None
+        assert pesos.en_su_unidad(3.0, sin_saber) == 3.0
+
+    def test_and_the_box_can_show_again_what_is_stored(self):
+        from thegrill.models import Unit
+        assert pesos.a_gramos(2, self.casa(Unit.UNIT, 55)) == 110.0
+        assert pesos.a_gramos(1.5, self.casa(Unit.L, 916)) == 1374.0
+        assert pesos.a_gramos(2, self.casa(Unit.UNIT)) is None

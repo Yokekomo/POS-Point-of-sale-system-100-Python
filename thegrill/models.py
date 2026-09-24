@@ -813,6 +813,19 @@ class Ingredient(TenantMixin, Base):
     # cliente y el POS manda los gramos de esa venta. Es como se vende la carne
     # madurada, y por eso su stock vive en kilos y no en piezas.
     sold_by_weight: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    # Lo que pesa una unidad de este ingrediente, en gramos. Es el único
+    # número que permite escribirlo todo en gramos sin mentir:
+    #
+    #   huevo    →    55 g cada uno
+    #   aceite   →   916 g el litro, que es su densidad
+    #   solomillo→  1000 g el kilo, que es trivial
+    #
+    # Lo pone la casa, porque solo la casa lo sabe: un huevo L pesa 68 g y uno
+    # M, 58, y el aceite de girasol no pesa lo que el de oliva. Mientras esté
+    # vacío, cada cosa se escribe en su unidad y no se convierte nada. Un
+    # programa que se inventa cuánto pesa un huevo acaba escandallando con un
+    # 20 % de error que nadie vuelve a mirar.
+    grams_per_unit: Mapped[float | None] = mapped_column(Float)
     category: Mapped[str | None] = mapped_column(String(48))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str | None] = mapped_column(Text)

@@ -843,3 +843,86 @@ def test_what_is_counted_is_still_counted(client):
     pantalla = client.get(f"/ingredientes/{cual}").text
     assert 'name="qty"' in pantalla and 'name="qty_g"' not in pantalla
     assert "también se pesan" not in pantalla    # eso es para los líquidos
+
+
+def test_the_house_says_what_one_unit_weighs_and_then_it_is_grams(client):
+    """Puesto el número, el huevo se escribe pesando y se guarda contando.
+
+    Es el recorrido entero: la casa dice que un huevo pesa 55 g, y a partir de
+    ahí la entrada de lote pide gramos. Ciento diez gramos entran en la cámara
+    como dos huevos, que es como se cuentan cuando alguien abre la bandeja.
+    """
+    from datetime import date, timedelta
+
+    from thegrill.models import Ingredient, IngredientItem, IngredientLot, Rotation, Unit
+    signup(client)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter_by(slug="casa-pepe").one()
+        ing = Ingredient(restaurant_id=rest.id, name="Huevo",
+                         unit=Unit.UNIT, rotation=Rotation.FEFO)
+        s.add(ing); s.flush()
+        s.add(IngredientItem(restaurant_id=rest.id, ingredient_id=ing.id,
+                             name="Huevo L bandeja 30"))
+        cual = ing.id
+
+    pantalla = client.get(f"/ingredientes/{cual}")
+    assert 'name="qty"' in pantalla.text          # de momento se cuenta
+    assert 'name="qty_g"' not in pantalla.text
+
+    # La casa lo dice una vez.
+    assert client.post(f"/ingredientes/{cual}/gramos", data={
+        "csrf": csrf_from(pantalla.text), "grams_per_unit": "55"}).status_code == 303
+    with db.session_scope() as s:
+        assert s.query(Ingredient).filter_by(id=cual).one().grams_per_unit == 55.0
+
+    # Y desde entonces se escribe en gramos.
+    pantalla = client.get(f"/ingredientes/{cual}")
+    assert 'name="qty_g"' in pantalla.text
+    with db.session_scope() as s:
+        item = s.query(IngredientItem).filter_by(ingredient_id=cual).one().id
+
+    assert client.post(f"/ingredientes/{cual}/entrada", data={
+        "csrf": csrf_from(pantalla.text), "item_id": item, "qty_g": "110",
+        "unit_cost": "0,30", "expiry": str(date.today() + timedelta(days=20)),
+    }).status_code == 303
+    with db.session_scope() as s:
+        lote = s.query(IngredientLot).join(IngredientItem).filter(
+            IngredientItem.ingredient_id == cual).one()
+        assert lote.qty == 2.0          # dos huevos, no ciento diez de nada
+
+
+def test_emptying_the_number_leaves_it_as_it_was(client):
+    """Se puede deshacer: vuelve a contarse, y lo guardado no se toca."""
+    from thegrill.models import Ingredient, IngredientItem, Rotation, Unit
+    signup(client)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter_by(slug="casa-pepe").one()
+        ing = Ingredient(restaurant_id=rest.id, name="Huevo",
+                         unit=Unit.UNIT, rotation=Rotation.FEFO,
+                         grams_per_unit=55.0)
+        s.add(ing); s.flush()
+        s.add(IngredientItem(restaurant_id=rest.id, ingredient_id=ing.id, name="Huevo L"))
+        cual = ing.id
+    pantalla = client.get(f"/ingredientes/{cual}")
+    assert 'name="qty_g"' in pantalla.text
+    client.post(f"/ingredientes/{cual}/gramos",
+                data={"csrf": csrf_from(pantalla.text), "grams_per_unit": ""})
+    with db.session_scope() as s:
+        assert s.query(Ingredient).filter_by(id=cual).one().grams_per_unit is None
+    assert 'name="qty"' in client.get(f"/ingredientes/{cual}").text
+
+
+def test_a_liquid_with_its_weight_known_stops_being_nagged(client):
+    """El aviso es para el que no lo sabe, no para el que ya lo puso."""
+    from thegrill.models import Ingredient, IngredientItem, Rotation, Unit
+    signup(client)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter_by(slug="casa-pepe").one()
+        ing = Ingredient(restaurant_id=rest.id, name="Aceite de oliva",
+                         unit=Unit.L, rotation=Rotation.FEFO, grams_per_unit=916.0)
+        s.add(ing); s.flush()
+        s.add(IngredientItem(restaurant_id=rest.id, ingredient_id=ing.id, name="Arbequina 5 L"))
+        cual = ing.id
+    pantalla = client.get(f"/ingredientes/{cual}").text
+    assert "también se pesan" not in pantalla     # ya lo sabe
+    assert 'name="qty_g"' in pantalla             # y se escribe en gramos

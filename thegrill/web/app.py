@@ -587,9 +587,35 @@ def ingredient_detail(ingredient_id: int, request: Request, ctx=Depends(require_
     user, auth_session = ctx
     ing = _own(session, user, Ingredient, ingredient_id, request)
     return page(request, "ingredient_detail.html", user, auth_session, session, ing=ing,
+                se_pesa=pesos.se_pesa(ing),
                 stock=costing.stock_on_hand(session, user.restaurant_id),
                 costs=costing.unit_costs(session, user.restaurant_id),
                 order=costing.rotation_order(session, user.restaurant_id, ing))
+
+
+@app.post("/ingredientes/{ingredient_id}/gramos")
+def set_grams_per_unit(ingredient_id: int, request: Request,
+                       grams_per_unit: str = Form(""), csrf: str = Form(""),
+                       ctx=Depends(require_manager_user),
+                       session: Session = Depends(get_db)):
+    """Lo que pesa una unidad de este ingrediente, que lo sabe la casa.
+
+    Es el número que permite escribirlo todo en gramos sin mentir: 55 por
+    huevo, 916 por litro de aceite de oliva. Vaciarlo lo deja como estaba y
+    cada cosa vuelve a escribirse en su unidad; no se borra nada de lo que ya
+    hay guardado, porque el stock siempre vivió en la unidad del ingrediente
+    y esto solo cambia cómo se teclea.
+    """
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    ing = _own(session, user, Ingredient, ingredient_id, request)
+    escrito = (grams_per_unit or "").strip()
+    try:
+        cuanto = exacto.leer(escrito, decimales=0) if escrito else None
+    except ValueError:
+        cuanto = None
+    ing.grams_per_unit = cuanto if cuanto and cuanto > 0 else None
+    return RedirectResponse(f"/ingredientes/{ingredient_id}", status_code=303)
 
 
 @app.post("/ingredientes/{ingredient_id}/articulo")
@@ -618,9 +644,13 @@ def add_lot(ingredient_id: int, request: Request, item_id: int = Form(...),
     try:
         # `qty_g` son gramos y solo lo mandan los ingredientes que se pesan;
         # `qty` es la unidad del ingrediente —litros, unidades— y también el
-        # nombre de antes, de cuando los kilos se escribían en kilos.
+        # nombre de antes, de cuando los kilos se escribían en kilos. Los
+        # gramos se pasan a la unidad en la que vive el stock: 110 g de huevo
+        # son dos huevos si uno pesa 55.
         costing.receive(session, user, item,
-                        qty=pesos.de_dos(qty_g, qty, 0.0) or 0.0,
+                        qty=(pesos.en_su_unidad(pesos.leer(qty_g), item.ingredient)
+                             if (qty_g or "").strip()
+                             else exacto.leer(qty) or 0.0) or 0.0,
                         unit_cost=exacto.leer(unit_cost, decimales=exacto.CENTIMOS_DECIMALES) or 0.0,
                         expiry=date.fromisoformat(expiry), lot_code=lot_code.strip() or None)
     except ValueError as e:
@@ -935,12 +965,16 @@ def add_recipe_line(code: str, request: Request, component: str = Form(...),
     kind, _, raw = component.partition(":")
     # `qty_g` son gramos y lo manda lo que se pesa; `qty` es la unidad del
     # componente —litros, unidades— y el nombre de antes.
-    line = RecipeLine(recipe_id=recipe.id,
-                      qty=pesos.de_dos(qty_g, qty, 0.0) or 0.0,
+    line = RecipeLine(recipe_id=recipe.id, qty=exacto.leer(qty, 0.0) or 0.0,
                       waste_pct=waste_pct,
                       sort_order=len(recipe.lines) * 10)
     if kind == "ing":
-        line.ingredient_id = _own(session, user, Ingredient, int(raw), request).id
+        ing = _own(session, user, Ingredient, int(raw), request)
+        line.ingredient_id = ing.id
+        # Y si vino en gramos, se pasa a la unidad en la que vive el stock:
+        # 110 g de huevo son dos huevos cuando uno pesa 55.
+        if (qty_g or "").strip():
+            line.qty = pesos.en_su_unidad(pesos.leer(qty_g), ing) or 0.0
     elif kind == "rec":
         line.sub_recipe_id = _own(session, user, Recipe, int(raw), request).id
     else:

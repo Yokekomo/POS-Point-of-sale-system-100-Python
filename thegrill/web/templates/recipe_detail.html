@@ -76,11 +76,15 @@
   <select id="component" name="component" required>
     <optgroup label="{{ t("ing.title") }}">
       {% for i in ingredients %}<option value="ing:{{ i.id }}"
-        data-unidad="{{ i.unit.value }}">{{ i.name }} ({{ i.unit.value }})</option>{% endfor %}
+        data-unidad="{{ i.unit.value }}"
+        data-sepesa="{{ 1 if i.unit.value == "KG" or i.grams_per_unit else 0 }}"
+        >{{ i.name }} ({{ i.unit.value }})</option>{% endfor %}
     </optgroup>
     <optgroup label="{{ t("rec.prep") }}">
       {% for r in subrecipes %}<option value="rec:{{ r.id }}"
-        data-unidad="{{ r.yield_unit.value if r.yield_unit else '' }}">{{ r.name }}</option>{% endfor %}
+        data-unidad="{{ r.yield_unit.value if r.yield_unit else '' }}"
+        data-sepesa="{{ 1 if r.yield_unit and r.yield_unit.value == "KG" else 0 }}"
+        >{{ r.name }}</option>{% endfor %}
     </optgroup>
   </select>
   {# Lo que se pesa va en gramos. Cuál se pesa depende de lo que se elija
@@ -131,7 +135,9 @@
   function mirar() {
     var op = cual.options[cual.selectedIndex];
     var unidad = op ? (op.getAttribute("data-unidad") || "") : "";
-    var sepesa = unidad === "KG";
+    // Se pesa si su unidad ya es el kilo, o si la casa ha dicho lo que pesa
+    // una unidad: entonces el huevo y el aceite también se escriben en gramos.
+    var sepesa = op ? op.getAttribute("data-sepesa") === "1" : false;
     caja.name = sepesa ? "qty_g" : "qty";
     caja.setAttribute("inputmode", sepesa ? "numeric" : "decimal");
     var eco = caja.parentNode.querySelector("[data-eco]");
@@ -143,7 +149,8 @@
       if (eco) { eco.textContent = ""; eco.removeAttribute("data-mal"); }
     }
     etiqueta.textContent = neto + (sepesa ? " (" + gramo + ")" : unidad ? " (" + unidad + ")" : "");
-    if (aviso) aviso.hidden = unidad !== "L";
+    // El aviso de los líquidos solo mientras no se sepa lo que pesa el litro.
+    if (aviso) aviso.hidden = unidad !== "L" || sepesa;
     if (window.eco) window.eco.enganchar(document);
   }
   cual.addEventListener("change", mirar);

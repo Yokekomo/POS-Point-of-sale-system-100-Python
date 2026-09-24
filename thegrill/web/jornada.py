@@ -27,7 +27,7 @@ una oficina.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from zoneinfo import ZoneInfo
 
 # La hora de cierre de una casa que no ha dicho la suya. Es un valor de
@@ -40,11 +40,28 @@ POR_DEFECTO = 3
 # está para que un dedo no convierta un turno de mañana en el día de ayer.
 MAXIMO = 11
 
-UTC = ZoneInfo("UTC")
+# El UTC de la biblioteca estándar, no `ZoneInfo("UTC")`. Parecen lo mismo y
+# no lo son: `ZoneInfo` va a buscar la base de datos de zonas horarias del
+# sistema, y Windows no tiene ninguna. Con `ZoneInfo` aquí, la aplicación
+# entera se caía al importar este fichero —ni siquiera llegaba a arrancar— en
+# cualquier Windows sin el paquete `tzdata`. En Linux y en Mac el sistema la
+# trae, así que ni las pruebas ni el contenedor lo veían nunca.
+#
+# `timezone.utc` no consulta nada: UTC no tiene horario de verano ni historia
+# que mirar, es un desfase de cero y punto. Para lo único que hace falta la
+# base de datos de verdad es para las zonas con nombre —«Europe/Budapest»—,
+# que sí cambian de hora dos veces al año; ahí `zona()` la pide, y si no está,
+# se queda en UTC en vez de tumbar la casa.
+UTC = timezone.utc
 
 
-def zona(nombre: str | None) -> ZoneInfo:
-    """La zona horaria de la casa. Si el nombre no existe, UTC y a seguir."""
+def zona(nombre: str | None) -> tzinfo:
+    """La zona horaria de la casa. Si el nombre no existe, UTC y a seguir.
+
+    También se cae en UTC cuando el sistema no tiene la base de datos de
+    zonas: es mejor que la casa trabaje con la hora corrida que no que no
+    pueda abrir el programa.
+    """
     try:
         return ZoneInfo(nombre) if nombre else UTC
     except Exception:                       # noqa: BLE001  (zona desconocida)

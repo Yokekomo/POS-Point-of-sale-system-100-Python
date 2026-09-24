@@ -261,3 +261,34 @@ def test_the_waste_of_last_night_is_last_nights_waste(client):
                   .filter(IngredientMovement.kind == MovementKind.WASTE).first())
         if apunte is not None:                 # la merma pide un lote de corte
             assert apunte.date == date.today() - timedelta(days=1)
+
+
+def test_the_program_opens_on_a_machine_with_no_timezone_database():
+    """Windows no trae zonas horarias; Linux y Mac sí.
+
+    `ZoneInfo("UTC")` parece lo mismo que `timezone.utc` y no lo es: va a
+    buscar la base de datos del sistema. Escrito al importar el módulo, tumbaba
+    la aplicación entera antes de arrancar en cualquier Windows sin `tzdata`
+    —ni una pantalla, ni un error entendible, un vuelco al importar—. Y no lo
+    veía nadie, porque las pruebas y el contenedor corren en Linux.
+
+    UTC no necesita esa base: no tiene horario de verano ni historia, es cero.
+    """
+    from datetime import timezone
+    assert jornada.UTC is timezone.utc
+
+
+def test_a_named_zone_that_cannot_be_read_falls_back_instead_of_breaking(monkeypatch):
+    """Sin la base de datos, la casa trabaja con la hora corrida. Y abre.
+
+    Es lo menos malo: una hora de diferencia en el corte del día se nota y se
+    arregla instalando `tzdata`; un programa que no abre con el camión en el
+    muelle, no.
+    """
+    def no_hay(*a, **k):
+        raise Exception("aquí no hay base de datos de zonas")
+    monkeypatch.setattr(jornada, "ZoneInfo", no_hay)
+    assert jornada.zona("Europe/Budapest") is jornada.UTC
+    # Y la hora de la casa se sigue pudiendo pedir, que es lo que importa.
+    from types import SimpleNamespace
+    assert jornada.ahora(SimpleNamespace(timezone="Europe/Budapest")) is not None

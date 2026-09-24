@@ -7,6 +7,25 @@
   {{ t("ing.avg_cost") }}:
   {% if costs.get(ing.id) %}<b>{{ "%.4f"|format(costs[ing.id]) }}</b>{% else %}{{ t("ing.no_price") }}{% endif %}</p>
 
+{# El número que permite escribirlo todo en gramos. Va arriba del todo y
+   antes que nada porque cambia cómo se escribe el resto de la pantalla. #}
+<h2>{{ t("ing.gpu_title") }}</h2>
+<div class="card">
+<form method="post" action="/ingredientes/{{ ing.id }}/gramos" class="rowflex"
+      style="gap:10px;align-items:flex-end;flex-wrap:wrap">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label style="flex:1;min-width:180px">{{ t("ing.gpu_label", unit=ing.unit.value) }}
+    <input name="grams_per_unit" inputmode="numeric"
+           value="{{ ing.grams_per_unit | round | int if ing.grams_per_unit else '' }}"
+           placeholder="{{ 55 if ing.unit.value == 'UNIT' else 916 }}"></label>
+  <button type="submit">{{ t("ing.gpu_save") }}</button>
+</form>
+<p class="help">{{ t("ing.gpu_help", unit=ing.unit.value) }}</p>
+<p class="muted">{% if ing.grams_per_unit %}{{ t("ing.gpu_set",
+     unit=ing.unit.value, g=ing.grams_per_unit | round | int) }}{% else %}{{
+     t("ing.gpu_unset", unit=ing.unit.value) }}{% endif %}</p>
+</div>
+
 <h2>{{ t("ing.items") }}</h2>
 <div class="card scroll">
 <table>
@@ -61,11 +80,11 @@
   {# Lo que se pesa se escribe en gramos. Lo que se cuenta —tres huevos son
      tres huevos— se queda como está, porque ahí no hay báscula que valga. Y a
      lo que está en litros se le dice: también se pesa. #}
-  {% if ing.unit.value == "KG" %}
+  {% if se_pesa %}
   <label for="qty">{{ t("ing.qty") }} ({{ t("units.g") }})</label>
   {{ peso("qty_g", requerido=true, id="qty") }}
   {% else %}
-  {% if ing.unit.value == "L" %}
+  {% if ing.unit.value == "L" and not ing.grams_per_unit %}
   <div class="banner warn">{{ t("ing.liquids_weigh") }}</div>
   {% endif %}
   <label for="qty">{{ t("ing.qty") }} ({{ ing.unit.value }})</label>
