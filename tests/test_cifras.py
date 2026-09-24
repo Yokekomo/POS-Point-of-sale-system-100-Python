@@ -37,18 +37,19 @@ def _casa(tmp_path, monkeypatch, lang):
                       headers={"accept-language": lang})
 
 
-def _recibir(client, kg):
+def _recibir(client, gramos):
+    """El peso se escribe en gramos; lo que cambia de idioma es cómo sale."""
     form = client.get("/recepcion")
     return client.post("/recepcion", data={
         "csrf": csrf_from(form.text), "lot": "L1", "sku": "Striploin",
-        "price_kg": "32", "serial:0": "8017", "kg:0": kg})
+        "price_kg": "32", "serial:0": "8017", "g:0": gramos})
 
 
 def test_the_chamber_speaks_the_language_of_the_house(tmp_path, monkeypatch):
     """Lo que sale de una plantilla: «12,3 kg» y no «12.3 kg»."""
     with _casa(tmp_path, monkeypatch, "es") as c:
         login(c)
-        assert _recibir(c, "12,345").status_code == 303
+        assert _recibir(c, "12345").status_code == 303
         pagina = c.get("/carne").text
         assert "12,3" in pagina and ">12.3" not in pagina
 
@@ -56,7 +57,7 @@ def test_the_chamber_speaks_the_language_of_the_house(tmp_path, monkeypatch):
 def test_and_english_keeps_the_point(tmp_path, monkeypatch):
     with _casa(tmp_path, monkeypatch, "en") as c:
         login(c)
-        assert _recibir(c, "12.345").status_code == 303
+        assert _recibir(c, "12345").status_code == 303
         assert "12.3" in c.get("/carne").text
 
 
@@ -68,7 +69,7 @@ def test_a_number_inside_a_sentence_too(tmp_path, monkeypatch):
     """
     with _casa(tmp_path, monkeypatch, "es") as c:
         login(c)
-        _recibir(c, "12,345")
+        _recibir(c, "12345")
         recado = c.get("/recepcion").text
         assert "12,345" in recado and "12.345" not in recado
 
@@ -76,7 +77,7 @@ def test_a_number_inside_a_sentence_too(tmp_path, monkeypatch):
 def test_and_that_sentence_keeps_the_point_in_english(tmp_path, monkeypatch):
     with _casa(tmp_path, monkeypatch, "en") as c:
         login(c)
-        _recibir(c, "12.345")
+        _recibir(c, "12345")
         recado = c.get("/recepcion").text
         assert "12.345" in recado and "12,345" not in recado
 
@@ -85,5 +86,5 @@ def test_a_serial_never_turns_into_a_number(tmp_path, monkeypatch):
     """El 8017-01 se escribe igual en los siete idiomas."""
     with _casa(tmp_path, monkeypatch, "es") as c:
         login(c)
-        _recibir(c, "12,345")
+        _recibir(c, "12345")
         assert "8017" in c.get("/carne").text

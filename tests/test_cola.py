@@ -256,7 +256,7 @@ def test_a_send_that_hangs_is_noted_and_the_person_keeps_working(navegador):
         contexto.route("**/merma", lambda ruta: None)
         assert page.evaluate("() => navigator.onLine") is True
 
-        page.fill("input[name=kg]", "1,2")
+        page.fill("input[name=g]", "1200")
         page.fill("input[name=reason]", "Caducado")
         page.click("form[data-cola] button[type=submit]")
 
@@ -265,7 +265,7 @@ def test_a_send_that_hangs_is_noted_and_the_person_keeps_working(navegador):
             timeout=15000)
         apuntado = page.evaluate("() => JSON.parse(localStorage.grill_cola)[0]")
         assert apuntado["accion"] == "/merma"
-        assert apuntado["datos"]["kg"] == "1,2"
+        assert apuntado["datos"]["g"] == "1200"
         assert apuntado["datos"]["reason"] == "Caducado"
         assert apuntado["datos"]["envio"], "sin llave no se puede repetir sin miedo"
 
@@ -276,7 +276,7 @@ def test_a_send_that_hangs_is_noted_and_the_person_keeps_working(navegador):
             " || (document.body.innerText || '').toLowerCase().includes('apuntado')",
             timeout=15000)
         # Y el formulario queda limpio para la siguiente merma.
-        assert page.input_value("input[name=kg]") == ""
+        assert page.input_value("input[name=g]") == ""
     finally:
         contexto.close()
 
@@ -290,7 +290,7 @@ def test_and_when_the_link_is_good_nothing_changes(navegador):
         entra(page, base)
         page.goto(f"{base}/merma")
         page.wait_for_timeout(400)
-        page.fill("input[name=kg]", "0,4")
+        page.fill("input[name=g]", "400")
         page.fill("input[name=reason]", "Prueba")
         page.click("form[data-cola] button[type=submit]")
         page.wait_for_timeout(1500)

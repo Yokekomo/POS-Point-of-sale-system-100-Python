@@ -147,7 +147,7 @@ def test_the_butcher_can_do_the_whole_meat_round(client):
     assert luis.post("/recepcion", data={
         "csrf": csrf_from(recepcion.text), "lot": "DXB1", "sku": "Striploin AUS",
         "use_by": str(HOY + timedelta(days=40)),
-        "serial:0": "8017", "kg:0": "9,4"}).status_code == 303
+        "serial:0": "8017", "g:0": "9400"}).status_code == 303
 
     # El precio no es suyo: el carnicero descarga y apunta lo que llega, y la
     # pieza se queda esperando a que dirección la active. Hasta entonces no se
@@ -160,8 +160,8 @@ def test_the_butcher_can_do_the_whole_meat_round(client):
 
     despiece = luis.get("/despiece")
     assert luis.post("/despiece", data={
-        "csrf": csrf_from(despiece.text), "tg": "TG-0001", "before_kg": "9,4",
-        "waste_kg": "0,6", "primal": "8017", "cut:0": "Striploin steak",
+        "csrf": csrf_from(despiece.text), "tg": "TG-0001", "before_g": "9400",
+        "waste_g": "600", "primal": "8017", "cut:0": "Striploin steak",
         "item:0": item_id, "pieces:0": "17", "grams:0": "330"}).status_code == 303
 
     with db.session_scope() as s:
@@ -171,10 +171,10 @@ def test_the_butcher_can_do_the_whole_meat_round(client):
     descongelado = luis.get("/descongelado")
     assert luis.post("/descongelado/salida", data={
         "csrf": csrf_from(descongelado.text), "serial": "8017-01",
-        "pieces": "8", "total_kg": "2,81"}).status_code == 303
+        "pieces": "8", "total_g": "2810"}).status_code == 303
     assert luis.post("/descongelado/recuento", data={
         "csrf": csrf_from(descongelado.text), "serial": "8017-01",
-        "pieces": "2", "total_kg": "0,70"}).status_code == 303
+        "pieces": "2", "total_g": "700"}).status_code == 303
     assert luis.post("/descongelado/cierre",
                      data={"csrf": csrf_from(descongelado.text)}).status_code == 303
 
@@ -185,7 +185,7 @@ def test_the_butcher_can_do_the_whole_meat_round(client):
     # Guardar contesta con una redirección: recargar no vuelve a tirar los
     # mismos kilos.
     assert luis.post("/merma", data={"csrf": csrf_from(merma.text), "serial": "8017-01",
-                                     "kg": "0,2", "pieces": "1"}).status_code == 303
+                                     "g": "200", "pieces": "1"}).status_code == 303
 
 
 def test_the_butcher_sees_the_meat_but_never_the_money(client):
@@ -373,7 +373,8 @@ def test_the_butcher_moves_and_weighs_but_does_not_sell_by_weight(client):
     assert luis.post("/maduracion/mover", data={
         "csrf": token, "serial": "9001", "storage": "AGING",
         "target_days": "45"}).status_code == 303
-    pesada = luis.post("/maduracion/pesar", data={"csrf": token, "serial": "9001", "kg": "7,6"})
+    pesada = luis.post("/maduracion/pesar", data={"csrf": token, "serial": "9001",
+                                                  "g": "7600"})
     # Guardar contesta con una redirección: recargar no vuelve a pesar.
     assert pesada.status_code == 303
 
@@ -766,9 +767,9 @@ def test_the_daily_count_of_the_aging_fridge_is_the_butchers_job(client):
                                          "storage": "AGING", "target_days": "45"})
 
     pantalla = luis.get("/maduracion")
-    assert "Conteo diario" in pantalla.text and 'name="kg:9300"' in pantalla.text
+    assert "Conteo diario" in pantalla.text and 'name="g:9300"' in pantalla.text
 
-    hecho = luis.post("/maduracion/conteo", data={"csrf": token, "kg:9300": "8,7"})
+    hecho = luis.post("/maduracion/conteo", data={"csrf": token, "g:9300": "8700"})
     assert hecho.status_code == 303
     pantalla = luis.get("/maduracion").text
     assert "Agua evaporada" in pantalla         # los kilos de hoy, sí

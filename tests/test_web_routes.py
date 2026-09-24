@@ -680,7 +680,7 @@ def test_recording_waste_writes_it_down_and_raises_the_cost_of_the_rest(client):
     stocked(kg=5.1, unit_cost=30.0)
     form = client.get("/merma")
     r = client.post("/merma", data={"csrf": csrf_from(form.text), "serial": "8017-01",
-                                    "kg": "0,6", "pieces": "2", "reason": "Caducado"})
+                                    "g": "600", "pieces": "2", "reason": "Caducado"})
     assert r.status_code == 200
     assert "TG-0010" in r.text and "2 pz" in r.text and "Caducado" in r.text
 
@@ -698,7 +698,7 @@ def test_waste_bigger_than_what_is_left_is_refused_without_touching_stock(client
     stocked(kg=5.1)
     form = client.get("/merma")
     r = client.post("/merma", data={"csrf": csrf_from(form.text), "serial": "8017-01",
-                                    "kg": "9"})
+                                    "g": "9000"})
     assert r.status_code == 200 and "negativo" in r.text
     with db.session_scope() as s:
         assert s.query(IngredientLot).filter_by(serial="8017-01").one().qty_remaining == 5.1
@@ -708,7 +708,7 @@ def test_waste_bigger_than_what_is_left_is_refused_without_touching_stock(client
 def test_waste_needs_a_csrf_token(client):
     signup(client)
     stocked()
-    assert client.post("/merma", data={"serial": "8017-01", "kg": "0.5"}).status_code == 403
+    assert client.post("/merma", data={"serial": "8017-01", "g": "500"}).status_code == 403
 
 
 def test_an_employee_can_record_waste_too(client):
@@ -720,7 +720,7 @@ def test_an_employee_can_record_waste_too(client):
     join(client, join_code(), "luis@casa.com")
     form = client.get("/merma")
     r = client.post("/merma", data={"csrf": csrf_from(form.text), "serial": "8017-01",
-                                    "kg": "0.3", "pieces": "1"})
+                                    "g": "300", "pieces": "1"})
     assert r.status_code == 200
     with db.session_scope() as s:
         assert s.query(IngredientMovement).filter_by(kind=MovementKind.WASTE).count() == 1
@@ -784,3 +784,62 @@ def test_a_food_cost_just_over_the_limit_is_flagged_by_what_it_shows(client):
     html = client.get("/recetas").text
     assert "35%</span>" in html
     assert 'class="tag bad"' not in html            # 35 no es «más de 35»
+
+
+# --------------------------------------- lo que se pesa, y lo que no
+def test_a_weighed_ingredient_asks_for_grams(client):
+    """Lo que va a la báscula se escribe en gramos, sin coma que acertar."""
+    from thegrill.models import Ingredient, IngredientItem, Rotation, Unit
+    signup(client)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter_by(slug="casa-pepe").one()
+        ing = Ingredient(restaurant_id=rest.id, name="Solomillo",
+                         unit=Unit.KG, rotation=Rotation.FEFO)
+        s.add(ing); s.flush()
+        s.add(IngredientItem(restaurant_id=rest.id, ingredient_id=ing.id,
+                             name="Solomillo AUS"))
+        cual = ing.id
+    pantalla = client.get(f"/ingredientes/{cual}").text
+    assert 'name="qty_g"' in pantalla and "data-eco" in pantalla
+
+
+def test_a_liquid_is_told_that_liquids_get_weighed_too(client):
+    """Un litro de aceite no pesa un kilo: 916 gramos.
+
+    El programa no lo convierte solo, porque haría falta la densidad de cada
+    líquido y no la tiene: inventarse una es meter un 8 % de error en el coste
+    de ese ingrediente, pequeño para que nadie lo note y grande para que al
+    cabo del año no cuadre nada. Lo que hace es decirlo, y el paso lo da quien
+    lo sabe: se pone el ingrediente en kilos y se escriben los gramos.
+    """
+    from thegrill.models import Ingredient, IngredientItem, Rotation, Unit
+    signup(client)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter_by(slug="casa-pepe").one()
+        ing = Ingredient(restaurant_id=rest.id, name="Aceite de oliva",
+                         unit=Unit.L, rotation=Rotation.FEFO)
+        s.add(ing); s.flush()
+        s.add(IngredientItem(restaurant_id=rest.id, ingredient_id=ing.id,
+                             name="Aceite arbequina 5 L"))
+        cual = ing.id
+    pantalla = client.get(f"/ingredientes/{cual}").text
+    assert "también se pesan" in pantalla        # el aviso, en su idioma
+    assert 'name="qty"' in pantalla              # y la casilla, en litros
+    assert 'name="qty_g"' not in pantalla
+
+
+def test_what_is_counted_is_still_counted(client):
+    """Tres huevos son tres huevos: ahí no hay báscula que valga."""
+    from thegrill.models import Ingredient, IngredientItem, Rotation, Unit
+    signup(client)
+    with db.session_scope() as s:
+        rest = s.query(Restaurant).filter_by(slug="casa-pepe").one()
+        ing = Ingredient(restaurant_id=rest.id, name="Huevo",
+                         unit=Unit.UNIT, rotation=Rotation.FEFO)
+        s.add(ing); s.flush()
+        s.add(IngredientItem(restaurant_id=rest.id, ingredient_id=ing.id,
+                             name="Huevo L bandeja 30"))
+        cual = ing.id
+    pantalla = client.get(f"/ingredientes/{cual}").text
+    assert 'name="qty"' in pantalla and 'name="qty_g"' not in pantalla
+    assert "también se pesan" not in pantalla    # eso es para los líquidos

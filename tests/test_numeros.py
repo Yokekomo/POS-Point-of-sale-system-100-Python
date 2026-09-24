@@ -12,7 +12,7 @@ el dinero da dos. Por eso cada sitio que lee un número dice qué mide.
 """
 import pytest
 
-from thegrill.web import exacto, pos_import
+from thegrill.web import exacto, pesos, pos_import
 
 KILOS = exacto.GRAMOS_DECIMALES
 DINERO = exacto.CENTIMOS_DECIMALES
@@ -118,3 +118,87 @@ def test_a_file_that_does_not_say_how_it_writes_decimals_says_so():
 def test_a_file_with_no_separators_at_all_is_not_doubtful():
     filas = [["Articulo", "Unidades"], ["Solomillo", "3"], ["Entrecot", "2"]]
     assert pos_import._understand(filas).warnings == []
+
+
+# ==================================================== el peso, en gramos
+#
+# Una báscula da «9,435 kg» y el teclado de un móvil no tiene coma en la fila
+# de números. En gramos no hay coma que acertar: 9435.
+class TestGramos:
+    """Lo que se escribe son gramos; lo que se guarda siguen siendo kilos."""
+
+    def test_the_scale_reading_goes_in_whole(self):
+        assert pesos.leer("9435") == 9.435
+        assert pesos.leer("250") == 0.25
+        assert pesos.leer("1") == 0.001
+
+    def test_a_thousands_separator_is_still_thousands(self):
+        """Copiar una cifra de un albarán no puede cambiarla.
+
+        En gramos no hay ambigüedad: tres dígitos detrás del separador no son
+        decimales de nada, porque decimales de gramo no existen.
+        """
+        assert pesos.leer("9.435") == 9.435
+        assert pesos.leer("9,435") == 9.435
+        assert pesos.leer("9 435") == 9.435
+
+    def test_nothing_written_is_nothing(self):
+        assert pesos.leer("") is None
+        assert pesos.leer(None) is None
+        assert pesos.leer("", default=0.0) == 0.0
+
+    def test_a_comma_in_grams_says_what_to_write_instead(self):
+        """«9,4» no son nueve gramos: es alguien pensando todavía en kilos.
+
+        Adivinarlo es como se guarda un peso mil veces menor sin que nadie se
+        entere. Se dice qué pasa y con qué cifra se arregla.
+        """
+        with pytest.raises(pesos.ConDecimales) as caso:
+            pesos.leer("9,4")
+        assert caso.value.escrito == "9,4"
+        assert caso.value.como_kilos == 9.4
+        assert caso.value.gramos == 9400      # lo que hay que escribir
+
+    def test_what_is_not_a_number_is_still_not_a_number(self):
+        with pytest.raises(exacto.NoEsUnNumero):
+            pesos.leer("nueve kilos")
+
+    def test_the_box_comes_back_with_the_grams_of_what_is_stored(self):
+        assert pesos.escribir(9.435) == "9435"
+        assert pesos.escribir(0.25) == "250"
+        assert pesos.escribir(None) == ""
+
+
+class TestLaColaDelTelefonoDeAyer:
+    """Un envío guardado sin cobertura llega con el nombre de antes.
+
+    Las casillas de peso se llamaban `kg` y ahora se llaman `g`. Un teléfono
+    que se quedó sin señal con la pantalla vieja abierta guarda el formulario
+    tal cual y lo manda horas o días después. Si ese `kg=9,4` se leyera como
+    gramos quedarían apuntados nueve gramos: mil veces menos, en silencio, y
+    descubierto en el cuadre de fin de mes. Por eso el nombre cambió, y por
+    eso el de antes se sigue leyendo en la unidad que tenía.
+    """
+
+    def test_the_old_name_still_means_kilos(self):
+        assert pesos.de_dos(gramos="", kilos="9,4") == 9.4
+        assert pesos.de_dos(gramos="", kilos="9.4") == 9.4
+
+    def test_the_new_name_means_grams(self):
+        assert pesos.de_dos(gramos="9400", kilos="") == 9.4
+
+    def test_when_both_come_the_new_one_wins(self):
+        """El navegador de hoy no manda los dos, pero si alguien los manda, el
+        que dice la verdad sobre lo que hay en la pantalla es el de ahora."""
+        assert pesos.de_dos(gramos="9400", kilos="1,1") == 9.4
+
+    def test_with_neither_there_is_no_weight(self):
+        assert pesos.de_dos(gramos="", kilos="") is None
+        assert pesos.de_dos(gramos="", kilos="", default=0.0) == 0.0
+
+    def test_a_whole_sheet_from_yesterday_is_read_in_kilos(self):
+        """Lo mismo leyendo del formulario entero, que es como llega."""
+        de_ayer = {"kg:0": "9,4", "serial:0": "8017"}
+        assert pesos.del_formulario(de_ayer, "g:0", "kg:0") == 9.4
+        de_hoy = {"g:0": "9400", "serial:0": "8017"}
+        assert pesos.del_formulario(de_hoy, "g:0", "kg:0") == 9.4

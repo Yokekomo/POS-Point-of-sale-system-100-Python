@@ -135,8 +135,8 @@ def test_a_delivery_books_each_piece_with_its_own_number_and_cost(client):
     r = client.post("/recepcion", data={
         "csrf": csrf_from(form.text), "lot": "DXB20260910", "sku": "Striploin AUS",
         "grade": "MB9+", "origin": "AUS", "price_kg": "32", "use_by": str(HOY + timedelta(days=40)),
-        "serial:0": "8017", "kg:0": "9,4",
-        "serial:1": "8018", "kg:1": "10,2", "price:1": "34"})
+        "serial:0": "8017", "g:0": "9400",
+        "serial:1": "8018", "g:1": "10200", "price:1": "34"})
     # Guardar contesta con una redirección: recargar no da de alta otra vez.
     assert r.status_code == 303
     with db.session_scope() as s:
@@ -154,8 +154,8 @@ def test_two_pieces_can_never_share_a_number(client):
     form = client.get("/recepcion")
     r = client.post("/recepcion", data={
         "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "30",
-        "serial:0": "8017", "kg:0": "9",
-        "serial:1": "8017", "kg:1": "9"})
+        "serial:0": "8017", "g:0": "9000",
+        "serial:1": "8017", "g:1": "9000"})
     assert "8017" in r.text
     with db.session_scope() as s:
         assert s.query(Primal).count() == 0       # o entra el lote entero, o no entra nada
@@ -165,7 +165,7 @@ def test_a_piece_without_a_weight_is_refused(client):
     signup(client)
     form = client.get("/recepcion")
     r = client.post("/recepcion", data={"csrf": csrf_from(form.text), "lot": "L1",
-                                        "serial:0": "8017", "kg:0": ""})
+                                        "serial:0": "8017", "g:0": ""})
     assert r.status_code == 200
     with db.session_scope() as s:
         assert s.query(Primal).count() == 0
@@ -174,7 +174,7 @@ def test_a_piece_without_a_weight_is_refused(client):
 def test_reception_needs_a_csrf_token(client):
     signup(client)
     assert client.post("/recepcion", data={"lot": "L1", "serial:0": "8017",
-                                           "kg:0": "9"}).status_code == 403
+                                           "g:0": "9000"}).status_code == 403
 
 
 # ---------------------------------------------------------------- cortes
@@ -239,10 +239,10 @@ def deliver(client, serials=("8017",), kg=10.0, price=30.0):
     assert client.post("/recepcion", data=data).status_code == 303
 
 
-def butcher(client, items, tg="TG-0001", before=10.0, waste="0,6"):
+def butcher(client, items, tg="TG-0001", before=10.0, waste="600"):
     form = client.get("/despiece")
     data = {"csrf": csrf_from(form.text), "tg": tg, "date": str(HOY),
-            "staff": "Albano", "before_kg": str(before), "waste_kg": waste,
+            "staff": "Albano", "before_g": str(int(before * 1000)), "waste_g": waste,
             "primal": "8017",
             "cut:0": "Striploin steak", "item:0": items["Striploin steak"],
             "pieces:0": "20", "grams:0": "250", "index:0": "1,6",
@@ -303,7 +303,7 @@ def test_a_butchery_that_does_not_reconcile_leaves_nothing_behind(client):
     deliver(client)
     form = client.get("/despiece")
     r = client.post("/despiece", data={
-        "csrf": csrf_from(form.text), "tg": "TG-0009", "before_kg": "10",
+        "csrf": csrf_from(form.text), "tg": "TG-0009", "before_g": "10000",
         "primal": "9999",                                  # esa pieza no existe
         "cut:0": "Steak", "item:0": items["Striploin steak"],
         "pieces:0": "20", "grams:0": "250"})
@@ -321,7 +321,7 @@ def test_a_rejected_butchery_never_loses_the_primal(client):
 
     form = client.get("/despiece")
     r = client.post("/despiece", data={
-        "csrf": csrf_from(form.text), "tg": "TG-0007", "before_kg": "10", "primal": "8017",
+        "csrf": csrf_from(form.text), "tg": "TG-0007", "before_g": "10000", "primal": "8017",
         "cut:0": "Steak", "item:0": "", "pieces:0": "20", "grams:0": "250"})   # sin artículo
     assert r.status_code == 200
 
@@ -374,7 +374,7 @@ def test_a_butchery_whose_weight_does_not_add_up_is_posted_with_a_warning(client
     deliver(client)
     form = client.get("/despiece")
     r = client.post("/despiece", data={
-        "csrf": csrf_from(form.text), "tg": "TG-0011", "before_kg": "10", "waste_kg": "0",
+        "csrf": csrf_from(form.text), "tg": "TG-0011", "before_g": "10000", "waste_g": "0",
         "primal": "8017",
         "cut:0": "Striploin steak", "item:0": items["Striploin steak"],
         "pieces:0": "10", "grams:0": "250"})              # 2,5 kg de 10: faltan 7,5
@@ -398,7 +398,7 @@ def test_a_butchery_can_never_borrow_another_kitchens_article(client):
 
     form = client.get("/despiece")
     r = client.post("/despiece", data={
-        "csrf": csrf_from(form.text), "tg": "TG-0012", "before_kg": "10", "primal": "8017",
+        "csrf": csrf_from(form.text), "tg": "TG-0012", "before_g": "10000", "primal": "8017",
         "cut:0": "Steak", "item:0": ajeno, "pieces:0": "20", "grams:0": "250"})
     assert r.status_code == 200
     with db.session_scope() as s:
@@ -412,7 +412,7 @@ def test_a_cut_without_its_article_is_refused(client):
     deliver(client)
     form = client.get("/despiece")
     r = client.post("/despiece", data={
-        "csrf": csrf_from(form.text), "tg": "TG-0002", "before_kg": "10", "primal": "8017",
+        "csrf": csrf_from(form.text), "tg": "TG-0002", "before_g": "10000", "primal": "8017",
         "cut:0": "Steak", "item:0": "", "pieces:0": "20", "grams:0": "250"})
     assert r.status_code == 200
     with db.session_scope() as s:
@@ -429,9 +429,9 @@ def test_the_shift_count_turns_into_real_consumption(client):
     form = client.get("/descongelado")
     token = csrf_from(form.text)
     client.post("/descongelado/salida", data={"csrf": token, "serial": "8017-01",
-                                              "pieces": "10", "total_kg": "2,5"})
+                                              "pieces": "10", "total_g": "2500"})
     client.post("/descongelado/recuento", data={"csrf": token, "serial": "8017-01",
-                                                "pieces": "4", "total_kg": "1,0"})
+                                                "pieces": "4", "total_g": "1000"})
     estado = client.get("/descongelado").text
     assert "8017-01" in estado
 
@@ -449,7 +449,7 @@ def test_what_went_out_but_was_not_counted_is_flagged_on_the_home_screen(client)
     butcher(client, items)
     form = client.get("/descongelado")
     client.post("/descongelado/salida", data={"csrf": csrf_from(form.text), "serial": "8017-01",
-                                              "pieces": "6", "total_kg": "1,5"})
+                                              "pieces": "6", "total_g": "1500"})
     assert "recuento de cierre" in client.get("/hoy").text.lower()
 
 
@@ -779,8 +779,8 @@ def test_a_submission_that_arrives_twice_is_applied_once(client):
     signup(client)
     form = client.get("/recepcion")
     datos = {"csrf": csrf_from(form.text), "lot": "L-REPE", "sku": "Striploin AUS",
-             "price_kg": "30", "serial:0": "9001", "kg:0": "9,4",
-             "serial:1": "9002", "kg:1": "10,2", "envio": "mismo-numero-de-envio"}
+             "price_kg": "30", "serial:0": "9001", "g:0": "9400",
+             "serial:1": "9002", "g:1": "10200", "envio": "mismo-numero-de-envio"}
 
     primera = client.post("/recepcion", data=datos)
     segunda = client.post("/recepcion", data=datos)
@@ -799,7 +799,7 @@ def test_two_different_submissions_are_both_applied(client):
         form = client.get("/recepcion")
         client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-DOS", "sku": "Striploin AUS",
-            "price_kg": "30", "serial:0": serial, "kg:0": "9,4", "envio": numero})
+            "price_kg": "30", "serial:0": serial, "g:0": "9400", "envio": numero})
     with db.session_scope() as s:
         assert [p.serial for p in s.query(Primal).order_by(Primal.serial)] == ["9001", "9002"]
 
@@ -980,8 +980,8 @@ class TestEtiquetaYPrecio:
                 "pack_date": str(HOY - timedelta(days=18)),
                 "label_product": "CUBE ROLL GF", "halal": "1",
                 "use_by": str(HOY + timedelta(days=40)),
-                "serial:0": "8017", "kg:0": "9,4", "slot:0": "L-88213",
-                "serial:1": "8018", "kg:1": "9,8", "slot:1": "L-88214",
+                "serial:0": "8017", "g:0": "9400", "slot:0": "L-88213",
+                "serial:1": "8018", "g:1": "9800", "slot:1": "L-88214",
                 "grade:1": "MB9+", "slaughter:1": str(HOY - timedelta(days=20))}
         data.update(extra)
         return client.post("/recepcion", data=data)
@@ -1220,7 +1220,7 @@ class TestRecepcionDeUnaEnUna:
         # El orden: primero se configura el lote, luego la foto de la etiqueta
         # de la bolsa que tienes en la mano, y al final sus números.
         assert (pantalla.index('name="lot"') < pantalla.index('name="foto"')
-                < pantalla.index('name="kg:0"'))
+                < pantalla.index('name="g:0"'))
 
     def test_the_lot_says_which_one_it_is_once_it_is_set(self, client):
         """Se configura una vez y se le van subiendo piezas: hay que ver cuál es."""
@@ -1228,7 +1228,7 @@ class TestRecepcionDeUnaEnUna:
         form = client.get("/recepcion")
         r = client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-QUIEN", "sku": "Ribeye AUS MB7",
-            "price_kg": "32", "serial:0": "9500", "kg:0": "9,1"})
+            "price_kg": "32", "serial:0": "9500", "g:0": "9100"})
         assert r.status_code == 303
         pantalla = client.get("/recepcion").text
         assert "L-QUIEN" in pantalla and "Ribeye AUS MB7" in pantalla
@@ -1242,7 +1242,7 @@ class TestRecepcionDeUnaEnUna:
         form = client.get("/recepcion")
         r = client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-UNA", "sku": "Ribeye AUS",
-            "producer_plant": "Teys Biloela", "serial:0": "9200", "kg:0": "9,2",
+            "producer_plant": "Teys Biloela", "serial:0": "9200", "g:0": "9200",
             "price_kg": "32"},
             files={"foto": ("etiqueta.png", PNG, "image/png")})
         assert r.status_code == 303
@@ -1259,7 +1259,7 @@ class TestRecepcionDeUnaEnUna:
             "csrf": csrf_from(form.text), "lot": "L-CAMION", "sku": "Ribeye AUS",
             "grade": "MB7", "origin": "AUS", "producer_plant": "Teys Biloela",
             "est_code": "AUS 1234", "breed": "Angus", "price_kg": "32",
-            "serial:0": "9201", "kg:0": "9,2"})
+            "serial:0": "9201", "g:0": "9200"})
         # Guardar redirige, y lo del camión llega con la pantalla de detrás:
         # es la misma caja, así que no se vuelve a teclear el matadero.
         assert r.status_code == 303
@@ -1271,8 +1271,8 @@ class TestRecepcionDeUnaEnUna:
         # escribir el de fuera. Se mira lo que hace la casilla, no cómo está
         # escrita: el `autofocus` va detrás de una condición y no pegado.
         import re
-        casilla = re.search(r'<input name="kg:0"[^>]*>', pantalla, re.S)
-        assert casilla, "no está la casilla de los kilos"
+        casilla = re.search(r'<input name="g:0"[^>]*>', pantalla, re.S)
+        assert casilla, "no está la casilla del peso"
         assert "autofocus" in casilla.group(0)
         assert 'value=""' in casilla.group(0)
 
@@ -1292,7 +1292,7 @@ class TestRecepcionDeUnaEnUna:
         form = client.get("/recepcion")
         r = client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-ROTU", "sku": "Ribeye AUS",
-            "price_kg": "30", "serial:0": "9210", "kg:0": "9,1"})
+            "price_kg": "30", "serial:0": "9210", "g:0": "9100"})
         # Con el número y el peso, que es lo que hay que escribir encima. El
         # recado llega con la pantalla de detrás, no como respuesta al POST.
         assert r.status_code == 303
@@ -1306,7 +1306,7 @@ class TestRecepcionDeUnaEnUna:
         # Sin fichero: es lo que manda la cola del teléfono cuando vuelve.
         r = client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-SINRED", "sku": "Ribeye AUS",
-            "price_kg": "30", "serial:0": "9202", "kg:0": "8,8",
+            "price_kg": "30", "serial:0": "9202", "g:0": "8800",
             "envio": "numero-de-la-cola"})
         assert r.status_code == 303
         with db.session_scope() as s:
@@ -1328,9 +1328,9 @@ def test_the_butchery_takes_the_weight_of_the_whole_tray(client):
     form = client.get("/despiece")
     r = client.post("/despiece", data={
         "csrf": csrf_from(form.text), "tg": "TG-0001", "date": str(HOY),
-        "before_kg": "10", "waste_kg": "0,6", "primal": "8017",
+        "before_g": "10000", "waste_g": "600", "primal": "8017",
         "cut:0": "Striploin steak", "item:0": items["Striploin steak"],
-        "pieces:0": "18", "total:0": "5,4", "index:0": "1"})
+        "pieces:0": "18", "total:0": "5400", "index:0": "1"})
     assert r.status_code == 303
     with db.session_scope() as s:
         corte = s.query(DespieceCut).filter_by(cut_name="Striploin steak").one()
@@ -1347,7 +1347,7 @@ def test_grams_per_piece_still_work_for_what_comes_from_the_paper(client):
     form = client.get("/despiece")
     r = client.post("/despiece", data={
         "csrf": csrf_from(form.text), "tg": "TG-0002", "date": str(HOY),
-        "before_kg": "10", "waste_kg": "0,6", "primal": "8017",
+        "before_g": "10000", "waste_g": "600", "primal": "8017",
         "cut:0": "Striploin steak", "item:0": items["Striploin steak"],
         "pieces:0": "20", "grams:0": "250", "index:0": "1"})
     assert r.status_code == 303
@@ -1370,7 +1370,7 @@ class TestComoLlega:
         form = client.get("/recepcion")
         data = {"csrf": csrf_from(form.text), "lot": "L-FRIO", "sku": "Ribeye AUS",
                 "price_kg": "32", "use_by": str(HOY + timedelta(days=40)),
-                "serial:0": "9400", "kg:0": "9,4"}
+                "serial:0": "9400", "g:0": "9400"}
         data.update(extra)
         return client.post("/recepcion", data=data)
 

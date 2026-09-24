@@ -1,4 +1,5 @@
 {% extends "base.html" %}{% block title %}{{ t("m.ag.page") }}{% endblock %}
+{% from "_peso.html" import peso %}
 
 {# Las listas de piezas se agrupan por dónde está cada una, y cada línea dice
    lo que la distingue de la de al lado: sus kilos y, si madura, los días que
@@ -196,8 +197,10 @@
     <td class="num">{{ l.days }}</td>
     <td class="num">{{ "%.3f"|format(l.yesterday_kg) }}
         {% if l.last_weighed %}<div class="muted">{{ l.last_weighed }}</div>{% endif %}</td>
-    <td class="num"><input name="kg:{{ l.serial }}" inputmode="decimal" style="max-width:110px"
-        {% if l.kg is not none %}placeholder="{{ "%.3f"|format(l.kg) }}"{% endif %}></td>
+    <td class="num"><input name="g:{{ l.serial }}" inputmode="numeric" data-peso
+        style="max-width:110px"
+        {% if l.kg is not none %}placeholder="{{ (l.kg * 1000) | round | int }}"{% endif %}>
+        <small class="eco muted" data-eco aria-live="polite"></small></td>
   </tr>
   {% endfor %}
   </table></div>
@@ -242,8 +245,8 @@
       <select id="wg_serial" name="serial" required>
         {{ elegir_pieza(rows, []) }}
       </select>
-      <label for="wg_kg">{{ t("m.ag.weigh_kg") }}</label>
-      <input id="wg_kg" name="kg" inputmode="decimal" required>
+      <label for="wg_g">{{ t("m.ag.weigh_kg_g") }}</label>
+      {{ peso("g", requerido=true, id="wg_g") }}
       <label for="wg_note">{{ t("m.df.note") }}</label>
       <input id="wg_note" name="note">
       <button type="submit">{{ t("m.ag.weigh_submit") }}</button>
@@ -261,13 +264,13 @@
       <select id="tr_serial" name="serial" required>
         {{ elegir_pieza(rows, chilled) }}
       </select>
-      <label for="tr_removed">{{ t("m.ag.removed_kg") }}</label>
-      <input id="tr_removed" name="removed_kg" inputmode="decimal">
-      <label for="tr_new">{{ t("m.ag.clean_kg") }}</label>
-      <input id="tr_new" name="new_kg" inputmode="decimal">
+      <label for="tr_removed">{{ t("m.ag.removed_kg_g") }}</label>
+      {{ peso("removed_g", id="tr_removed") }}
+      <label for="tr_new">{{ t("m.ag.clean_kg_g") }}</label>
+      {{ peso("new_g", id="tr_new") }}
       <label>{{ t("m.ag.keep_trim") }}</label>
       <div class="scroll"><table>
-      <tr><th>{{ t("m.tg.article") }}</th><th class="num">kg</th>
+      <tr><th>{{ t("m.tg.article") }}</th><th class="num">{{ t("units.g") }}</th>
           <th class="num">{{ t("m.tg.value_index") }}</th></tr>
       {% for i in [0, 1, 2] %}
       <tr>
@@ -275,13 +278,14 @@
             <option value="">—</option>
             {% for a in articles %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
           </select></td>
-        <td><input name="part_kg:{{ i }}" inputmode="decimal" style="max-width:100px"></td>
+        <td><input name="part_g:{{ i }}" inputmode="numeric" data-peso style="max-width:100px">
+            <small class="eco muted" data-eco aria-live="polite"></small></td>
         <td><input name="index:{{ i }}" inputmode="decimal" placeholder="0,25" style="max-width:90px"></td>
       </tr>
       {% endfor %}
       </table></div>
-      <label for="tr_waste">{{ t("m.ag.waste_kg") }}</label>
-      <input id="tr_waste" name="waste_kg" inputmode="decimal">
+      <label for="tr_waste">{{ t("m.ag.waste_kg_g") }}</label>
+      {{ peso("waste_g", id="tr_waste") }}
       <label for="tr_note">{{ t("m.df.note") }}</label>
       <input id="tr_note" name="note">
       <button type="submit">{{ t("m.ag.trim_submit") }}</button>

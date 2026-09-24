@@ -36,6 +36,16 @@ services:
       GRILL_SMTP_PASSWORD: ${GRILL_SMTP_PASSWORD:-}
       GRILL_MAIL_FROM: ${GRILL_MAIL_FROM:-}
       GRILL_MAIL_TO: ${GRILL_MAIL_TO:-}
+      # Las fotos de las etiquetas viven en disco, no en la base. Sin este
+      # volumen se iban con el contenedor: un `docker compose up --build`
+      # —o sea, cada actualización— se llevaba por delante todas las fotos
+      # de etiqueta de proveedor guardadas hasta entonces. Eso es la prueba
+      # de qué lote, qué matadero y qué fecha de sacrificio traía cada
+      # pieza, y es justo lo que pide una inspección: no puede depender de
+      # que nadie haya vuelto a construir la imagen.
+      GRILL_UPLOAD_DIR: /app/subidas
+    volumes:
+      - fotos:/app/subidas
     expose:
       - "8000"
 
@@ -55,5 +65,6 @@ services:
 
 volumes:
   datos-db:
+  fotos:
   caddy-datos:
   caddy-config:

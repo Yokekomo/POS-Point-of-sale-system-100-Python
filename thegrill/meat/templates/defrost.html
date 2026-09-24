@@ -1,4 +1,5 @@
 {% extends "base.html" %}{% block title %}{{ t("m.df.title") }}{% endblock %}
+{% from "_peso.html" import peso %}
 {% block body %}
 <h1>{{ t("m.df.title") }}</h1>
 <p class="sub">{{ t("m.df.sub_count") if tab == "recuento" else t("m.df.sub_intake") }}</p>
@@ -88,8 +89,8 @@
       </select>
       <label for="in_pieces">{{ t("meat.pieces") }}</label>
       <input id="in_pieces" name="pieces" inputmode="numeric" required>
-      <label for="in_kg">{{ t("m.df.kg") }}</label>
-      <input id="in_kg" name="total_kg" inputmode="decimal" required>
+      <label for="in_g">{{ t("m.df.kg_g") }}</label>
+      {{ peso("total_g", requerido=true, id="in_g") }}
       <label for="in_note">{{ t("m.df.note") }}</label>
       <input id="in_note" name="note">
       <button class="wide" type="submit">{{ t("m.df.submit_intake") }}</button>
@@ -109,8 +110,8 @@
       </select>
       <label for="c_pieces">{{ t("meat.pieces") }}</label>
       <input id="c_pieces" name="pieces" inputmode="numeric" required>
-      <label for="c_kg">{{ t("m.df.kg") }}</label>
-      <input id="c_kg" name="total_kg" inputmode="decimal" required>
+      <label for="c_g">{{ t("m.df.kg_g") }}</label>
+      {{ peso("total_g", requerido=true, id="c_g") }}
       <label for="c_note">{{ t("m.df.note") }}</label>
       <input id="c_note" name="note">
       <button class="wide" type="submit">{{ t("m.df.submit_count") }}</button>

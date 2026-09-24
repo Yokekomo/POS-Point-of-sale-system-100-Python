@@ -221,7 +221,7 @@ def test_a_butcher_can_actually_work_from_the_phone(browser):
         page.goto(f"{base}/recepcion")
         page.fill("input[name=lot]", "MOVIL-1")
         page.fill("input[name='serial:0']", "7777")
-        page.fill("input[name='kg:0']", "9,4")
+        page.fill("input[name='g:0']", "9400")
         page.fill("input[name='price:0']", "30")
         page.click("button[type=submit]")
         page.wait_for_load_state("networkidle")
@@ -460,12 +460,12 @@ def test_a_count_survives_having_no_signal_in_the_chiller(browser):
         entra(page, base)
         page.goto(f"{base}/inventario")
         page.wait_for_timeout(600)          # que el ayudante guarde su copia
-        campo = page.locator(f"input[name='kg:{serial}']")
+        campo = page.locator(f"input[name='g:{serial}']")
         assert campo.count() == 1, "no hay hoja de recuento abierta"
 
         # Se entra en la cámara: se acaba la cobertura.
         context.set_offline(True)
-        campo.fill("7.5")          # el campo es numérico: punto, como el teclado
+        campo.fill("7500")         # en gramos: ni punto ni coma que acertar
         page.click("form[data-keep] button[type=submit]")
         # El recuento se da por hecho aunque no haya red: se apunta en la cola
         # del propio teléfono y la pantalla sigue adelante.
@@ -478,7 +478,7 @@ def test_a_count_survives_having_no_signal_in_the_chiller(browser):
         # está esperando a la vista.
         page.goto(f"{base}/inventario")
         page.wait_for_timeout(300)
-        assert page.locator(f"input[name='kg:{serial}']").count() == 1, (
+        assert page.locator(f"input[name='g:{serial}']").count() == 1, (
             "sin señal no se sirvió la copia: " + page.title() + " · " +
             page.evaluate("() => navigator.serviceWorker.controller ? 'con ayudante' : 'sin ayudante'"))
         assert page.locator("#colapanel").is_visible()
@@ -601,7 +601,7 @@ def test_a_delivery_is_booked_one_piece_at_a_time_with_its_label(browser):
     page = context.new_page()
     entra(page, base)
     page.goto(f"{base}/recepcion")
-    page.wait_for_selector("input[name='kg:0']")
+    page.wait_for_selector("input[name='g:0']")
 
     # Una pieza cada vez, y sin botón de añadir líneas.
     assert page.locator("#piezas, [name='serial:1']").count() == 0
@@ -622,7 +622,7 @@ def test_a_delivery_is_booked_one_piece_at_a_time_with_its_label(browser):
     page.fill("#producer_plant", "Teys Biloela")
     page.fill("#price_kg", "32")
     page.fill("input[name='serial:0']", "9300")
-    page.fill("input[name='kg:0']", "9.2")
+    page.fill("input[name='g:0']", "9200")
     page.click("form[action='/recepcion'] button[type=submit]")
     page.wait_for_selector(".banner.ok", timeout=8000)
 
@@ -634,7 +634,7 @@ def test_a_delivery_is_booked_one_piece_at_a_time_with_its_label(browser):
     # Y lo del camión sigue escrito para la siguiente bolsa.
     assert page.input_value("#lot") == "L-MOVIL"
     assert page.input_value("#producer_plant") == "Teys Biloela"
-    assert page.input_value("input[name='kg:0']") == ""      # la pieza, en blanco
+    assert page.input_value("input[name='g:0']") == ""       # la pieza, en blanco
     context.close()
 
 
@@ -667,18 +667,18 @@ def test_the_butchery_sheet_shows_only_the_boxes_that_apply(browser):
     # En raciones: piezas y el peso de todas juntas; los kilos sueltos, no.
     assert primero.locator("input[name='pieces:0']").is_visible()
     assert primero.locator("input[name='total:0']").is_visible()
-    assert primero.locator("input[name='kg:0']").is_hidden()
+    assert primero.locator("input[name='g:0']").is_hidden()
     assert not primero.locator("input[name='weight:0']").is_checked()
 
     # Y el peso de cada pieza sale solo, mientras se escribe: en la mesa se
     # pesa la bandeja entera, no filete a filete.
     primero.locator("input[name='pieces:0']").fill("18")
-    primero.locator("input[name='total:0']").fill("5,4")
+    primero.locator("input[name='total:0']").fill("5400")
     page.wait_for_timeout(150)
     assert "300" in primero.locator(".porpieza").inner_text()
 
     primero.locator(".comosale").select_option("peso")
-    assert primero.locator("input[name='kg:0']").is_visible()
+    assert primero.locator("input[name='g:0']").is_visible()
     assert primero.locator("input[name='pieces:0']").is_hidden()
     assert primero.locator("input[name='total:0']").is_hidden()
     # Y la casilla que de verdad se manda ha seguido al desplegable.
@@ -720,9 +720,9 @@ def test_you_can_keep_working_with_no_signal(browser):
 
     context.set_offline(True)
     corte = page.locator("#ingredient_id option").nth(1).get_attribute("value")
-    for kg, razon in (("0.05", "hueso"), ("0.03", "grasa")):
+    for gramos, razon in (("50", "hueso"), ("30", "grasa")):
         page.select_option("#ingredient_id", corte)
-        page.fill("input[name=kg]", kg)
+        page.fill("input[name=g]", gramos)
         page.fill("input[name=reason]", razon)
         page.click("form[data-cola] button[type=submit]")
         page.wait_for_timeout(150)

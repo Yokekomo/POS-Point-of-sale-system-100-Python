@@ -100,3 +100,20 @@ def del_formulario(form, nombre: str, viejo: str | None = None,
         if de_antes not in (None, ""):
             return exacto.leer(de_antes, default=default)
     return default
+
+
+class Falta(ValueError):
+    """La casilla del peso vino vacía. Sin peso no hay apunte que valga."""
+
+
+def de_dos(gramos: object, kilos: object, default: float | None = None) -> float | None:
+    """El peso, venga con el nombre de ahora o con el de antes.
+
+    Lo mismo que `del_formulario`, para las rutas que reciben los campos ya
+    sueltos en vez de un formulario entero.
+    """
+    if gramos not in (None, ""):
+        return leer(gramos, default=default)
+    if kilos not in (None, ""):
+        return exacto.leer(kilos, default=default)
+    return default

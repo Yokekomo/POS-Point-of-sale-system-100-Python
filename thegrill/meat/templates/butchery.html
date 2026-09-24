@@ -1,75 +1,5 @@
-{% extends "base.html" %}{% block title %}{{ t("m.tg.title") }}<script nonce="{{ nonce }}">
-// Dos cosas pequeñas que quitan el lío de la hoja de despiece.
-(function () {
-  // 1. «Cómo sale» enseña solo la pareja que vale. La casilla de verdad —la
-  //    que viaja en el envío— la mueve el desplegable, y así no hay que
-  //    entender por qué unas columnas se rellenan y otras no.
-  function atar(bloque) {
-    // El peso de cada pieza sale de la bandeja: en la mesa se pesa todo junto.
-    var piezas = bloque.querySelector("input[name^='pieces:']");
-    var total = bloque.querySelector("input.total");
-    var dicho = bloque.querySelector(".porpieza");
-    function dividir() {
-      if (!piezas || !total || !dicho) return;
-      var n = parseFloat((piezas.value || "").replace(",", "."));
-      var kg = parseFloat((total.value || "").replace(",", "."));
-      if (!(n > 0) || !(kg > 0)) { dicho.textContent = ""; return; }
-      var g = Math.round(kg * 1000 / n * 10) / 10;
-      dicho.textContent = {{ t("m.tg.per_piece_out", g="GRAMOS")|tojson }}
-        .replace("GRAMOS", String(g).replace(".", ","));
-    }
-    if (piezas) piezas.addEventListener("input", dividir);
-    if (total) total.addEventListener("input", dividir);
-    dividir();
-
-    var como = bloque.querySelector(".comosale");
-    var casilla = bloque.querySelector(".espeso");
-    if (!como || !casilla) return;
-    function mirar() {
-      var peso = como.value === "peso";
-      casilla.checked = peso;
-      bloque.querySelectorAll(".enpiezas").forEach(function (x) { x.hidden = peso; });
-      bloque.querySelectorAll(".apeso").forEach(function (x) { x.hidden = !peso; });
-    }
-    como.addEventListener("change", mirar);
-    como.value = casilla.checked ? "peso" : "piezas";
-    mirar();
-  }
-  document.querySelectorAll("#cortes .corte").forEach(atar);
-
-  // 2. Más bloques cuando hagan falta, sin recargar ni perder lo escrito.
-  var boton = document.getElementById("mascortes");
-  var caja = document.getElementById("cortes");
-  if (!boton || !caja) return;
-  var tope = {{ maximo }};
-  boton.hidden = caja.querySelectorAll(".corte").length >= tope;
-  boton.addEventListener("click", function () {
-    var bloques = caja.querySelectorAll(".corte");
-    if (bloques.length >= tope) return;
-    var nuevo = bloques[bloques.length - 1].cloneNode(true);
-    var indice = bloques.length;
-    nuevo.setAttribute("data-corte", indice);
-    nuevo.querySelectorAll("input, select").forEach(function (campo) {
-      if (campo.name) campo.name = campo.name.replace(/:\d+$/, ":" + indice);
-      if (campo.type === "checkbox") { campo.checked = false; }
-      else if (campo.tagName === "SELECT") { campo.selectedIndex = 0; }
-      else { campo.value = ""; }
-    });
-    var mas = nuevo.querySelector("details");
-    if (mas) mas.open = false;
-    caja.appendChild(nuevo);
-    atar(nuevo);
-    nuevo.querySelector("input").focus();
-    if (caja.querySelectorAll(".corte").length >= tope) {
-      boton.hidden = true;
-      boton.insertAdjacentHTML("afterend",
-        '<span class="help">' + {{ t("m.tg.cuts_max", n="TOPE")|tojson }}
-        .replace("TOPE", tope) + "</span>");
-    }
-  });
-})();
-</script>
-{% endblock %}
+{% extends "base.html" %}{% block title %}{{ t("m.tg.title") }}{% endblock %}
+{% from "_peso.html" import peso %}
 {% block body %}
 <h1>{{ t("m.tg.title") }}</h1>
 <p class="sub">{{ t("m.tg.sub") }}</p>
@@ -99,12 +29,12 @@
       <input id="date" name="date" type="date" value="{{ today }}"></div>
     <div><label for="staff">{{ t("m.tg.staff") }}</label>
       <input id="staff" name="staff"></div>
-    <div><label for="before_kg">{{ t("m.tg.before_kg") }}</label>
-      <input id="before_kg" name="before_kg" inputmode="decimal" required
-             value="{{ previo.get('before_kg','') if previo is defined else '' }}"></div>
-    <div data-tour="merma"><label for="waste_kg">{{ t("m.tg.waste_kg") }}</label>
-      <input id="waste_kg" name="waste_kg" inputmode="decimal"
-             value="{{ previo.get('waste_kg','0') if previo is defined else '0' }}"></div>
+    <div><label for="before_g">{{ t("m.tg.before_kg_g") }}</label>
+      {{ peso("before_g", previo.get('before_g','') if previo is defined else '',
+              requerido=true, id="before_g") }}</div>
+    <div data-tour="merma"><label for="waste_g">{{ t("m.tg.waste_kg_g") }}</label>
+      {{ peso("waste_g", previo.get('waste_g','0') if previo is defined else '0',
+              id="waste_g") }}</div>
   </div>
 
   <h2 data-tour="piezas">{{ t("m.tg.primals") }}</h2>
@@ -172,12 +102,16 @@
       <label class="enpiezas">{{ t("meat.pieces") }}
         <input name="pieces:{{ i }}" inputmode="numeric" value="{{ previo.get('pieces:' ~ i, '') if previo is defined else '' }}"
                title="{{ t('m.tg.h_pieces') }}"></label>
-      <label class="enpiezas">{{ t("m.tg.total_kg") }}
-        <input name="total:{{ i }}" inputmode="decimal" class="total" value="{{ previo.get('total:' ~ i, '') if previo is defined else '' }}"
-               title="{{ t('m.tg.h_grams') }}"></label>
-      <label class="apeso" hidden>kg
-        <input name="kg:{{ i }}" inputmode="decimal" value="{{ previo.get('kg:' ~ i, '') if previo is defined else '' }}"
-               title="{{ t('m.tg.h_kg') }}"></label>
+      <label class="enpiezas">{{ t("m.tg.total_kg_g") }}
+        <input name="total:{{ i }}" inputmode="numeric" class="total" data-peso
+               value="{{ previo.get('total:' ~ i, '') if previo is defined else '' }}"
+               title="{{ t('m.tg.h_grams') }}">
+        <small class="eco muted" data-eco aria-live="polite"></small></label>
+      <label class="apeso" hidden>{{ t("units.kg") }}
+        <input name="g:{{ i }}" inputmode="numeric" data-peso
+               value="{{ previo.get('g:' ~ i, '') if previo is defined else '' }}"
+               title="{{ t('m.tg.h_kg') }}">
+        <small class="eco muted" data-eco aria-live="polite"></small></label>
     </div>
     {# Lo que sale de dividir: se enseña mientras se escribe, que es lo que
        deja ver de un vistazo si el corte va ancho o estrecho. #}
@@ -265,9 +199,11 @@
     function dividir() {
       if (!piezas || !total || !dicho) return;
       var n = parseFloat((piezas.value || "").replace(",", "."));
-      var kg = parseFloat((total.value || "").replace(",", "."));
-      if (!(n > 0) || !(kg > 0)) { dicho.textContent = ""; return; }
-      var g = Math.round(kg * 1000 / n * 10) / 10;
+      // La bandeja se pesa ya en gramos: aquí no hay que multiplicar nada, se
+      // divide y el resultado sale en la misma unidad en la que se escribe.
+      var gramos = parseFloat((total.value || "").replace(/[\s.\u00a0]/g, ""));
+      if (!(n > 0) || !(gramos > 0)) { dicho.textContent = ""; return; }
+      var g = Math.round(gramos / n * 10) / 10;
       dicho.textContent = {{ t("m.tg.per_piece_out", g="GRAMOS")|tojson }}
         .replace("GRAMOS", String(g).replace(".", ","));
     }

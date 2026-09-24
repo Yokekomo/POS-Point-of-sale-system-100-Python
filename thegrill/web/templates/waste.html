@@ -1,4 +1,5 @@
 {% extends "base.html" %}{% block title %}{{ t("waste.title") }}{% endblock %}
+{% from "_peso.html" import peso %}
 {% block body %}
 <h1>{{ t("waste.title") }}</h1>
 <p class="sub">{{ t("waste.sub") }}</p>
@@ -42,9 +43,9 @@
       </select>
     </div>
     <div>
-      <label for="kg">{{ t("waste.kg") }} <span class="req">*</span></label>
-      <input id="kg" name="kg" inputmode="decimal" required
-             value="{{ previo.get('kg','') if previo is defined else '' }}">
+      <label for="g">{{ t("waste.kg_g") }} <span class="req">*</span></label>
+      {{ peso("g", previo.get('g','') if previo is defined else '',
+              requerido=true, id="g") }}
     </div>
     <div>
       <label for="pieces">{{ t("waste.pieces") }}</label>

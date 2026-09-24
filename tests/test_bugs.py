@@ -268,8 +268,8 @@ def test_the_lot_and_the_piece_numbers_fill_themselves_in(client):
     assert 'name="lot" value="L-' in pagina                # propuesto, no en blanco
 
     alta = client.post("/recepcion", data={
-        "lot": "", "sku": "Striploin", "kg:0": "9,4", "price:0": "30",
-        "kg:1": "8,2", "price:1": "30", "csrf": csrf_from(pagina)})
+        "lot": "", "sku": "Striploin", "g:0": "9400", "price:0": "30",
+        "g:1": "8200", "price:1": "30", "csrf": csrf_from(pagina)})
     assert alta.status_code in (200, 303), alta.text[:200]
 
     with db.session_scope() as s:
@@ -293,8 +293,8 @@ def test_a_number_written_by_hand_wins_over_the_proposed_one(client):
 
     pagina = client.get("/recepcion").text
     client.post("/recepcion", data={"lot": "ALB-77", "sku": "Ribeye",
-                                    "serial:0": "AUS-9001", "kg:0": "9,4", "price:0": "30",
-                                    "kg:1": "7,1", "price:1": "30",
+                                    "serial:0": "AUS-9001", "g:0": "9400", "price:0": "30",
+                                    "g:1": "7100", "price:1": "30",
                                     "csrf": csrf_from(pagina)})
     with db.session_scope() as s:
         seriales = {p.serial for p in s.query(Primal)}
@@ -337,7 +337,7 @@ def test_the_butchery_history_says_what_came_out_and_how_many(client):
     from thegrill.meat import service as meat
 
     pagina = client.get("/recepcion").text
-    client.post("/recepcion", data={"lot": "", "sku": "Striploin", "kg:0": "9,0",
+    client.post("/recepcion", data={"lot": "", "sku": "Striploin", "g:0": "9000",
                                     "price:0": "30", "use_by": "2026-12-31",
                                     "csrf": csrf_from(pagina)})
     with db.session_scope() as s:
@@ -349,10 +349,10 @@ def test_the_butchery_history_says_what_came_out_and_how_many(client):
         item_id, serial = articulo.id, pieza.serial
 
     despiece = client.get("/despiece").text
-    client.post("/despiece", data={"tg": "TG-0001", "primal": serial, "before_kg": "9,0",
+    client.post("/despiece", data={"tg": "TG-0001", "primal": serial, "before_g": "9000",
                                    "cut:0": "Entrecot", "item:0": str(item_id),
                                    "pieces:0": "12", "grams:0": "650",
-                                   "waste_kg": "1,2", "csrf": csrf_from(despiece)})
+                                   "waste_g": "1200", "csrf": csrf_from(despiece)})
 
     historia = client.get("/despiece").text
     assert "Entrecot (12)" in historia          # qué salió y cuántas piezas

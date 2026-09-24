@@ -30,7 +30,7 @@ def client(tmp_path, monkeypatch):
 def _recibir(client, **extra):
     form = client.get("/recepcion")
     datos = {"csrf": csrf_from(form.text), "lot": "DXB20260910", "sku": "Striploin AUS",
-             "origin": "AUS", "price_kg": "32", "serial:0": "8017", "kg:0": "9,4"}
+             "origin": "AUS", "price_kg": "32", "serial:0": "8017", "g:0": "9400"}
     datos.update(extra)
     return client.post("/recepcion", data=datos)
 
@@ -51,7 +51,7 @@ def test_and_it_says_what_was_typed_in_the_language_of_the_house(client):
 
 
 def test_a_bad_weight_says_the_same(client):
-    r = _recibir(client, **{"kg:0": "nueve"})
+    r = _recibir(client, **{"g:0": "nueve"})
     assert r.status_code == 200 and "nueve" in r.text
     with db.session_scope() as s:
         assert s.query(Primal).count() == 0
@@ -60,10 +60,10 @@ def test_a_bad_weight_says_the_same(client):
 # ------------------------------------------- lo tecleado vuelve donde estaba
 def test_an_error_no_longer_wipes_the_sheet(client):
     """Un cero de más en una casilla obligaba a teclear la hoja otra vez."""
-    r = _recibir(client, arrival_c="4 C", **{"serial:0": "8099", "kg:0": "12,345",
+    r = _recibir(client, arrival_c="4 C", **{"serial:0": "8099", "g:0": "12345",
                                              "sku:0": "Ribeye", "slot:0": "LOTE-7"})
     assert 'value="8099"' in r.text              # el número de la pieza
-    assert 'value="12,345"' in r.text            # sus kilos, como se escribieron
+    assert 'value="12345"' in r.text             # su peso, como se escribió
     assert 'value="Ribeye"' in r.text            # lo que era
     assert 'value="LOTE-7"' in r.text            # y el lote del proveedor
 
@@ -148,7 +148,7 @@ def test_reloading_the_screen_does_not_book_the_piece_again(client):
 
 def _merma(client, envio, **extra):
     pantalla = client.get("/merma")
-    datos = {"csrf": csrf_from(pantalla.text), "kg": "1,2", "serial": "",
+    datos = {"csrf": csrf_from(pantalla.text), "g": "1200", "serial": "",
              "reason": "Caducado", "envio": envio}
     datos.update(extra)
     return client.post("/merma", data=datos)
@@ -156,7 +156,7 @@ def _merma(client, envio, **extra):
 
 def test_the_waste_form_keeps_what_was_typed(client):
     """Un error en los kilos no puede borrar el motivo ni las piezas."""
-    r = _merma(client, "abc-125", serial="8017", kg="dos kilos",
+    r = _merma(client, "abc-125", serial="8017", g="dos kilos",
                pieces="3", reason="Se cayó al suelo")
     assert r.status_code == 200
     assert 'value="dos kilos"' in r.text
@@ -191,14 +191,14 @@ def test_the_butchery_sheet_comes_back_with_its_ten_lines(client):
     pantalla = client.get("/despiece")
     r = client.post("/despiece", data={
         "csrf": csrf_from(pantalla.text), "tg": "TG-0001",
-        "before_kg": "nueve coma cuatro", "waste_kg": "1,2",
-        "cut:0": "Striploin steak", "pieces:0": "20", "total:0": "5",
+        "before_g": "nueve coma cuatro", "waste_g": "1200",
+        "cut:0": "Striploin steak", "pieces:0": "20", "total:0": "5000",
         "envio": "d-1"})
     assert r.status_code == 200
     assert 'value="nueve coma cuatro"' in r.text
     assert 'value="Striploin steak"' in r.text
-    assert 'value="20"' in r.text and 'value="5"' in r.text
-    assert 'value="1,2"' in r.text
+    assert 'value="20"' in r.text and 'value="5000"' in r.text
+    assert 'value="1200"' in r.text               # y la merma, en gramos
 
 
 # ----------------------------------------------- y el móvil abre por arriba
@@ -264,3 +264,38 @@ def test_and_it_is_shown_once_and_only_once(client):
     with db.session_scope() as s:
         sesion = s.query(AuthSession).order_by(AuthSession.id.desc()).first()
         assert sesion.flash is None
+
+
+# ------------------------------- el peso, en gramos, y la cola de ayer
+def test_the_weight_box_asks_for_grams_and_echoes_the_kilos(client):
+    """Gramos dentro, kilos debajo: el eco es lo que caza un cero de más."""
+    pantalla = client.get("/recepcion").text
+    assert 'name="g:0"' in pantalla and 'name="kg:0"' not in pantalla
+    assert "data-peso" in pantalla and "data-eco" in pantalla
+
+
+def test_a_sheet_queued_before_the_change_is_still_booked_in_kilos(client):
+    """El teléfono que se quedó sin cobertura con la pantalla vieja abierta.
+
+    Guarda el formulario tal cual y lo manda horas o días después. Si ese
+    «kg:0=9,4» se leyera como gramos quedarían apuntados nueve gramos: mil
+    veces menos, en silencio. Como el nombre cambió, no hay confusión posible
+    —una hoja de ahora nunca trae `kg:0`— y la pieza queda bien apuntada.
+    """
+    form = client.get("/recepcion")
+    r = client.post("/recepcion", data={
+        "csrf": csrf_from(form.text), "lot": "L-AYER", "sku": "Striploin",
+        "price_kg": "32", "serial:0": "8050", "kg:0": "9,4",
+        "envio": "de-la-cola-de-ayer"})
+    assert r.status_code == 303
+    with db.session_scope() as s:
+        assert s.query(Primal).filter_by(serial="8050").one().weight_kg == 9.4
+
+
+def test_grams_with_a_comma_say_which_figure_to_write(client):
+    """«9,4» en gramos no existe: casi siempre son 9,4 kg mal puestos."""
+    r = _recibir(client, **{"serial:0": "8060", "g:0": "9,4"})
+    assert r.status_code == 200
+    assert "9400" in r.text                       # la cifra que hay que poner
+    with db.session_scope() as s:
+        assert s.query(Primal).filter_by(serial="8060").count() == 0

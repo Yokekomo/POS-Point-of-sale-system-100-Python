@@ -1,4 +1,5 @@
 {% extends "base.html" %}{% block title %}{{ t("m.tr.title") }}{% endblock %}
+{% from "_peso.html" import peso %}
 {% block body %}
 <h1>{{ t("m.tr.title") }}</h1>
 <p class="sub">{{ t("m.tr.sub") }}</p>
@@ -58,8 +59,8 @@
       <select id="sc_serial" name="serial" required>
         {% for l in lots %}<option value="{{ l.serial }}">{{ l.serial }} · {{ "%.3f"|format(l.qty_remaining) }} kg</option>{% endfor %}
       </select>
-      <label for="sc_kg">{{ t("m.rec.kg") }}</label>
-      <input id="sc_kg" name="kg" inputmode="decimal" required>
+      <label for="sc_g">{{ t("m.rec.kg_g") }}</label>
+      {{ peso("g", requerido=true, id="sc_g") }}
       <label for="sc_site">{{ t("m.tr.to") }}</label>
       <select id="sc_site" name="site" required>
         {% for s in sites %}<option value="{{ s.id }}">{{ s.name }} · {{ t("m.si." ~ s.kind.value) }}</option>{% endfor %}

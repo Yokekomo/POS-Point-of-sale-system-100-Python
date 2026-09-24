@@ -887,12 +887,17 @@ async def _recibir(request, user, auth_session, session, form, lang):
     rows = []
     for i in range(MAX_RECEPCION):
         serial = (form.get(f"serial:{i}") or "").strip()
-        kg = form.get(f"kg:{i}")
-        if not serial and not (kg or "").strip():
+        # El peso se escribe en gramos; `kg:` es el nombre de antes y solo
+        # puede venir de la cola de un teléfono que se quedó sin cobertura
+        # con la pantalla vieja abierta. Ahí significaba kilos y se lee como
+        # kilos: esa pieza queda bien apuntada y no mil veces más ligera.
+        escrito = form.get(f"g:{i}") or form.get(f"kg:{i}")
+        kg = pesos.del_formulario(form, f"g:{i}", f"kg:{i}", default=0.0)
+        if not serial and not (escrito or "").strip():
             continue
         fecha_sac = (form.get(f"slaughter:{i}") or "").strip() or sacrificio
         rows.append(meat.PrimalRow(
-            serial=serial, kg=_num(kg, 0.0) or 0.0,
+            serial=serial, kg=kg or 0.0,
             price_kg=(_eur(form.get(f"price:{i}"), _eur(price))
                       if puede_dinero else None),
             sku=(form.get(f"sku:{i}") or "").strip() or sku,
@@ -1083,32 +1088,39 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
             name = (form.get(f"cut:{i}") or "").strip()
             pieces = form.get(f"pieces:{i}")
             grams = form.get(f"grams:{i}")
-            kg = form.get(f"kg:{i}")
+            # `kg:` es el nombre de antes, de cuando el corte que sale a peso
+            # se escribía en kilos. Solo puede llegar de la cola de un
+            # teléfono con la pantalla vieja abierta, y ahí significaba kilos.
+            pesado = form.get(f"g:{i}") or form.get(f"kg:{i}")
             by_weight = bool(form.get(f"weight:{i}"))
-            if not name and not (pieces or "").strip() and not (kg or "").strip():
+            if not name and not (pieces or "").strip() and not (pesado or "").strip():
                 continue
             # En la mesa se pesa la bandeja entera, no filete a filete: se
-            # escriben los kilos de las piezas juntas y el peso de cada una
+            # escriben los gramos de las piezas juntas y el peso de cada una
             # sale de ahí. Los gramos por pieza se siguen aceptando —la hoja de
             # papel los pide así, y la cola de un teléfono puede traerlos—,
             # pero el total manda cuando viene.
             cuantas = int(_num(pieces, 0) or 0)
             gramos = _g(grams, 0.0) or 0.0
-            total = _num(form.get(f"total:{i}"))
+            total = pesos.leer(form.get(f"total:{i}"))
             if total and cuantas > 0:
-                gramos = round(total * 1000 / cuantas, 4)
+                gramos = round(total * exacto.GRAMOS / cuantas, 4)
             rows.append(meat.CutRow(
                 name=name, item_id=int(form.get(f"item:{i}") or 0),
                 pieces=cuantas, grams=gramos,
                 value_index=_num(form.get(f"index:{i}"), 1.0) or 1.0,
                 is_trim=bool(form.get(f"trim:{i}")),
-                by_weight=by_weight, kg=_num(kg, 0.0) or 0.0))
+                by_weight=by_weight,
+                kg=pesos.del_formulario(form, f"g:{i}", f"kg:{i}", default=0.0) or 0.0))
         on = (form.get("date") or "").strip()
         _, result = meat.post_butchery(
             session, user, tg=(form.get("tg") or ""),
             serials=form.getlist("primal"),
-            before_kg=_num(form.get("before_kg"), 0.0) or 0.0,
-            rows=rows, waste_kg=_num(form.get("waste_kg"), 0.0) or 0.0,
+            before_kg=pesos.del_formulario(form, "before_g", "before_kg",
+                                           default=0.0) or 0.0,
+            rows=rows,
+            waste_kg=pesos.del_formulario(form, "waste_g", "waste_kg",
+                                          default=0.0) or 0.0,
             # La fecha escrita en la hoja manda; si no la hay, la del momento
             # en que se apuntó, que no es la misma que la del envío cuando la
             # hoja ha esperado en la cola del teléfono.
@@ -1272,7 +1284,8 @@ def _defrost(request, user, auth_session, session, *, shift="", done="", error="
 
 @app.post("/descongelado/salida", response_class=HTMLResponse)
 def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form(...),
-                   total_kg: str = Form(...), shift: str = Form(""), note: str = Form(""),
+                   total_g: str = Form(""), total_kg: str = Form(""),
+                   shift: str = Form(""), note: str = Form(""),
                    csrf: str = Form(""), envio: str = Form(""), cuando: str = Form(""),
                    ctx=Depends(needs(perms.DEFROST)),
                    session: Session = Depends(get_db)):
@@ -1289,7 +1302,10 @@ def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form
               .filter_by(restaurant_id=user.restaurant_id, serial=pedido).first())
     congelado = bool(estaba and estaba.frozen)
     try:
-        entry = defrost.intake(session, user, pedido, pieces, _num(total_kg, 0.0) or 0.0,
+        # `total_kg` es el nombre de antes: solo llega de la cola de un
+        # teléfono con la pantalla vieja, y ahí significaba kilos.
+        entry = defrost.intake(session, user, pedido, pieces,
+                               pesos.de_dos(total_g, total_kg, 0.0) or 0.0,
                                on=_cuando(cuando, session, user),
                                shift=shift.strip(), note=note.strip() or None)
     except (defrost.DefrostError, ValueError) as e:
@@ -1308,7 +1324,8 @@ def defrost_intake(request: Request, serial: str = Form(...), pieces: int = Form
 
 @app.post("/descongelado/recuento", response_class=HTMLResponse)
 def defrost_count(request: Request, serial: str = Form(...), pieces: int = Form(...),
-                  total_kg: str = Form(...), shift: str = Form(""), note: str = Form(""),
+                  total_g: str = Form(""), total_kg: str = Form(""),
+                  shift: str = Form(""), note: str = Form(""),
                   csrf: str = Form(""), envio: str = Form(""), cuando: str = Form(""),
                   ctx=Depends(needs(perms.DEFROST)),
                   session: Session = Depends(get_db)):
@@ -1318,7 +1335,8 @@ def defrost_count(request: Request, serial: str = Form(...), pieces: int = Form(
     if repetido is not None:
         return repetido
     try:
-        defrost.count(session, user, serial.strip(), pieces, _num(total_kg, 0.0) or 0.0,
+        defrost.count(session, user, serial.strip(), pieces,
+                      pesos.de_dos(total_g, total_kg, 0.0) or 0.0,
                       on=_cuando(cuando, session, user),
                       shift=shift.strip(), note=note.strip() or None)
     except (defrost.DefrostError, ValueError) as e:
@@ -1404,7 +1422,8 @@ def aging_move(request: Request, serial: str = Form(...), storage: str = Form(..
 
 
 @app.post("/maduracion/pesar", response_class=HTMLResponse)
-def aging_weigh(request: Request, serial: str = Form(...), kg: str = Form(...),
+def aging_weigh(request: Request, serial: str = Form(...), g: str = Form(""),
+                kg: str = Form(""),
                 note: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.AGE)), session: Session = Depends(get_db)):
     """Vuelve a pesar la pieza: lo que ha perdido sube el precio de lo que queda."""
@@ -1412,7 +1431,10 @@ def aging_weigh(request: Request, serial: str = Form(...), kg: str = Form(...),
     _guard(request, session, user, auth_session, csrf)
     lang = lang_for(request, session, user)
     try:
-        result = aging.weigh(session, user, serial.strip(), _num(kg, 0.0) or 0.0,
+        # `kg` es el nombre de antes: solo llega de la cola de un teléfono
+        # con la pantalla vieja, donde se escribía en kilos.
+        result = aging.weigh(session, user, serial.strip(),
+                             pesos.de_dos(g, kg, 0.0) or 0.0,
                              note=note.strip() or None, lang=lang)
     except (aging.AgingError, ValueError) as e:
         return _aging(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
@@ -1436,10 +1458,13 @@ async def aging_daily_count(request: Request, ctx=Depends(needs(perms.COUNT)),
         return repetido
     lecturas = []
     for key, value in form.multi_items():
-        if not key.startswith("kg:") or not str(value).strip():
+        # `g:` es la casilla de ahora y `kg:` la de antes, que solo puede
+        # venir de la cola de un teléfono con la pantalla vieja abierta.
+        en_gramos = key.startswith("g:")
+        if not (en_gramos or key.startswith("kg:")) or not str(value).strip():
             continue
         try:
-            kg = _num(value)
+            kg = pesos.leer(value) if en_gramos else _num(value)
         except ValueError:
             continue
         if kg:
@@ -1466,7 +1491,7 @@ async def aging_trim(request: Request, ctx=Depends(needs(perms.AGE)),
         partes = []
         for i in range(aging.MAX_TRIM_PARTS):
             item = (form.get(f"item:{i}") or "").strip()
-            kg = _num(form.get(f"part_kg:{i}"))
+            kg = pesos.del_formulario(form, f"part_g:{i}", f"part_kg:{i}")
             if not item or not kg:
                 continue
             partes.append(aging.TrimPart(
@@ -1474,9 +1499,12 @@ async def aging_trim(request: Request, ctx=Depends(needs(perms.AGE)),
                 value_index=_num(form.get(f"index:{i}"), aging.TRIM_VALUE_INDEX)
                 or aging.TRIM_VALUE_INDEX))
         result = aging.trim(session, user, (form.get("serial") or "").strip(),
-                            removed_kg=_num(form.get("removed_kg")),
-                            new_kg=_num(form.get("new_kg")), parts=partes,
-                            waste_kg=_num(form.get("waste_kg")),
+                            removed_kg=pesos.del_formulario(form, "removed_g",
+                                                            "removed_kg"),
+                            new_kg=pesos.del_formulario(form, "new_g", "new_kg"),
+                            parts=partes,
+                            waste_kg=pesos.del_formulario(form, "waste_g",
+                                                          "waste_kg"),
                             note=(form.get("note") or "").strip() or None, lang=lang)
     except (aging.AgingError, ValueError) as e:
         return _aging(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
@@ -1561,7 +1589,8 @@ def send_primal(request: Request, serial: str = Form(...), site: str = Form(...)
 
 
 @app.post("/traslados/corte", response_class=HTMLResponse)
-def send_cut(request: Request, serial: str = Form(...), kg: str = Form(...),
+def send_cut(request: Request, serial: str = Form(...), g: str = Form(""),
+             kg: str = Form(""),
              site: str = Form(...), note: str = Form(""), csrf: str = Form(""),
              envio: str = Form(""),
              ctx=Depends(needs(perms.TRANSFER)), session: Session = Depends(get_db)):
@@ -1573,7 +1602,10 @@ def send_cut(request: Request, serial: str = Form(...), kg: str = Form(...),
     if repetido is not None:
         return repetido
     try:
-        sent = sites.send_cut(session, user, serial.strip(), _num(kg, 0.0) or 0.0,
+        # `kg` es el nombre de antes: de la cola de un teléfono con la
+        # pantalla vieja, donde esa casilla se escribía en kilos.
+        sent = sites.send_cut(session, user, serial.strip(),
+                              pesos.de_dos(g, kg, 0.0) or 0.0,
                               int(site or 0), note=note.strip() or None)
     except (sites.SiteError, ValueError) as e:
         return _transfers(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
@@ -2061,11 +2093,16 @@ async def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
         return repetido
     count = _open_sheet(session, user, str(form.get("hoja") or ""), lang)
     for key, value in form.multi_items():
-        if not key.startswith("kg:") or not str(value).strip():
+        # `g:` es la casilla de ahora; `kg:` la de antes, que solo puede venir
+        # de la cola de un teléfono con la pantalla vieja abierta.
+        en_gramos = key.startswith("g:")
+        if not (en_gramos or key.startswith("kg:")) or not str(value).strip():
             continue
         serial = key.split(":", 1)[1]
         try:
-            inventory.record(session, user, count, serial, _num(value, 0.0) or 0.0,
+            pesado = (pesos.leer(value, 0.0) if en_gramos
+                      else _num(value, 0.0)) or 0.0
+            inventory.record(session, user, count, serial, pesado,
                              pieces=int(_num(form.get(f"pieces:{serial}"), 0) or 0) or None,
                              lang=lang)
         except (inventory.InventoryError, ValueError):
@@ -2102,14 +2139,16 @@ def cancel_inventory(request: Request, reason: str = Form(""), csrf: str = Form(
 
 
 @app.post("/inventario/recuperar")
-def recover_piece(request: Request, serial: str = Form(...), kg: str = Form(""),
+def recover_piece(request: Request, serial: str = Form(...), g: str = Form(""),
+                  kg: str = Form(""),
                   note: str = Form(""), csrf: str = Form(""),
                   ctx=Depends(needs(perms.FIX)), session: Session = Depends(get_db)):
     """La pieza ha aparecido: vuelve al stock, con quién y por qué."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
-        inventory.recover(session, user, serial.strip(), kg=_num(kg),
+        inventory.recover(session, user, serial.strip(),
+                          kg=pesos.de_dos(g, kg),
                           note=note.strip() or None,
                           lang=lang_for(request, session, user))
     except (inventory.InventoryError, ValueError) as e:
@@ -2119,13 +2158,17 @@ def recover_piece(request: Request, serial: str = Form(...), kg: str = Form(""),
 
 @app.post("/inventario/alta")
 def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(...),
-                kg: float = Form(...), unit_cost: float = Form(...), expiry: str = Form(...),
+                g: str = Form(""), kg: str = Form(""),
+                unit_cost: float = Form(...), expiry: str = Form(...),
                 note: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.FIX)), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
-        inventory.adopt(session, user, serial.strip(), item_id, kg=kg, unit_cost=unit_cost,
+        # `g` son gramos; `kg` es el nombre de antes, y la unidad del
+        # artículo cuando ese artículo no se pesa.
+        inventory.adopt(session, user, serial.strip(), item_id,
+                        kg=pesos.de_dos(g, kg, 0.0) or 0.0, unit_cost=unit_cost,
                         expiry=date.fromisoformat(expiry), note=note.strip() or None,
                         lang=lang_for(request, session, user))
     except (inventory.InventoryError, ValueError) as e:
@@ -2154,7 +2197,8 @@ def waste_page(request: Request, ctx=Depends(needs(perms.WASTE)),
 
 
 @app.post("/merma", response_class=HTMLResponse)
-def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
+def record_waste(request: Request, g: str = Form(""), kg: str = Form(""),
+                 serial: str = Form(""),
                  ingredient_id: str = Form(""), pieces: str = Form(""), reason: str = Form(""),
                  csrf: str = Form(""), envio: str = Form(""), cuando: str = Form(""),
                  ctx=Depends(needs(perms.WASTE)),
@@ -2166,7 +2210,8 @@ def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
         return repetido
     try:
         result = waste.record(
-            session, user, kg=_num(kg, 0.0) or 0.0, serial=serial.strip() or None,
+            session, user, kg=pesos.de_dos(g, kg, 0.0) or 0.0,
+            serial=serial.strip() or None,
             ingredient_id=int(ingredient_id) if ingredient_id.strip() else None,
             pieces=int(pieces) if pieces.strip() else None,
             reason=reason.strip() or None, on=_cuando(cuando, session, user),
@@ -2177,7 +2222,7 @@ def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
         return _waste_page(request, user, auth_session, session,
                            error=_dicho(e, lang_for(request, session, user)),
                            serial=serial.strip(),
-                           previo={"kg": kg, "pieces": pieces, "reason": reason,
+                           previo={"g": g, "pieces": pieces, "reason": reason,
                                    "ingredient_id": ingredient_id})
     # Guardado. Se contesta con una redirección y el recado viaja aparte: así
     # la pantalla que se queda delante es una que se puede recargar mil veces

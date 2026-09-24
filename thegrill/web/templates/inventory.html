@@ -1,4 +1,5 @@
 {% extends "base.html" %}{% block title %}{{ t("inv.title") }}{% endblock %}
+{% from "_peso.html" import peso %}
 {% block body %}
 <h1>{{ t("inv.title") }}</h1>
 <p class="sub">{{ t("inv.sub") }}</p>
@@ -33,9 +34,10 @@
         <span class="tag warn">{{ t("meat.primals") }}</span>{% endif %}</td>
     <td class="muted">{{ line.serial }}</td>
     <td class="num">{{ "%.3f"|format(line.expected_kg) }}</td>
-    <td class="num"><input name="kg:{{ line.serial }}" type="text" inputmode="decimal"
-        style="max-width:130px"
-        value="{{ '%.3f'|format(line.counted_kg) if line.counted_kg is not none else '' }}"></td>
+    <td class="num"><input name="g:{{ line.serial }}" type="text" inputmode="numeric"
+        data-peso style="max-width:130px"
+        value="{{ (line.counted_kg * 1000) | round | int if line.counted_kg is not none else '' }}">
+        <small class="eco muted" data-eco aria-live="polite"></small></td>
     <td class="muted">{% if line.counted_by %}{{ counters.get(line.counted_by, "") }}
         {%- if line.counted_at %} · {{ line.counted_at.strftime("%H:%M") }}{% endif %}
         {% if line.disputed %}<span class="tag bad">{{ t("inv.disputed") }}</span>{% endif %}
@@ -46,7 +48,8 @@
   <label for="extra_serial" data-tour="ados">Serial</label>
   <div class="rowflex">
     <input id="extra_serial" name="extra_serial" placeholder="9999-01" style="flex:1">
-    <input name="extra_kg" type="text" inputmode="decimal" placeholder="kg" style="max-width:130px">
+    <input name="extra_g" type="text" inputmode="numeric" data-peso
+           placeholder="{{ t("units.g") }}" style="max-width:130px">
   </div>
   <button class="wide" type="submit">{{ t("common.save") }}</button>
 </form>
@@ -140,8 +143,8 @@
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <label for="rserial">{{ t("inv.recover_serial") }}</label>
   <input id="rserial" name="serial" required placeholder="8017-01">
-  <label for="rkg">{{ t("inv.recover_kg") }}</label>
-  <input id="rkg" name="kg" type="text" inputmode="decimal">
+  <label for="rg">{{ t("inv.recover_kg_g") }}</label>
+  {{ peso("g", id="rg") }}
   <label for="rnote">{{ t("inv.recover_note") }}</label>
   <input id="rnote" name="note" placeholder="Estaba en el abatidor">
   <div class="help">{{ t("inv.recover_help") }}</div>
@@ -157,10 +160,17 @@
   <input id="aserial" name="serial" required placeholder="7777-09">
   <label for="aitem">{{ t("ing.item_name") }}</label>
   <select id="aitem" name="item_id" required>
-    {% for it in items %}<option value="{{ it.id }}">{{ it.name }}</option>{% endfor %}
+    {% for it in items %}<option value="{{ it.id }}"
+      data-unidad="{{ it.ingredient.unit.value if it.ingredient else 'KG' }}"
+      >{{ it.name }}</option>{% endfor %}
   </select>
-  <label for="akg">{{ t("ing.qty") }}</label>
-  <input id="akg" name="kg" type="text" inputmode="decimal" required>
+  {# La cantidad va en gramos si el artículo se pesa, y en su unidad si se
+     cuenta. Cuál es depende del artículo que se elija, así que la casilla
+     cambia de nombre al elegirlo: el nombre es lo que dice la unidad. #}
+  <div class="banner warn" id="altaliquidos" hidden>{{ t("ing.liquids_weigh") }}</div>
+  <label for="akg" id="aqtyetiqueta">{{ t("ing.qty") }}</label>
+  <input id="akg" name="g" type="text" inputmode="numeric" data-peso required>
+  <small class="eco muted" data-eco aria-live="polite"></small>
   <label for="acost">{{ t("ing.unit_cost") }}</label>
   <input id="acost" name="unit_cost" type="text" inputmode="decimal" required>
   <label for="aexpiry">{{ t("ing.expiry") }}</label>
@@ -173,4 +183,37 @@
 {% endif %}
 
 <p class="muted"><a href="/carne">← {{ t("meat.title") }}</a></p>
+
+<script nonce="{{ nonce }}">
+// Igual que en las recetas: la casilla sigue al artículo elegido, y lo que
+// cambia es el nombre del campo, no solo lo que se lee. El servidor saca la
+// unidad del nombre, que es lo único que aguanta un envío guardado en la cola
+// del teléfono y mandado tres días después.
+(function () {
+  var cual = document.getElementById("aitem");
+  var caja = document.getElementById("akg");
+  var etiqueta = document.getElementById("aqtyetiqueta");
+  var aviso = document.getElementById("altaliquidos");
+  if (!cual || !caja || !etiqueta) return;
+  var cuanto = {{ t("ing.qty")|tojson }}, gramo = {{ t("units.g")|tojson }};
+  function mirar() {
+    var op = cual.options[cual.selectedIndex];
+    var unidad = op ? (op.getAttribute("data-unidad") || "KG") : "KG";
+    var sepesa = unidad === "KG";
+    var eco = caja.parentNode.querySelector("[data-eco]");
+    caja.name = sepesa ? "g" : "kg";
+    caja.setAttribute("inputmode", sepesa ? "numeric" : "decimal");
+    if (sepesa) { caja.setAttribute("data-peso", "1"); }
+    else {
+      caja.removeAttribute("data-peso");
+      if (eco) { eco.textContent = ""; eco.removeAttribute("data-mal"); }
+    }
+    etiqueta.textContent = cuanto + " (" + (sepesa ? gramo : unidad) + ")";
+    if (aviso) aviso.hidden = unidad !== "L";
+    if (window.eco) window.eco.enganchar(document);
+  }
+  cual.addEventListener("change", mirar);
+  mirar();
+})();
+</script>
 {% endblock %}

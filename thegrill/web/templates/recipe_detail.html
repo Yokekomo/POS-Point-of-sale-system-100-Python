@@ -75,14 +75,22 @@
   <label for="component">{{ t("rec.component") }}</label>
   <select id="component" name="component" required>
     <optgroup label="{{ t("ing.title") }}">
-      {% for i in ingredients %}<option value="ing:{{ i.id }}">{{ i.name }} ({{ i.unit.value }})</option>{% endfor %}
+      {% for i in ingredients %}<option value="ing:{{ i.id }}"
+        data-unidad="{{ i.unit.value }}">{{ i.name }} ({{ i.unit.value }})</option>{% endfor %}
     </optgroup>
     <optgroup label="{{ t("rec.prep") }}">
-      {% for r in subrecipes %}<option value="rec:{{ r.id }}">{{ r.name }}</option>{% endfor %}
+      {% for r in subrecipes %}<option value="rec:{{ r.id }}"
+        data-unidad="{{ r.yield_unit.value if r.yield_unit else '' }}">{{ r.name }}</option>{% endfor %}
     </optgroup>
   </select>
-  <label for="qty">{{ t("rec.net_qty") }}</label>
+  {# Lo que se pesa va en gramos. Cuál se pesa depende de lo que se elija
+     arriba, así que la casilla cambia de nombre al elegir: el nombre es lo
+     que dice en qué unidad viene, y si se mezclaran se guardaría mil veces
+     más o mil veces menos sin que nadie lo viera. #}
+  <div class="banner warn" id="pesarliquidos" hidden>{{ t("ing.liquids_weigh") }}</div>
+  <label for="qty" id="qtyetiqueta">{{ t("rec.net_qty") }}</label>
   <input id="qty" name="qty" type="text" inputmode="decimal" required>
+  <small class="eco muted" data-eco aria-live="polite"></small>
   <label for="waste_pct">{{ t("rec.waste") }}</label>
   <input id="waste_pct" name="waste_pct" type="text" inputmode="decimal" value="0">
   <div class="help">{{ t("rec.net_help") }}</div>
@@ -106,4 +114,40 @@
 </div>
 {% endif %}
 <p class="muted"><a href="/recetas">← {{ t("rec.title") }}</a></p>
+
+<script nonce="{{ nonce }}">
+// La casilla de la cantidad sigue a lo que se elige arriba: gramos para lo
+// que se pesa, su propia unidad para lo que se cuenta o se mide. Cambia el
+// nombre del campo, no solo lo que se ve: el servidor lee la unidad del
+// nombre, que es lo único que no se puede confundir cuando un envío se queda
+// en la cola del teléfono y llega tres días después.
+(function () {
+  var cual = document.getElementById("component");
+  var caja = document.getElementById("qty");
+  var etiqueta = document.getElementById("qtyetiqueta");
+  var aviso = document.getElementById("pesarliquidos");
+  if (!cual || !caja || !etiqueta) return;
+  var neto = {{ t("rec.net_qty")|tojson }}, gramo = {{ t("units.g")|tojson }};
+  function mirar() {
+    var op = cual.options[cual.selectedIndex];
+    var unidad = op ? (op.getAttribute("data-unidad") || "") : "";
+    var sepesa = unidad === "KG";
+    caja.name = sepesa ? "qty_g" : "qty";
+    caja.setAttribute("inputmode", sepesa ? "numeric" : "decimal");
+    var eco = caja.parentNode.querySelector("[data-eco]");
+    if (sepesa) { caja.setAttribute("data-peso", "1"); }
+    else {
+      caja.removeAttribute("data-peso");
+      // Y se borra lo que hubiera: un eco en kilos debajo de una cifra en
+      // litros dice algo que no es verdad, y dicho en voz baja es peor.
+      if (eco) { eco.textContent = ""; eco.removeAttribute("data-mal"); }
+    }
+    etiqueta.textContent = neto + (sepesa ? " (" + gramo + ")" : unidad ? " (" + unidad + ")" : "");
+    if (aviso) aviso.hidden = unidad !== "L";
+    if (window.eco) window.eco.enganchar(document);
+  }
+  cual.addEventListener("change", mirar);
+  mirar();
+})();
+</script>
 {% endblock %}

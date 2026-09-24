@@ -26,8 +26,8 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, Co
                              Storage, TemplateField, Unit, User)
 
 from thegrill.web import (auth, butchery, caducidad, cifras, costing, exacto, i18n,
-                          inventory, jornada, money, rangos, seguridad, service,
-                          sheets, tracing, waste)
+                          inventory, jornada, money, pesos, rangos, seguridad,
+                          service, sheets, tracing, waste)
 from thegrill.web.seed import seed_templates
 
 # Las zonas horarias que existen, para el desplegable de la configuración y
@@ -607,7 +607,8 @@ def add_item(ingredient_id: int, request: Request, name: str = Form(...), brand:
 
 @app.post("/ingredientes/{ingredient_id}/entrada")
 def add_lot(ingredient_id: int, request: Request, item_id: int = Form(...),
-            qty: str = Form(...), unit_cost: str = Form(...), expiry: str = Form(...),
+            qty_g: str = Form(""), qty: str = Form(""),
+            unit_cost: str = Form(...), expiry: str = Form(...),
             lot_code: str = Form(""), csrf: str = Form(""), ctx=Depends(require_user),
             session: Session = Depends(get_db)):
     """Registrar una entrada lo puede hacer cualquiera: se hace en el muelle."""
@@ -615,8 +616,11 @@ def add_lot(ingredient_id: int, request: Request, item_id: int = Form(...),
     _guard(request, session, user, auth_session, csrf)
     item = _own(session, user, IngredientItem, item_id, request)
     try:
+        # `qty_g` son gramos y solo lo mandan los ingredientes que se pesan;
+        # `qty` es la unidad del ingrediente —litros, unidades— y también el
+        # nombre de antes, de cuando los kilos se escribían en kilos.
         costing.receive(session, user, item,
-                        qty=exacto.leer(qty) or 0.0,
+                        qty=pesos.de_dos(qty_g, qty, 0.0) or 0.0,
                         unit_cost=exacto.leer(unit_cost, decimales=exacto.CENTIMOS_DECIMALES) or 0.0,
                         expiry=date.fromisoformat(expiry), lot_code=lot_code.strip() or None)
     except ValueError as e:
@@ -664,7 +668,8 @@ def waste_page(request: Request, ctx=Depends(require_user),
 
 
 @app.post("/merma", response_class=HTMLResponse)
-def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
+def record_waste(request: Request, g: str = Form(""), kg: str = Form(""),
+                 serial: str = Form(""),
                  ingredient_id: str = Form(""), pieces: str = Form(""), reason: str = Form(""),
                  csrf: str = Form(""), ctx=Depends(require_user),
                  session: Session = Depends(get_db)):
@@ -673,7 +678,7 @@ def record_waste(request: Request, kg: str = Form(...), serial: str = Form(""),
     _guard(request, session, user, auth_session, csrf)
     try:
         result = waste.record(
-            session, user, kg=exacto.leer(kg) or 0.0,
+            session, user, kg=pesos.de_dos(g, kg, 0.0) or 0.0,
             serial=serial.strip() or None,
             ingredient_id=int(ingredient_id) if ingredient_id.strip() else None,
             pieces=int(pieces) if pieces.strip() else None,
@@ -724,7 +729,8 @@ def inventory_page(request: Request, ctx=Depends(require_user),
 
 
 @app.post("/inventario/recuperar")
-def recover_piece(request: Request, serial: str = Form(...), kg: str = Form(""),
+def recover_piece(request: Request, serial: str = Form(...), g: str = Form(""),
+                  kg: str = Form(""),
                   note: str = Form(""), csrf: str = Form(""),
                   ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     """La pieza ha aparecido: vuelve al stock, con quién y por qué."""
@@ -732,7 +738,7 @@ def recover_piece(request: Request, serial: str = Form(...), kg: str = Form(""),
     _guard(request, session, user, auth_session, csrf)
     try:
         inventory.recover(session, user, serial.strip(),
-                          kg=exacto.leer(kg) if kg.strip() else None,
+                          kg=pesos.de_dos(g, kg),
                           note=note.strip() or None,
                           lang=lang_for(request, session, user))
     except (inventory.InventoryError, ValueError) as e:
@@ -742,15 +748,18 @@ def recover_piece(request: Request, serial: str = Form(...), kg: str = Form(""),
 
 @app.post("/inventario/alta")
 def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(...),
-                kg: str = Form(...), unit_cost: str = Form(...), expiry: str = Form(...),
+                g: str = Form(""), kg: str = Form(""),
+                unit_cost: str = Form(...), expiry: str = Form(...),
                 note: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     """Estaba en cámara y el sistema no la tenía."""
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
+        # `g` son gramos y lo manda lo que se pesa; `kg` es la unidad del
+        # artículo cuando no se pesa, y el nombre de antes.
         inventory.adopt(session, user, serial.strip(), item_id,
-                        kg=exacto.leer(kg) or 0.0,
+                        kg=pesos.de_dos(g, kg, 0.0) or 0.0,
                         unit_cost=exacto.leer(unit_cost, decimales=exacto.CENTIMOS_DECIMALES) or 0.0,
                         expiry=date.fromisoformat(expiry), note=note.strip() or None,
                         lang=lang_for(request, session, user))
@@ -803,10 +812,13 @@ async def record_count(request: Request, ctx=Depends(require_user),
     if count is None:
         raise HTTPException(status_code=404, detail="")
     for key, value in form.multi_items():
-        if not key.startswith("kg:") or not str(value).strip():
+        # `g:` es la casilla de ahora; `kg:` la de antes, que solo puede venir
+        # de la cola de un teléfono con la pantalla vieja abierta.
+        en_gramos = key.startswith("g:")
+        if not (en_gramos or key.startswith("kg:")) or not str(value).strip():
             continue
         try:
-            kg = exacto.leer(value)
+            kg = pesos.leer(value) if en_gramos else exacto.leer(value)
         except ValueError:
             continue
         try:
@@ -814,10 +826,12 @@ async def record_count(request: Request, ctx=Depends(require_user),
         except inventory.InventoryError:
             continue
     extra = (form.get("extra_serial") or "").strip()
-    if extra and str(form.get("extra_kg") or "").strip():
+    if extra and (str(form.get("extra_g") or "").strip()
+                  or str(form.get("extra_kg") or "").strip()):
         try:
             inventory.record(session, user, count, extra,
-                             exacto.leer(form.get("extra_kg")) or 0.0)
+                             pesos.del_formulario(form, "extra_g", "extra_kg",
+                                                  default=0.0) or 0.0)
         except (ValueError, inventory.InventoryError):
             pass
     return RedirectResponse("/inventario", status_code=303)
@@ -907,7 +921,8 @@ def recipe_detail(code: str, request: Request, ctx=Depends(require_user),
 
 @app.post("/recetas/{code}/linea")
 def add_recipe_line(code: str, request: Request, component: str = Form(...),
-                    qty: float = Form(...), waste_pct: float = Form(0.0),
+                    qty_g: str = Form(""), qty: str = Form(""),
+                    waste_pct: float = Form(0.0),
                     csrf: str = Form(""), ctx=Depends(require_manager_user),
                     session: Session = Depends(get_db)):
     """`component` llega como «ing:3» o «rec:7»."""
@@ -918,7 +933,11 @@ def add_recipe_line(code: str, request: Request, component: str = Form(...),
     if recipe is None:
         raise HTTPException(status_code=404, detail="")
     kind, _, raw = component.partition(":")
-    line = RecipeLine(recipe_id=recipe.id, qty=qty, waste_pct=waste_pct,
+    # `qty_g` son gramos y lo manda lo que se pesa; `qty` es la unidad del
+    # componente —litros, unidades— y el nombre de antes.
+    line = RecipeLine(recipe_id=recipe.id,
+                      qty=pesos.de_dos(qty_g, qty, 0.0) or 0.0,
+                      waste_pct=waste_pct,
                       sort_order=len(recipe.lines) * 10)
     if kind == "ing":
         line.ingredient_id = _own(session, user, Ingredient, int(raw), request).id

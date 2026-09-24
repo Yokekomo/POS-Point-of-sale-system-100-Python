@@ -256,7 +256,7 @@ class TestScreens:
         assert "en espera" in pagina.text                 # lo dice antes de tocar nada
 
         salida = client.post("/descongelado/salida",
-                             data={"serial": "TG-0001·01", "pieces": 5, "total_kg": "1,5",
+                             data={"serial": "TG-0001·01", "pieces": 5, "total_g": "1500",
                                    "shift": "", "csrf": csrf_from(pagina.text)})
         assert salida.status_code == 303
         # El número con el que sale del arcón se dice en la pantalla de

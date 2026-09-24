@@ -260,6 +260,11 @@ img,svg,video{max-width:100%;height:auto}
   function pintar(casilla) {
     var eco = casilla.parentNode && casilla.parentNode.querySelector("[data-eco]");
     if (!eco) return;
+    // La casilla pudo dejar de ser de peso desde que se enganchó —en las
+    // recetas cambia según el ingrediente—: entonces no hay nada que decir.
+    if (!casilla.hasAttribute("data-peso")) {
+      eco.textContent = ""; eco.removeAttribute("data-mal"); return;
+    }
     var escrito = (casilla.value || "").replace(/[\s.  ]/g, "");
     if (!escrito) { eco.textContent = ""; eco.removeAttribute("data-mal"); return; }
     // Una coma en gramos casi siempre son kilos mal puestos. Se dice aquí,
