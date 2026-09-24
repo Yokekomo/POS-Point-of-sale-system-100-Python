@@ -181,8 +181,16 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 - [ ] **A una casa en marcha no le llega ninguna columna NOT NULL nueva**, ni
       las reglas UNIQUE, ni los valores nuevos de listas cerradas en PostgreSQL.
       Y la migración no dice ni una palabra.
-- [ ] **El lote hijo se escribe antes de comprobar que quedan kilos:** aparecen
-      kilos de la nada.
+- [x] **El lote hijo se escribe antes de comprobar que quedan kilos:** aparecen
+      kilos de la nada. Pasaba al sacar del arcón y al mandar a otra sede: si
+      la resta fallaba —otra persona se había llevado esos kilos un segundo
+      antes— se levantaba el error y la pantalla lo decía, pero **el hijo
+      quedaba escrito igual**, porque la petición terminaba bien y la sesión
+      se guardaba. En la cámara quedaba un número con kilos que no habían
+      salido de ninguna parte, y el padre seguía teniéndolos: la misma carne
+      dos veces. Ahora primero se sacan los kilos y solo después nace el
+      número que los lleva. Un error que se ve se arregla; uno que deja carne
+      inventada en el inventario no lo ve nadie hasta el recuento.
 - [ ] **Un despiece de varias piezas que choca a mitad deja piezas marcadas como
       cortadas** sin cortes detrás.
 
@@ -212,6 +220,11 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       guardaba 15, el «1.250» que se guardaba 1,25 y los rangos de proceso.
       `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
       `tests/test_rangos.py`.
+
+- [x] **El número que nacía sin kilos que llevar.** Al descongelar y al
+      trasladar, el lote hijo se escribía antes de comprobar que quedaban
+      kilos en el padre. Dos pruebas que reproducen la carrera de verdad, y
+      que fallan contra el código de antes.
 
 - [x] **Los seis de los formularios**: el «4 C» de la temperatura y el
       «32 eur» de los precios, que tumbaban la pantalla; lo tecleado que se

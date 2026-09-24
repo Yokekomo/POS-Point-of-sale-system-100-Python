@@ -203,3 +203,68 @@ def test_the_manager_sets_the_days(client):
         assert s.query(Restaurant).filter(
             Restaurant.platform.isnot(True)).one().thaw_days == 5
     assert "5" in client.get("/configuracion").text
+
+
+# ================================== el número que nacía sin kilos que llevar
+#
+# El hijo se escribía antes de comprobar que quedaban kilos en el padre. Si la
+# resta fallaba —otra persona se había llevado esos kilos un segundo antes— se
+# levantaba el error, la pantalla lo decía, el de fuera lo leía y se iba... y
+# el hijo se quedaba escrito igual, porque la petición terminaba bien. En la
+# cámara quedaba un número con kilos que no habían salido de ninguna parte.
+def test_a_thaw_that_loses_the_race_leaves_no_phantom_number(casa):
+    rest_id, user_id, ing_id, item_id = casa
+    with db.session_scope() as s:
+        _lote(s, rest_id, ing_id, item_id, "1010", 9.0, DENTRO_DE_UN_AÑO, True)
+
+    # La carrera de verdad: se abre la pantalla con nueve kilos delante y, un
+    # segundo antes de darle, otra persona se lleva casi todo. La pantalla
+    # levanta el error, lo enseña y contesta: la petición termina **bien** y
+    # la sesión se guarda. Eso es lo que dejaba el número fantasma.
+    with db.session_scope() as s:
+        user = s.get(User, user_id)
+        lote = s.query(IngredientLot).filter_by(restaurant_id=rest_id,
+                                                serial="1010").one()
+        (s.query(IngredientLot).filter_by(id=lote.id)
+         .update({"qty_remaining": 0.5}, synchronize_session=False))
+        with pytest.raises(defrost.DefrostError):
+            defrost.thaw(s, user, lote, 4.0, 1, on=HOY)
+
+    with db.session_scope() as s:
+        assert s.query(IngredientLot).filter(
+            IngredientLot.serial.like("1010·%")).count() == 0
+        quedo = s.query(IngredientLot).filter_by(restaurant_id=rest_id,
+                                                 serial="1010").one()
+        assert quedo.qty_remaining == 0.5      # ni un kilo de más ni de menos
+        assert quedo.pieces == 1               # ni una pieza descontada
+
+
+def test_and_neither_does_a_transfer(casa):
+    rest_id, user_id, ing_id, item_id = casa
+    from thegrill.models import Site, SiteKind
+    from thegrill.web import sites
+    with db.session_scope() as s:
+        obrador = Site(restaurant_id=rest_id, name="Obrador", kind=SiteKind.WAREHOUSE)
+        playa = Site(restaurant_id=rest_id, name="Playa", kind=SiteKind.OUTLET)
+        s.add_all([obrador, playa]); s.flush()
+        lote = _lote(s, rest_id, ing_id, item_id, "1011", 9.0,
+                     HOY + timedelta(days=20), False)
+        lote.site_id = obrador.id
+
+    with db.session_scope() as s:
+        user = s.get(User, user_id)
+        playa_id = s.query(Site).filter_by(restaurant_id=rest_id, name="Playa").one().id
+        lote = s.query(IngredientLot).filter_by(restaurant_id=rest_id,
+                                                serial="1011").one()
+        (s.query(IngredientLot).filter_by(id=lote.id)
+         .update({"qty_remaining": 0.5}, synchronize_session=False))
+        with pytest.raises(sites.SiteError):
+            sites.send_cut(s, user, "1011", 4.0, playa_id, on=HOY)
+
+    with db.session_scope() as s:
+        assert s.query(IngredientLot).filter(
+            IngredientLot.serial.like("1011·%")).count() == 0
+        quedo = s.query(IngredientLot).filter_by(restaurant_id=rest_id,
+                                                 serial="1011").one()
+        assert quedo.qty_remaining == 0.5
+        assert quedo.pieces == 1

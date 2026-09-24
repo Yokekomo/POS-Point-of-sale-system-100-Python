@@ -122,7 +122,19 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
     salen = pieces if pieces > 0 else None
     if lot.pieces and lot.qty_remaining > EPSILON:
         salen = min(lot.pieces, salen or max(1, int(round(lot.pieces * movido / lot.qty_remaining))))
-        lot.pieces = max(0, lot.pieces - salen)
+
+    # Primero se sacan los kilos del arcón y solo después nace el número que
+    # los lleva. Al revés —que es como estaba— el hijo quedaba escrito aunque
+    # la resta fallara: la pantalla decía que no quedaban kilos, el de fuera lo
+    # leía y se iba, y en la cámara quedaba un número con kilos que no había
+    # salido de ninguna parte. Un error que se ve se arregla; uno que deja
+    # carne inventada en el inventario no lo ve nadie hasta el recuento.
+    if not locking.take(session, IngredientLot, lot.id, "qty_remaining", movido):
+        raise DefrostError(
+            f"Del número {lot.serial} ya no quedan {movido:.10g} kg en el congelador: "
+            "otra persona acaba de sacarlos. Mira lo que queda y repítelo.")
+    if salen:
+        lot.pieces = max(0, (lot.pieces or 0) - salen)
     hijo = IngredientLot(
         restaurant_id=lot.restaurant_id, item_id=lot.item_id,
         ingredient_id=lot.ingredient_id, lot_code=lot.lot_code,
@@ -137,10 +149,6 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
         nominal_piece_g=lot.nominal_piece_g, grade=lot.grade, origin=lot.origin,
         frozen=False, site_id=lot.site_id, chamber=lot.chamber)
     session.add(hijo)
-    if not locking.take(session, IngredientLot, lot.id, "qty_remaining", movido):
-        raise DefrostError(
-            f"Del número {lot.serial} ya no quedan {movido:.10g} kg en el congelador: "
-            "otra persona acaba de sacarlos. Mira lo que queda y repítelo.")
     session.flush()
     # Lo que sale del arcón no se ha vendido ni se ha tirado, pero del número
     # han salido kilos: quedan apuntados en los dos, o el lote no se explica.

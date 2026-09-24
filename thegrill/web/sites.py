@@ -324,7 +324,18 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
         piezas = None
         if lot.pieces and lot.qty_remaining > EPSILON:
             piezas = max(1, int(round(lot.pieces * movido / lot.qty_remaining)))
-            lot.pieces = max(0, lot.pieces - piezas)
+
+        # Los kilos se sacan del lote **antes** de que nazca el número que los
+        # lleva. Al revés, el hijo quedaba escrito aunque la resta fallara: el
+        # local de destino se encontraba un número con kilos que nunca
+        # salieron del obrador, y el obrador seguía teniéndolos. Dos veces la
+        # misma carne, y nadie lo ve hasta el recuento.
+        if not locking.take(session, IngredientLot, lot.id, "qty_remaining", movido):
+            raise SiteError(
+                f"Del lote {lot.serial} ya no quedan {movido:.10g} kg: otra persona "
+                "acaba de mandar o gastar parte. Mira lo que queda y repítelo.")
+        if piezas:
+            lot.pieces = max(0, (lot.pieces or 0) - piezas)
         hijo = IngredientLot(
             restaurant_id=user.restaurant_id, item_id=lot.item_id,
             ingredient_id=lot.ingredient_id, lot_code=lot.lot_code, serial=nuevo_serial,
@@ -333,15 +344,10 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
             unit_cost=lot.unit_cost, pieces=piezas, piece_weight_g=lot.piece_weight_g,
             nominal_piece_g=lot.nominal_piece_g, grade=lot.grade, origin=lot.origin,
             frozen=lot.frozen, site_id=destino.id)     # sin cámara: la de allí la ponen ellos
+        # La resta va dentro de la orden, no en Python: dos personas mandando
+        # del mismo lote a la vez sacaban cada una lo suyo sobre el mismo
+        # número de partida, y del lote salían más kilos de los que tenía.
         session.add(hijo)
-        # Los kilos se sacan del lote con la resta dentro de la orden: dos
-        # personas mandando del mismo lote a la vez sacaban cada una lo suyo
-        # sobre el mismo número de partida, y del lote salían más kilos de los
-        # que tenía.
-        if not locking.take(session, IngredientLot, lot.id, "qty_remaining", movido):
-            raise SiteError(
-                f"Del lote {lot.serial} ya no quedan {movido:.10g} kg: otra persona "
-                "acaba de mandar o gastar parte. Mira lo que queda y repítelo.")
         session.flush()
         journal_split(session, user, lot, hijo, movido, on, "transfer", destino.name)
 
