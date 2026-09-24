@@ -35,9 +35,9 @@ from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, Cou
                              PrimalStatus, Recipe, RequestStatus, Restaurant, Role,
                              Rotation, Site, SiteKind, Storage, Unit, User)
 from thegrill.models import BugStatus
-from thegrill.web import (aging, auth, butchery, cifras, costing, cuadre, defrost,
-                          exacto, i18n, inventory, jornada, money, pos_import,
-                          service, sites, tracing, twofactor, waste)
+from thegrill.web import (aging, auth, butchery, caducidad, cifras, costing, cuadre,
+                          defrost, exacto, i18n, inventory, jornada, money,
+                          pos_import, service, sites, tracing, twofactor, waste)
 
 log = logging.getLogger(__name__)
 
@@ -2381,6 +2381,7 @@ def _settings(request: Request, user, auth_session, session, saved: bool = False
                 currencies=money.MONEDAS,
                 zonas=ZONAS, horas_cierre=list(range(jornada.MAXIMO + 1)),
                 cierre=jornada.corte(restaurant),
+                dias_descongelado=caducidad.dias(restaurant),
                 version=version.actual(),
                 codes=codes or [],
                 tfa_uri=twofactor.uri(user.totp_secret or "", user.email,
@@ -2393,7 +2394,8 @@ def _settings(request: Request, user, auth_session, session, saved: bool = False
 def save_settings(request: Request, language: str = Form(...),
                   restaurant_language: str = Form(""), pos_match: str = Form(""),
                   currency: str = Form(""), timezone_name: str = Form("", alias="timezone"),
-                  day_cut_hour: str = Form(""), csrf: str = Form(""),
+                  day_cut_hour: str = Form(""), thaw_days: str = Form(""),
+                  csrf: str = Form(""),
                   ctx=Depends(require_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
@@ -2417,6 +2419,12 @@ def save_settings(request: Request, language: str = Form(...),
                 try:
                     restaurant.day_cut_hour = max(0, min(jornada.MAXIMO,
                                                          int(day_cut_hour)))
+                except ValueError:
+                    pass
+            if thaw_days.strip():
+                try:
+                    restaurant.thaw_days = max(1, min(caducidad.MAXIMO,
+                                                      int(thaw_days)))
                 except ValueError:
                     pass
     response = RedirectResponse("/configuracion?saved=1", status_code=303)

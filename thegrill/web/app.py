@@ -25,8 +25,9 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, Co
                              RecipeKind, RecipeLine, Restaurant, Role, Rotation,
                              TemplateField, Unit, User)
 
-from thegrill.web import (auth, butchery, cifras, costing, exacto, i18n, inventory,
-                          jornada, money, seguridad, service, sheets, tracing, waste)
+from thegrill.web import (auth, butchery, caducidad, cifras, costing, exacto, i18n,
+                          inventory, jornada, money, seguridad, service, sheets,
+                          tracing, waste)
 from thegrill.web.seed import seed_templates
 
 # Las zonas horarias que existen, para el desplegable de la configuración y
@@ -1047,6 +1048,7 @@ def settings_page(request: Request, ctx=Depends(require_user),
                 error=error, pos_modes=list(PosMatch), currencies=money.MONEDAS,
                 zonas=ZONAS, horas_cierre=list(range(jornada.MAXIMO + 1)),
                 cierre=jornada.corte(restaurant),
+                dias_descongelado=caducidad.dias(restaurant),
                 version=version.actual())
 
 
@@ -1054,7 +1056,8 @@ def settings_page(request: Request, ctx=Depends(require_user),
 def save_settings(request: Request, language: str = Form(...),
                   restaurant_language: str = Form(""), pos_match: str = Form(""),
                   currency: str = Form(""), timezone_name: str = Form("", alias="timezone"),
-                  day_cut_hour: str = Form(""), csrf: str = Form(""),
+                  day_cut_hour: str = Form(""), thaw_days: str = Form(""),
+                  csrf: str = Form(""),
                   ctx=Depends(require_user), session: Session = Depends(get_db)):
     user, auth_session = ctx
     try:
@@ -1078,6 +1081,12 @@ def save_settings(request: Request, language: str = Form(...),
                 try:
                     restaurant.day_cut_hour = max(0, min(jornada.MAXIMO,
                                                          int(day_cut_hour)))
+                except ValueError:
+                    pass
+            if thaw_days.strip():
+                try:
+                    restaurant.thaw_days = max(1, min(caducidad.MAXIMO,
+                                                      int(thaw_days)))
                 except ValueError:
                     pass
     response = RedirectResponse("/configuracion?saved=1", status_code=303)

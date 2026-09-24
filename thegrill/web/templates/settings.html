@@ -69,6 +69,13 @@
   </select>
   <div class="help">{{ t("settings.day_cut_help", hora="%02d:00"|format(cierre)) }}</div>
 
+  {# Cuánto dura lo descongelado. Lo pone el plan de autocontrol de la casa, no
+     el programa: aquí solo se guarda y se usa para la rotación. #}
+  <label for="thaw_days">{{ t("settings.thaw_days") }}</label>
+  <input id="thaw_days" name="thaw_days" inputmode="numeric" style="max-width:110px"
+         value="{{ dias_descongelado }}">
+  <div class="help">{{ t("settings.thaw_days_help", n=dias_descongelado) }}</div>
+
   <label for="pos_match">{{ t("settings.pos_match") }}</label>
   <select id="pos_match" name="pos_match">
     {% for m in pos_modes %}

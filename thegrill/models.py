@@ -216,6 +216,9 @@ class Restaurant(Base):
     # servicio de anoche, no del día que acaba de empezar. Vacío quiere decir
     # «la de la casa», que son las tres; el manager puede poner otra.
     day_cut_hour: Mapped[int | None] = mapped_column(Integer)
+    # Cuántos días dura lo que se ha descongelado. Vacío quiere decir «los de
+    # la casa», que son tres; cada plan de autocontrol pone los suyos.
+    thaw_days: Mapped[int | None] = mapped_column(Integer)
     # La moneda en la que cobra y paga esta casa. Se elige en la
     # configuración; lo que se enseña al lado de cada cifra sale de aquí.
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
@@ -855,6 +858,11 @@ class IngredientLot(TenantMixin, Base):
     # Cortado de una pieza congelada: la porción nace congelada y no se vende
     # hasta que alguien la saca a descongelar.
     frozen: Mapped[bool | None] = mapped_column(Boolean, default=False)
+    # La fecha que traía en el congelador, para cuando se saca. Al
+    # descongelarse manda la de después —tres días, no diez meses— y `expiry`
+    # pasa a ser esa; la de antes se guarda aquí porque sigue siendo verdad y
+    # es la que hay que poder enseñar si alguien pregunta de dónde salió.
+    frozen_expiry: Mapped[date | None] = mapped_column(Date)
     chamber: Mapped[str | None] = mapped_column(String(48), index=True)
     # La sede donde está: se añadió después, y a una tabla que ya existe no
     # se le puede colgar una clave ajena en SQLite. Va como número con

@@ -31,8 +31,9 @@ from sqlalchemy.orm import Session
 
 from thegrill.models import (Alert, AlertSeverity, AuditLog, IngredientItem, IngredientLot,
                              IngredientMovement, LossKind, MovementKind, Primal,
-                             PrimalStatus, PrimalWeighing, Storage, User, WeightSale)
-from thegrill.web import exacto, jornada, rangos, service, sites
+                             PrimalStatus, PrimalWeighing, Restaurant, Storage, User,
+                             WeightSale)
+from thegrill.web import caducidad, exacto, jornada, rangos, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -385,9 +386,15 @@ def move(session: Session, user: User, serial: str, storage: Storage,
         primal.aging_target_days = None
     if storage == Storage.FROZEN and use_by:
         primal.frozen_use_by = use_by
-    if storage != Storage.FROZEN:
-        # Sale del congelador: la fecha del congelador deja de mandar.
-        primal.frozen_use_by = None if was == Storage.FROZEN else primal.frozen_use_by
+    if storage != Storage.FROZEN and was == Storage.FROZEN:
+        # Sale del congelador. La fecha del congelador deja de mandar, pero
+        # borrarla a secas dejaba a la pieza **sin ninguna fecha**: una que
+        # llegó congelada no trae más que esa, y al descongelarla se quedaba
+        # sin caducidad, sin aviso y sin sitio en la cola de rotación. Lo que
+        # manda ahora es la de después de descongelar.
+        primal.expiry_label = caducidad.tras_descongelar(
+            primal.expiry_label, on, session.get(Restaurant, primal.restaurant_id))
+        primal.frozen_use_by = None
 
     _audit(session, user, primal.serial, f"{was.value} → {storage.value}", note)
     session.flush()

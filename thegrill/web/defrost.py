@@ -25,7 +25,7 @@ from thegrill.engine.recipes import explode
 from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, DefrostEntry, DefrostKind,
                              Ingredient, IngredientLot, IngredientMovement, MovementKind,
                              SalesByProduct, ShiftClosure, User)
-from thegrill.web import aging, costing, jornada, locking, service, sites
+from thegrill.web import aging, caducidad, costing, jornada, locking, service, sites
 from thegrill.web.i18n import t
 
 EPSILON = 1e-6
@@ -106,8 +106,15 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
         raise DefrostError(
             f"Para sacar del congelador el número {lot.serial} hace falta su peso: "
             f"es lo que deja de estar en espera.")
+    dia = on or jornada.del_usuario(session, user)
+    casa = caducidad.de_la_casa(session, lot.restaurant_id)
     if kg >= lot.qty_remaining - EPSILON:
         lot.frozen = False                      # sale entero: se despierta entero
+        # Y con la fecha de lo descongelado, no con la del arcón. La del arcón
+        # se guarda: sigue siendo verdad y hay que poder enseñarla.
+        if lot.frozen_expiry is None:
+            lot.frozen_expiry = lot.expiry
+        lot.expiry = caducidad.tras_descongelar(lot.expiry, dia, casa)
         session.flush()
         return lot
 
@@ -121,7 +128,11 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
         ingredient_id=lot.ingredient_id, lot_code=lot.lot_code,
         serial=_thaw_serial(session, lot.restaurant_id, lot.serial),
         parent_serial=lot.parent_serial or lot.serial, parent_lot=lot.parent_lot,
-        expiry=lot.expiry, received=lot.received, qty=movido, qty_remaining=movido,
+        # Lo que sale del arcón caduca como lo descongelado y no como lo
+        # congelado, que es lo que decide su sitio en la cola de rotación.
+        expiry=caducidad.tras_descongelar(lot.expiry, dia, casa),
+        frozen_expiry=lot.frozen_expiry or lot.expiry,
+        received=lot.received, qty=movido, qty_remaining=movido,
         unit_cost=lot.unit_cost, pieces=salen, piece_weight_g=lot.piece_weight_g,
         nominal_piece_g=lot.nominal_piece_g, grade=lot.grade, origin=lot.origin,
         frozen=False, site_id=lot.site_id, chamber=lot.chamber)
@@ -133,7 +144,7 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
     session.flush()
     # Lo que sale del arcón no se ha vendido ni se ha tirado, pero del número
     # han salido kilos: quedan apuntados en los dos, o el lote no se explica.
-    sites.journal_split(session, user, lot, hijo, movido, on or jornada.del_usuario(session, user), "defrost",
+    sites.journal_split(session, user, lot, hijo, movido, dia, "defrost",
                         "descongelado")
     return hijo
 

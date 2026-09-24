@@ -100,12 +100,21 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 
 ## 4. Fechas y trazabilidad
 
-- [ ] **Lo que sale del arcón se queda con la fecha del congelador**
-      (`defrost.py:124`), así que FEFO lo manda al final de la cola y nunca sale
-      en «caduca pronto». Se sirve descongelado de la semana pasada.
-- [ ] **Descongelar una pieza entera borra su única fecha** (`aging.py:388`) y
-      el despiece se planta con «una fecha no se inventa», sin sitio donde
-      meterla.
+- [x] **Lo que sale del arcón se queda con la fecha del congelador**
+      (`defrost.py:124`), así que FEFO lo mandaba al final de la cola y nunca
+      salía en «caduca pronto»: la bandeja que había que gastar esta semana
+      esperando detrás de la que aguanta hasta el año que viene. Ahora lo
+      descongelado caduca como lo descongelado —tres días de serie, los que
+      diga la casa en su configuración— y **nunca más tarde de lo que ya
+      decía su etiqueta**, porque descongelar no alarga nada. La fecha del
+      arcón no se borra: se guarda aparte, que sigue siendo verdad y hay que
+      poder enseñarla. `caducidad.py`.
+- [x] **Descongelar una pieza entera borra su única fecha** (`aging.py:388`).
+      Una pieza que llegó congelada no trae más fecha que la del arcón, y al
+      sacarla se quedaba sin caducidad, sin aviso y sin sitio en la cola —y
+      el despiece se plantaba con «una fecha no se inventa». Ahora al salir
+      del congelador se le pone la de después de descongelar, que es la que
+      manda de verdad.
 - [x] **El día de trabajo sale del reloj del servidor.** `Restaurant.timezone`
       se pedía, se guardaba y no lo leía nadie. Ahora hay un `jornada.py` que
       responde a una sola pregunta —cuándo es hoy en esta casa— y lo hace con
@@ -171,6 +180,10 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       guardaba 15, el «1.250» que se guardaba 1,25 y los rangos de proceso.
       `exacto.leer`, `rangos.py`, `tests/test_numeros.py` y
       `tests/test_rangos.py`.
+
+- [x] **Lo descongelado sale primero.** Caduca como lo descongelado y no como
+      lo congelado, que es lo que decide su sitio en la cola de rotación. Los
+      días los pone la casa. `caducidad.py`, `tests/test_caducidad.py`.
 
 - [x] **Cuándo es hoy.** La zona horaria de la casa y la hora a la que cierra
       el día, elegible por el manager. `jornada.py`, `tests/test_jornada.py`.
