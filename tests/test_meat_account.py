@@ -945,3 +945,53 @@ def test_nobody_but_the_owner_touches_the_price(client):
     with db.session_scope() as s:
         from thegrill.meat import tarifa
         assert tarifa.publicada(s).normal == 99.0
+
+
+def test_the_owner_has_the_explanation_link_at_hand(client):
+    """El enlace que se manda a quien pregunta cómo funciona esto.
+
+    Está en la consola del dueño porque ahí es donde se necesita: llega un
+    correo preguntando, se copia y se manda, sin ir a buscarlo a ningún sitio.
+
+    La dirección sale de una variable de entorno y no está escrita en la
+    plantilla: cambiar a dónde apunta —una versión nueva de la página, la
+    página en otro sitio— es una decisión de un martes cualquiera y no puede
+    depender de un despliegue.
+    """
+    from thegrill import config
+
+    dueno = como_dueno(client)
+    pantalla = dueno.get("/admin").text
+    assert config.PAGINA_RECORRIDO in pantalla
+    assert 'id="copiarenlace"' in pantalla
+    # Y escrito, para poder cogerlo a mano si el navegador no deja copiar.
+    assert f"<code>{config.PAGINA_RECORRIDO}</code>" in pantalla
+
+
+def test_only_the_owner_sees_it(client):
+    """Es la consola de la plataforma: la carnicería de una casa no entra."""
+    from thegrill import config
+
+    dueno = como_dueno(client)
+    alta_de_casa(dueno)
+    manager = sesion("manager@marina.com")
+    assert manager.get("/admin").status_code == 404      # ni se insinúa que existe
+    assert config.PAGINA_RECORRIDO not in manager.get("/hoy").text
+
+
+def test_the_link_can_be_moved_without_touching_the_code(client, monkeypatch):
+    """Otra dirección en la variable de entorno y la pantalla la enseña."""
+    import importlib
+
+    from thegrill import config
+
+    monkeypatch.setenv("GRILL_PAGINA_RECORRIDO", "https://ejemplo.test/recorrido")
+    importlib.reload(config)
+    try:
+        from thegrill.meat import app as meatapp
+        monkeypatch.setattr(meatapp.config, "PAGINA_RECORRIDO", config.PAGINA_RECORRIDO)
+        pantalla = como_dueno(client).get("/admin").text
+        assert "https://ejemplo.test/recorrido" in pantalla
+    finally:
+        monkeypatch.delenv("GRILL_PAGINA_RECORRIDO", raising=False)
+        importlib.reload(config)

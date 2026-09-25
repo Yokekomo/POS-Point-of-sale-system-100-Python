@@ -1,5 +1,18 @@
 """[00065] Constantes de negocio. Todo lo que hoy está disperso en scripts vive aquí."""
+import os
 from dataclasses import dataclass, field
+
+# [01672] --------------------------------------------------- la página que lo explica
+# El recorrido de una pieza del muelle al plato, dibujado, para mandárselo a
+# quien pregunte cómo funciona esto. Sale en la consola del dueño, con su botón
+# de copiar.
+#
+# Va en una variable de entorno y no escrito en la plantilla porque cambiar a
+# dónde apunta —una versión nueva, la página en otro sitio— es una decisión de
+# un martes cualquiera y no puede depender de un despliegue.
+PAGINA_RECORRIDO = os.environ.get(
+    "GRILL_PAGINA_RECORRIDO",
+    "https://claude.ai/artifact/TXzfKiQ1aPFbr1W3FHGWA9")
 
 # ----------------------------------------------------------------- Moneda / FX
 IQD_PER_USD = 1550.0          # FX fijo del negocio

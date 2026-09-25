@@ -26,7 +26,7 @@ from starlette.datastructures import UploadFile   # el de request.form()
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from thegrill import db, version
+from thegrill import config, db, version
 from thegrill.meat import (billing, bugs, gateway, mailer, novedades, perms, privacy,
                            security, tarifa, tours, tutorial)
 from thegrill.meat import service as meat
@@ -2492,6 +2492,9 @@ def admin_home(request: Request, ctx=Depends(require_owner),
                 trial_left=billing.trial_left,
                 mail_ready=mailer.configured(),
                 encryption_on=privacy.encryption_on(),
+                # [01673] La página que explica el recorrido de una pieza, para
+                # mandársela a quien pregunte cómo funciona esto.
+                recorrido=config.PAGINA_RECORRIDO,
                 # [00405] El parte de la última actualización de la base. Una
                 # migración que se calla es peor que una que falla: el
                 # programa arranca, parece que todo está bien, y lo que falta

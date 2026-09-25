@@ -24,6 +24,30 @@
 
 {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
 
+{# [01674] La página que explica el recorrido de una pieza, dibujado. Va aquí arriba
+   porque su trabajo es que esté a mano el día que alguien pregunta «¿y esto
+   cómo funciona?»: se copia el enlace y se manda, sin buscarlo en ningún
+   sitio. La dirección sale de `GRILL_PAGINA_RECORRIDO`, no está escrita en la
+   plantilla: cambiar a dónde apunta es cosa de un martes, no de un
+   despliegue. #}
+{% if recorrido %}
+<div class="card">
+  <b>{{ t("adm.explain") }}</b>
+  <p class="help" style="margin:6px 0 12px">{{ t("adm.explain_help") }}</p>
+  <div class="rowflex" style="gap:10px;flex-wrap:wrap;align-items:center">
+    <a class="btn primary small" href="{{ recorrido }}" target="_blank"
+       rel="noopener">{{ t("adm.explain_open") }}</a>
+    <button class="btn ghost small" type="button" id="copiarenlace"
+            data-enlace="{{ recorrido }}"
+            data-hecho="{{ t('adm.explain_copied') }}">{{ t("adm.explain_copy") }}</button>
+  </div>
+  {# [01675] El enlace, escrito y seleccionable: si copiar falla —un navegador viejo,
+     un permiso— sigue estando para cogerlo a mano. #}
+  <p class="muted" style="margin:10px 0 0;word-break:break-all;font-size:13px">
+    <code>{{ recorrido }}</code></p>
+</div>
+{% endif %}
+
 {# [01536] La tarifa que ve quien entra en la web de venta. Se cambia desde aquí y no
    tocando el código: salir con una rebaja de fundador y quitarla el día que
    haya clientes suficientes es una decisión de negocio, y no puede depender
@@ -249,4 +273,33 @@
   <button class="wide" type="submit">{{ t("adm.new_account") }}</button>
 </form>
 </div>
+{# [01676] Copiar el enlace sin salir de la pantalla. Si el navegador no deja —los
+   viejos y algunos permisos—, se selecciona el texto para cogerlo a mano: lo
+   que no puede pasar es que el botón no haga nada y no lo diga. #}
+<script nonce="{{ nonce }}">
+(function () {
+  var boton = document.getElementById("copiarenlace");
+  if (!boton) { return; }
+  var decia = boton.textContent;
+  boton.addEventListener("click", function () {
+    var enlace = boton.getAttribute("data-enlace");
+    function dicho() {
+      boton.textContent = boton.getAttribute("data-hecho");
+      setTimeout(function () { boton.textContent = decia; }, 2200);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(enlace).then(dicho).catch(aMano);
+    } else { aMano(); }
+    function aMano() {
+      var donde = boton.closest(".card").querySelector("code");
+      if (!donde) { return; }
+      var rango = document.createRange();
+      rango.selectNodeContents(donde);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(rango);
+    }
+  });
+})();
+</script>
 {% endblock %}

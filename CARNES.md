@@ -672,6 +672,23 @@ sumarle el transporte a lo que no se sabe lo que cuesta sería inventarse un
 coste. Se queda esperando en «Precios pendientes», y cuando dirección le pone
 el suyo, el flete sigue siendo suyo y se suma entonces.
 
+## La página que lo explica
+
+En la consola del dueño hay un enlace a **el recorrido de una pieza del muelle
+al plato, dibujado**: las tres salidas, cómo se reparte el coste entre los
+cortes y por qué leyendo el número se sabe de dónde viene. Está ahí porque ahí
+es donde se necesita: llega un correo preguntando cómo funciona esto, se copia
+y se manda, sin ir a buscarlo a ningún sitio. Con su botón de copiar y con la
+dirección escrita debajo, por si el navegador no deja copiar.
+
+La dirección sale de `GRILL_PAGINA_RECORRIDO` y no está escrita en la
+plantilla: cambiar a dónde apunta —una versión nueva, la página en otro sitio—
+es una decisión de un martes cualquiera y no puede depender de un despliegue.
+
+```bash
+GRILL_PAGINA_RECORRIDO=https://donde-sea/recorrido
+```
+
 ## Los dos IVA, que no son el mismo
 
 El IVA aparece dos veces y hacen cosas contrarias, así que están en dos sitios
