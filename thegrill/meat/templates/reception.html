@@ -52,6 +52,15 @@
         <input id="duty_kg" name="duty_kg" inputmode="decimal"
                title="{{ t('m.rec.landed_help') }}"
                value="{{ previo.get('duty_kg','') }}"></div>
+      {# [01660] El IVA de la compra. No se suma al kilo a propósito: se recupera al
+         declarar, y meterlo en el coste inflaría el food cost de todos los
+         platos por un dinero que la casa no ha perdido. Se guarda para poder
+         sumar lo que se puede descontar. #}
+      <div><label for="vat_pct" title="{{ t('m.rec.vat_help') }}"
+             >{{ t("m.rec.vat_pct") }} (%)</label>
+        <input id="vat_pct" name="vat_pct" inputmode="decimal" placeholder="10"
+               title="{{ t('m.rec.vat_help') }}"
+               value="{{ previo.get('vat_pct','') }}"></div>
       {% endif %}
       <div><label for="use_by">{{ t("m.rec.use_by") }}</label>
         <input id="use_by" name="use_by" type="date" value="{{ previo.get('use_by','') }}"></div>

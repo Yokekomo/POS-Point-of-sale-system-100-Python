@@ -548,6 +548,18 @@ class Primal(TenantMixin, Base):
     goods_usd_per_kg: Mapped[float | None] = mapped_column(Float)
     freight_usd_per_kg: Mapped[float | None] = mapped_column(Float)
     duty_usd_per_kg: Mapped[float | None] = mapped_column(Float)
+    # [01654] El IVA que se pagó al comprar esta carne, en tanto por ciento.
+    #
+    # **No entra en el coste, y es lo que más importa de este campo.** Ese IVA
+    # se recupera: se descuenta del que se cobra al vender. Meterlo en el kilo
+    # subiría el coste de la carne un diez por ciento largo, y con él el food
+    # cost de cada plato, por un dinero que la casa no ha perdido. Se guarda
+    # aparte para poder sumar lo que se puede descontar en la declaración, que
+    # es para lo que sirve.
+    #
+    # Es el otro IVA: el de la venta va en cada plato —`Recipe.vat_pct`— y sale
+    # del precio antes de calcular el food cost. Este es el de la compra.
+    purchase_vat_pct: Mapped[float | None] = mapped_column(Float)
     status: Mapped[PrimalStatus] = mapped_column(Enum(PrimalStatus), default=PrimalStatus.IN_STOCK)
     status_ref: Mapped[str | None] = mapped_column(String(16))
     status_date: Mapped[date | None] = mapped_column(Date)

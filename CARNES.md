@@ -672,6 +672,32 @@ sumarle el transporte a lo que no se sabe lo que cuesta sería inventarse un
 coste. Se queda esperando en «Precios pendientes», y cuando dirección le pone
 el suyo, el flete sigue siendo suyo y se suma entonces.
 
+## Los dos IVA, que no son el mismo
+
+El IVA aparece dos veces y hacen cosas contrarias, así que están en dos sitios
+distintos y ninguno de los dos toca el coste de la carne:
+
+**El de la venta** va en cada plato de la carta. Sale del precio antes de
+calcular el food cost, porque no es ingreso de la casa: se cobra y se entrega.
+Un plato de 22 € con un 10 % ingresa 20, y el food cost se mide contra esos 20.
+Medirlo contra 22 da un porcentaje más bonito del que es.
+
+**El de la compra** se apunta en la recepción, en el bloque del lote, junto al
+transporte y la aduana. Y ahí está lo que hay que entender: **no se suma al
+coste del kilo**. Ese IVA se recupera —se descuenta del que se cobra al
+vender—, así que no es dinero que la casa pierda. Un lomo a 40 con un 10 %
+cuesta 44 de caja pero **cuesta 40**; metiendo los 4 en el kilo, el food cost
+de todos los platos que llevan ese lomo sube un diez por ciento y la carta
+entera queda mal puesta.
+
+Se guarda porque es lo que se declara. El parte del día trae **lo que se puede
+descontar**: la base, el IVA soportado y lo que se pagó de verdad, de las
+piezas que entraron ese día. En la declaración eso se resta del IVA cobrado en
+las ventas.
+
+En blanco no se supone ninguno. El tipo no es el mismo para la carne que para
+el vino, y suponerlo aquí acabaría en una declaración.
+
 ## Lo que se gana, lo que se aparta y lo que queda
 
 Un lomo que se compra a 300 y se vende a 900 deja 600 de margen. Pero de esos

@@ -67,6 +67,29 @@
 </div>
 {% endif %}
 
+{# [01661] Y el otro IVA: el que se pagó al comprar. No es un gasto —se descuenta del
+   que se cobra al vender— y por eso va en su propio bloque y no junto al
+   margen: mezclarlos haría creer que la carne cuesta un diez por ciento más
+   de lo que cuesta. #}
+{% if can("money") %}
+{% set iva = soportado(report.received) %}
+{% if iva.hay %}
+<div class="card">
+  <b>{{ t("m.rp.deductible") }}</b>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-top:10px">
+    <div class="kpi"><b>{{ "%.2f"|format(iva.base) }} <span class="uni">{{ moneda }}</span></b>
+      <span>{{ t("m.rp.vat_base") }}</span></div>
+    <div class="kpi"><b>{{ "%.2f"|format(iva.iva) }} <span class="uni">{{ moneda }}</span></b>
+      <span>{{ t("m.rp.vat_paid") }}</span></div>
+    <div class="kpi"><b>{{ "%.2f"|format(iva.total) }} <span class="uni">{{ moneda }}</span></b>
+      <span>{{ t("m.rp.vat_total") }}</span></div>
+    <div class="kpi"><b>{{ iva.piezas }}</b><span>{{ t("meat.primals") }}</span></div>
+  </div>
+  <p class="help" style="margin-bottom:0">{{ t("m.rp.deductible_help") }}</p>
+</div>
+{% endif %}
+{% endif %}
+
 {% if report.pending %}
 <div class="card">
   <b>{{ t("m.home.todo") }}</b>

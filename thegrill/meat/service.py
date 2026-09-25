@@ -58,6 +58,8 @@ class PrimalRow:
     # precio de la carne y no se exigen.
     freight_kg: float | None = None
     duty_kg: float | None = None
+    # [01650] El IVA de la compra, en tanto por ciento. No es un coste: se recupera.
+    vat_pct: float | None = None
     sku: str = ""
     grade: str | None = None
     origin: str | None = None
@@ -377,6 +379,10 @@ def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: st
             chamber=(chamber or "").strip()[:48] or None,
             goods_usd_per_kg=row.price_kg,
             freight_usd_per_kg=row.freight_kg, duty_usd_per_kg=row.duty_kg,
+            # [01651] Aparte del coste a propósito: este IVA se recupera, y meterlo en
+            # el kilo inflaría el food cost de todos los platos por un dinero
+            # que la casa no ha perdido.
+            purchase_vat_pct=row.vat_pct,
             landed_usd_per_kg=_puesto_en_camara(row),
             piece_cost_usd=(round(row.kg * _puesto_en_camara(row), 2)
                             if _puesto_en_camara(row) else None),
@@ -1107,6 +1113,10 @@ class DailyReport:
     # ha valido la pena.
     sales_revenue: float = 0.0
     sales_cost: float = 0.0
+    # [01652] Las piezas que entraron hoy, para el IVA que se puede descontar. Se
+    # guardan las piezas y no el número ya sumado porque el que suma es
+    # `impuestos.soportado_de`, que sabe qué base lleva cada una.
+    received: list = field(default_factory=list)
 
     @property
     def sales_margin(self) -> float:
@@ -1174,6 +1184,14 @@ def daily_report(session: Session, restaurant_id: int, on: date | None = None,
         out.sales_units += row.units or 0
         out.sales_kg = round(out.sales_kg + (row.kg or 0.0), 6)
     _lo_ganado_hoy(session, restaurant_id, on, out)
+    # [01653] Lo que entró hoy, para poder sumar el IVA de la compra: lo que se
+    # descuenta en la declaración.
+    entradas = session.query(Primal).filter_by(restaurant_id=restaurant_id,
+                                               received_date=on)
+    if site_id:
+        principal = sites.main(session, restaurant_id).id
+        entradas = [p for p in entradas if (p.site_id or principal) == site_id]
+    out.received = list(entradas)
     return out
 
 

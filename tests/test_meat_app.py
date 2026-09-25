@@ -1123,6 +1123,60 @@ class TestEtiquetaYPrecio:
         assert paco.post("/recepcion/precios",
                          data={"csrf": "x", "serial": ["8017"]}).status_code == 403
 
+    def test_the_vat_paid_on_the_purchase_is_never_a_cost(self, client):
+        """El IVA de la compra se recupera: en el kilo no entra.
+
+        Un lomo a 40 con un 10 % de IVA cuesta 44 de caja, pero **cuesta 40**.
+        Esos 4 se descuentan del IVA que se cobra al vender: no son dinero que
+        la casa pierda. Metidos en el kilo subirían el food cost de todos los
+        platos que llevan ese lomo un diez por ciento, y a partir de ahí toda
+        la carta estaría mal puesta.
+
+        Se guarda igual, porque es lo que se declara.
+        """
+        signup(client)
+        self.recibir(client, **{"price:0": "40", "price:1": "40",
+                                "freight_kg": "2", "duty_kg": "1", "vat_pct": "10"})
+        with db.session_scope() as s:
+            una = s.query(Primal).filter_by(serial="8017").one()
+            # El kilo es el de siempre: 40 + 2 de flete + 1 de aduana.
+            assert una.landed_usd_per_kg == 43.0
+            assert una.purchase_vat_pct == 10.0
+            assert una.piece_cost_usd == round(9.4 * 43.0, 2)
+
+    def test_the_report_adds_up_the_vat_that_can_be_deducted(self, client):
+        """Y lo suma para la declaración: base, IVA y lo pagado de verdad."""
+        from thegrill.meat import service as meat_service
+        from thegrill.web import impuestos
+
+        signup(client)
+        self.recibir(client, **{"price:0": "40", "price:1": "40", "vat_pct": "10"})
+        with db.session_scope() as s:
+            piezas = s.query(Primal).all()
+            iva = impuestos.soportado_de(piezas)
+            assert iva.hay and iva.piezas == 2
+            base = round(sum(p.piece_cost_usd for p in piezas), 2)
+            assert iva.base == base
+            assert iva.iva == round(base * 0.10, 2)
+            assert iva.total == round(base * 1.10, 2)
+
+            # Y sale en el parte del día que las recibió.
+            parte = meat_service.daily_report(s, piezas[0].restaurant_id,
+                                              on=piezas[0].received_date)
+            assert len(parte.received) == 2
+        assert "descontar" in client.get("/parte").text.lower()
+
+    def test_a_purchase_without_a_vat_rate_is_not_guessed(self, client):
+        """Sin apuntarlo no se supone ninguno: no es el mismo para el vino."""
+        from thegrill.web import impuestos
+
+        signup(client)
+        self.recibir(client, **{"price:0": "40", "price:1": "40"})
+        with db.session_scope() as s:
+            piezas = s.query(Primal).all()
+            assert all(p.purchase_vat_pct is None for p in piezas)
+            assert not impuestos.soportado_de(piezas).hay
+
     def test_the_daily_report_says_what_the_meat_earned_and_what_to_set_aside(self):
         """El parte tenía los kilos; ahora dice si han valido la pena.
 

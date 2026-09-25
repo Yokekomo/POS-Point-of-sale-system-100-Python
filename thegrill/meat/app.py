@@ -219,6 +219,8 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
             # pantalla que enseñe un margen tiene que acordarse de pedirlo.
             # Sin tipo puesto, el reparto lo dice y no se pinta nada.
             "reparto": _reparto_de(session, user),
+            # [01648] Y el IVA de las compras, que es el otro: el que se descuenta.
+            "soportado": impuestos.soportado_de,
             # [00352] El tutorial de esta pantalla, si toca. Los pasos vienen ya
             # traducidos y ya filtrados por nivel: lo que no le toca a esta
             # persona no llega al navegador.
@@ -903,7 +905,7 @@ MAX_RECEPCION = 60
 # hacía que la segunda bolsa se quedara con el precio de la primera sin que
 # nadie lo hubiera dicho. El transporte y la aduana sí, que son del camión.
 DEL_CAMION = ("lot", "sku", "chamber", "grade", "origin", "use_by",
-              "freight_kg", "duty_kg",
+              "freight_kg", "duty_kg", "vat_pct",
               "producer_plant", "est_code", "breed", "pack_date", "slaughter_date",
               "label_product", "halal", "arrival", "arrival_c", "frozen_on_arrival")
 
@@ -977,6 +979,10 @@ async def _recibir(request, user, auth_session, session, form, lang):
     # traía, y solo los hay cuando la carne es de importación.
     flete = _eur(form.get("freight_kg")) if puede_dinero else None
     aduana = _eur(form.get("duty_kg")) if puede_dinero else None
+    # [01649] El IVA de la compra es del camión entero y **no se suma al kilo**: se
+    # recupera al declarar, así que no es un coste de la casa. Se guarda para
+    # poder sumar lo que se puede descontar.
+    iva = _num(form.get("vat_pct")) if puede_dinero else None
     # [00371] La etiqueta del proveedor: lo que es igual para todo el camión se escribe
     # una vez aquí arriba y se copia a cada pieza. Lo que cambia de una bolsa a
     # otra se escribe en su línea y manda sobre esto.
@@ -1010,7 +1016,7 @@ async def _recibir(request, user, auth_session, session, form, lang):
         rows.append(meat.PrimalRow(
             serial=serial, kg=kg or 0.0,
             price_kg=_eur(form.get(f"price:{i}")) if puede_dinero else None,
-            freight_kg=flete, duty_kg=aduana,
+            freight_kg=flete, duty_kg=aduana, vat_pct=iva,
             sku=(form.get(f"sku:{i}") or "").strip() or sku,
             grade=(form.get(f"grade:{i}") or "").strip() or grade,
             origin=(form.get(f"origin:{i}") or "").strip() or origin,

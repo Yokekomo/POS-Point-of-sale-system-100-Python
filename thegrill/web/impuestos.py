@@ -79,3 +79,49 @@ def reparte(margen: float, tipo: float) -> Reparto:
 def de_la_casa(restaurant, margen: float) -> Reparto:
     """[01641] El reparto de ese margen con el tipo que tenga puesto la casa."""
     return reparte(margen, tipo_de(restaurant))
+
+
+# [01659] ------------------------------------------------- el IVA de lo que se compra
+@dataclass(frozen=True)
+class Soportado:
+    """[01655] El IVA pagado en las compras de un periodo: lo que se puede descontar.
+
+    Se llama soportado porque lo soporta quien compra, no quien vende. Al
+    declarar, se resta del que se ha cobrado en las ventas, así que no es un
+    gasto de la casa: es dinero adelantado a Hacienda que vuelve.
+    """
+    base: float          # lo que costó la carne, sin IVA
+    iva: float           # lo que se pagó de IVA sobre esa base
+    piezas: int          # de cuántas piezas sale
+
+    @property
+    def total(self) -> float:
+        """[01657] Lo que se pagó de verdad por esa carne, IVA incluido."""
+        return round(self.base + self.iva, 2)
+
+    @property
+    def hay(self) -> bool:
+        """[01658] Si hay algo que descontar. Sin compras con IVA, no se enseña nada."""
+        return self.iva > 0
+
+
+def soportado_de(piezas) -> Soportado:
+    """[01656] Suma el IVA de la compra de unas piezas.
+
+    La base de cada pieza es lo que costó puesta en la cámara —el género más
+    el transporte y la aduana— porque es sobre eso sobre lo que se paga el IVA
+    de una importación. Una pieza sin IVA apuntado no suma nada: no se supone
+    el tipo del país, que es distinto para la carne, para el pescado y para el
+    vino, y suponerlo aquí acabaría en una declaración.
+    """
+    base = iva = 0.0
+    cuantas = 0
+    for pieza in piezas:
+        tipo = getattr(pieza, "purchase_vat_pct", None)
+        coste = getattr(pieza, "piece_cost_usd", None)
+        if not tipo or tipo <= 0 or not coste or coste <= 0:
+            continue
+        cuantas += 1
+        base += coste
+        iva += coste * min(float(tipo), TOPE) / 100.0
+    return Soportado(base=round(base, 2), iva=round(iva, 2), piezas=cuantas)

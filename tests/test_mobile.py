@@ -625,7 +625,12 @@ def test_a_delivery_is_booked_one_piece_at_a_time_with_its_label(browser):
     page.fill("input[name='price:0']", "32")
     page.fill("input[name='g:0']", "9200")
     page.click("form[action='/recepcion'] button[type=submit]")
-    page.wait_for_selector(".banner.ok", timeout=8000)
+    # Con margen: dar de alta una pieza escribe en la base, vuelve a pintar la
+    # pantalla y sube la foto, y esta prueba corre con la suite entera por
+    # delante. Con ocho segundos fallaba una de cada muchas, y solo con la
+    # máquina cargada: la prueba acusaba al muelle de no guardar cuando lo que
+    # pasaba es que no le había dado tiempo a contestar.
+    page.wait_for_selector(".banner.ok", timeout=30000)
 
     with db.session_scope() as session:
         pieza = session.query(Primal).filter_by(serial="9300").one()

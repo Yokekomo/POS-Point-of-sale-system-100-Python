@@ -139,7 +139,8 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
             # [01636] [00985b] Y cómo parte esta casa lo que gana: lo que hay que
             # apartar para Hacienda y lo que queda limpio. Las dos ediciones
             # enseñan la misma trazabilidad, así que las dos lo traen.
-            "reparto": _reparto_de(session, user)}
+            "reparto": _reparto_de(session, user),
+            "soportado": impuestos.soportado_de}
     base.update(ctx)
     return templates.TemplateResponse(request, name, base)
 
