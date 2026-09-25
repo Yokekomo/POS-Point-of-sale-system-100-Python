@@ -48,11 +48,27 @@ a{color:inherit}
 .wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
 section{padding:96px 0;border-top:1px solid var(--line)}
 section:first-of-type{border-top:0}
-h1,h2,h3{letter-spacing:-.03em;line-height:1.08;margin:0}
-h1{font-size:clamp(38px,6.4vw,68px);font-weight:760}
-h2{font-size:clamp(28px,4vw,44px);font-weight:720}
+h1,h2,h3{letter-spacing:-.03em;line-height:1.08;margin:0;text-wrap:balance}
+/* Un titular no se mide en píxeles, se mide en líneas. A 68 px, dentro de la
+   columna de 533 px que le deja la maqueta de al lado, entraban quince letras
+   por línea y el titular salía a cuatro incluso en una pantalla de 1440: una
+   escalera, no una frase. A 50 px entran veintiuna y se lee de un vistazo. Y
+   `text-wrap:balance` reparte lo que quede para que la última línea no sea
+   una palabra suelta colgando. Esto se mide en los siete idiomas y no en
+   español: el francés y el alemán son un tercio más largos y son los que
+   deciden el tamaño. */
+h1{font-size:clamp(31px,4.6vw,50px);font-weight:760}
+h2{font-size:clamp(26px,3.4vw,40px);font-weight:720}
 h3{font-size:20px;font-weight:650;letter-spacing:-.01em}
 p{margin:0}
+/* El neerlandés y el alemán pegan palabras: «Verwerkingsverantwoordelijke»
+   mide 246 px y la tarjeta donde vive tiene 222. Sin esto la palabra se sale
+   de la tarjeta y se corta contra el borde, y como la tarjeta no enseña
+   barra, lo que se pierde no se sabe que está. `anywhere` y no `break-word`
+   a propósito: los dos parten la palabra cuando no queda otra, pero solo
+   `anywhere` se lo dice también al cálculo del ancho mínimo, que es lo que
+   deja encoger a una rejilla o a una tabla en vez de desbordarse. */
+p,li,td,th,dd,dt,label,figcaption,summary,h1,h2,h3,h4{overflow-wrap:anywhere}
 .kicker{display:inline-block;font-size:13px;font-weight:650;letter-spacing:.12em;
   text-transform:uppercase;color:var(--ember);margin-bottom:18px}
 .lead{font-size:clamp(18px,2.1vw,22px);color:var(--dim);max-width:60ch;margin-top:22px}
@@ -63,10 +79,20 @@ header{position:sticky;top:0;z-index:20;background:var(--header);
   backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 header .wrap{display:flex;align-items:center;gap:20px;padding-top:16px;padding-bottom:16px}
 .brand{font-weight:700;letter-spacing:-.02em;margin-inline-end:auto;display:flex;
-  align-items:center;gap:10px;white-space:nowrap}
+  align-items:center;gap:10px;white-space:nowrap;min-width:0}
 .brand span{width:10px;height:10px;border-radius:3px;background:var(--ember);
-  box-shadow:0 0 18px var(--ember)}
-header nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  box-shadow:0 0 18px var(--ember);flex:none}
+/* «Contrôle des viandes» mide 176 px y con el botón de entrar al lado la
+   cabecera pedía 334 en una pantalla de 320: la página entera se deslizaba a
+   los lados. Los tamaños de abajo hacen que no llegue a pasar en ninguno de
+   los siete idiomas, pero eso es puntería y el octavo idioma la falla. Esto
+   es el seguro: el nombre puede encoger, y si un día no cabe se corta él con
+   sus tres puntos en vez de empujar la página. */
+.brand i{font-style:inherit;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* `wrap` no: si un día no caben, que encoja el nombre —que sabe cortarse
+   con tres puntos— y no que la barra se parta en dos filas. Una cabecera
+   pegajosa de dos filas se lleva un sexto de la pantalla y no se recupera. */
+header nav{display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
 header nav a{padding:8px 12px;border-radius:10px;text-decoration:none;font-size:15px;
   color:var(--dim)}
 header nav a:hover{color:var(--ink);background:var(--card)}
@@ -98,6 +124,13 @@ header nav a.entrar:hover{border-color:var(--ember);color:var(--ember);backgroun
   pointer-events:none}
 .hero-grid{display:grid;gap:56px;grid-template-columns:1.05fr .95fr;align-items:center;
   position:relative}
+/* Una casilla de rejilla no encoge por debajo de su contenido más ancho
+   mientras no se le diga. En alemán la tabla de la maqueta pide 322 px y en
+   un teléfono de 320 hay 238: la portada entera se ensanchaba a 380 px y el
+   titular, la entradilla y los botones se salían sesenta píxeles por la
+   derecha. Y no se veía, porque `.hero` recorta lo que sobra: en un móvil
+   alemán media frase estaba cortada y la página no enseñaba ni barra. */
+.hero-grid>*{min-width:0}
 
 /* --- la maqueta del turno: es la pantalla de verdad, con sus números */
 .mock{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
@@ -153,7 +186,13 @@ figcaption{color:var(--dim);font-size:14px;margin-top:14px}
 
 .step b{display:block;font-size:13px;font-weight:700;color:var(--ember);letter-spacing:.1em;
   margin-bottom:14px}
-.step svg{margin-bottom:16px;display:block}
+/* Los cuatro iconos venían pintados a mano con #e0703a, que es el naranja
+   del modo oscuro. En claro la marca es #a8471f, más oscuro, así que en la
+   misma tarjeta salían el «01» en un naranja y el dibujo de debajo en otro,
+   y el claro encima se queda corto de contraste contra la tarjeta blanca.
+   Un solo color, el de la casa, el que toque en cada tema. */
+.step svg{margin-bottom:16px;display:block;stroke:var(--ember)}
+.bullets svg{stroke:var(--ember)}
 
 /* --- la cuenta del día */
 .sum{display:grid;gap:0;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);
@@ -252,18 +291,36 @@ footer a:hover{color:var(--ink)}
 #cookiebar[hidden]{display:none}
 #cookiebar a{color:var(--ember)}
 #cookiebar button{min-height:44px}
+/* El texto llevaba `flex:1`, que es `flex:1 1 0`: parte de cero, así que
+   nunca «no cabe» y el `flex-wrap` de arriba no llegaba a saltar nunca. En
+   una pantalla de 320 el aviso se quedaba en una columna de 200 px al lado
+   del botón —trece líneas en alemán, el aviso ocupando la pantalla entera—.
+   Con un ancho de partida de 260 px, cuando no caben los dos el botón se va
+   abajo él solo, que es lo que se espera de un aviso en un teléfono. */
+#cookiebar>div{flex:1 1 260px}
+@media (max-width:560px){
+  #cookiebar form,#cookiebar button{width:100%}
+  #cookiebar button{text-align:center}
+}
 /* El aviso flota sobre la página, así que hay que dejarle su hueco al final:
    si no, tapa lo último que hay escrito y en un teléfono eso son cinco o seis
    líneas que no se pueden leer hasta darle a «entendido». En una portada, lo
-   último de la página es el pie con los idiomas y la puerta de entrar. */
-body:has(#cookiebar:not([hidden])){padding-bottom:150px}
+   último de la página es el pie con los idiomas y la puerta de entrar.
+   Los 150 px que había escritos a mano valían para el aviso de una sola fila
+   de antes. Apilado en un teléfono mide 206 en alemán, en francés, en
+   neerlandés y en húngaro: dejaba el pie tapado en cuatro idiomas de siete.
+   Los números de aquí abajo son el suelo, para quien llegue sin guiones; con
+   guiones manda `--flotante`, que lo mide el navegador y sale exacto en el
+   idioma que sea, incluido el octavo que todavía no está escrito. */
+body:has(#cookiebar:not([hidden])){padding-bottom:var(--flotante,220px)}
 @media (min-width:760px){
-  body:has(#cookiebar:not([hidden])){padding-bottom:110px}
+  body:has(#cookiebar:not([hidden])){padding-bottom:var(--flotante,110px)}
 }
 /* Lo mismo con la barra de pedir acceso: flota, así que hay que dejarle su
    hueco o tapa el pie —los idiomas y la puerta de entrar—. */
-body:has(#pidebarra:not([hidden])){padding-bottom:88px}
-body:has(#cookiebar:not([hidden])):has(#pidebarra:not([hidden])){padding-bottom:228px}
+body:has(#pidebarra:not([hidden])){padding-bottom:var(--flotante,88px)}
+body:has(#cookiebar:not([hidden])):has(#pidebarra:not([hidden])){
+  padding-bottom:var(--flotante,320px)}
 
 /* De ancho a estrecho, y en ese orden. Dos bloques que se cumplen a la vez
    —en un móvil de 412 px se cumplen los tres— los resuelve el navegador por
@@ -271,6 +328,17 @@ body:has(#cookiebar:not([hidden])):has(#pidebarra:not([hidden])){padding-bottom:
    último, ganaba él: la regla de «una sola columna en el móvil» estaba
    escrita y no se aplicaba nunca, y el detalle salía a dos columnas con
    títulos partidos en tres líneas en una pantalla de teléfono. */
+/* Los saltos a cada sección se van aquí, y no a 760 como estaban. Debajo de
+   este ancho los seis enlaces no le caben a la barra: se partía en dos filas
+   —la cabecera pegajosa pasaba de 80 px a 126, un sexto de la pantalla
+   ocupado antes de leer una palabra— y el nombre del programa salía cortado.
+   El ancho está medido, no elegido a ojo, y en los siete idiomas: en inglés
+   caben desde 901 px, en español desde 951, en neerlandés desde 911 y en
+   francés desde 1061, que es el que manda. Los cien redondos dejan sitio para
+   el idioma que venga. Perderlos no cuesta nada: el pie los lleva todos. */
+@media (max-width:1100px){
+  header nav a.jump{display:none}
+}
 @media (max-width:900px){
   .hero-grid,.g3,.g4,.g2{grid-template-columns:1fr}
   .sum{grid-template-columns:repeat(2,1fr)}
@@ -280,11 +348,11 @@ body:has(#cookiebar:not([hidden])):has(#pidebarra:not([hidden])){padding-bottom:
   section{padding:68px 0}
 }
 @media (max-width:760px){
-  /* En un móvil, la cabecera es la marca, entrar y el botón. Lo que estorba
-     son los saltos a cada sección —la página se lee de arriba abajo—, pero
-     esconderlo todo dejaba sin puerta a quien ya tiene cuenta, que es
-     justamente quien abre esto desde el teléfono. */
-  header nav a.jump{display:none}
+  /* Los saltos a cada sección ya se han quitado arriba, a 900. Aquí solo se
+     aprieta lo que queda: la página se lee de arriba abajo y en un móvil la
+     cabecera es la marca, entrar y el botón. Esconderlo todo dejaría sin
+     puerta a quien ya tiene cuenta, que es justamente quien abre esto desde
+     el teléfono. */
   header nav{gap:2px}
   header nav a{padding:10px}
 }
@@ -298,12 +366,14 @@ body:has(#cookiebar:not([hidden])):has(#pidebarra:not([hidden])){padding-bottom:
      lo que se usa desde el móvil —entrar, y el botón— y lo demás se busca en
      el pie, que los lleva todos; a la portada se vuelve por la marca. */
   header nav a.menor{display:none}
-  /* La cabecera se estrecha un poco más que el texto: entre la marca y los
-     dos botones faltaban seis píxeles y el botón se caía a otra fila. El
-     texto se sigue leyendo con sus 24 px, que es lo que importa; una barra
-     con menos aire a los lados no la nota nadie, una que ocupa tres filas
-     sí. */
-  header .wrap{gap:8px;padding:12px 16px}
+  /* Aquí la cabecera se estrechaba a 16 px, y a 400 px a 12, para que la
+     marca y los dos botones cupieran en una fila. Ya no hace falta: desde que
+     los saltos de sección se van al pie, en la barra solo quedan la marca y
+     «entrar», y en una pantalla de 320 px les sobran noventa. Devolverle los
+     24 px del resto de la página no es un capricho de aire: es que la marca
+     vuelve a caer en la misma vertical que el titular que tiene debajo. Dos
+     márgenes distintos en la misma columna se ven aunque no se sepan medir. */
+  header .wrap{gap:8px;padding-top:12px;padding-bottom:12px}
   header nav{flex-wrap:nowrap;gap:2px}
   .brand{font-size:15px;gap:7px}
   .brand span{width:8px;height:8px}
@@ -315,14 +385,42 @@ body:has(#cookiebar:not([hidden])):has(#pidebarra:not([hidden])){padding-bottom:
   .mock th+th,.mock td+td{padding-inline-start:12px}
   .mock th{font-size:10px;letter-spacing:.04em}
 }
-/* Y los teléfonos estrechos de verdad, que siguen siendo muchos. A 360 px la
-   marca y los dos botones se quedaban a dos píxeles de caber, y dos píxeles
-   son una fila entera de cabecera. */
+/* Y los teléfonos estrechos de verdad, que siguen siendo muchos. Aquí se
+   encoge la letra, no el margen: la letra encogida se lee igual, el margen
+   encogido deja la primera letra debajo del redondeo del cristal. */
 @media (max-width:400px){
   .brand{font-size:14px}
-  header .wrap{gap:6px;padding-inline:12px}
+  header .wrap{gap:6px}
   header nav a{font-size:12px;padding:8px 6px}
   header nav a.btn{padding:9px 10px}
+  /* «Se connecter» dentro de su recuadro con 18 px a cada lado dejaba la
+     cabecera francesa pidiendo 334 px en una pantalla de 320. Estos siete
+     píxeles por lado son los que faltaban, y se los quita el botón, que es
+     de los dos el que puede darlos: el nombre del programa no. */
+  header nav a.entrar{font-size:14px;padding:9px 11px}
+}
+/* Y el escalón de abajo del todo: el iPhone pequeño, los Android baratos que
+   hay en una cocina y el 360 de medio mundo. Aquí el que no cabe es el
+   francés: «Contrôle des viandes» pide 161 px de letra y con los tamaños de
+   arriba solo le quedaban 139, así que el nombre del programa salía cortado
+   con tres puntos. Los veintidós que faltaban se sacan de donde no se leen
+   —el margen de la página, el cuadradito de la marca, los huecos, el relleno
+   del botón— y no del nombre, que es lo único que dice dónde está uno.
+   El corte está en 365 y no en un número redondo porque el redondo no es el
+   que manda: con la letra de 14 px de arriba el francés deja de caber por
+   debajo de 342 px, y de 342 a 365 va el margen que se deja a propósito. La
+   letra del sistema no mide igual en un iPhone que en un Android, y lo que
+   entra justo en la prueba no entra en la mitad de los teléfonos. */
+@media (max-width:365px){
+  /* Los 24 px de aire a los lados bajan a 16 en toda la página, cabecera y
+     texto a la vez, para que la marca y el titular sigan cayendo en la misma
+     vertical. Dieciséis es lo que usan Android e iOS de margen, y sobra para
+     que la primera letra no se meta debajo del redondeo del cristal. */
+  .wrap{padding-inline:16px}
+  .brand{font-size:13px;gap:4px}
+  .brand span{width:6px;height:6px;border-radius:2px}
+  header nav a.entrar{font-size:13px;padding:9px 8px}
+  header .wrap{gap:4px}
 }
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 
@@ -333,7 +431,19 @@ body:has(#cookiebar:not([hidden])):has(#pidebarra:not([hidden])){padding-bottom:
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   padding:22px 24px;margin-bottom:18px}
 .card h2,.card h3{margin-bottom:10px}
-.grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+/* Dos arreglos en una línea.
+   Uno: `minmax(240px,1fr)` promete una columna de 240 px aunque no haya 240.
+   Dentro de una tarjeta, en una pantalla de 320, el hueco son 222 y la
+   rejilla se salía 18 px por la derecha, recortados sin aviso porque la
+   tarjeta los tapa. `min(240px,100%)` pide lo mismo pero con el techo del
+   sitio que hay: 240 cuando los hay, y lo que quepa cuando no.
+   Y dos: llamándose `.grid` a secas, esta regla pisaba a `.g3`, `.g4` y `.g2`
+   de la portada, que están escritas más arriba y valen lo mismo, así que las
+   secciones que pedían tres o cuatro columnas salían con las que decidiera
+   `auto-fit`. Atada a `.inner` —precios, cookies, entrar y solicitar acceso—,
+   cada una manda en su casa. */
+.inner .grid{gap:18px;
+  grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))}
 label{display:block;margin:18px 0 6px;font-size:15px;font-weight:600}
 label .req{color:var(--bad)}
 input,select,textarea{width:100%;padding:13px 14px;font:inherit;color:var(--ink);
@@ -416,7 +526,7 @@ a.back:hover{color:var(--ember)}
 <body>
 <header>
   <div class="wrap">
-    <a class="brand" href="/" style="text-decoration:none"><span></span>{{ t("m.app.title") }}</a>
+    <a class="brand" href="/" style="text-decoration:none"><span></span><i>{{ t("m.app.title") }}</i></a>
     <nav>
       {% block nav %}
       <a class="menor" href="/">{{ t("pub.home") }}</a>
@@ -547,6 +657,42 @@ if (window.caches) {
     ks.forEach(function (k) { if (k.indexOf("armazon") < 0) caches.delete(k); });
   });
 }
+</script>
+
+<script nonce="{{ nonce }}">
+// Lo que flota abajo tapa el final de la página, así que hay que reservarle
+// su hueco. En la hoja de estilo hay un número escrito para quien llegue sin
+// guiones, pero el alto de verdad depende del idioma y del ancho: el mismo
+// aviso mide 79 px en un ordenador y 206 en un teléfono en alemán. Aquí se
+// mide y se apunta en `--flotante`, y la hoja de estilo lo usa.
+(function () {
+  var cajas = ["cookiebar", "pidebarra"]
+    .map(function (id) { return document.getElementById(id); })
+    .filter(Boolean);
+  if (!cajas.length) return;
+  function reservar() {
+    // Cada barra que se ve, más los 24 px que se deja con la siguiente y con
+    // el final de la página. Las que están escondidas no ocupan nada.
+    var alto = 0;
+    cajas.forEach(function (c) {
+      if (!c.hidden) alto += c.getBoundingClientRect().height + 24;
+    });
+    document.documentElement.style.setProperty(
+      "--flotante", alto ? alto + "px" : "0px");
+  }
+  reservar();
+  window.addEventListener("resize", reservar);
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(reservar);
+    cajas.forEach(function (c) { ro.observe(c); });
+  }
+  if (window.MutationObserver) {
+    var mo = new MutationObserver(reservar);
+    cajas.forEach(function (c) {
+      mo.observe(c, {attributes: true, attributeFilter: ["hidden"]});
+    });
+  }
+})();
 </script>
 
 <script nonce="{{ nonce }}">
