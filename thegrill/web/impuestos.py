@@ -80,7 +80,7 @@ def reparte(margen: float, tipo: float) -> Reparto:
     # [01666] Lo que queda sale de restar, no de otra cuenta: así las dos partes suman
     # el margen **exacto** y no se pierde el céntimo entre las dos.
     return Reparto(bruto=margen, impuesto=impuesto,
-                   limpio=round(margen - impuesto, 2), tipo=tipo)
+                   limpio=exacto.eur(margen - impuesto), tipo=tipo)
 
 
 def de_la_casa(restaurant, margen: float) -> Reparto:
@@ -104,7 +104,7 @@ class Soportado:
     @property
     def total(self) -> float:
         """[01657] Lo que se pagó de verdad por esa carne, IVA incluido."""
-        return round(self.base + self.iva, 2)
+        return exacto.eur(self.base + self.iva)
 
     @property
     def hay(self) -> bool:

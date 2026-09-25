@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from thegrill.config import to_usd
+# [01670] `exacto` no es «web»: es la aritmética del dinero y del peso, sin ninguna
+# dependencia del proyecto. Duplicar aquí la regla del redondeo sería peor.
+from thegrill.web import exacto
 
 
 @dataclass
@@ -28,7 +31,7 @@ class LandedLot:
 
 def piece_cost(landed_usd_per_kg: float, weight_kg: float) -> float:
     """[00086] Lo que cuesta una pieza: su peso por el precio del kilo puesto en cámara."""
-    return round(landed_usd_per_kg * weight_kg, 2)
+    return exacto.eur(landed_usd_per_kg * weight_kg)
 
 
 def cut_cost_per_kg(landed_usd_per_kg: float, yield_pct: float) -> float:

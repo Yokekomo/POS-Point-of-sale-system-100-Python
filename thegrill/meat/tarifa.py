@@ -14,6 +14,7 @@ from datetime import date, datetime
 from sqlalchemy.orm import Session
 
 from thegrill.models import Tarifa, User
+from thegrill.web import exacto
 
 # [00666] Lo que se enseña mientras nadie haya dicho otra cosa.
 POR_DEFECTO = 99.0
@@ -42,14 +43,14 @@ class Publicada:
         """[00663] Lo que cuesta el año pagado por adelantado."""
         if not self.yearly_on:
             return None
-        return round(self.price * self.yearly_months, 2)
+        return exacto.eur(self.price * self.yearly_months)
 
     @property
     def yearly_saving(self) -> float | None:
         """[00664] Y cuánto se ahorra frente a pagarlo mes a mes."""
         if not self.yearly_on:
             return None
-        return round(self.price * (MESES_AL_AÑO - self.yearly_months), 2)
+        return exacto.eur(self.price * (MESES_AL_AÑO - self.yearly_months))
 
     @property
     def discount_pct(self) -> int | None:
@@ -81,9 +82,9 @@ def publicada(session: Session, on: date | None = None) -> Publicada:
                     and (row.sale_until is None or hoy <= row.sale_until))
     return Publicada(
         currency=row.currency or "EUR",
-        normal=round(row.per_outlet or POR_DEFECTO, 2),
-        extra=round(row.extra_outlet, 2) if row.extra_outlet else None,
-        price=round(row.sale_price if rebajada else (row.per_outlet or POR_DEFECTO), 2),
+        normal=exacto.eur(row.per_outlet or POR_DEFECTO),
+        extra=exacto.eur(row.extra_outlet) if row.extra_outlet else None,
+        price=exacto.eur(row.sale_price if rebajada else (row.per_outlet or POR_DEFECTO)),
         on_sale=rebajada,
         label=(row.sale_label or "").strip(),
         until=row.sale_until if rebajada else None,
@@ -115,10 +116,10 @@ def guardar(session: Session, user: User, *, currency: str, per_outlet: float,
 
     row = fila(session)
     row.currency = (currency or "EUR").upper()[:3]
-    row.per_outlet = round(per_outlet, 2)
-    row.extra_outlet = round(extra_outlet, 2) if extra_outlet else None
+    row.per_outlet = exacto.eur(per_outlet)
+    row.extra_outlet = exacto.eur(extra_outlet) if extra_outlet else None
     row.sale_on = bool(sale_on)
-    row.sale_price = round(sale_price, 2) if (sale_on and sale_price) else None
+    row.sale_price = exacto.eur(sale_price) if (sale_on and sale_price) else None
     row.sale_label = (sale_label or "").strip()[:64] or None
     row.sale_until = sale_until if sale_on else None
     row.yearly_on = bool(yearly_on)

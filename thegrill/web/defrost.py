@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from thegrill import config
+from thegrill.web import exacto
 from thegrill.engine.defrost import Consumed, SerialState, Variance, reconcile, variances
 from thegrill.engine.recipes import explode, por_raciones
 from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, DefrostEntry, DefrostKind,
@@ -540,7 +541,7 @@ class MonthSoFar:
         El agua sigue estando —`drip_cost`— pero como desglose de esto, que es
         lo que de verdad explica: «de los veintiséis, veintiséis son agua».
         """
-        return round(self.loss_cost, 2)
+        return exacto.eur(self.loss_cost)
 
     @property
     def drip_share(self) -> float | None:

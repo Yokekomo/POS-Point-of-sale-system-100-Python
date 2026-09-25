@@ -22,6 +22,8 @@ import csv
 import io
 import re
 import unicodedata
+
+from thegrill.web import exacto
 from dataclasses import dataclass, field
 
 MAX_BYTES = 4 * 1024 * 1024     # un parte de ventas no pesa más que esto
@@ -83,7 +85,7 @@ class Parsed:
     @property
     def amount(self) -> float:
         """[01342] Lo facturado según el parte."""
-        return round(sum(r.amount or 0.0 for r in self.rows), 2)
+        return exacto.eur(sum(r.amount or 0.0 for r in self.rows))
 
 
 def parse(data: bytes, filename: str = "") -> Parsed:

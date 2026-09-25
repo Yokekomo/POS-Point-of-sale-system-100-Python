@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 
 from thegrill.models import (IngredientMovement, MovementKind, PosProduct,
                              Recipe, RecipeKind, SalesByProduct)
-from thegrill.web import costing, jornada
+from thegrill.web import costing, exacto, jornada
 
 NADA = 0.005
 
@@ -63,12 +63,12 @@ class Dia:
     @property
     def ingresos(self) -> float:
         """[01202] Lo ingresado en el día, sumando todos los platos."""
-        return round(sum(p.ingresos for p in self.platos), 2)
+        return exacto.eur(sum(p.ingresos for p in self.platos))
 
     @property
     def coste_teorico(self) -> float:
         """[01203] Lo que debería haber costado la materia prima del día."""
-        return round(sum(p.coste_teorico for p in self.platos), 2)
+        return exacto.eur(sum(p.coste_teorico for p in self.platos))
 
     @property
     def fc_teorico(self) -> float | None:
@@ -89,7 +89,7 @@ class Dia:
     @property
     def perdido(self) -> float:
         """[01206] Lo que se ha ido entre el papel y la cámara, en dinero."""
-        return round(self.coste_real + self.merma - self.coste_teorico, 2)
+        return exacto.eur(self.coste_real + self.merma - self.coste_teorico)
 
     @property
     def puntos(self) -> float | None:
@@ -125,7 +125,7 @@ def _salido_de_camara(session: Session, restaurant_id: int, on: date) -> tuple[f
             ventas += abs(mv.cost or 0.0)
         elif mv.kind == MovementKind.WASTE:
             merma += abs(mv.cost or 0.0)
-    return round(ventas, 2), round(merma, 2)
+    return exacto.eur(ventas), exacto.eur(merma)
 
 
 def dia(session: Session, restaurant_id: int, on: date | None = None) -> Dia:
@@ -151,12 +151,12 @@ def dia(session: Session, restaurant_id: int, on: date | None = None) -> Dia:
         cuenta = costing.cost_of(session, receta, costes)
         unidades = linea.units or 0
         neto = cuenta.net_price
-        ingresos = round((neto or 0.0) * unidades, 2)
+        ingresos = exacto.eur((neto or 0.0) * unidades)
         if linea.amount and neto is None:
-            ingresos = round(linea.amount, 2)
+            ingresos = exacto.eur(linea.amount)
         salida.platos.append(Plato(
             nombre=receta.name, unidades=unidades, ingresos=ingresos,
-            coste_teorico=round(cuenta.cost_per_portion * unidades, 2)))
+            coste_teorico=exacto.eur(cuenta.cost_per_portion * unidades)))
 
     salida.coste_real, salida.merma = _salido_de_camara(session, restaurant_id, on)
     return salida

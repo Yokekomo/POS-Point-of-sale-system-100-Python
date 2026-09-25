@@ -36,7 +36,7 @@ from sqlalchemy.orm import Session
 
 from thegrill.models import (Ingredient, IngredientLot, IngredientMovement,
                              MovementKind, Primal, PrimalWeighing, User)
-from thegrill.web import jornada
+from thegrill.web import exacto, jornada
 
 # [01117] Cinco gramos: el juego de una báscula de muelle, no un agujero.
 NADA = 0.005
@@ -86,7 +86,7 @@ class Cuadre:
     @property
     def sin_explicar_eur(self) -> float:
         """[01112] Lo que cuestan esos kilos. Es el número que mira quien lleva la casa."""
-        return round(sum(l.ajustado_eur for l in self.lineas), 2)
+        return exacto.eur(sum(l.ajustado_eur for l in self.lineas))
 
     @property
     def peores(self) -> list[Residuo]:

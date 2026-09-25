@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from thegrill.meat import mailer, perms, privacy
 from thegrill.models import (AccessRequest, AuditLog, Billing, Plan, RequestStatus,
                              Restaurant, Role, User)
-from thegrill.web import auth
+from thegrill.web import auth, exacto
 
 TRIAL_DAYS = 15        # quince días de prueba, sin cobrar
 
@@ -297,7 +297,7 @@ class Group:
     @property
     def monthly(self) -> float:
         """[00444] Lo que paga el grupo al mes, sumando todas sus casas."""
-        return round(sum(h.restaurant.monthly_fee or 0.0 for h in self.houses), 2)
+        return exacto.eur(sum(h.restaurant.monthly_fee or 0.0 for h in self.houses))
 
     @property
     def needs_attention(self) -> bool:

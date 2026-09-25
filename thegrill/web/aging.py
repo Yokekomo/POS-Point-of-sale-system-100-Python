@@ -608,15 +608,15 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
     # —kilos por precio por índice— y restando, la pieza se quedaba con unas
     # milésimas de más o de menos que ya no cuadraban con nada.
     if whole is not None and lotes:
-        objetivo = min(round(whole, 2),
-                       round(sum(l.qty * l.unit_cost for l in lotes), 2))
+        objetivo = min(exacto.eur(whole),
+                       exacto.eur(sum(l.qty * l.unit_cost for l in lotes)))
         trozos = exacto.repartir_dinero(objetivo, [l.qty * l.unit_cost for l in lotes])
         for part, lot, cost in zip(parts, lotes, trozos):
             part.cost = cost
             lot.unit_cost = round(cost / lot.qty, 6) if lot.qty > EPSILON else 0.0
             for mv in session.query(IngredientMovement).filter_by(lot_id=lot.id):
                 mv.cost = cost
-        kept_cost = round(sum(trozos), 2)
+        kept_cost = exacto.eur(sum(trozos))
     else:
         for part, lot in zip(parts, lotes):
             part.cost = round(lot.qty * lot.unit_cost, 6)
@@ -624,7 +624,7 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
 
     primal.weight_kg = round(previous - removed_kg, 6)
     if whole is not None:
-        primal.piece_cost_usd = round(max(0.0, round(whole, 2) - kept_cost), 2)
+        primal.piece_cost_usd = exacto.eur(max(0.0, exacto.eur(whole) - kept_cost))
         primal.landed_usd_per_kg = (round(primal.piece_cost_usd / primal.weight_kg, 6)
                                     if primal.weight_kg > EPSILON else None)
     session.add(PrimalWeighing(
@@ -930,7 +930,7 @@ def board(session: Session, restaurant_id: int, storage: Storage | None = None,
             start_kg=round(start, 6) if primal.aging_start_kg else None,
             kg=kg, loss_kg=loss, loss_pct=_pct(loss, start), trim_kg=trim,
             trim_kept_kg=kept, trim_waste_kg=thrown, cost_per_kg=per_kg,
-            value=round(kg * per_kg, 2) if per_kg is not None else None,
+            value=exacto.eur(kg * per_kg) if per_kg is not None else None,
             use_by=primal.frozen_use_by or primal.expiry_label, sold_kg=cut,
             received_kg=primal.received_kg,
             grade=primal.grade, origin=primal.origin,
@@ -1024,7 +1024,7 @@ def summary(session: Session, restaurant_id: int, on: date | None = None,
         if row.storage == Storage.AGING:
             out.aging_pieces += 1
             out.aging_kg = round(out.aging_kg + row.kg, 6)
-            out.aging_value = round(out.aging_value + (row.value or 0.0), 2)
+            out.aging_value = exacto.eur(out.aging_value + (row.value or 0.0))
             out.lost_kg = round(out.lost_kg + row.loss_kg, 6)
             out.trimmed_kg = round(out.trimmed_kg + row.trim_kg, 6)
             out.kept_kg = round(out.kept_kg + row.trim_kept_kg, 6)
@@ -1034,7 +1034,7 @@ def summary(session: Session, restaurant_id: int, on: date | None = None,
         elif row.storage == Storage.FROZEN:
             out.frozen_pieces += 1
             out.frozen_kg = round(out.frozen_kg + row.kg, 6)
-            out.frozen_value = round(out.frozen_value + (row.value or 0.0), 2)
+            out.frozen_value = exacto.eur(out.frozen_value + (row.value or 0.0))
     return out
 
 

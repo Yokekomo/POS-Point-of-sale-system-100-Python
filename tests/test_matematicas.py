@@ -87,6 +87,43 @@ def test_the_parts_of_a_primal_add_up_to_the_primal_exactly():
     assert not fallos, f"{len(fallos)} de {CASOS} repartos no cuadran: {fallos[:2]}"
 
 
+def test_no_money_is_rounded_with_the_rule_the_binary_picks():
+    """Que no vuelva a aparecer un `round(x, 2)` sobre dinero en ningún sitio.
+
+    La regla del redondeo del dinero está escrita en un solo sitio —`exacto`—
+    y la aplica `exacto.eur`. `round(x, 2)` hace otra cosa: redondea según por
+    qué lado caiga ese número en binario, así que una de cada mil cuatrocientas
+    cifras sale un céntimo por debajo de lo que dice la cuenta a mano.
+
+    Esto es un vigilante, no una cuenta: recorre el código y falla si alguien
+    vuelve a escribirlo. Sin él, la regla se cumple hoy y dentro de tres meses
+    ya no, porque nadie se acuerda de una decisión que no salta.
+
+    Los porcentajes sí llevan `round(x, 2)` y está bien: un tanto por ciento no
+    es dinero, no se suma a nada y no hay factura que lo contradiga.
+    """
+    import pathlib
+    import re
+
+    QUE_NO = re.compile(r"round\([^;]*, 2\)")
+    # Lo que sí puede llevarlo: porcentajes, grados y el banco de pruebas, que
+    # fabrica datos de mentira y no cuadra nada.
+    PERDONADOS = re.compile(r"_pct|pct\b|100\.?0?, 2\)|grados|temperatura|yearly_months")
+    raiz = pathlib.Path(__file__).resolve().parent.parent / "thegrill"
+    culpables = []
+    for ruta in sorted(raiz.rglob("*.py")):
+        if ruta.name in ("bench.py", "exacto.py"):
+            continue
+        for numero, linea in enumerate(ruta.read_text(encoding="utf-8").split("\n"), 1):
+            if linea.lstrip().startswith("#"):
+                continue
+            if QUE_NO.search(linea) and not PERDONADOS.search(linea):
+                culpables.append(f"{ruta.relative_to(raiz.parent)}:{numero}: {linea.strip()}")
+    assert not culpables, (
+        "dinero redondeado con la regla que le salga al binario; usa exacto.eur():\n  "
+        + "\n  ".join(culpables))
+
+
 def test_the_split_is_the_one_the_exact_sum_gives():
     """El reparto tiene que dar lo que da la cuenta exacta, no lo que le salga.
 

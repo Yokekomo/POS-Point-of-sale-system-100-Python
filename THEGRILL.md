@@ -509,6 +509,33 @@ En producción hay que servir por HTTPS, porque la cookie de sesión se marca
 como segura salvo que se defina `GRILL_INSECURE_COOKIE=1`, que es solo para
 desarrollo. Las fotos se guardan en la ruta de `GRILL_UPLOAD_DIR`.
 
+## La regla del dinero, escrita en un solo sitio
+
+El dinero se redondea **al céntimo, y la mitad sube** —también en negativo,
+hacia afuera del cero, que es como se devuelve—. Es lo que hace una caja
+registradora y lo que hará quien compruebe la cuenta con un lápiz. La aplica
+`exacto.eur()` y no la aplica nadie más: `round(x, 2)` no vale, porque redondea
+según por qué lado caiga ese número en binario, y una de cada mil cuatrocientas
+cifras sale un céntimo por debajo.
+
+Hay un vigilante en la suite —`test_no_money_is_rounded_with_the_rule_the_binary_picks`—
+que recorre el código y falla si alguien vuelve a escribirlo. Sin él, la regla
+se cumple hoy y dentro de tres meses ya no.
+
+Y el reparto: pasar a la unidad pequeña, repartir con enteros, devolver. Los
+pesos se convierten a enteros con denominador común, así que **no depende de
+en qué unidad se escriban**: los mismos cortes con el índice de valor en 1,6 o
+en 16 reparten igual.
+
+Lo que no lleva esta regla, y es a propósito:
+
+- **Los porcentajes.** Un tanto por ciento no es dinero, no se suma a nada y no
+  hay factura que lo contradiga.
+- **Los pesos calculados.** Una ración de 160 g con un 95 % de rendimiento
+  consume 168,42 g; cuadrarlo a gramos pierde cuatro décimas por ración y
+  siempre hacia el mismo lado. Eso no es exactitud, es un sesgo. Lo medido —lo
+  que ha dicho una báscula— sí va en gramos enteros.
+
 ## Buscar una explicación por lo que uno recuerda
 
 Los comentarios del código llevan número —`[00423]`— y hay un índice en

@@ -385,7 +385,7 @@ def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: st
             # que la casa no ha perdido.
             purchase_vat_pct=row.vat_pct,
             landed_usd_per_kg=_puesto_en_camara(row),
-            piece_cost_usd=(round(row.kg * _puesto_en_camara(row), 2)
+            piece_cost_usd=(exacto.eur(row.kg * _puesto_en_camara(row))
                             if _puesto_en_camara(row) else None),
             frozen_use_by=row.use_by, status=PrimalStatus.IN_STOCK,
             supplier_lot=(row.supplier_lot or None),
@@ -477,7 +477,7 @@ def set_price(session: Session, user: User, serial: str, price_kg: float,
     pieza.goods_usd_per_kg = price_kg
     price_kg = round(price_kg + (pieza.freight_usd_per_kg or 0.0)
                      + (pieza.duty_usd_per_kg or 0.0), 6)
-    pieza.piece_cost_usd = round(recibido * price_kg, 2)
+    pieza.piece_cost_usd = exacto.eur(recibido * price_kg)
 
     # [00632] Y el precio del kilo se calcula contra el peso de HOY, no contra el de la
     # factura. Aquí se perdía el dinero: el carnicero recibe sin precio y

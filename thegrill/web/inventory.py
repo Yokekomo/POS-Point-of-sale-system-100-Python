@@ -21,7 +21,8 @@ from thegrill.engine.inventory import (MATCH, NOT_FOUND, OVER, SHORT, UNCOUNTED,
 from thegrill.models import (Alert, AlertSeverity, CountItemKind, CountPeriod, CountStatus,
                              Ingredient, IngredientLot, IngredientMovement, MeatCount,
                              MeatCountLine, MovementKind, Primal, PrimalStatus, Storage, User)
-from thegrill.web import aging, costing, jornada, locking, rangos, service, sites
+from thegrill.web import (aging, costing, exacto, jornada, locking, rangos,
+                          service, sites)
 from thegrill.web.i18n import t
 
 EPSILON = 1e-9
@@ -389,7 +390,7 @@ def _raise_alerts(session: Session, user: User, result: CloseResult, lang: str,
     aging_value = round(sum(w.loss_kg * (w.cost_per_kg_before or 0.0)
                             for w in result.weighings), 2)
     missing_kg = round(summary.shrink_kg - aging_kg, 4)
-    missing_value = round(summary.shrink_value - aging_value, 2)
+    missing_value = exacto.eur(summary.shrink_value - aging_value)
     if aging_kg > EPSILON:
         result.alerts.append(Alert(
             restaurant_id=user.restaurant_id, code="count.aging",

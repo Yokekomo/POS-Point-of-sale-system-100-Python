@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from thegrill.models import (Ingredient, IngredientLot, IngredientMovement, MovementKind,
                              Primal, PrimalStatus, Site, SiteKind, SitePar, Transfer, User)
-from thegrill.web import jornada, locking
+from thegrill.web import exacto, jornada, locking
 
 EPSILON = 1e-9
 PRIMAL = "PRIMAL"
@@ -497,7 +497,7 @@ def stock(session: Session, restaurant_id: int) -> list[SiteStock]:
         fila.primal_kg = round(fila.primal_kg + (primal.weight_kg or 0.0), 6)
         coste = (primal.piece_cost_usd if primal.piece_cost_usd is not None
                  else (primal.landed_usd_per_kg or 0.0) * (primal.weight_kg or 0.0))
-        fila.value = round(fila.value + (coste or 0.0), 2)
+        fila.value = exacto.eur(fila.value + (coste or 0.0))
 
     for lot in (session.query(IngredientLot)
                 .filter(IngredientLot.restaurant_id == restaurant_id,
@@ -506,6 +506,6 @@ def stock(session: Session, restaurant_id: int) -> list[SiteStock]:
         if fila is None:
             continue
         fila.cut_kg = round(fila.cut_kg + lot.qty_remaining, 6)
-        fila.value = round(fila.value + lot.qty_remaining * (lot.unit_cost or 0.0), 2)
+        fila.value = exacto.eur(fila.value + lot.qty_remaining * (lot.unit_cost or 0.0))
 
     return sorted(sedes.values(), key=lambda f: (f.site.kind.value, f.site.name))

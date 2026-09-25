@@ -16,6 +16,8 @@ cuadra: se dice cuáles faltan y esas no se tocan.
 El motor es puro: recibe lo esperado y lo contado, y devuelve las cuentas.
 """
 from dataclasses import dataclass, field
+# [01671] Ver la nota de `engine/cost.py`: `exacto` es aritmética, no una capa de arriba.
+from thegrill.web import exacto
 
 TOLERANCE_KG = 0.005      # cinco gramos: por debajo es la báscula, no una diferencia
 
@@ -106,7 +108,7 @@ class Summary:
     @property
     def gap_value(self) -> float:
         """[00126] Lo que cuesta todo lo que no cuadra, sumando faltas y sobras."""
-        return round(sum(l.gap_value for l in self.lines), 2)
+        return exacto.eur(sum(l.gap_value for l in self.lines))
 
     @property
     def shrink_value(self) -> float:
@@ -116,7 +118,7 @@ class Summary:
         cero: son cuatrocientos euros de recuento que no se sostiene, y con el
         total a secas no se ve ninguno de los dos.
         """
-        return round(-sum(l.gap_value for l in self.lines if l.gap_value < 0), 2)
+        return exacto.eur(-sum(l.gap_value for l in self.lines if l.gap_value < 0))
 
     @property
     def accuracy_pct(self) -> float | None:
