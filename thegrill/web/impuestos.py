@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from thegrill.web import exacto
+
 # [01643] Nadie paga el doscientos por cien de lo que gana. Un número mayor que esto
 # es un dedo, no un tipo impositivo, y se recorta antes de que salga en una
 # pantalla como si fuera verdad.
@@ -64,14 +66,19 @@ def reparte(margen: float, tipo: float) -> Reparto:
     que es, en vez de enseñar una devolución que nadie va a recibir por una
     pieza suelta.
     """
-    margen = round(margen or 0.0, 2)
+    # [01665] Al céntimo con la regla de siempre —la mitad sube—, y no con la que le
+    # salga a la coma flotante: esto es dinero que alguien va a apartar, y la
+    # cuenta tiene que dar lo mismo hecha con un lápiz.
+    margen = exacto.euros(margen or 0.0) or 0.0
     # [01644] El tope también aquí y no solo al leerlo de la casa: esta función la
     # llama cualquiera con el número que tenga a mano, y un tipo del quinientos
     # por ciento dejaría el limpio en negativo con toda naturalidad.
     tipo = min(max(tipo or 0.0, 0.0), TOPE)
     if tipo <= 0 or margen <= 0:
         return Reparto(bruto=margen, impuesto=0.0, limpio=margen, tipo=max(tipo, 0.0))
-    impuesto = round(margen * tipo / 100.0, 2)
+    impuesto = exacto.euros(margen * tipo / 100.0) or 0.0
+    # [01666] Lo que queda sale de restar, no de otra cuenta: así las dos partes suman
+    # el margen **exacto** y no se pierde el céntimo entre las dos.
     return Reparto(bruto=margen, impuesto=impuesto,
                    limpio=round(margen - impuesto, 2), tipo=tipo)
 
@@ -116,6 +123,7 @@ def soportado_de(piezas) -> Soportado:
     """
     base = iva = 0.0
     cuantas = 0
+
     for pieza in piezas:
         tipo = getattr(pieza, "purchase_vat_pct", None)
         coste = getattr(pieza, "piece_cost_usd", None)
@@ -124,4 +132,5 @@ def soportado_de(piezas) -> Soportado:
         cuantas += 1
         base += coste
         iva += coste * min(float(tipo), TOPE) / 100.0
-    return Soportado(base=round(base, 2), iva=round(iva, 2), piezas=cuantas)
+    return Soportado(base=exacto.euros(base) or 0.0,
+                     iva=exacto.euros(iva) or 0.0, piezas=cuantas)

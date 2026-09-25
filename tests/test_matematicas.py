@@ -87,6 +87,180 @@ def test_the_parts_of_a_primal_add_up_to_the_primal_exactly():
     assert not fallos, f"{len(fallos)} de {CASOS} repartos no cuadran: {fallos[:2]}"
 
 
+def test_the_split_is_the_one_the_exact_sum_gives():
+    """El reparto tiene que dar lo que da la cuenta exacta, no lo que le salga.
+
+    Se compara con el mismo reparto hecho en fracciones, donde no hay error que
+    valga. Antes no coincidía uno de cada cinco mil: la parte de cada uno y el
+    orden de los restos se calculaban en coma flotante, así que dos restos que
+    valen lo mismo acababan ordenados por el error de representación y el
+    céntimo que sobra se lo llevaba un corte u otro según cómo hubieran caído
+    los bits.
+
+    El total siempre cuadraba —eso nunca falló—, pero el céntimo caía donde no
+    tocaba, y eso es lo que hace que la cuenta no se pueda comprobar a mano.
+    """
+    from fractions import Fraction
+
+    from thegrill.web import exacto
+
+    def exacta(total: int, pesos: list[float]) -> list[int]:
+        fr = [Fraction(repr(float(p))) for p in pesos]
+        suma = sum(fr)
+        if suma <= 0:
+            base, sobra = divmod(total, len(pesos))
+            return [base + (1 if i < sobra else 0) for i in range(len(pesos))]
+        exactos = [Fraction(total) * p / suma for p in fr]
+        partes = [int(x) if x >= 0 else -int(-x) for x in exactos]
+        sobra = total - sum(partes)
+        if sobra:
+            restos = [exactos[i] - partes[i] for i in range(len(pesos))]
+            orden = sorted(range(len(pesos)),
+                           key=lambda i: (-restos[i] if sobra > 0 else restos[i], i))
+            for i in orden[:abs(sobra)]:
+                partes[i] += 1 if sobra > 0 else -1
+        return partes
+
+    azar = random.Random(23)
+    distintos = 0
+    for _ in range(CASOS):
+        pesos = [round(azar.uniform(0, 40), azar.randint(0, 4))
+                 for _ in range(azar.randint(1, 12))]
+        total = azar.randint(-500000, 500000)
+        if exacto.repartir(total, pesos) != exacta(total, pesos):
+            distintos += 1
+            if distintos == 1:
+                fallo = (total, pesos, exacto.repartir(total, pesos), exacta(total, pesos))
+    apunta("repartos que no son el exacto", float(distintos), f"de {CASOS}")
+    assert distintos == 0, f"{distintos} repartos distintos del exacto, p.ej. {fallo}"
+
+
+def test_the_split_does_not_change_with_the_unit_of_the_weights():
+    """Los pesos son proporciones: en kilos o en gramos, reparte igual.
+
+    Un corte con índice de valor 1,6 y otro con 16 son la misma proporción
+    frente a los demás. Si al cambiar la unidad se mueve el céntimo, lo que
+    manda no es la proporción sino en qué unidad se escribió, y eso no se
+    sostiene: el mismo despiece daría dos escandallos.
+
+    Se escala por potencias de dos, que en coma flotante multiplican exacto:
+    escalando por diez, `14,65 × 100` no es 1465 sino 1465,0000000000002, y
+    entonces lo que se estaría midiendo es la multiplicación y no el reparto.
+    """
+    from thegrill.web import exacto
+
+    azar = random.Random(29)
+    movidos = 0
+    for _ in range(CASOS):
+        pesos = [round(azar.uniform(0.1, 40), 3) for _ in range(azar.randint(2, 10))]
+        total = azar.randint(-300000, 300000)
+        antes = exacto.repartir(total, pesos)
+        for k in (2, 4, 8, 0.5, 0.25, 1024):
+            if exacto.repartir(total, [p * k for p in pesos]) != antes:
+                movidos += 1
+                break
+    apunta("repartos que se mueven al cambiar la unidad", float(movidos), f"de {CASOS}")
+    assert movidos == 0, f"{movidos} repartos cambian al escalar los pesos"
+
+
+def test_fifty_years_of_splits_do_not_leak_a_single_cent():
+    """Medio siglo de despieces, y el residuo tiene que quedarse en cero.
+
+    La pregunta que no contesta ningún ejemplo: el redondeo, ¿se queda quieto o
+    se acumula? Una pieza al día durante cincuenta años son dieciocho mil
+    despieces. Si cada uno se dejara medio céntimo, al final del medio siglo
+    faltarían noventa euros y nadie sabría de dónde.
+    """
+    from thegrill.web import exacto
+
+    azar = random.Random(31)
+    residuo_eur = residuo_kg = 0
+    for _ in range(18250):
+        kg = round(azar.uniform(3, 30), 3)
+        coste = round(kg * round(azar.uniform(8, 120), 2), 2)
+        pesos = [round(azar.uniform(0.2, 6), 3) for _ in range(5)]
+        partes = exacto.repartir_dinero(coste, pesos)
+        residuo_eur += (exacto.a_enteros(sum(partes), exacto.CENTIMOS)
+                        - exacto.a_enteros(coste, exacto.CENTIMOS))
+        trozos = exacto.repartir_kilos(kg, pesos)
+        residuo_kg += (exacto.a_enteros(sum(trozos), exacto.GRAMOS)
+                       - exacto.a_enteros(kg, exacto.GRAMOS))
+    apunta("cincuenta años de despieces", float(abs(residuo_eur)) / 100, "EUR")
+    apunta("cincuenta años de kilos repartidos", float(abs(residuo_kg)) / 1000, "kg")
+    assert residuo_eur == 0, f"en cincuenta años sobran o faltan {residuo_eur} céntimos"
+    assert residuo_kg == 0, f"en cincuenta años sobran o faltan {residuo_kg} gramos"
+
+
+def test_half_a_cent_rounds_like_an_invoice_and_not_like_the_binary():
+    """Medio céntimo sube, siempre, y no según le toque al binario.
+
+    `1,005 €` son 101 céntimos en cualquier factura del mundo. En coma
+    flotante, 1,005 no existe: lo que se guarda es 1,00499999999999989…, así
+    que redondear con `round()` da 100. Y no es que baje siempre —`2,675` sí
+    sube—: depende de por qué lado cae ese número concreto en binario. Dos
+    cifras que una persona escribe igual salen distintas, y no hay forma de
+    saber cuál va a salir sin probarla.
+
+    Eso, en un programa cuyo argumento entero es que no se pierde ni una
+    milésima, es el fallo de fondo: la regla no está escrita en ninguna parte,
+    la pone el error de representación.
+
+    La regla, escrita: **al pasar a céntimos o a gramos, la mitad sube**. Es lo
+    que hace una caja registradora, lo que hace Hacienda y lo que va a hacer
+    quien compruebe la cuenta con un lápiz. Y sube también en negativo —hacia
+    afuera del cero—, que es como se devuelve dinero.
+
+    Se mide sobre veinte mil mitades seguidas, no sobre los tres ejemplos de
+    siempre: lo que importa no es que 1,005 salga bien, es que no haya ninguna
+    que salga mal.
+    """
+    from decimal import ROUND_HALF_UP, Decimal
+
+    from thegrill.web import exacto
+
+    def como_una_caja(v: float, por: int) -> int:
+        return int((Decimal(repr(v)) * por).to_integral_value(ROUND_HALF_UP))
+
+    # Los de toda la vida, los que salen en cualquier discusión sobre esto.
+    for escrito, centimos in ((1.005, 101), (0.145, 15), (2.675, 268),
+                              (0.615, 62), (-1.005, -101), (8.835, 884)):
+        assert exacto.a_enteros(escrito, exacto.CENTIMOS) == centimos, escrito
+
+    # Y las veinte mil siguientes, en dinero y en peso.
+    fallos = []
+    for i in range(1, 20000):
+        for por in (exacto.CENTIMOS, exacto.GRAMOS):
+            v = round(i / por + 0.5 / por, 10)
+            if exacto.a_enteros(v, por) != como_una_caja(v, por):
+                fallos.append((v, por, exacto.a_enteros(v, por), como_una_caja(v, por)))
+    apunta("mitades que no redondean como una caja", float(len(fallos)), "de 40000")
+    assert not fallos, f"{len(fallos)} mitades mal redondeadas, p.ej. {fallos[:4]}"
+
+
+def test_the_same_number_written_and_computed_rounds_the_same(cocina):
+    """Y da igual si el número se tecleó o si salió de una cuenta.
+
+    Un precio que alguien escribe como «43,555» y el mismo 43,555 que sale de
+    multiplicar tienen que acabar en el mismo céntimo. Con `round()` no era
+    seguro: el binario de un número tecleado y el de uno calculado no tienen
+    por qué caer del mismo lado.
+    """
+    from thegrill.web import exacto
+
+    peor = 0
+    # De cero a uno: por encima, «1,000» en una casilla de dinero son mil, que
+    # es lo que quiere decir quien lo escribe en una factura, y eso ya tiene su
+    # propia prueba. Aquí se comparan milésimas contra milésimas.
+    for milesimas in range(1, 1000):
+        escrito = exacto.leer(f"0,{milesimas:03d}", decimales=2)
+        calculado = milesimas / 1000
+        uno = exacto.a_enteros(escrito, exacto.CENTIMOS)
+        otro = exacto.a_enteros(calculado, exacto.CENTIMOS)
+        peor = max(peor, abs(uno - otro))
+    apunta("escrito contra calculado", float(peor), "céntimos")
+    assert peor == 0, "el mismo número sale en céntimos distintos según de dónde venga"
+
+
 def test_a_single_cent_is_split_without_inventing_money():
     """Siete céntimos entre tres cortes: alguien se lleva tres y los otros dos.
 

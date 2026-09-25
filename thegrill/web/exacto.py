@@ -28,6 +28,9 @@ exacto. La coma flotante es el camión, no la báscula.
 from __future__ import annotations
 
 import re
+from decimal import ROUND_HALF_UP, Decimal
+from fractions import Fraction
+from math import gcd
 
 CENTIMOS = 100          # un euro
 GRAMOS = 1000           # un kilo
@@ -36,8 +39,27 @@ CENTIMOS_DECIMALES = 2  # las que da el dinero
 
 
 def a_enteros(valor: float, por: int = CENTIMOS) -> int:
-    """[01171] De euros a céntimos, o de kilos a gramos. Con redondeo al más cercano."""
-    return int(round((valor or 0.0) * por))
+    """[01171] De euros a céntimos, o de kilos a gramos. La mitad sube, siempre.
+
+    La regla escrita, y no la que salga: **al pasar a la unidad pequeña, medio
+    céntimo y medio gramo suben**, y en negativo suben hacia afuera del cero,
+    que es como se devuelve dinero. Es lo que hace una caja registradora, lo
+    que hace Hacienda y lo que va a hacer quien compruebe la cuenta con un
+    lápiz.
+
+    Antes se hacía con `round()` sobre el número en coma flotante, y ahí la
+    regla no la ponía nadie: la ponía el error de representación. `1,005` no
+    existe en binario —lo que se guarda es 1,00499999999999989…— así que
+    bajaba; `2,675` cae por el otro lado y subía. Dos cifras que una persona
+    escribe igual salían distintas y no había forma de saber cuál sin
+    probarla. De cuarenta mil mitades seguidas, dieciséis mil salían del lado
+    que no era.
+
+    El paso se hace en decimal, desde el texto más corto que representa ese
+    número —que es el que la persona quiso escribir— y no desde sus bits.
+    """
+    return int((Decimal(repr(float(valor or 0.0))) * por)
+               .to_integral_value(ROUND_HALF_UP))
 
 
 def a_decimal(entero: int, por: int = CENTIMOS) -> float:
@@ -64,20 +86,59 @@ def repartir(total: int, pesos: list[float]) -> list[int]:
         base, sobra = divmod(total, len(pesos))
         return [base + (1 if i < sobra else 0) for i in range(len(pesos))]
 
-    exactos = [total * p / suma for p in pesos]
-    partes = [int(x) if x >= 0 else -int(-x) for x in exactos]   # hacia cero
+    # [01663] [01187b] Los pesos, a números enteros y exactos. Esto es lo que hace que el
+    # reparto sea de verdad reproducible.
+    #
+    # Antes la parte de cada uno se calculaba en coma flotante y el orden de
+    # los restos también. Dos restos que valen lo mismo —o casi— acababan
+    # ordenados por el error de representación, así que el céntimo que sobra se
+    # lo llevaba uno u otro según cómo hubieran caído los bits. Dos cosas malas
+    # salían de ahí: el resultado no era el que da la cuenta exacta (un caso de
+    # cada cinco mil), y **cambiaba al cambiar la unidad de los pesos**: los
+    # mismos cortes con el índice de valor puesto en 1,6 o en 16 —que es la
+    # misma proporción— repartían el céntimo a cortes distintos.
+    #
+    # Los pesos son proporciones: lo único que dicen es cuánto le toca a cada
+    # uno respecto a los demás. Pasados a enteros con denominador común, la
+    # división y los restos se hacen con enteros, que no tienen error, y las
+    # dos cosas se arreglan solas: sale lo que dice la cuenta exacta, y sale lo
+    # mismo midiendo los pesos en kilos o en gramos.
+    enteros, comun = _pesos_enteros(pesos)
+    partes = []
+    restos = []
+    for w in enteros:
+        arriba = total * w
+        # [01664] Hacia cero, como se ha repartido siempre.
+        entero = arriba // comun if arriba >= 0 else -((-arriba) // comun)
+        partes.append(entero)
+        restos.append(arriba - entero * comun)      # el resto, exacto
     sobra = total - sum(partes)
     if sobra:
-        # [01188] Quien más parte decimal tiene, primero. El signo importa: repartiendo
-        # un número negativo —una devolución, un ajuste a la baja— lo que sobra
-        # también es negativo y va a quien menos le falta.
+        # [01188] Quien más parte decimal tiene, primero, y en el empate el primero
+        # de la lista. El signo importa: repartiendo un número negativo —una
+        # devolución, un ajuste a la baja— lo que sobra también es negativo y
+        # va a quien menos le falta.
         orden = sorted(range(len(pesos)),
-                       key=lambda i: (-(exactos[i] - partes[i]) if sobra > 0
-                                      else (exactos[i] - partes[i]), i))
+                       key=lambda i: (-restos[i] if sobra > 0 else restos[i], i))
         paso = 1 if sobra > 0 else -1
         for i in orden[:abs(sobra)]:
             partes[i] += paso
     return partes
+
+
+def _pesos_enteros(pesos: list[float]) -> tuple[list[int], int]:
+    """[01662] Los pesos como enteros con denominador común, sin perder nada.
+
+    Cada peso se lee por su escritura más corta —la que una persona pondría—
+    y no por sus bits: `0,1` es un décimo, no 0,1000000000000000055…  Con el
+    denominador común, comparar restos es comparar enteros, y ahí no hay
+    empate que se decida por casualidad.
+    """
+    fracciones = [Fraction(repr(float(p))) for p in pesos]
+    comun = 1
+    for f in fracciones:
+        comun = comun * f.denominator // gcd(comun, f.denominator)
+    return [int(f * comun) for f in fracciones], int(sum(f * comun for f in fracciones))
 
 
 def repartir_dinero(total_eur: float, pesos: list[float]) -> list[float]:
