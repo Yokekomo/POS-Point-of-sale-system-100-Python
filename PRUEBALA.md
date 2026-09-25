@@ -102,6 +102,36 @@ docker compose -f docker-compose.demo.yml up --build
 
 Igual: **http://localhost:8001**, y las claves salen en el terminal.
 
+## Desde el móvil, estés donde estés: el túnel
+
+Lo de arriba solo vale dentro de tu wifi. Para abrirlo desde la calle —o para
+enseñárselo a alguien que está en otro sitio— hay un **`tunel.bat`**:
+
+```
+powershell -c "$d=[Environment]::GetFolderPath('Desktop'); iwr 'https://raw.githubusercontent.com/Yokekomo/POS-Point-of-sale-system-100-Python/claude/cool-bohr-jct64l/tunel.bat' -OutFile (Join-Path $d 'tunel.bat'); explorer $d"
+```
+
+Doble clic y hace todo: pone el programa al día, se baja `cloudflared` la
+primera vez, arranca el programa **en otra ventana**, espera a que conteste de
+verdad y entonces abre el túnel. Escribe una dirección `https://…
+trycloudflare.com` dentro de un recuadro: **esa** es la que se manda al móvil.
+
+Espera a que salga el recuadro. Si el túnel se abriera antes de que el programa
+conteste, la dirección daría error y parecería que el túnel está roto cuando lo
+que pasa es que la demo todavía se está montando; por eso `tunel.bat` no la
+enseña hasta que el puerto contesta.
+
+No hay que tocar el router ni abrir ningún puerto ni registrarse en Cloudflare:
+es el programa el que llama hacia fuera, y las visitas vuelven por esa misma
+llamada. Se cierra con **Ctrl+C** en la ventana del túnel, y el programa se para
+con Ctrl+C en la otra.
+
+> **Ojo con esto.** Mientras el túnel está abierto, esa dirección la puede abrir
+> cualquiera que la tenga: es aleatoria y no se puede adivinar, pero es pública.
+> Y la demo lleva las contraseñas escritas en este mismo fichero. Para enseñarla
+> un rato, perfecto; para trabajar con datos de verdad, no: eso es
+> **[DESPLIEGUE.md](DESPLIEGUE.md)**, con su dominio y su certificado.
+
 ## Desde el móvil o la tablet
 
 La demo escucha en toda la red de casa, así que desde el móvil **conectado a la
