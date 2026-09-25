@@ -248,3 +248,76 @@ def test_food_cost_of_the_finished_plate():
     assert c.margin_per_portion == round(c.net_price - c.cost_per_portion, 4)
     # la línea de mayor coste del primer nivel es la hamburguesa entera
     assert c.lines[0].label == "Burger" and c.lines[0].is_sub_recipe
+
+
+def test_the_explosion_matches_the_exact_arithmetic():
+    """Lo que hay que sacar del almacén, contra la cuenta hecha en fracciones.
+
+    Una receta con elaboraciones dentro de elaboraciones es una cadena de
+    divisiones: la merma divide —160 g con un 5 % son 168,42—, y cada nivel
+    divide otra vez por lo que produce la elaboración. Cinco niveles son cinco
+    divisiones encadenadas, y ahí es donde el error de la coma flotante se
+    multiplica en vez de sumarse.
+
+    Se compara con la misma explosión hecha en `Fraction`, donde no hay error
+    que valga, sobre árboles de hasta cinco niveles y hasta doscientas veces la
+    receta. Lo que se mide es el peor desvío en kilos, que es lo que acaba
+    faltando en la cámara.
+    """
+    import random
+    from fractions import Fraction
+
+    from thegrill.engine import recipes as R
+
+    class Linea:
+        def __init__(self, qty, waste, ing=None, sub=None):
+            self.qty, self.waste_pct = qty, waste
+            self.ingredient_id = ing
+            self.sub_recipe_id = getattr(sub, "id", None)
+            self.sub_recipe = sub
+            self.ingredient = None
+
+    class Receta:
+        n = 0
+
+        def __init__(self, lineas, produce):
+            Receta.n += 1
+            self.id, self.name = Receta.n, f"R{Receta.n}"
+            self.code, self.lines = self.name, lineas
+            self.yield_qty, self.yield_unit = produce, None
+            self.portions, self.sale_price, self.vat_pct = 1, None, 0.0
+
+    def exacta(receta, veces):
+        fuera = {}
+        for l in receta.lines:
+            q = Fraction(repr(float(l.qty)))
+            w = Fraction(repr(float(l.waste_pct)))
+            bruto = q / (1 - w / 100) * veces
+            if l.sub_recipe is not None:
+                produce = Fraction(repr(float(l.sub_recipe.yield_qty)))
+                for k, v in exacta(l.sub_recipe, bruto / produce).items():
+                    fuera[k] = fuera.get(k, Fraction(0)) + v
+            elif l.ingredient_id:
+                fuera[l.ingredient_id] = fuera.get(l.ingredient_id, Fraction(0)) + bruto
+        return fuera
+
+    azar = random.Random(41)
+    peor = 0.0
+    for _ in range(1500):
+        actual = Receta([Linea(round(azar.uniform(0.01, 2), 3),
+                               round(azar.uniform(0, 60), 1), ing=i + 1)
+                         for i in range(azar.randint(1, 4))],
+                        round(azar.uniform(0.5, 10), 3))
+        for _ in range(azar.randint(1, 5)):
+            actual = Receta([Linea(round(azar.uniform(0.01, 2), 3),
+                                   round(azar.uniform(0, 60), 1), sub=actual),
+                             Linea(round(azar.uniform(0.01, 2), 3),
+                                   round(azar.uniform(0, 60), 1), ing=99)],
+                            round(azar.uniform(0.5, 10), 3))
+        veces = round(azar.uniform(1, 200), 2)
+        mio = R.explode(actual, veces)
+        for k, v in exacta(actual, Fraction(repr(veces))).items():
+            peor = max(peor, abs(mio.get(k, 0.0) - float(v)))
+    # Un miligramo. Por debajo de eso no hay báscula de cocina que llegue, y
+    # `explode` redondea a la millonésima de kilo a propósito.
+    assert peor < 0.001, f"la explosión se separa {peor:.10g} kg de la cuenta exacta"

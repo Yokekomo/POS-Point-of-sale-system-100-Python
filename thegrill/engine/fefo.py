@@ -41,15 +41,21 @@ class FefoResult:
     remaining: list[Lot] = field(default_factory=list)
     shortfall_kg: float = 0.0
 
+    # [01668] Los dos totales, con los mismos decimales con los que se apunta cada
+    # salida. Iban a cuatro mientras las salidas iban a seis, así que el total
+    # no era la suma de sus partes: hasta medio decigramo y medio céntimo de
+    # diferencia entre lo que dice el resumen y lo que dicen las líneas. En un
+    # módulo cuyo trabajo entero es que las partes sumen el total, ese es el
+    # sitio donde menos puede pasar.
     @property
     def cost_usd(self) -> float:
         """[00114] Lo que cuesta todo lo consumido, lote a lote."""
-        return round(sum(c.cost_usd for c in self.consumptions), 4)
+        return round(sum(c.cost_usd for c in self.consumptions), 6)
 
     @property
     def kg(self) -> float:
         """[00115] Los kilos consumidos en total."""
-        return round(sum(c.kg for c in self.consumptions), 4)
+        return round(sum(c.kg for c in self.consumptions), 6)
 
 
 def order_fefo(lots: list[Lot]) -> list[Lot]:
@@ -94,7 +100,14 @@ def consume(lots: list[Lot], ingredient: str, kg: float, allow_shortfall: bool =
             result.remaining.append(lot)
             continue
         take = min(lot.kg, pending)
-        result.consumptions.append(Consumption(lot.lot_id, round(take, 4), lot.unit_cost_usd))
+        # [01669] Lo que se apunta es lo que se saca, con los mismos decimales.
+        # Se apuntaba redondeado a cuatro y se descontaba a seis, así que el
+        # papel decía una cosa y el lote otra: hasta medio decigramo por lote
+        # y por salida, siempre en la misma dirección. No llega a la báscula,
+        # pero es un libro que no cuadra con el almacén, y esa clase de hueco
+        # es la que se descubre tres meses después sin poder explicarla.
+        result.consumptions.append(Consumption(lot.lot_id, round(take, 6),
+                                               lot.unit_cost_usd))
         last_cost = lot.unit_cost_usd
         pending = round(pending - take, 6)
         left = round(lot.kg - take, 6)

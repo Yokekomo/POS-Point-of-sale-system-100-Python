@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 import pytest
 
 from thegrill.engine.fefo import Lot, NoCostBasis, consume, expiring
@@ -34,3 +34,41 @@ def test_shortfall_flagged_not_silent():
 
 def test_expiring_alert():
     assert [l.lot_id for l in expiring(LOTS, D, within_days=2)] == ["C", "A"]
+
+
+def test_what_is_written_down_is_what_is_taken_out():
+    """El papel y el almacén tienen que decir lo mismo, al gramo.
+
+    Se apuntaba el consumo redondeado a cuatro decimales y se descontaba del
+    lote con seis. Medio decigramo por lote y por salida, siempre hacia el
+    mismo lado: no lo ve una báscula, pero es un libro que no cuadra con el
+    almacén, y esa clase de hueco se descubre tres meses después sin poder
+    explicarlo.
+    """
+    import random
+
+    from thegrill.engine import fefo
+
+    azar = random.Random(19)
+    peor = 0.0
+    for _ in range(3000):
+        lotes = [fefo.Lot(ingredient="X", lot_id=f"L{i}",
+                          expiry=date(2026, 9, 20) + timedelta(days=i),
+                          # Con seis decimales a propósito: un lote que nace de
+                          # partir otro —un traslado, una salida del arcón— no
+                          # pesa 4,250 exactos, y es ahí donde se ve si lo que
+                          # se apunta tiene los mismos decimales que lo que se
+                          # saca. Con lotes de tres decimales no se nota nada.
+                          kg=round(azar.uniform(0.001, 12), 6),
+                          unit_cost_usd=round(azar.uniform(5, 90), 2),
+                          received=date(2026, 9, 1))
+                 for i in range(azar.randint(1, 6))]
+        hay = sum(l.kg for l in lotes)
+        pedido = round(azar.uniform(0.001, hay), 6)
+        salida = fefo.consume(lotes, "X", pedido)
+        # Lo apuntado suma lo pedido…
+        peor = max(peor, abs(salida.kg - pedido))
+        # …y lo que queda es lo que había menos lo apuntado.
+        queda = sum(l.kg for l in salida.remaining)
+        peor = max(peor, abs((hay - pedido) - queda))
+    assert peor < 1e-6, f"el papel y el almacén se separan {peor:.10g} kg"
