@@ -642,6 +642,36 @@ En producción hay que servir por HTTPS, porque la cookie de sesión se marca co
 segura salvo que se defina `GRILL_INSECURE_COOKIE=1`, que es solo para
 desarrollo.
 
+## Lo que cuesta el kilo puesto en la cámara
+
+La carne no cuesta lo que dice la factura del proveedor: cuesta lo que costó
+ponerla en la cámara. Son tres números y en la recepción van en dos sitios
+distintos, a propósito:
+
+- **El precio del kilo, en cada pieza.** Dos bolsas del mismo camión no valen
+  lo mismo si una es MB9 y la otra MB6, y un precio de lote copiado a todas
+  esconde justo esa diferencia. Va en la línea de cada pieza, junto a su número
+  y su peso.
+- **El transporte y la aduana, en el lote.** Son del camión entero, se reparten
+  a cada kilo que traía y solo los hay cuando la carne viene de fuera. Se
+  escriben una vez al abrir la descarga y se quedan puestos para las demás
+  bolsas.
+
+Un lomo a 40 con 2 de transporte y 1 de aduana no está a 40: está a 43.
+Despiezarlo como si estuviera a 40 se lleva ese siete por ciento a todos los
+cortes, a la carta y al food cost del mes sin que nadie lo vea.
+
+Los tres se guardan por separado —`goods_usd_per_kg`, `freight_usd_per_kg`,
+`duty_usd_per_kg`— y su suma es `landed_usd_per_kg`, que es el número que manda
+en todo lo que viene detrás. Guardarlos sueltos es lo que permite contestar
+«¿me sale más caro el australiano por la carne o por el flete?», que es la
+pregunta que decide la siguiente compra.
+
+Una pieza **sin precio** sigue entrando sin precio aunque el flete esté puesto:
+sumarle el transporte a lo que no se sabe lo que cuesta sería inventarse un
+coste. Se queda esperando en «Precios pendientes», y cuando dirección le pone
+el suyo, el flete sigue siendo suyo y se suma entonces.
+
 ## Dos cosas que conviene entender
 
 **De dónde sale el consumo de cada corte.** Cada corte elige si se descuenta al

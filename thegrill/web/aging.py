@@ -463,7 +463,7 @@ def weigh(session: Session, user: User, serial: str, kg: float,
     # contra el peso de hoy, no contra el del día que llegó.
     if cost is not None:
         ahora = round(cost / kg, 6) if kg > EPSILON else None
-        # Y una pesada no abarata el kilo. Nunca. Aquí solo se pesa lo que se
+        # [01619] Y una pesada no abarata el kilo. Nunca. Aquí solo se pesa lo que se
         # evapora: los kilos bajan o se quedan, el coste no se mueve, así que
         # la cuenta solo puede salir igual o más alta. Si sale más baja, lo que
         # ha pasado no es que la carne valga menos: es que las dos cifras

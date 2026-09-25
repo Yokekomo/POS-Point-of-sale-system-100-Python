@@ -42,7 +42,7 @@ def _recibir(client, gramos):
     form = client.get("/recepcion")
     return client.post("/recepcion", data={
         "csrf": csrf_from(form.text), "lot": "L1", "sku": "Striploin",
-        "price_kg": "32", "serial:0": "8017", "g:0": gramos})
+        "price:0": "32", "serial:0": "8017", "g:0": gramos})
 
 
 def test_the_chamber_speaks_the_language_of_the_house(tmp_path, monkeypatch):

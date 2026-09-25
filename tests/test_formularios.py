@@ -30,7 +30,7 @@ def client(tmp_path, monkeypatch):
 def _recibir(client, **extra):
     form = client.get("/recepcion")
     datos = {"csrf": csrf_from(form.text), "lot": "DXB20260910", "sku": "Striploin AUS",
-             "origin": "AUS", "price_kg": "32", "serial:0": "8017", "g:0": "9400"}
+             "origin": "AUS", "price:0": "32", "serial:0": "8017", "g:0": "9400"}
     datos.update(extra)
     return client.post("/recepcion", data=datos)
 
@@ -168,7 +168,7 @@ def test_the_waste_form_keeps_what_was_typed(client):
 # ------------------------------------ las dos pantallas que quedaban del bloque
 def test_a_bad_price_for_all_no_longer_takes_the_screen_down(client):
     """El mismo fallo que el «4 C», en los precios: se leía fuera del `try`."""
-    _recibir(client, price_kg="")                # entra sin precio
+    _recibir(client, **{"price:0": ""})                # entra sin precio
     pantalla = client.get("/recepcion/precios")
     r = client.post("/recepcion/precios", data={
         "csrf": csrf_from(pantalla.text), "all_price": "32 eur",
@@ -178,7 +178,7 @@ def test_a_bad_price_for_all_no_longer_takes_the_screen_down(client):
 
 
 def test_the_prices_screen_keeps_what_was_typed(client):
-    _recibir(client, price_kg="")
+    _recibir(client, **{"price:0": ""})
     pantalla = client.get("/recepcion/precios")
     r = client.post("/recepcion/precios", data={
         "csrf": csrf_from(pantalla.text), "all_price": "treinta",
@@ -285,7 +285,7 @@ def test_a_sheet_queued_before_the_change_is_still_booked_in_kilos(client):
     form = client.get("/recepcion")
     r = client.post("/recepcion", data={
         "csrf": csrf_from(form.text), "lot": "L-AYER", "sku": "Striploin",
-        "price_kg": "32", "serial:0": "8050", "kg:0": "9,4",
+        "price:0": "32", "serial:0": "8050", "kg:0": "9,4",
         "envio": "de-la-cola-de-ayer"})
     assert r.status_code == 303
     with db.session_scope() as s:

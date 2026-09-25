@@ -620,8 +620,9 @@ def test_a_delivery_is_booked_one_piece_at_a_time_with_its_label(browser):
     page.fill("#lot", "L-MOVIL")
     page.fill("#sku", "Ribeye AUS")
     page.fill("#producer_plant", "Teys Biloela")
-    page.fill("#price_kg", "32")
+    page.fill("#freight_kg", "1,20")       # lo del camión: se reparte a cada kilo
     page.fill("input[name='serial:0']", "9300")
+    page.fill("input[name='price:0']", "32")
     page.fill("input[name='g:0']", "9200")
     page.click("form[action='/recepcion'] button[type=submit]")
     page.wait_for_selector(".banner.ok", timeout=8000)
@@ -634,6 +635,7 @@ def test_a_delivery_is_booked_one_piece_at_a_time_with_its_label(browser):
     # Y lo del camión sigue escrito para la siguiente bolsa.
     assert page.input_value("#lot") == "L-MOVIL"
     assert page.input_value("#producer_plant") == "Teys Biloela"
+    assert page.input_value("#freight_kg") == "1,20"         # y el flete también
     assert page.input_value("input[name='g:0']") == ""       # la pieza, en blanco
     context.close()
 

@@ -134,7 +134,7 @@ def test_a_delivery_books_each_piece_with_its_own_number_and_cost(client):
     form = client.get("/recepcion")
     r = client.post("/recepcion", data={
         "csrf": csrf_from(form.text), "lot": "DXB20260910", "sku": "Striploin AUS",
-        "grade": "MB9+", "origin": "AUS", "price_kg": "32", "use_by": str(HOY + timedelta(days=40)),
+        "grade": "MB9+", "origin": "AUS", "price:0": "32", "use_by": str(HOY + timedelta(days=40)),
         "serial:0": "8017", "g:0": "9400",
         "serial:1": "8018", "g:1": "10200", "price:1": "34"})
     # Guardar contesta con una redirección: recargar no da de alta otra vez.
@@ -153,7 +153,7 @@ def test_two_pieces_can_never_share_a_number(client):
     signup(client)
     form = client.get("/recepcion")
     r = client.post("/recepcion", data={
-        "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "30",
+        "csrf": csrf_from(form.text), "lot": "L1", "price:0": "30",
         "serial:0": "8017", "g:0": "9000",
         "serial:1": "8017", "g:1": "9000"})
     assert "8017" in r.text
@@ -229,11 +229,14 @@ def test_an_employee_cannot_invent_cuts(client):
 def deliver(client, serials=("8017",), kg=10.0, price=30.0):
     form = client.get("/recepcion")
     data = {"csrf": csrf_from(form.text), "lot": "DXB20260910", "sku": "Striploin AUS",
-            "grade": "MB9+", "origin": "AUS", "price_kg": str(price),
+            "grade": "MB9+", "origin": "AUS",
             "use_by": str(HOY + timedelta(days=40))}
+    # El precio del kilo es de cada pieza: no hay uno del camión que valga para
+    # todas, porque dos bolsas del mismo camión no valen lo mismo.
     for i, serial in enumerate(serials):
         data[f"serial:{i}"] = serial
         data[f"kg:{i}"] = str(kg)
+        data[f"price:{i}"] = str(price)
     # Guardar contesta con una redirección: el recado espera en la pantalla
     # de después, para que recargar no vuelva a dar de alta el camión.
     assert client.post("/recepcion", data=data).status_code == 303
@@ -779,7 +782,7 @@ def test_a_submission_that_arrives_twice_is_applied_once(client):
     signup(client)
     form = client.get("/recepcion")
     datos = {"csrf": csrf_from(form.text), "lot": "L-REPE", "sku": "Striploin AUS",
-             "price_kg": "30", "serial:0": "9001", "g:0": "9400",
+             "price:0": "30", "serial:0": "9001", "g:0": "9400",
              "serial:1": "9002", "g:1": "10200", "envio": "mismo-numero-de-envio"}
 
     primera = client.post("/recepcion", data=datos)
@@ -799,7 +802,7 @@ def test_two_different_submissions_are_both_applied(client):
         form = client.get("/recepcion")
         client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-DOS", "sku": "Striploin AUS",
-            "price_kg": "30", "serial:0": serial, "g:0": "9400", "envio": numero})
+            "price:0": "30", "serial:0": serial, "g:0": "9400", "envio": numero})
     with db.session_scope() as s:
         assert [p.serial for p in s.query(Primal).order_by(Primal.serial)] == ["9001", "9002"]
 
@@ -1038,9 +1041,11 @@ class TestEtiquetaYPrecio:
         """El carnicero recibe; el dinero no es suyo y no se le enseña."""
         signup(client)
         paco = add_user(client, email="paco@marina.com", name="Paco", role=Role.BUTCHER)
-        assert 'name="price_kg"' not in paco.get("/recepcion").text
+        pantalla = paco.get("/recepcion").text
+        assert 'name="price:0"' not in pantalla      # ni el de la pieza
+        assert 'name="freight_kg"' not in pantalla   # ni lo que costó traerla
         # Y aunque lo escriba a mano en el formulario, no entra.
-        self.recibir(paco, price_kg="32")
+        self.recibir(paco, **{"price:0": "32"})
         with db.session_scope() as s:
             assert all(p.landed_usd_per_kg is None for p in s.query(Primal))
 
@@ -1118,11 +1123,84 @@ class TestEtiquetaYPrecio:
         assert paco.post("/recepcion/precios",
                          data={"csrf": "x", "serial": ["8017"]}).status_code == 403
 
+    def test_what_it_cost_to_bring_it_is_shared_by_every_kilo_of_the_lorry(self, client):
+        """La carne no cuesta lo que dice la factura: cuesta ponerla en la cámara.
+
+        El precio del kilo es de cada pieza —dos bolsas del mismo camión no
+        valen lo mismo si una es MB9 y la otra MB6— y por eso ya no hay un
+        precio del lote que se copie a todas. Lo que sí es del camión entero es
+        lo que costó traerlo: el flete y la aduana, que solo hay cuando viene
+        de fuera y se reparten a cada kilo que traía.
+
+        Un lomo a 40 con 2 de transporte y 1 de aduana no está a 40: está a 43,
+        y despiezarlo como si estuviera a 40 se lleva ese siete por ciento a
+        todos los cortes, a la carta y al food cost del mes sin que nadie lo
+        vea. Y los tres números se guardan por separado, que es lo que contesta
+        «¿me sale más caro el australiano por la carne o por el flete?».
+        """
+        signup(client)
+        self.recibir(client, **{"price:0": "40", "price:1": "40",
+                                "freight_kg": "2", "duty_kg": "1"})
+        with db.session_scope() as s:
+            piezas = {p.serial: p for p in s.query(Primal)}
+            una = piezas["8017"]
+            assert una.landed_usd_per_kg == 43.0          # puesto en la cámara
+            assert una.goods_usd_per_kg == 40.0           # y de qué está hecho
+            assert una.freight_usd_per_kg == 2.0
+            assert una.duty_usd_per_kg == 1.0
+            assert una.piece_cost_usd == round(9.4 * 43.0, 2)
+            # A las dos bolsas del mismo camión les toca el mismo flete.
+            assert piezas["8018"].landed_usd_per_kg == 43.0
+
+    def test_a_lorry_from_here_does_not_pay_freight_or_duty(self, client):
+        """Sin importación no hay nada que sumar, y el kilo es el de la factura."""
+        signup(client)
+        self.recibir(client, **{"price:0": "40", "price:1": "40"})
+        with db.session_scope() as s:
+            una = s.query(Primal).filter_by(serial="8017").one()
+            assert una.landed_usd_per_kg == 40.0
+            assert una.freight_usd_per_kg is None and una.duty_usd_per_kg is None
+
+    def test_freight_alone_never_invents_a_price_for_a_piece_that_has_none(self, client):
+        """Sumarle el flete a lo que no se sabe lo que cuesta sería inventarlo.
+
+        En el muelle casi nunca se sabe el precio: llega con la factura, días
+        después. Una pieza así tiene que quedarse esperando, no entrar valiendo
+        dos euros el kilo porque esos dos son lo que costó el camión.
+        """
+        signup(client)
+        self.recibir(client, **{"freight_kg": "2", "duty_kg": "1"})
+        with db.session_scope() as s:
+            una = s.query(Primal).filter_by(serial="8017").one()
+            assert una.landed_usd_per_kg is None, "ha entrado valiendo solo el flete"
+            assert una.freight_usd_per_kg == 2.0        # pero apuntado queda
+        assert "8017" in client.get("/recepcion/precios").text
+
+    def test_the_price_set_later_still_pays_the_freight(self, client):
+        """Y cuando dirección pone el precio, lo de traerla sigue siendo suyo."""
+        from tests.meat_helpers import csrf_from
+
+        signup(client)
+        self.recibir(client, **{"freight_kg": "2", "duty_kg": "1"})
+        pantalla = client.get("/recepcion/precios")
+        assert client.post("/recepcion/precios",
+                           data={"csrf": csrf_from(pantalla.text), "serial": ["8017"],
+                                 "price:8017": "40"}).status_code in (200, 303)
+        with db.session_scope() as s:
+            una = s.query(Primal).filter_by(serial="8017").one()
+            assert una.goods_usd_per_kg == 40.0
+            assert round(una.landed_usd_per_kg, 6) == 43.0
+
     def test_the_manager_who_receives_prices_on_the_spot(self, client):
         """Quien ve el dinero no necesita el segundo paso."""
         signup(client)
-        assert 'name="price_kg"' in client.get("/recepcion").text
-        self.recibir(client, price_kg="32")
+        pantalla = client.get("/recepcion").text
+        assert 'name="price:0"' in pantalla
+        # El precio del kilo es de cada pieza y no del camión: del camión solo
+        # es lo que costó traerla, que se reparte a todos sus kilos.
+        assert 'name="price_kg"' not in pantalla
+        assert 'name="freight_kg"' in pantalla and 'name="duty_kg"' in pantalla
+        self.recibir(client, **{"price:0": "32", "price:1": "32"})
         with db.session_scope() as s:
             assert all(p.landed_usd_per_kg == 32 for p in s.query(Primal))
             assert s.query(Primal).count() == 2
@@ -1141,7 +1219,7 @@ class TestEtiquetaYPrecio:
     def test_a_piece_carries_the_photo_of_its_label(self, client, tmp_path, monkeypatch):
         monkeypatch.setattr(meatapp, "UPLOAD_DIR", str(tmp_path / "subidas"))
         signup(client)
-        self.recibir(client, price_kg="32")
+        self.recibir(client, **{"price:0": "32"})
         token = csrf_from(client.get("/recepcion").text)
 
         r = client.post("/carne/8017/foto", data={"csrf": token, "next": "/recepcion"},
@@ -1161,7 +1239,7 @@ class TestEtiquetaYPrecio:
                                                                      tmp_path, monkeypatch):
         monkeypatch.setattr(meatapp, "UPLOAD_DIR", str(tmp_path / "subidas"))
         signup(client)
-        self.recibir(client, price_kg="32")
+        self.recibir(client, **{"price:0": "32"})
         token = csrf_from(client.get("/recepcion").text)
         client.post("/carne/8017/foto", data={"csrf": token},
                     files={"foto": ("uno.png", PNG, "image/png")})
@@ -1177,7 +1255,7 @@ class TestEtiquetaYPrecio:
     def test_a_file_that_is_not_a_photo_is_refused(self, client, tmp_path, monkeypatch):
         monkeypatch.setattr(meatapp, "UPLOAD_DIR", str(tmp_path / "subidas"))
         signup(client)
-        self.recibir(client, price_kg="32")
+        self.recibir(client, **{"price:0": "32"})
         token = csrf_from(client.get("/recepcion").text)
         r = client.post("/carne/8017/foto", data={"csrf": token},
                         files={"foto": ("virus.exe", b"MZ", "application/x-msdownload")})
@@ -1228,7 +1306,7 @@ class TestRecepcionDeUnaEnUna:
         form = client.get("/recepcion")
         r = client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-QUIEN", "sku": "Ribeye AUS MB7",
-            "price_kg": "32", "serial:0": "9500", "g:0": "9100"})
+            "price:0": "32", "serial:0": "9500", "g:0": "9100"})
         assert r.status_code == 303
         pantalla = client.get("/recepcion").text
         assert "L-QUIEN" in pantalla and "Ribeye AUS MB7" in pantalla
@@ -1243,7 +1321,7 @@ class TestRecepcionDeUnaEnUna:
         r = client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-UNA", "sku": "Ribeye AUS",
             "producer_plant": "Teys Biloela", "serial:0": "9200", "g:0": "9200",
-            "price_kg": "32"},
+            "price:0": "32"},
             files={"foto": ("etiqueta.png", PNG, "image/png")})
         assert r.status_code == 303
         with db.session_scope() as s:
@@ -1258,7 +1336,7 @@ class TestRecepcionDeUnaEnUna:
         r = client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-CAMION", "sku": "Ribeye AUS",
             "grade": "MB7", "origin": "AUS", "producer_plant": "Teys Biloela",
-            "est_code": "AUS 1234", "breed": "Angus", "price_kg": "32",
+            "est_code": "AUS 1234", "breed": "Angus", "price:0": "32",
             "serial:0": "9201", "g:0": "9200"})
         # Guardar redirige, y lo del camión llega con la pantalla de detrás:
         # es la misma caja, así que no se vuelve a teclear el matadero.
@@ -1292,7 +1370,7 @@ class TestRecepcionDeUnaEnUna:
         form = client.get("/recepcion")
         r = client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-ROTU", "sku": "Ribeye AUS",
-            "price_kg": "30", "serial:0": "9210", "g:0": "9100"})
+            "price:0": "30", "serial:0": "9210", "g:0": "9100"})
         # Con el número y el peso, que es lo que hay que escribir encima. El
         # recado llega con la pantalla de detrás, no como respuesta al POST.
         assert r.status_code == 303
@@ -1306,7 +1384,7 @@ class TestRecepcionDeUnaEnUna:
         # Sin fichero: es lo que manda la cola del teléfono cuando vuelve.
         r = client.post("/recepcion", data={
             "csrf": csrf_from(form.text), "lot": "L-SINRED", "sku": "Ribeye AUS",
-            "price_kg": "30", "serial:0": "9202", "g:0": "8800",
+            "price:0": "30", "serial:0": "9202", "g:0": "8800",
             "envio": "numero-de-la-cola"})
         assert r.status_code == 303
         with db.session_scope() as s:
@@ -1369,7 +1447,7 @@ class TestComoLlega:
         from thegrill.models import Storage
         form = client.get("/recepcion")
         data = {"csrf": csrf_from(form.text), "lot": "L-FRIO", "sku": "Ribeye AUS",
-                "price_kg": "32", "use_by": str(HOY + timedelta(days=40)),
+                "price:0": "32", "use_by": str(HOY + timedelta(days=40)),
                 "serial:0": "9400", "g:0": "9400"}
         data.update(extra)
         return client.post("/recepcion", data=data)

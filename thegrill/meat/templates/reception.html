@@ -36,10 +36,22 @@
         <input id="grade" name="grade" placeholder="MB9+" value="{{ previo.get('grade','') }}"></div>
       <div><label for="origin">{{ t("m.rec.origin") }}</label>
         <input id="origin" name="origin" placeholder="AUS" value="{{ previo.get('origin','') }}"></div>
+      {# [01625] El precio del kilo no está aquí a propósito: es de cada pieza. Dos
+         bolsas del mismo camión no valen lo mismo si una es MB9 y la otra
+         MB6, y un precio de lote copiado a todas esconde justo eso. Lo que sí
+         es del camión entero —y solo si viene de fuera— es lo que costó
+         traerlo, que se reparte a cada kilo. #}
       {% if can("money") %}
-      <div><label for="price_kg">{{ t("m.rec.price_kg") }} ({{ moneda }}/kg)</label>
-        <input id="price_kg" name="price_kg" inputmode="decimal"
-               value="{{ previo.get('price_kg','') }}"></div>
+      <div><label for="freight_kg" title="{{ t('m.rec.landed_help') }}"
+             >{{ t("m.rec.freight_kg") }} ({{ moneda }}/kg)</label>
+        <input id="freight_kg" name="freight_kg" inputmode="decimal"
+               title="{{ t('m.rec.landed_help') }}"
+               value="{{ previo.get('freight_kg','') }}"></div>
+      <div><label for="duty_kg" title="{{ t('m.rec.landed_help') }}"
+             >{{ t("m.rec.duty_kg") }} ({{ moneda }}/kg)</label>
+        <input id="duty_kg" name="duty_kg" inputmode="decimal"
+               title="{{ t('m.rec.landed_help') }}"
+               value="{{ previo.get('duty_kg','') }}"></div>
       {% endif %}
       <div><label for="use_by">{{ t("m.rec.use_by") }}</label>
         <input id="use_by" name="use_by" type="date" value="{{ previo.get('use_by','') }}"></div>

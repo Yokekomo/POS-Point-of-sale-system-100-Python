@@ -53,6 +53,11 @@ class PrimalRow:
     serial: str
     kg: float
     price_kg: float | None = None
+    # [01615] Lo del camión, repartido a cada kilo de cada pieza: el transporte y la
+    # aduana. Son de importación y casi nunca están, por eso van aparte del
+    # precio de la carne y no se exigen.
+    freight_kg: float | None = None
+    duty_kg: float | None = None
     sku: str = ""
     grade: str | None = None
     origin: str | None = None
@@ -334,6 +339,25 @@ def _renumber(session: Session, restaurant_id: int, rows: list[PrimalRow],
         ocupados.add(row.serial)
 
 
+def _puesto_en_camara(row: PrimalRow) -> float | None:
+    """[01614] Lo que cuesta el kilo de esa pieza puesto en la cámara.
+
+    La carne no cuesta lo que dice la factura del proveedor: cuesta lo que
+    costó ponerla ahí. El precio del kilo es de cada pieza —dos bolsas del
+    mismo camión no valen lo mismo si una es MB9 y la otra MB6—, pero el
+    transporte y la aduana son del camión entero y se reparten por igual a
+    cada kilo que traía.
+
+    Un lote nacional no lleva ni lo uno ni lo otro y esto devuelve el precio a
+    secas. Una pieza sin precio sigue sin tenerlo: sumarle el flete a lo que no
+    se sabe lo que cuesta sería inventarse un coste, y la pieza tiene que
+    quedarse esperando a que dirección le ponga el suyo.
+    """
+    if not row.price_kg:
+        return None
+    return round(row.price_kg + (row.freight_kg or 0.0) + (row.duty_kg or 0.0), 6)
+
+
 def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: str,
                     received: date, destino, chamber: str | None) -> list[Primal]:
     """[00572] Da de alta las piezas de una recepción, una fila por pieza.
@@ -351,8 +375,11 @@ def _insert_primals(session: Session, user: User, rows: list[PrimalRow], lot: st
             weight_kg=row.kg, received_kg=row.kg, lot=lot.strip() or None,
             received_date=received, site_id=destino.id,
             chamber=(chamber or "").strip()[:48] or None,
-            landed_usd_per_kg=row.price_kg,
-            piece_cost_usd=round(row.kg * row.price_kg, 2) if row.price_kg else None,
+            goods_usd_per_kg=row.price_kg,
+            freight_usd_per_kg=row.freight_kg, duty_usd_per_kg=row.duty_kg,
+            landed_usd_per_kg=_puesto_en_camara(row),
+            piece_cost_usd=(round(row.kg * _puesto_en_camara(row), 2)
+                            if _puesto_en_camara(row) else None),
             frozen_use_by=row.use_by, status=PrimalStatus.IN_STOCK,
             supplier_lot=(row.supplier_lot or None),
             producer_plant=(row.producer_plant or None),
@@ -437,6 +464,12 @@ def set_price(session: Session, user: User, serial: str, price_kg: float,
     # céntimo: si la pieza arrastra milésimas, todo lo que se reparta luego a
     # partir de ella las arrastra también.
     recibido = pieza.received_kg or pieza.weight_kg or 0.0
+    # [01616] Lo que se teclea aquí es el precio de la carne, que es lo que dice la
+    # factura del proveedor. Lo que costó traerla ya se apuntó en el muelle y
+    # sigue siendo suyo: el kilo puesto en la cámara es la suma de los tres.
+    pieza.goods_usd_per_kg = price_kg
+    price_kg = round(price_kg + (pieza.freight_usd_per_kg or 0.0)
+                     + (pieza.duty_usd_per_kg or 0.0), 6)
     pieza.piece_cost_usd = round(recibido * price_kg, 2)
 
     # [00632] Y el precio del kilo se calcula contra el peso de HOY, no contra el de la

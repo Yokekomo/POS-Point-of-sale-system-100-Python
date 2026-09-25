@@ -524,8 +524,21 @@ class Primal(TenantMixin, Base):
     received_kg: Mapped[float | None] = mapped_column(Float)
     lot: Mapped[str | None] = mapped_column(String(16), index=True)
     received_date: Mapped[date | None] = mapped_column(Date)
+    # [01617] Lo que cuesta el kilo **puesto en la cámara**: lo que se le pagó al
+    # proveedor más lo que costó traerlo. Es el número que manda en todo lo que
+    # viene después —el despiece, el escandallo, el food cost—, porque la carne
+    # no cuesta lo que dice la factura del proveedor: cuesta lo que costó
+    # ponerla ahí.
     landed_usd_per_kg: Mapped[float | None] = mapped_column(Float)
     piece_cost_usd: Mapped[float | None] = mapped_column(Float)
+    # [01618] Y de qué está hecho ese número, para poder verlo por separado. El precio
+    # del kilo lo pone cada pieza; el transporte y la aduana son del camión
+    # entero y se reparten a todas por igual. Guardarlos sueltos es lo que
+    # permite contestar «¿me sale más caro el australiano por la carne o por el
+    # flete?», que es la pregunta que decide la siguiente compra.
+    goods_usd_per_kg: Mapped[float | None] = mapped_column(Float)
+    freight_usd_per_kg: Mapped[float | None] = mapped_column(Float)
+    duty_usd_per_kg: Mapped[float | None] = mapped_column(Float)
     status: Mapped[PrimalStatus] = mapped_column(Enum(PrimalStatus), default=PrimalStatus.IN_STOCK)
     status_ref: Mapped[str | None] = mapped_column(String(16))
     status_date: Mapped[date | None] = mapped_column(Date)

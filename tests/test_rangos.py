@@ -37,7 +37,7 @@ def test_a_tenderloin_does_not_weigh_a_tonne(client):
     form = client.get("/recepcion")
     r = client.post("/recepcion", data={
         "csrf": csrf_from(form.text), "lot": "L1", "sku": "Solomillo",
-        "price_kg": "32", "serial:0": "8017", "g:0": "1370000"})
+        "price:0": "32", "serial:0": "8017", "g:0": "1370000"})
     assert r.status_code == 200
     assert "1370" in r.text                      # dice el número que se escribió
     with db.session_scope() as s:
@@ -48,7 +48,7 @@ def test_no_probe_reads_two_hundred_and_forty_degrees(client):
     signup(client)
     form = client.get("/recepcion")
     r = client.post("/recepcion", data={
-        "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "32",
+        "csrf": csrf_from(form.text), "lot": "L1", "price:0": "32",
         "arrival": "CHILLED", "arrival_c": "240",
         "serial:0": "8017", "g:0": "9400"})
     assert r.status_code == 200
@@ -61,7 +61,7 @@ def test_the_message_says_what_was_expected(client):
     signup(client)
     form = client.get("/recepcion")
     r = client.post("/recepcion", data={
-        "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "32",
+        "csrf": csrf_from(form.text), "lot": "L1", "price:0": "32",
         "serial:0": "8017", "g:0": "1370000"})
     assert "0,1" in r.text and "250" in r.text   # el rango, delante y con coma
 
@@ -72,7 +72,7 @@ def test_a_reception_that_is_refused_keeps_the_lorry_on_screen(client):
     form = client.get("/recepcion")
     r = client.post("/recepcion", data={
         "csrf": csrf_from(form.text), "lot": "DXB20260910", "sku": "Striploin AUS",
-        "origin": "AUS", "price_kg": "32", "serial:0": "8017", "g:0": "1370000"})
+        "origin": "AUS", "price:0": "32", "serial:0": "8017", "g:0": "1370000"})
     assert "DXB20260910" in r.text and "Striploin AUS" in r.text
 
 
@@ -81,7 +81,7 @@ def test_meat_that_arrives_warm_is_written_down_not_rejected(client):
     signup(client)
     form = client.get("/recepcion")
     r = client.post("/recepcion", data={
-        "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "32",
+        "csrf": csrf_from(form.text), "lot": "L1", "price:0": "32",
         "arrival": "CHILLED", "arrival_c": "12",
         "serial:0": "8017", "g:0": "9400"})
     assert r.status_code == 303                   # se guarda: el aviso no la tumba
@@ -97,7 +97,7 @@ def test_the_manager_sees_it_the_same_day(client):
     signup(client)
     form = client.get("/recepcion")
     client.post("/recepcion", data={
-        "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "32",
+        "csrf": csrf_from(form.text), "lot": "L1", "price:0": "32",
         "arrival": "CHILLED", "arrival_c": "12",
         "serial:0": "8017", "g:0": "9400"})
     pagina = client.get("/manager/alertas")
@@ -114,7 +114,7 @@ def test_frozen_that_arrives_above_minus_twelve_is_not_frozen(client):
     signup(client)
     form = client.get("/recepcion")
     client.post("/recepcion", data={
-        "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "32",
+        "csrf": csrf_from(form.text), "lot": "L1", "price:0": "32",
         "arrival": "FROZEN", "arrival_c": "2",
         "serial:0": "8017", "g:0": "9400"})
     with db.session_scope() as s:
@@ -125,7 +125,7 @@ def test_frozen_at_minus_eighteen_is_where_it_should_be(client):
     signup(client)
     form = client.get("/recepcion")
     client.post("/recepcion", data={
-        "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "32",
+        "csrf": csrf_from(form.text), "lot": "L1", "price:0": "32",
         "arrival": "FROZEN", "arrival_c": "-18",
         "serial:0": "8017", "g:0": "9400"})
     with db.session_scope() as s:
@@ -136,7 +136,7 @@ def test_meat_inside_the_band_raises_nothing(client):
     signup(client)
     form = client.get("/recepcion")
     client.post("/recepcion", data={
-        "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "32",
+        "csrf": csrf_from(form.text), "lot": "L1", "price:0": "32",
         "arrival": "CHILLED", "arrival_c": "2",
         "serial:0": "8017", "g:0": "9400"})
     with db.session_scope() as s:
@@ -205,7 +205,7 @@ def test_the_house_can_tighten_the_band(client):
 
     form = client.get("/recepcion")
     client.post("/recepcion", data={
-        "csrf": csrf_from(form.text), "lot": "L1", "price_kg": "32",
+        "csrf": csrf_from(form.text), "lot": "L1", "price:0": "32",
         "arrival": "CHILLED", "arrival_c": "4",
         "serial:0": "8017", "g:0": "9400"})
     with db.session_scope() as s:

@@ -879,7 +879,12 @@ FILAS_RECEPCION = 1
 MAX_RECEPCION = 60
 
 # [00367] Lo que vale para todo el camión y no se vuelve a teclear pieza a pieza.
-DEL_CAMION = ("lot", "sku", "chamber", "grade", "origin", "use_by", "price_kg",
+# Lo que vale para toda la descarga y por eso se queda escrito de una pieza a
+# la siguiente. El precio del kilo ya no está: es de cada pieza, y arrastrarlo
+# hacía que la segunda bolsa se quedara con el precio de la primera sin que
+# nadie lo hubiera dicho. El transporte y la aduana sí, que son del camión.
+DEL_CAMION = ("lot", "sku", "chamber", "grade", "origin", "use_by",
+              "freight_kg", "duty_kg",
               "producer_plant", "est_code", "breed", "pack_date", "slaughter_date",
               "label_product", "halal", "arrival", "arrival_c", "frozen_on_arrival")
 
@@ -946,7 +951,13 @@ async def _recibir(request, user, auth_session, session, form, lang):
     # dirección y además llega después, en la factura. Si quien recibe es el
     # manager, lo pone de una vez y se ahorra el segundo paso.
     puede_dinero = perms.can(user, perms.MONEY)
-    price = form.get("price_kg") if puede_dinero else None
+    # [01613] El precio del kilo es de cada pieza y de nadie más: dos bolsas del mismo
+    # camión no valen lo mismo si una es MB9 y la otra MB6, y un precio de lote
+    # que se copia a todas esconde justo esa diferencia. Del camión entero son
+    # el transporte y la aduana, que sí se reparten por igual a cada kilo que
+    # traía, y solo los hay cuando la carne es de importación.
+    flete = _eur(form.get("freight_kg")) if puede_dinero else None
+    aduana = _eur(form.get("duty_kg")) if puede_dinero else None
     # [00371] La etiqueta del proveedor: lo que es igual para todo el camión se escribe
     # una vez aquí arriba y se copia a cada pieza. Lo que cambia de una bolsa a
     # otra se escribe en su línea y manda sobre esto.
@@ -979,8 +990,8 @@ async def _recibir(request, user, auth_session, session, form, lang):
         fecha_sac = (form.get(f"slaughter:{i}") or "").strip() or sacrificio
         rows.append(meat.PrimalRow(
             serial=serial, kg=kg or 0.0,
-            price_kg=(_eur(form.get(f"price:{i}"), _eur(price))
-                      if puede_dinero else None),
+            price_kg=_eur(form.get(f"price:{i}")) if puede_dinero else None,
+            freight_kg=flete, duty_kg=aduana,
             sku=(form.get(f"sku:{i}") or "").strip() or sku,
             grade=(form.get(f"grade:{i}") or "").strip() or grade,
             origin=(form.get(f"origin:{i}") or "").strip() or origin,
