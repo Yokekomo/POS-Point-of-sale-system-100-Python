@@ -121,11 +121,24 @@ MEDIDA = r"""
   for (const el of todos) {
     const r = el.getBoundingClientRect();
 
-    // 1) texto pegado al borde de la pantalla
+    // 1) texto pegado al borde de la pantalla. Se mide dónde acaban las
+    //    letras y no dónde acaba la caja: en una barra de pestañas que va de
+    //    lado a lado, la caja del nombre empieza a 5 px del borde pero la
+    //    palabra va centrada dentro y no toca nada. Midiendo la caja salía un
+    //    hallazgo por pestaña y por pantalla, y ninguno era verdad.
     if (conTexto(el)) {
-      if (r.left < aire || vista - r.right < aire) {
+      const rango = document.createRange();
+      rango.selectNodeContents(el);
+      let izq = Infinity, der = -Infinity;
+      for (const rr of rango.getClientRects()) {
+        if (rr.width < 1 || rr.height < 1) continue;
+        if (rr.left < izq) izq = rr.left;
+        if (rr.right > der) der = rr.right;
+      }
+      if (izq === Infinity) { izq = r.left; der = r.right; }
+      if (izq < aire || vista - der < aire) {
         out.borde.push({que: nombre(el), texto: texto(el),
-                        izq: Math.round(r.left), der: Math.round(vista - r.right)});
+                        izq: Math.round(izq), der: Math.round(vista - der)});
       }
     }
 
@@ -258,7 +271,16 @@ DEDOS = r"""(minimo) => {
       ['P','LI','TD','DIV','SPAN','SMALL','FIGCAPTION'].includes(el.parentElement.tagName) &&
       getComputedStyle(el).display.startsWith('inline');
     if (enTexto) continue;
-    const r = el.getBoundingClientRect();
+    // Un cuadro de marcar metido en su etiqueta se pulsa por la etiqueta
+    // entera: el cuadro mide 26 px pero el dedo tiene toda la frase. Lo que
+    // hay que medir es lo que responde al dedo, no lo que se ve.
+    let caja = el;
+    if (el.tagName === 'INPUT' && (el.type === 'checkbox' || el.type === 'radio')) {
+      const etiqueta = el.closest('label') ||
+        (el.id ? document.querySelector('label[for="' + CSS.escape(el.id) + '"]') : null);
+      if (etiqueta) caja = etiqueta;
+    }
+    const r = caja.getBoundingClientRect();
     if (r.height < minimo || r.width < minimo) {
       malos.push({que: el.tagName.toLowerCase() + '.' + (el.className || '-'),
                   texto: (el.textContent || el.value || '').trim().slice(0, 22),

@@ -57,6 +57,22 @@ nav a:hover{background:var(--bg)}
 main{max-width:960px;margin:0 auto;
   padding:20px max(16px,env(safe-area-inset-right)) max(64px,calc(48px + env(safe-area-inset-bottom)))
           max(16px,env(safe-area-inset-left))}
+/* Aquí dentro hay cadenas que no son palabras y no se parten solas: la
+   dirección `otpauth://…` de la verificación en dos pasos, el secreto de 26
+   letras, un código de invitación. En un teléfono de 390 px, la dirección
+   mide 813 y se llevaba la pantalla entera por delante: la página se
+   deslizaba a los lados, el texto se salía 461 px de su tarjeta y lo de la
+   derecha no se podía leer. `anywhere` y no `break-word`: los dos parten
+   cuando no queda otra, pero solo `anywhere` se lo dice también al cálculo
+   del ancho mínimo, que es lo que impide que arrastre a la tarjeta. */
+p,li,dd,dt,figcaption,summary,.code,.help{overflow-wrap:anywhere}
+/* Y aquí no. `overflow-wrap` se hereda, y metiéndolo en las celdas se colaba
+   dentro de los botones que viven en ellas: en la pantalla del equipo, con
+   siete columnas en un teléfono, «Desactivar» se partía letra a letra y el
+   botón quedaba de 38 px de ancho por 217 de alto, diez renglones de una
+   letra. Las tablas anchas no necesitan partir nada: van en su carril y se
+   deslizan. Esto se descubrió midiendo después de tocar, no antes. */
+button,.btn,select,option,.tag,td,th{overflow-wrap:normal}
 h1{font-size:22px;margin:0 0 4px;letter-spacing:-.02em}
 h2{font-size:17px;margin:28px 0 10px;letter-spacing:-.01em}
 p.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
@@ -200,8 +216,14 @@ input[type=file]{padding:9px}
 @media (max-width:760px){
   .brand{font-size:15px}
   .brand small{font-size:11px}
-  main{padding:14px max(12px,env(safe-area-inset-right))
-       max(56px,calc(40px + env(safe-area-inset-bottom))) max(12px,env(safe-area-inset-left))}
+  /* Catorce y no doce. Dos píxeles no se discuten a ojo, pero por debajo de
+     catorce la primera letra de cada línea se mete bajo el redondeo del
+     cristal en un teléfono de los de ahora, y esto se lee con el móvil en la
+     mano y la cámara a oscuras. Lo que se estrechaba para dejarle sitio a las
+     tablas ya no hace falta: las tablas anchas van en su propio carril, que
+     se desliza aparte. */
+  main{padding:14px max(14px,env(safe-area-inset-right))
+       max(56px,calc(40px + env(safe-area-inset-bottom))) max(14px,env(safe-area-inset-left))}
   h1{font-size:20px}
   .card{padding:13px}
   .grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
@@ -223,6 +245,36 @@ input[type=file]{padding:9px}
   input,select,textarea{min-height:46px;font-size:16px}   /* 16px: el iPhone no hace zoom */
   input[type=checkbox]{width:26px;height:26px}
   td button,td .btn,td select,td input{min-height:42px}
+  /* Estos tres estaban fuera de la regla y son de los que más se pulsan.
+     Medidos en un teléfono: la campana de los avisos, 24 px de alto —y va en
+     todas las pantallas—; el nombre de la casa, que es como se vuelve al
+     principio, 39; y los desplegables de «¿qué es cada cosa?», 20, que no
+     llegan ni a los 24 que exige la norma. La campana y la marca viven en la
+     barra de arriba y no dentro de `nav`, que es lo que las dejaba fuera. */
+  .bell,a.brand,summary{min-height:44px;display:inline-flex;align-items:center}
+  summary{display:flex}          /* que no pierda su flecha ni su fila */
+  /* El nombre de una pieza al lado de su cuadro de marcar: en el despiece se
+     elige así qué primales se abren, y el cuadro está en una celda y el
+     nombre en la de al lado. El cuadro cumple —42 px—, pero el nombre medía
+     21 de alto, por debajo de los 24 de la norma, y es el que se pulsa porque
+     es el que se lee. */
+  td label{min-height:44px;display:flex;align-items:center}
+  /* Y toda etiqueta que lleve dentro su cuadro de marcar: el cuadro mide 26 y
+     lo que responde al dedo es la frase entera, así que es la frase la que
+     tiene que tener alto de dedo. Son las de halal, «llegó congelado» y los
+     recortes del despiece: se marcan en el muelle y en la cámara, con guante. */
+  label:has(> input[type=checkbox]),label:has(> input[type=radio]){
+    min-height:44px;align-items:center}
+  /* Y la otra forma de escribirlo, que también está: la etiqueta al lado del
+     cuadro en vez de alrededor, unidas por el `for`. Se pulsa igual, así que
+     tiene que medir igual. Un `label` a secas no vale: el de una casilla de
+     escribir no es lo que se pulsa y dejaría los formularios con 44 px por
+     cada nombre de hueco. */
+  div:has(> input[type=checkbox]) > label,
+  div:has(> input[type=radio]) > label{min-height:44px;display:flex;align-items:center}
+  /* Y el número de la pieza en las listas: es la puerta a su ficha y lo que
+     más se pulsa en recepción. Medía 24 px de alto. */
+  .lista-piezas a,.filapieza a{min-height:44px;display:inline-flex;align-items:center}
   a{-webkit-tap-highlight-color:rgba(138,61,31,.15)}
 }
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
@@ -337,7 +389,17 @@ label.casilla,fieldset.pieza label.casilla{display:flex;align-items:center;gap:1
    pone los nombres encima de su hueco. Una casilla no va así: el cuadro y su
    texto van al lado. Por eso se repite con el fieldset delante, que si no la
    otra regla gana por ser más concreta y la casilla sale descolocada. */
+/* `width:auto` estaba para deshacer el `width:100%` de las casillas de
+   escribir, pero se llevaba por delante el `width:26px` del dedo: el cuadro
+   de marcar se quedaba en los 13 px que trae el navegador de fábrica, la
+   mitad de lo que hace falta. Y son las de halal y «llegó congelado», que se
+   marcan en el muelle con el guante puesto. Se dice el ancho que toca en vez
+   de dejarlo en automático. */
 label.casilla input,fieldset.pieza label.casilla input{flex:0 0 auto;width:auto;margin:0}
+@media (pointer:coarse){
+  label.casilla input[type=checkbox],
+  fieldset.pieza label.casilla input[type=checkbox]{width:26px;height:26px;min-height:26px}
+}
 label.casilla span,fieldset.pieza label.casilla span{min-width:0}
 /* Lo pendiente de la portada. Cada línea se abre y enseña de qué habla: los
    números de pieza, los cortes, los despieces. Cada uno es un enlace a la

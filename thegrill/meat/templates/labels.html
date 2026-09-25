@@ -21,6 +21,15 @@
   body { background: #fff !important }
   .hoja { margin: 0 !important; box-shadow: none !important }
 }
+/* En pantalla, la hoja mide lo que mide en papel —210 mm, o sea 794 px— y en
+   un teléfono de 390 se llevaba la página entera por delante: se deslizaba a
+   los lados el menú, la barra de arriba y todo lo demás. Encoger la hoja no
+   vale: está para ver si la etiqueta cabe, y una hoja a escala no dice eso.
+   Se le da su propio carril, como a las tablas anchas: la hoja se desliza y
+   la página se queda quieta. En papel el carril no existe. */
+.carril-hoja { overflow-x: auto; -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain }
+@media print { .carril-hoja { overflow: visible } }
 .hoja { width: 210mm; background: #fff; color: #111; margin: 16px auto 0;
   padding-top: .5mm; display: grid; grid-template-columns: repeat(3, 70mm);
   grid-auto-rows: 37mm; box-shadow: 0 2px 18px rgba(0,0,0,.35) }
@@ -30,8 +39,14 @@
   display: flex; flex-direction: column; justify-content: space-between;
   font: 7pt/1.15 system-ui, -apple-system, "Segoe UI", sans-serif; color: #111 }
 .hoja.recortar .etq { border: 1px dashed #b9b9b9 }
+/* El gris estaba en #777, que sobre blanco da 4,48 de contraste: dos
+   centésimas por debajo de los 4,5 que pide la norma. No es un capricho de
+   medida —esto se lee a 5,6 puntos, en la cámara y con la hoja pegada a una
+   bolsa fría—, y bajarlo a #6f6f6f sube a 5,0 sin que la etiqueta cambie de
+   aspecto. En papel también se agradece: la tinta gris clara de una láser se
+   pierde. */
 .etq .que { font-size: 5.6pt; letter-spacing: .06em; text-transform: uppercase;
-  color: #777; margin: 0 0 .6mm }
+  color: #6f6f6f; margin: 0 0 .6mm }
 /* La raya donde se escribe. Alta a propósito: un rotulador permanente sobre
    plástico hace un trazo gordo, y una raya de tres milímetros no lo aguanta. */
 .etq .raya { border-bottom: .5pt solid #111 }
@@ -56,6 +71,7 @@
   </div>
 </div>
 
+<div class="carril-hoja">
 <div class="hoja{% if recortar %} recortar{% endif %}">
   {% for _ in range(24) %}
   <div class="etq">
@@ -67,6 +83,7 @@
     </div>
   </div>
   {% endfor %}
+</div>
 </div>
 
 <script nonce="{{ nonce }}">
