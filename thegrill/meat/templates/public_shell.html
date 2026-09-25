@@ -520,6 +520,21 @@ a.back:hover{color:var(--ember)}
   header nav a,.langbar a,.btn,button{min-height:46px;display:inline-flex;
     align-items:center;justify-content:center}
   input,select,textarea{min-height:46px;font-size:16px}
+  /* Faltaban estos cuatro, y son de los que más se pulsan desde un teléfono.
+     Medidos: los enlaces del pie salían de 22 px de alto y la marca de 21,
+     por debajo incluso de los 24 que exige la norma (WCAG 2.2, 2.5.8); el
+     elegir idioma del pie, 35; abrir una pregunta, 29. Un dedo pide 44 y con
+     guante de cámara más. Los de aquí abajo ya son caja —la marca y el
+     desplegable llevan su `flex`, los otros dos se lo ponen—, así que basta
+     con darles alto: la cabecera no crece, porque el botón de entrar ya la
+     dejaba en 46. */
+  .brand,details summary{min-height:46px}
+  footer nav a,.langs a,a.back{min-height:46px;display:inline-flex;
+    align-items:center}
+  /* Y de ancho también: «entrar» en el pie se quedaba en 42 px porque es
+     texto corto y sin relleno. Los dos que faltaban no se notan y el dedo
+     sí los nota. */
+  footer nav a{min-width:44px;justify-content:center}
 }
 </style>
 </head>
