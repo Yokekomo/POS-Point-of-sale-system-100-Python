@@ -672,6 +672,32 @@ sumarle el transporte a lo que no se sabe lo que cuesta sería inventarse un
 coste. Se queda esperando en «Precios pendientes», y cuando dirección le pone
 el suyo, el flete sigue siendo suyo y se suma entonces.
 
+## Lo que se gana, lo que se aparta y lo que queda
+
+Un lomo que se compra a 300 y se vende a 900 deja 600 de margen. Pero de esos
+600 no se lleva la casa 600: una parte se la lleva Hacienda por haberlos
+ganado, y el día que llega el pago tiene que estar apartada. Un restaurante que
+mira el margen bruto y gasta contra él va bien once meses y mal el doceavo,
+siempre el mismo.
+
+En **Configuración** el manager dice cuánto paga —«27 %»— y a partir de ahí,
+donde se enseña un margen se enseñan también las dos partes: **para impuestos**
+y **limpio**. Está en la trazabilidad de cada pieza y en el parte del día, que
+ahora trae además lo que se ingresó con la carne que salió y lo que costó esa
+carne.
+
+En blanco no se enseña ningún reparto. Poner el tipo del país, o una media,
+sería pintar un número que parece de la casa y no lo es, y sobre él se toman
+decisiones.
+
+**Qué no es.** No es el IVA: el IVA ya sale del precio de cada plato antes de
+calcular nada, porque no es dinero de la casa —se cobra y se entrega—. Y no es
+la declaración: el impuesto de verdad se paga sobre el beneficio de la empresa
+entera, con el alquiler, las nóminas y la luz descontados, no sobre lo que deja
+la carne. Esto es **una reserva**, y como reserva se queda siempre del lado
+seguro: lo que dice que hay que apartar es más de lo que acabará pagándose,
+nunca menos.
+
 ## Dos cosas que conviene entender
 
 **De dónde sale el consumo de cada corte.** Cada corte elige si se descuenta al

@@ -49,6 +49,14 @@
   </select>
   <div class="help">{{ t("settings.currency_help") }}</div>
 
+  {# [01646] Lo que se lleva Hacienda de lo ganado. Va aquí, con la moneda, porque es
+     lo mismo: cómo habla de dinero esta casa. En blanco no se enseña ningún
+     reparto, que es mejor que enseñar uno inventado. #}
+  <label for="tax_pct">{{ t("settings.tax") }}</label>
+  <input id="tax_pct" name="tax_pct" inputmode="decimal" style="max-width:110px"
+         placeholder="27" value="{{ "%.10g"|format(impuesto) if impuesto else '' }}">
+  <div class="help">{{ t("settings.tax_help") }}</div>
+
   {# [01599] Dónde está la casa y a qué hora cierra el día. Las dos cosas juntas son
      las que deciden a qué día va lo que se apunta: a las dos y media de la
      mañana se sigue sirviendo, y eso es del servicio de anoche. #}

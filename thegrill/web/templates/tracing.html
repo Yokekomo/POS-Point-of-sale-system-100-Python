@@ -76,6 +76,16 @@
   {% if can("money") %}
   <div class="kpi"><b>{{ "%.2f"|format(h.revenue) }} <span class="uni">{{ moneda }}</span></b><span>{{ t("trace.revenue") }}</span></div>
   <div class="kpi"><b>{{ "%.2f"|format(h.margin) }} <span class="uni">{{ moneda }}</span></b><span>{{ t("trace.margin") }}</span></div>
+  {# [01647] Y el margen partido, si la casa ha dicho cuánto paga: lo que hay que
+     apartar y lo que queda de verdad. Mirar el margen bruto y gastar contra
+     él sale bien once meses y mal el doceavo, siempre el mismo. #}
+  {% set corte = reparto(h.margin) %}
+  {% if corte.hay_impuesto %}
+  <div class="kpi"><b>{{ "%.2f"|format(corte.impuesto) }} <span class="uni">{{ moneda }}</span></b>
+    <span>{{ t("trace.tax") }} · {{ t("trace.tax_at", pct="%.10g"|format(corte.tipo)) }}</span></div>
+  <div class="kpi"><b>{{ "%.2f"|format(corte.limpio) }} <span class="uni">{{ moneda }}</span></b>
+    <span>{{ t("trace.net_profit") }}</span></div>
+  {% endif %}
   {% if h.food_cost_pct is not none %}
   <div class="kpi"><b>{{ h.food_cost_pct | ceil_pct }}%</b><span>{{ t("rec.food_cost") }}</span>
     <div class="bar"><i style="width:{{ [h.food_cost_pct, 100] | min }}%"></i></div></div>

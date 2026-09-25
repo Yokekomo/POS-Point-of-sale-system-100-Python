@@ -38,6 +38,35 @@
   {% endif %}
 </div>
 
+{# [01645] Lo ganado con los kilos que han salido hoy, y partido: lo que hay que
+   apartar para Hacienda y lo que queda. El parte tenía los kilos y las
+   unidades —con eso se sabe cuánto se ha movido, no si ha valido la pena—. #}
+{% if can("money") and report.sales_revenue %}
+{% set corte = reparto(report.sales_margin) %}
+<div class="card">
+  <b>{{ t("m.rp.earned") }}</b>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-top:10px">
+    <div class="kpi"><b>{{ "%.2f"|format(report.sales_revenue) }} <span class="uni">{{ moneda }}</span></b>
+      <span>{{ t("trace.revenue") }}</span></div>
+    <div class="kpi"><b>{{ "%.2f"|format(report.sales_cost) }} <span class="uni">{{ moneda }}</span></b>
+      <span>{{ t("trace.cost") }}</span></div>
+    <div class="kpi"><b>{{ "%.2f"|format(report.sales_margin) }} <span class="uni">{{ moneda }}</span></b>
+      <span>{{ t("trace.margin") }}</span></div>
+    {% if report.sales_food_cost_pct is not none %}
+    <div class="kpi"><b>{{ report.sales_food_cost_pct | ceil_pct }}%</b>
+      <span>{{ t("rec.food_cost") }}</span></div>
+    {% endif %}
+    {% if corte.hay_impuesto %}
+    <div class="kpi"><b>{{ "%.2f"|format(corte.impuesto) }} <span class="uni">{{ moneda }}</span></b>
+      <span>{{ t("trace.tax") }} · {{ t("trace.tax_at", pct="%.10g"|format(corte.tipo)) }}</span></div>
+    <div class="kpi"><b>{{ "%.2f"|format(corte.limpio) }} <span class="uni">{{ moneda }}</span></b>
+      <span>{{ t("trace.net_profit") }}</span></div>
+    {% endif %}
+  </div>
+  <p class="help" style="margin-bottom:0">{{ t("m.rp.earned_help") }}</p>
+</div>
+{% endif %}
+
 {% if report.pending %}
 <div class="card">
   <b>{{ t("m.home.todo") }}</b>

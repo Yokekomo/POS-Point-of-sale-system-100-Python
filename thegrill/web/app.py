@@ -26,8 +26,8 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, Co
                              Storage, TemplateField, Unit, User)
 
 from thegrill.web import (auth, butchery, caducidad, cifras, costing, exacto, i18n,
-                          inventory, jornada, money, pesos, rangos, seguridad,
-                          service, sheets, tracing, waste)
+                          impuestos, inventory, jornada, money, pesos, rangos,
+                          seguridad, service, sheets, tracing, waste)
 from thegrill.web.seed import seed_templates
 
 # [00979] Las zonas horarias que existen, para el desplegable de la configuración y
@@ -135,9 +135,20 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
             "languages": i18n.LANGUAGES,
             # [00985] El símbolo de la moneda de la casa: un número de dinero sin él no
             # dice si son euros o dólares.
-            "moneda": money.simbolo(_moneda_de(session, user))}
+            "moneda": money.simbolo(_moneda_de(session, user)),
+            # [01636] [00985b] Y cómo parte esta casa lo que gana: lo que hay que
+            # apartar para Hacienda y lo que queda limpio. Las dos ediciones
+            # enseñan la misma trazabilidad, así que las dos lo traen.
+            "reparto": _reparto_de(session, user)}
     base.update(ctx)
     return templates.TemplateResponse(request, name, base)
+
+
+def _reparto_de(session, user):
+    """[01635] Cómo parte esta casa un margen. Sin casa o sin tipo, no parte nada."""
+    from thegrill.models import Restaurant as _R
+    restaurant = (session.get(_R, user.restaurant_id) if (session and user) else None)
+    return lambda margen: impuestos.de_la_casa(restaurant, margen)
 
 
 def _moneda_de(session, user) -> str | None:

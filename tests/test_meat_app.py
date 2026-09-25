@@ -1123,6 +1123,98 @@ class TestEtiquetaYPrecio:
         assert paco.post("/recepcion/precios",
                          data={"csrf": "x", "serial": ["8017"]}).status_code == 403
 
+    def test_the_daily_report_says_what_the_meat_earned_and_what_to_set_aside(self):
+        """El parte tenía los kilos; ahora dice si han valido la pena.
+
+        Kilos y unidades dicen cuánto se ha movido, no cuánto se ha ganado. El
+        parte del día trae ahora lo que se ingresó con la carne que salió, lo
+        que costó esa carne, y —si la casa ha dicho cuánto paga— lo que hay que
+        apartar y lo que queda limpio.
+
+        Se monta con el banco de pruebas, que es un mes de trabajo de verdad
+        con sus ventas: un ejemplo hecho a mano probaría la suma, no el parte.
+        """
+        import pathlib
+        import tempfile
+        from datetime import date as _date
+
+        from thegrill import bench
+        from thegrill.meat import service as meat_service
+        from thegrill.models import Restaurant
+        from thegrill.web import impuestos
+
+        carpeta = pathlib.Path(tempfile.mkdtemp())
+        db.init_engine(f"sqlite:///{carpeta/'parte.db'}")
+        db.create_all()
+        hasta = _date(2026, 9, 20)
+        with db.session_scope() as s:
+            casa = bench.build(s, days=20, seed=3, multisite=False, index=90, until=hasta)
+            rid = casa.restaurant_id
+
+        with db.session_scope() as s:
+            # El día con más movimiento de los últimos, que es donde hay ventas.
+            partes = [meat_service.daily_report(s, rid, on=hasta - timedelta(days=d))
+                      for d in range(6)]
+            parte = max(partes, key=lambda p: p.sales_revenue)
+            assert parte.sales_revenue > 0, "ningún día del banco vendió nada"
+            assert parte.sales_cost > 0
+            assert parte.sales_margin == round(parte.sales_revenue - parte.sales_cost, 2)
+            # Y el food cost del día sale de esos mismos dos números.
+            assert parte.sales_food_cost_pct == round(
+                parte.sales_cost / parte.sales_revenue * 100, 2)
+
+            # Sin tipo puesto no se aparta nada.
+            restaurante = s.get(Restaurant, rid)
+            assert not impuestos.de_la_casa(restaurante, parte.sales_margin).hay_impuesto
+
+            # Con el 27 puesto, el margen se parte y las dos partes suman.
+            restaurante.tax_pct = 27.0
+            corte = impuestos.de_la_casa(restaurante, parte.sales_margin)
+            assert corte.hay_impuesto
+            assert corte.impuesto == round(parte.sales_margin * 0.27, 2)
+            assert round(corte.impuesto + corte.limpio, 2) == round(parte.sales_margin, 2)
+
+    def test_the_house_says_what_it_pays_in_tax_and_the_margin_gets_split(self, client):
+        """El margen bruto no es lo que queda: una parte se la lleva Hacienda.
+
+        Un lomo que se compra a 300 y se vende a 900 deja 600 de margen, pero de
+        esos 600 no se lleva la casa 600. Un restaurante que mira el bruto y
+        gasta contra él va bien once meses y mal el doceavo, siempre el mismo.
+        El manager dice cuánto paga y el programa parte el margen en dos: lo que
+        hay que apartar y lo que queda.
+        """
+        from tests.meat_helpers import csrf_from
+
+        signup(client)
+        pantalla = client.get("/configuracion")
+        assert 'name="tax_pct"' in pantalla.text
+        assert client.post("/configuracion", data={
+            "csrf": csrf_from(pantalla.text), "language": "es",
+            "tax_pct": "27"}).status_code == 303
+        with db.session_scope() as s:
+            from thegrill.models import Restaurant
+            casa = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+            assert casa.tax_pct == 27.0
+        # Y vuelve escrito en la pantalla, que es lo que dice que se guardó.
+        assert 'value="27"' in client.get("/configuracion").text
+
+    def test_without_a_rate_nothing_is_split_and_nothing_is_invented(self, client):
+        """Sin decir cuánto paga no se enseña ningún reparto.
+
+        Poner el tipo del país, o una media, sería pintar un número que parece
+        de la casa y no lo es, y sobre él se toman decisiones.
+        """
+        from thegrill.web import impuestos
+
+        signup(client)
+        with db.session_scope() as s:
+            from thegrill.models import Restaurant
+            casa = s.query(Restaurant).filter(Restaurant.platform.isnot(True)).one()
+            assert casa.tax_pct is None
+            assert impuestos.tipo_de(casa) == 0.0
+            assert not impuestos.de_la_casa(casa, 600.0).hay_impuesto
+            assert impuestos.de_la_casa(casa, 600.0).limpio == 600.0
+
     def test_what_it_cost_to_bring_it_is_shared_by_every_kilo_of_the_lorry(self, client):
         """La carne no cuesta lo que dice la factura: cuesta ponerla en la cámara.
 

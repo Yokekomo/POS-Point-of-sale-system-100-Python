@@ -235,6 +235,15 @@ class Restaurant(Base):
     # [00738] La moneda en la que cobra y paga esta casa. Se elige en la
     # configuración; lo que se enseña al lado de cada cifra sale de aquí.
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
+    # [01634] Lo que se lleva Hacienda de lo que se gana, en tanto por ciento. Lo pone
+    # el manager porque cambia con el país, con el tipo de sociedad y con el
+    # año, y el programa no tiene por qué saberlo. Sirve para partir el margen
+    # en dos: lo que hay que apartar y lo que queda limpio.
+    #
+    # No es el IVA. El IVA ya está en cada plato —`vat_pct`— y sale del precio
+    # antes de calcular el food cost, porque no es dinero de la casa: se cobra
+    # y se entrega. Esto es lo otro: lo que se paga por haber ganado.
+    tax_pct: Mapped[float | None] = mapped_column(Float)
     language: Mapped[str] = mapped_column(String(5), default="es")   # idioma por defecto del local
     pos_match: Mapped[PosMatch] = mapped_column(Enum(PosMatch), default=PosMatch.BOTH)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

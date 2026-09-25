@@ -1100,6 +1100,25 @@ class DailyReport:
     sales_kg: float = 0.0
     pending: list[str] = field(default_factory=list)
     stock_value: float = 0.0
+    # [01632] Lo que se ingresó con la carne del día y lo que costó esa carne. Los dos
+    # juntos son lo único que contesta «¿cuánto hemos ganado hoy con los kilos
+    # que han salido?», que es la pregunta del cierre. El parte tenía los
+    # kilos y las unidades, y con eso se sabe cuánto se ha movido pero no si
+    # ha valido la pena.
+    sales_revenue: float = 0.0
+    sales_cost: float = 0.0
+
+    @property
+    def sales_margin(self) -> float:
+        """[01630] Lo ganado con la carne que salió hoy: lo cobrado menos lo que costó."""
+        return round(self.sales_revenue - self.sales_cost, 2)
+
+    @property
+    def sales_food_cost_pct(self) -> float | None:
+        """[01631] A qué food cost ha salido el día. Sin ingresos, no hay porcentaje."""
+        if self.sales_revenue <= 1e-9:
+            return None
+        return round(self.sales_cost / self.sales_revenue * 100, 2)
 
     @property
     def waste_kg(self) -> float:
@@ -1154,7 +1173,50 @@ def daily_report(session: Session, restaurant_id: int, on: date | None = None,
                 .filter_by(restaurant_id=restaurant_id, op_date=on)):
         out.sales_units += row.units or 0
         out.sales_kg = round(out.sales_kg + (row.kg or 0.0), 6)
+    _lo_ganado_hoy(session, restaurant_id, on, out)
     return out
+
+
+def _lo_ganado_hoy(session: Session, restaurant_id: int, on: date,
+                   out: DailyReport) -> None:
+    """[01629] Lo que se ingresó con la carne del día y lo que costó esa carne.
+
+    El coste sale de los apuntes de salida, que es lo que de verdad se
+    descontó de la cámara. El ingreso se reparte igual que en la
+    trazabilidad: cada venta de un plato reparte su precio sin impuestos entre
+    sus ingredientes en proporción a lo que cuesta cada uno dentro de ese
+    plato, y lo que cae sobre la carne es lo que se le atribuye. Sin ese
+    reparto, un entrecot con su guarnición y su salsa se apuntaría el precio
+    entero del plato y el margen del día saldría inflado.
+
+    Y aparte, lo que se cortó y se cobró al peso, que no pasa por el
+    escandallo: ahí el precio es el precio, sin repartir nada.
+    """
+    from thegrill.models import IngredientMovement, MovementKind, WeightSale
+    from thegrill.web import tracing as tracing_mod
+
+    ratios = tracing_mod.revenue_ratios(session, restaurant_id)
+    ingreso = coste = 0.0
+    for mv in (session.query(IngredientMovement)
+               .filter_by(restaurant_id=restaurant_id, date=on,
+                          kind=MovementKind.SALE)):
+        suyo = mv.cost or 0.0
+        coste += suyo
+        ratio = ratios.get((mv.source_ref, mv.ingredient_id))
+        if ratio is None:
+            # [01633] La venta que no dice el plato —el conteo del descongelado— se
+            # valora por la media de los platos que llevan ese ingrediente:
+            # es mejor que apuntarle cero ingreso a carne que se vendió.
+            ratio = tracing_mod.day_ratio(ratios, mv.ingredient_id)
+        ingreso += suyo * ratio if ratio else 0.0
+
+    for venta in (session.query(WeightSale)
+                  .filter_by(restaurant_id=restaurant_id, date=on)):
+        ingreso += venta.price or 0.0
+        coste += venta.cost or 0.0
+
+    out.sales_revenue = round(ingreso, 2)
+    out.sales_cost = round(coste, 2)
 
 
 # ==================================================================== hoy

@@ -38,9 +38,9 @@ from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, Cou
                              Rotation, Site, SiteKind, Storage, Unit, User)
 from thegrill.models import BugStatus
 from thegrill.web import (aging, auth, butchery, caducidad, cifras, costing, cuadre,
-                          defrost, exacto, i18n, inventory, jornada, money,
-                          pesos, pos_import, rangos, service, sites, tracing,
-                          twofactor, waste)
+                          defrost, exacto, i18n, impuestos, inventory, jornada,
+                          money, pesos, pos_import, rangos, service, sites,
+                          tracing, twofactor, waste)
 
 log = logging.getLogger(__name__)
 
@@ -213,6 +213,12 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
             # columna y de cada recuadro de dinero, igual que los kilos: un
             # número suelto no dice si son euros o dólares.
             "moneda": money.simbolo(_moneda_de(session, user)),
+            # [01627] [00351b] Y cómo se parte lo que se gana: lo que hay que apartar
+            # para Hacienda y lo que queda limpio. Va aquí, con la moneda, por
+            # lo mismo: es cómo habla de dinero esta casa, y así ninguna
+            # pantalla que enseñe un margen tiene que acordarse de pedirlo.
+            # Sin tipo puesto, el reparto lo dice y no se pinta nada.
+            "reparto": _reparto_de(session, user),
             # [00352] El tutorial de esta pantalla, si toca. Los pasos vienen ya
             # traducidos y ya filtrados por nivel: lo que no le toca a esta
             # persona no llega al navegador.
@@ -243,6 +249,19 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
         auth_session.flash = None
         auth_session.flash_data = None
     return templates.TemplateResponse(request, name, base)
+
+
+def _reparto_de(session: Session | None, user: User | None):
+    """[01626] Cómo parte esta casa un margen: lo de Hacienda y lo que queda.
+
+    Devuelve una función para que cada pantalla la llame con el margen que
+    tenga delante —el de una pieza, el de un corte, el del día— sin volver a
+    preguntar por la casa. Sin casa o sin tipo puesto, el reparto que sale
+    dice que no hay impuesto y las pantallas no pintan nada.
+    """
+    restaurant = (session.get(Restaurant, user.restaurant_id)
+                  if (session and user) else None)
+    return lambda margen: impuestos.de_la_casa(restaurant, margen)
 
 
 def _moneda_de(session: Session | None, user: User | None) -> str | None:
@@ -2878,6 +2897,7 @@ def _settings(request: Request, user, auth_session, session, saved: bool = False
                 zonas=ZONAS, horas_cierre=list(range(jornada.MAXIMO + 1)),
                 cierre=jornada.corte(restaurant),
                 dias_descongelado=caducidad.dias(restaurant),
+                impuesto=(impuestos.tipo_de(restaurant) or ""),
                 bandas={"chilled": rangos.banda(Storage.CHILLED, restaurant),
                         "frozen": rangos.banda(Storage.FROZEN, restaurant)},
                 version=version.actual(),
@@ -2895,7 +2915,7 @@ def save_settings(request: Request, language: str = Form(...),
                   day_cut_hour: str = Form(""), thaw_days: str = Form(""),
                   chilled_min_c: str = Form(""), chilled_max_c: str = Form(""),
                   frozen_min_c: str = Form(""), frozen_max_c: str = Form(""),
-                  csrf: str = Form(""),
+                  tax_pct: str = Form(""), csrf: str = Form(""),
                   ctx=Depends(require_user), session: Session = Depends(get_db)):
     """[00317] Guarda la configuración de la casa y la de la persona."""
     user, auth_session = ctx
@@ -2911,6 +2931,19 @@ def save_settings(request: Request, language: str = Form(...),
                 restaurant.pos_match = PosMatch[pos_match]
             if money.es_valida(currency):
                 restaurant.currency = currency.upper()
+            # [01628] El impuesto sobre lo que se gana. Vacío lo borra —«no lo digo»,
+            # y entonces no se enseña ningún reparto—; un número que no es un
+            # número deja el que había, que es lo prudente con algo de lo que
+            # cuelga cuánto dinero se aparta.
+            if tax_pct.strip() == "":
+                restaurant.tax_pct = None
+            else:
+                try:
+                    puesto = exacto.leer(tax_pct, decimales=2)
+                except ValueError:
+                    puesto = None
+                if puesto is not None and 0 <= puesto <= impuestos.TOPE:
+                    restaurant.tax_pct = float(puesto) or None
             # [00411] La zona se guarda solo si existe de verdad. Una mal escrita no
             # rompe nada —se lee como UTC— pero deja a la casa creyendo que ha
             # puesto la suya, y eso es peor que no haberla puesto.
