@@ -65,7 +65,7 @@ main{max-width:960px;margin:0 auto;
    derecha no se podía leer. `anywhere` y no `break-word`: los dos parten
    cuando no queda otra, pero solo `anywhere` se lo dice también al cálculo
    del ancho mínimo, que es lo que impide que arrastre a la tarjeta. */
-p,li,dd,dt,figcaption,summary,.code,.help{overflow-wrap:anywhere}
+p,li,dd,dt,figcaption,summary,.code,.help,.tile,.tile b{overflow-wrap:anywhere}
 /* Y aquí no. `overflow-wrap` se hereda, y metiéndolo en las celdas se colaba
    dentro de los botones que viven en ellas: en la pantalla del equipo, con
    siete columnas en un teléfono, «Desactivar» se partía letra a letra y el
@@ -244,7 +244,12 @@ input[type=file]{padding:9px}
   button.ghost,.btn.ghost{min-height:44px;padding:11px 14px}
   input,select,textarea{min-height:46px;font-size:16px}   /* 16px: el iPhone no hace zoom */
   input[type=checkbox]{width:26px;height:26px}
+  /* Y ancho: en la tabla de ventas se escriben las unidades de cada corte, y
+     con las cabeceras en inglés la columna se estrechaba hasta dejar el hueco
+     de escribir en 43 px. Cincuenta y seis dan para tres cifras y para el
+     dedo; si la tabla no cabe, se desliza en su carril, que para eso está. */
   td button,td .btn,td select,td input{min-height:42px}
+  td input{min-width:56px}
   /* Estos tres estaban fuera de la regla y son de los que más se pulsan.
      Medidos en un teléfono: la campana de los avisos, 24 px de alto —y va en
      todas las pantallas—; el nombre de la casa, que es como se vuelve al
@@ -258,20 +263,24 @@ input[type=file]{padding:9px}
      nombre en la de al lado. El cuadro cumple —42 px—, pero el nombre medía
      21 de alto, por debajo de los 24 de la norma, y es el que se pulsa porque
      es el que se lee. */
-  td label{min-height:44px;display:flex;align-items:center}
+  /* Alto y ancho: en árabe, que se escribe al revés, el nombre de la pieza
+     ocupa 43 px y se quedaba a uno de los 44. Un píxel no se ve, pero la
+     regla o se cumple o no se cumple. */
+  td label{min-height:44px;min-width:44px;display:flex;align-items:center}
   /* Y toda etiqueta que lleve dentro su cuadro de marcar: el cuadro mide 26 y
      lo que responde al dedo es la frase entera, así que es la frase la que
      tiene que tener alto de dedo. Son las de halal, «llegó congelado» y los
      recortes del despiece: se marcan en el muelle y en la cámara, con guante. */
   label:has(> input[type=checkbox]),label:has(> input[type=radio]){
-    min-height:44px;align-items:center}
+    min-height:44px;min-width:44px;align-items:center}
   /* Y la otra forma de escribirlo, que también está: la etiqueta al lado del
      cuadro en vez de alrededor, unidas por el `for`. Se pulsa igual, así que
      tiene que medir igual. Un `label` a secas no vale: el de una casilla de
      escribir no es lo que se pulsa y dejaría los formularios con 44 px por
      cada nombre de hueco. */
   div:has(> input[type=checkbox]) > label,
-  div:has(> input[type=radio]) > label{min-height:44px;display:flex;align-items:center}
+  div:has(> input[type=radio]) > label{min-height:44px;min-width:44px;
+    display:flex;align-items:center}
   /* Y el número de la pieza en las listas: es la puerta a su ficha y lo que
      más se pulsa en recepción. Medía 24 px de alto. */
   .lista-piezas a,.filapieza a{min-height:44px;display:inline-flex;align-items:center}
@@ -514,9 +523,15 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
   .side{display:none}
   /* La barra de abajo: cinco sitios, los de todos los días, al alcance del
      pulgar. Lo demás, en «Más». */
+  /* Ocho píxeles a los lados y no cuatro. Con cuatro, «Aujourd'hui» —que es
+     el nombre más largo de los siete idiomas para la primera pestaña— llegaba
+     a 12 px del borde de la pantalla, y la esquina de abajo a la izquierda es
+     justo la más redondeada de un teléfono de los de ahora. Los cuatro
+     píxeles salen del ancho de las pestañas, que con cinco en 390 pasan de 74
+     a 73: la palabra sigue cabiendo. */
   .tabs{display:flex;position:fixed;inset:auto 0 0 0;z-index:30;background:var(--card);
     border-top:1px solid var(--line);
-    padding:6px 4px max(6px,env(safe-area-inset-bottom))}
+    padding:6px 8px max(6px,env(safe-area-inset-bottom))}
   /* Cinco nombres en 390 píxeles: pequeños y con aire, o se tocan. */
   .tabs a{flex:1 1 0;min-width:0;text-align:center;text-decoration:none;color:var(--muted);
     font-size:11px;letter-spacing:-.01em;padding:7px 1px;border-radius:10px;min-height:54px;
