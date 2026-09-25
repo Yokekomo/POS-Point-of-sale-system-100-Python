@@ -258,6 +258,62 @@ def test_water_leaving_never_changes_what_the_piece_cost(cocina):
     assert peor_kilo < CENTIMO, f"el precio del kilo se desvió {peor_kilo:.8f} EUR/kg"
 
 
+def test_cutting_to_order_never_cheapens_the_kilo_of_what_is_left(cocina):
+    """Cortar un trozo al peso no puede abaratar el kilo del resto.
+
+    Lo encontró el examen masivo, en la casa 71 de cien: una pieza cuyo kilo
+    pasaba de 28,0430 a 28,0341 en una pesada que **no cambiaba el peso**. Nada
+    se había evaporado y el kilo bajaba solo.
+
+    Lo que pasaba: la venta al corte descontaba su parte de `piece_cost_usd` y
+    dejaba `landed_usd_per_kg` como estaba. Las dos cifras dicen lo mismo con
+    palabras distintas —lo que cuesta la pieza y lo que cuesta su kilo— y a
+    partir de ahí ya no decían lo mismo. La siguiente pesada las volvía a poner
+    de acuerdo cogiendo la de abajo, y así, corte a corte, la carne madurada
+    acababa costando menos de lo que costó.
+
+    Nueve milésimas de euro por kilo no las ve nadie. Diez cortes en un lomo de
+    cien euros el kilo durante un año, sí: es margen que se regala sin que
+    salte nada, y en el sitio donde más duele —la pieza cara, la madurada—.
+    """
+    session, rest, ana, _ = cocina
+    azar = random.Random(11)
+    peor = 0.0
+    for n in range(60):
+        kg = round(azar.uniform(3.0, 12.0), 3)
+        pieza, _ = _pieza(session, rest, f"C{n:04d}", kg, round(azar.uniform(12, 95), 2))
+        de_salida = aging.cost_per_kg(pieza)
+        for _ in range(6):
+            quedan = pieza.weight_kg or 0.0
+            gramos = round(quedan * 1000 * azar.uniform(0.05, 0.25))
+            if gramos < 50 or quedan * 1000 - gramos < 300:
+                break
+            aging.sell_by_weight(session, ana, pieza.serial, gramos,
+                                 price=round(gramos / 1000 * 80, 2), on=HOY)
+            session.refresh(pieza)
+            # Las dos maneras de decir lo mismo tienen que decir lo mismo: lo
+            # que cuesta la pieza dividido entre lo que pesa es lo que cuesta
+            # su kilo. En cuanto se separan, la siguiente pesada coge una de
+            # las dos y la otra se pierde.
+            derivado = (pieza.piece_cost_usd or 0.0) / (pieza.weight_kg or 1.0)
+            peor = max(peor, abs(derivado - (pieza.landed_usd_per_kg or 0.0)))
+            # Y el kilo no baja: el trozo se lleva su parte y el resto vale
+            # lo que valía.
+            assert (aging.cost_per_kg(pieza) or 0) >= de_salida - CENTIMO, (
+                f"{pieza.serial}: el kilo bajó de {de_salida:.6f} a "
+                f"{aging.cost_per_kg(pieza):.6f} cortando al peso")
+        # Y una pesada que no cambia el peso no puede cambiar el precio.
+        if (pieza.weight_kg or 0) > 0.3:
+            antes = aging.cost_per_kg(pieza)
+            aging.weigh(session, ana, pieza.serial, round(pieza.weight_kg, 3), on=HOY)
+            session.refresh(pieza)
+            assert (aging.cost_per_kg(pieza) or 0) >= antes - 1e-6, (
+                f"{pieza.serial}: pesar sin que cambie el peso bajó el kilo de "
+                f"{antes:.6f} a {aging.cost_per_kg(pieza):.6f}")
+    apunta("las dos cifras del kilo, tras cortar al peso", peor, "EUR/kg")
+    assert peor < CENTIMO, f"se separaron {peor:.8f} EUR/kg"
+
+
 def test_a_piece_cannot_put_on_weight(cocina):
     """Si el peso sube, es la báscula o el número: nunca la carne."""
     session, rest, ana, _ = cocina

@@ -218,6 +218,33 @@ def test_the_notice_does_not_need_javascript(client):
     assert 'action="/cookies/visto"' in barra and "<script" not in barra
 
 
+def test_the_language_chooser_appears_once_per_page(client):
+    """Siete idiomas dos veces en la misma pantalla son catorce botones de nada.
+
+    El pie los lleva desde siempre. Después se le puso una tarjeta de idiomas a
+    las pantallas públicas, y desde el móvil —donde el pie se ve entero sin
+    hacer nada— salían los dos, uno encima del otro, en precios, en pedir
+    acceso, en cookies y en entrar. Ocupan media pantalla y no añaden nada:
+    hacen lo mismo.
+    """
+    fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
+    for ruta in ("/", "/precios", "/solicitar", "/cookies", "/login"):
+        veces = fuera.get(ruta).text.count('hreflang="hu"')
+        assert veces == 1, f"{ruta}: el elegir idioma sale {veces} veces"
+
+
+def test_changing_the_language_keeps_you_where_you_were(client):
+    """Cambiar de idioma leyendo los precios no puede devolverte a la portada.
+
+    El pie mandaba siempre a `/`. Quien estaba comparando el precio en la
+    pantalla de precios cambiaba a inglés y se encontraba en la portada,
+    buscando otra vez dónde estaba.
+    """
+    fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
+    for ruta in ("/precios", "/solicitar", "/cookies", "/login"):
+        assert f'/idioma/en?next={ruta}' in fuera.get(ruta).text, ruta
+
+
 def test_the_way_back_cannot_be_sent_somewhere_else(client):
     """El «volver a donde estabas» no puede llevar a otra web."""
     fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)

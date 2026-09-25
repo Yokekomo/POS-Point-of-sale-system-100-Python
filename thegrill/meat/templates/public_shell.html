@@ -452,9 +452,16 @@ a.back:hover{color:var(--ember)}
     <div>
       <div class="brand" style="margin-bottom:8px"><span></span>{{ t("m.app.title") }}</div>
       <div>{{ t("ld.footer") }}</div>
+      {# El único sitio donde se elige idioma en las pantallas públicas. Lo
+         llevaba el pie desde siempre, y después se le puso además una tarjeta
+         a cada pantalla: desde el móvil salían los dos, uno encima del otro,
+         catorce botones para hacer lo mismo.
+         Y te deja donde estabas. Mandaba siempre a la portada, así que quien
+         comparaba el precio cambiaba a inglés y aparecía en otra pantalla
+         buscando dónde estaba. #}
       <div class="langs">
         {% for code, l in languages.items() %}
-        <a href="/idioma/{{ code }}?next=/" class="{{ 'on' if code == lang }}"
+        <a href="/idioma/{{ code }}?next={{ here }}" class="{{ 'on' if code == lang }}"
            hreflang="{{ code }}">{{ l.name }}</a>
         {% endfor %}
       </div>
@@ -581,6 +588,60 @@ if (window.caches) {
   new IntersectionObserver(function (entradas) {
     enseñar(!entradas[0].isIntersecting);
   }, {threshold: 0}).observe(arriba);
+})();
+</script>
+
+{# Cerrar el aviso de cookies sin perder el sitio.
+
+   El formulario sigue siendo un formulario de verdad: sin guiones se manda,
+   el servidor apunta la cookie y todo funciona como siempre. Es lo que no se
+   puede perder, porque es lo que hace que esto vaya en un teléfono viejo.
+
+   Pero mandar un formulario recarga, y recargar te sube al principio. Quien
+   iba por la mitad de la portada leyendo, pulsaba «entendido» y aparecía
+   arriba del todo sin saber por qué: se iba el aviso y se iba la página.
+   Con guiones se manda por detrás y la barra se esconde sola.
+
+   Y lo mismo con la equis de las ventanas: su enlace es `#`, que en un
+   navegador significa «al principio del documento». Cerrar la ventana de las
+   cookies te subía igual. #}
+<script nonce="{{ nonce }}">
+(function () {
+  var barra = document.getElementById("cookiebar");
+
+  function esconder() {
+    if (barra) barra.hidden = true;
+    // La ventana de las cookies se cierra con el ancla vacía, como su equis.
+    if (location.hash === "#cookies-info") { cerrar_ventana(); }
+  }
+
+  function cerrar_ventana() {
+    var y = window.scrollY;
+    location.hash = "";
+    requestAnimationFrame(function () { window.scrollTo(0, y); });
+  }
+
+  var avisos = document.querySelectorAll('form[action="/cookies/visto"]');
+  if (avisos.length && window.fetch) {
+    Array.prototype.forEach.call(avisos, function (f) {
+      f.addEventListener("submit", function (e) {
+        e.preventDefault();
+        fetch(f.action, {method: "POST", body: new FormData(f),
+                         credentials: "same-origin"})
+          .then(esconder)
+          // Sin red, se manda como se mandaba: mejor recargar que no cerrarlo.
+          .catch(function () { f.submit(); });
+      });
+    });
+  }
+
+  // La equis y el fondo de cualquier ventana: cierran sin moverse del sitio.
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest ? e.target.closest("a.close, a.veil") : null;
+    if (!a || a.getAttribute("href") !== "#") { return; }
+    e.preventDefault();
+    cerrar_ventana();
+  });
 })();
 </script>
 </body>

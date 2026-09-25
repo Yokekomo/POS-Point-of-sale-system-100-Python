@@ -1125,8 +1125,12 @@ def test_the_cookie_notice_goes_away_and_stays_away(browser):
         assert page.locator("#cookiebar").is_visible(), "el aviso no aparece la primera vez"
 
         page.click("#cookiebar button")
-        page.wait_for_load_state("networkidle")
-        assert page.locator("#cookiebar").count() == 0, "el aviso no se va al pulsar"
+        # Se va sin recargar: la página se queda donde estaba y el aviso se
+        # esconde. Antes se iba porque la página entera volvía a cargarse, y
+        # eso subía al principio a quien estuviera leyendo por la mitad.
+        page.wait_for_timeout(600)
+        assert not page.locator("#cookiebar").is_visible(), "el aviso no se va al pulsar"
+        assert page.url.rstrip("/") == base.rstrip("/"), "se ha ido de la página"
 
         for ruta in ("/", "/precios", "/cookies", "/login"):
             page.goto(f"{base}{ruta}")
@@ -1413,6 +1417,58 @@ def test_the_two_floating_bars_do_not_sit_on_top_of_each_other(browser):
     }""")
     if solape is not None:
         assert solape <= 0, f"la barra pisa el aviso de cookies por {solape}px"
+    context.close()
+
+
+def test_closing_the_cookie_notice_leaves_you_where_you_were(browser):
+    """Cerrar el aviso de cookies no puede devolverte al principio de la página.
+
+    El aviso se cierra mandando un formulario, a propósito: así funciona en un
+    teléfono viejo y con los guiones apagados. Pero mandar un formulario
+    recarga, y recargar te sube al principio. Quien iba por la mitad de la
+    portada leyendo, pulsaba «entendido» y se encontraba otra vez arriba del
+    todo sin saber por qué: el aviso desaparecía y la página también.
+
+    Con guiones, se cierra sin recargar y sin moverse. Sin guiones, sigue
+    funcionando como antes, que es lo que no se puede perder.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    page.goto(base)
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(300)
+
+    # La portada baja con animación, así que hay que esperar a que pare antes
+    # de apuntar dónde estaba. Midiendo a media animación, la prueba acusaba de
+    # mover la página a quien no la había movido.
+    def quieta() -> int:
+        anterior = -1
+        for _ in range(40):
+            page.wait_for_timeout(100)
+            ahora = page.evaluate("() => Math.round(window.scrollY)")
+            if ahora == anterior:
+                return ahora
+            anterior = ahora
+        return anterior
+
+    page.evaluate("window.scrollTo(0, 1200)")
+    estaba = quieta()
+    assert estaba > 600, f"no se ha bajado: {estaba}"
+
+    page.click("#cookiebar button[type=submit]")
+    sigue = quieta()
+    assert abs(sigue - estaba) < 80, (
+        f"cerrar las cookies ha movido la página de {estaba} a {sigue}")
+    assert page.evaluate(
+        "() => { const b = document.getElementById('cookiebar');"
+        "  return !b || b.hidden || b.getBoundingClientRect().height === 0; }"), \
+        "el aviso sigue ahí después de cerrarlo"
+
+    # Y cerrado de verdad: al cambiar de pantalla no vuelve.
+    page.goto(f"{base}/precios")
+    page.wait_for_load_state("networkidle")
+    assert page.locator("#cookiebar").count() == 0, "el aviso ha vuelto en la otra pantalla"
     context.close()
 
 

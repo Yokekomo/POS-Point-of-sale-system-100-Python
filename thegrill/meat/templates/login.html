@@ -30,14 +30,6 @@
     </div>
   </div>
 
-  <div class="card">
-    <p class="muted" style="margin:0 0 6px">{{ t("common.language") }}</p>
-    <div class="langbar">
-      {% for code, l in languages.items() %}
-        <a href="/idioma/{{ code }}?next=/login" class="{{ 'on' if code == lang }}"
-           hreflang="{{ code }}">{{ l.name }}</a>
-      {% endfor %}
-    </div>
-  </div>
+{# Los idiomas, en el pie. Aquí estaban repetidos. #}
 </section>
 {% endblock %}

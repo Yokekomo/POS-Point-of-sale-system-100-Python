@@ -462,8 +462,19 @@ def weigh(session: Session, user: User, serial: str, kg: float,
     # [00887] El coste de la pieza se fija aquí: a partir de ahora el kilo se calcula
     # contra el peso de hoy, no contra el del día que llegó.
     if cost is not None:
+        ahora = round(cost / kg, 6) if kg > EPSILON else None
+        # Y una pesada no abarata el kilo. Nunca. Aquí solo se pesa lo que se
+        # evapora: los kilos bajan o se quedan, el coste no se mueve, así que
+        # la cuenta solo puede salir igual o más alta. Si sale más baja, lo que
+        # ha pasado no es que la carne valga menos: es que las dos cifras
+        # —lo que cuesta la pieza y lo que cuesta su kilo— se habían separado
+        # por el camino, y esta pesada estaba a punto de quedarse con la de
+        # abajo. Se planta el kilo y se recalcula la pieza desde él.
+        if ahora is not None and before_per_kg is not None and ahora < before_per_kg:
+            ahora = before_per_kg
+            cost = round(ahora * kg, 6)
         primal.piece_cost_usd = cost
-        primal.landed_usd_per_kg = round(cost / kg, 6) if kg > EPSILON else None
+        primal.landed_usd_per_kg = ahora
     primal.weight_kg = round(kg, 6)
 
     storage = where(primal)
@@ -707,7 +718,20 @@ def sell_by_weight(session: Session, user: User, serial: str, grams: float,
     primal.weight_kg = round(available - kg, 6)
     if whole is not None:
         # [00892] El trozo se lleva su parte: el kilo de lo que queda no se mueve.
-        primal.piece_cost_usd = round(max(0.0, whole - cost), 6)
+        #
+        # Y no se mueve **de verdad**: el kilo manda y de él sale lo que cuesta
+        # la pieza, no al revés. Restando el trozo de lo que costaba la pieza,
+        # las dos cifras —lo que cuesta la pieza y lo que cuesta su kilo—
+        # dejaban de decir lo mismo, porque solo se tocaba una. La siguiente
+        # pesada las ponía de acuerdo cogiendo la de abajo, y el kilo de la
+        # pieza bajaba en una pesada que no había cambiado el peso. Nueve
+        # milésimas cada vez, siempre para abajo, siempre en la carne madurada,
+        # que es la cara.
+        if per_kg is not None:
+            primal.piece_cost_usd = round(per_kg * primal.weight_kg, 6)
+            primal.landed_usd_per_kg = per_kg
+        else:
+            primal.piece_cost_usd = round(max(0.0, whole - cost), 6)
 
     finished = primal.weight_kg <= EPSILON
     if finished:

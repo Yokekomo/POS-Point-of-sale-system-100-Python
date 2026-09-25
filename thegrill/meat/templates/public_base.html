@@ -1,16 +1,8 @@
 {% extends "public_shell.html" %}
 {% block shell %}
+{# Los idiomas van en el pie y en ningún otro sitio: aquí había una tarjeta
+   que los repetía, y en el móvil se veían los dos juegos seguidos. #}
 <section class="wrap inner">
   {% block public %}{% endblock %}
-
-  <div class="card" style="margin-top:28px">
-    <p class="muted" style="margin:0 0 6px">{{ t("common.language") }}</p>
-    <div class="langbar">
-      {% for code, l in languages.items() %}
-        <a href="/idioma/{{ code }}?next={{ here }}" class="{{ 'on' if code == lang }}"
-           hreflang="{{ code }}">{{ l.name }}</a>
-      {% endfor %}
-    </div>
-  </div>
 </section>
 {% endblock %}

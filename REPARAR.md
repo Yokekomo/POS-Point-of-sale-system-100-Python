@@ -260,6 +260,34 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 
 ## Ya reparado
 
+- [x] **Cortar al peso abarataba el kilo de lo que quedaba.** Lo encontró el
+      examen masivo en la casa 71 de cien: una pieza cuyo kilo pasaba de
+      28,0430 a 28,0341 en una pesada **que no cambiaba el peso**. La venta al
+      corte descontaba su parte del coste de la pieza y dejaba el precio del
+      kilo como estaba; las dos cifras dicen lo mismo con palabras distintas y
+      a partir de ahí dejaban de decirlo. La siguiente pesada las ponía de
+      acuerdo cogiendo la de abajo. Nueve milésimas por kilo no las ve nadie;
+      diez cortes en un lomo de cien euros durante un año, sí, y siempre para
+      abajo. Ahora el kilo manda y de él sale lo que cuesta la pieza, y una
+      pesada no puede abaratarlo nunca: aquí solo se pesa lo que se evapora.
+      `aging.py`, `tests/test_matematicas.py`.
+
+- [x] **Cerrar el aviso de cookies te subía al principio de la página.** Se
+      cierra mandando un formulario —a propósito, para que funcione sin
+      guiones— pero mandar un formulario recarga, y recargar sube arriba del
+      todo. Quien iba leyendo por la mitad de la portada pulsaba «entendido» y
+      aparecía en el principio sin saber por qué. Con guiones se manda por
+      detrás y la barra se esconde sola; sin guiones, como siempre. Y la equis
+      de las ventanas, igual: su enlace era `#`, que para un navegador
+      significa «al principio del documento». `public_shell.html`, `base.html`.
+
+- [x] **Siete idiomas dos veces en la misma pantalla.** El pie los llevaba
+      desde siempre y después se le puso además una tarjeta a cada pantalla
+      pública: en el móvil salían los dos juegos seguidos, catorce botones para
+      hacer lo mismo. Queda el del pie, y además te deja donde estabas —mandaba
+      siempre a la portada, así que quien comparaba el precio cambiaba a inglés
+      y aparecía en otra pantalla—.
+
 - [x] **Una prueba que pasaba entera y fallaba suelta.** Las dos ediciones se
       servían en el mismo proceso con una base de datos para cada una, y en
       este proceso solo hay un motor: el último que lo abre se lo queda. El
