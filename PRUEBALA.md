@@ -7,12 +7,29 @@ cerrado. No hay que escribir nada para empezar a mirar.
 
 ## Lo más corto: un icono en el Escritorio
 
-Si no quieres saber nada de carpetas ni de consolas, **copia esta línea**, pega
-en la consola de Windows (tecla Windows, escribe `cmd`, Intro) y dale a Intro:
+Si no quieres saber nada de carpetas ni de consolas, copia una de estas dos
+líneas y pégala en la consola. **Cuál de las dos, según la que tengas abierta**,
+que no valen la una por la otra:
+
+**PowerShell** (la azul, o la que se abre de serie en Windows Terminal) —
+empieza por `PS C:\Users\…>`:
+
+```powershell
+$d=[Environment]::GetFolderPath('Desktop'); iwr 'https://raw.githubusercontent.com/Yokekomo/POS-Point-of-sale-system-100-Python/claude/cool-bohr-jct64l/carnes.bat' -OutFile (Join-Path $d 'carnes.bat'); explorer $d
+```
+
+**La consola de siempre** (`cmd`, tecla Windows → escribe `cmd` → Intro) —
+empieza por `C:\Users\…>`:
 
 ```
 powershell -c "$d=[Environment]::GetFolderPath('Desktop'); iwr 'https://raw.githubusercontent.com/Yokekomo/POS-Point-of-sale-system-100-Python/claude/cool-bohr-jct64l/carnes.bat' -OutFile (Join-Path $d 'carnes.bat'); explorer $d"
 ```
+
+> Si pegas la segunda dentro de PowerShell sale
+> `'=[Environment]::GetFolderPath' is not recognized` y se queda esperando en
+> `ChildPath:`. No has hecho nada mal: PowerShell se come el `$d` **antes** de
+> pasarle la orden al segundo PowerShell, y lo que le llega es un `=` suelto.
+> **Ctrl+C** para salir de ahí y pega la primera.
 
 Te deja un **`carnes.bat` en el Escritorio** y te abre la carpeta para que lo
 veas. A partir de ahí, doble clic y ya: se baja el programa la primera vez, se
@@ -106,6 +123,14 @@ Igual: **http://localhost:8001**, y las claves salen en el terminal.
 
 Lo de arriba solo vale dentro de tu wifi. Para abrirlo desde la calle —o para
 enseñárselo a alguien que está en otro sitio— hay un **`tunel.bat`**:
+
+En **PowerShell** (la que empieza por `PS C:\Users\…>`):
+
+```powershell
+$d=[Environment]::GetFolderPath('Desktop'); iwr 'https://raw.githubusercontent.com/Yokekomo/POS-Point-of-sale-system-100-Python/claude/cool-bohr-jct64l/tunel.bat' -OutFile (Join-Path $d 'tunel.bat'); explorer $d
+```
+
+En **`cmd`** (la que empieza por `C:\Users\…>`):
 
 ```
 powershell -c "$d=[Environment]::GetFolderPath('Desktop'); iwr 'https://raw.githubusercontent.com/Yokekomo/POS-Point-of-sale-system-100-Python/claude/cool-bohr-jct64l/tunel.bat' -OutFile (Join-Path $d 'tunel.bat'); explorer $d"
