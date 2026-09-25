@@ -28,7 +28,8 @@ from thegrill.meat import novedades
 from thegrill.web import aging as aging_mod
 from thegrill.web import waste as waste_mod
 from thegrill.web import service as plataforma
-from thegrill.web import butchery, costing, defrost, inventory, jornada, locking, rangos, sites
+from thegrill.web import (butchery, costing, defrost, exacto, inventory, jornada,
+                          locking, rangos, sites)
 from thegrill.web.i18n import t
 
 MAX_CUTS = 10
@@ -1121,7 +1122,7 @@ class DailyReport:
     @property
     def sales_margin(self) -> float:
         """[01630] Lo ganado con la carne que salió hoy: lo cobrado menos lo que costó."""
-        return round(self.sales_revenue - self.sales_cost, 2)
+        return exacto.eur(self.sales_revenue - self.sales_cost)
 
     @property
     def sales_food_cost_pct(self) -> float | None:
@@ -1138,7 +1139,7 @@ class DailyReport:
     @property
     def waste_cost(self) -> float:
         """[00618] Lo que costó lo que se tiró."""
-        return round(sum(w.cost or 0.0 for w in self.waste), 2)
+        return exacto.eur(sum(w.cost or 0.0 for w in self.waste))
 
     @property
     def day_loss(self) -> float:
@@ -1233,8 +1234,8 @@ def _lo_ganado_hoy(session: Session, restaurant_id: int, on: date,
         ingreso += venta.price or 0.0
         coste += venta.cost or 0.0
 
-    out.sales_revenue = round(ingreso, 2)
-    out.sales_cost = round(coste, 2)
+    out.sales_revenue = exacto.eur(ingreso)
+    out.sales_cost = exacto.eur(coste)
 
 
 # ==================================================================== hoy

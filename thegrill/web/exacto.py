@@ -166,6 +166,19 @@ def euros(valor: float | None) -> float | None:
     return a_decimal(a_enteros(valor, CENTIMOS), CENTIMOS)
 
 
+def eur(valor: float | None) -> float:
+    """[01667] Lo mismo que `euros`, pero nunca devuelve nada: un total se enseña.
+
+    Es para los números que se pintan en una pantalla —el margen, lo
+    ingresado, lo que costó— y que alguien va a comparar con una factura. Ahí
+    no vale `round(x, 2)`: redondea por donde caiga el binario, y una de cada
+    mil quinientas cifras sale un céntimo por debajo de lo que dice la cuenta
+    hecha a mano. Siempre en las mismas, además: las que caen justo en medio
+    del céntimo, que son las que salen de multiplicar kilos por un precio.
+    """
+    return euros(valor) or 0.0
+
+
 def kilos(valor: float | None) -> float | None:
     """[01178] Deja un peso en gramos justos. Una báscula no da milésimas de gramo."""
     if valor is None:

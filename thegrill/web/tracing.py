@@ -27,7 +27,7 @@ from thegrill.engine.recipes import cost_recipe
 from thegrill.models import (Despiece, DespieceCut, DespiecePrimal, Ingredient,
                              IngredientLot, IngredientMovement, MovementKind, PosProduct,
                              Primal, PrimalStatus, Site, WeightSale)
-from thegrill.web import costing
+from thegrill.web import costing, exacto
 
 EPSILON = 1e-9
 
@@ -181,7 +181,7 @@ class CutNode:
             fila = juntos.setdefault(line.dish or "—", [0.0, 0.0])
             fila[0] = round(fila[0] + line.kg, 6)
             fila[1] = round(fila[1] + line.revenue, 4)
-        return [(plato, kg, round(ingreso, 2))
+        return [(plato, kg, exacto.eur(ingreso))
                 for plato, (kg, ingreso) in sorted(juntos.items(),
                                                    key=lambda x: -x[1][0])]
 
@@ -194,7 +194,7 @@ class CutNode:
         columna se compara el food cost de dos cortes sin saber cuál de los
         dos paga el primal.
         """
-        return round(self.revenue - self.sold_cost, 2)
+        return exacto.eur(self.revenue - self.sold_cost)
 
     @property
     def unaccounted_kg(self) -> float:
@@ -353,7 +353,7 @@ class PrimalHistory:
     @property
     def revenue(self) -> float:
         """[01479] Lo ingresado con esta pieza: su parte de los platos más el corte al peso."""
-        return round(self._suma("revenue") + self.weight_revenue, 2)
+        return exacto.eur(self._suma("revenue") + self.weight_revenue)
 
     @property
     def remaining_kg(self) -> float:
@@ -381,7 +381,7 @@ class PrimalHistory:
     @property
     def weight_revenue(self) -> float:
         """[01484] Lo cobrado en la venta al corte."""
-        return round(sum(v.revenue for v in self.weight_sales), 2)
+        return exacto.eur(sum(v.revenue for v in self.weight_sales))
 
     @property
     def weight_cost(self) -> float:
@@ -391,7 +391,7 @@ class PrimalHistory:
     @property
     def margin(self) -> float:
         """[01486] Lo ganado con lo ya vendido, descontando lo que costó esa parte."""
-        return round(self.revenue - self.sold_cost, 2)
+        return exacto.eur(self.revenue - self.sold_cost)
 
     @property
     def food_cost_pct(self) -> float | None:
