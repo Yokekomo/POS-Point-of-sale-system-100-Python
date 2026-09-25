@@ -203,18 +203,28 @@ def _dinero_de_cada_lote(session, restaurant_id: int, semilla: int, parte: Parte
     lo que queda vale el resto. La suma de las tres cosas tiene que dar lo que
     valía al nacer, después de un mes entero de ventas, mermas y traslados.
 
-    Lo que se tira es el caso interesante: su dinero **no desaparece**, se
-    queda sobre lo que sobrevive —el kilo sube— y por eso aparece a la vez
-    como coste de la merma y dentro de lo que queda. Se descuenta una vez, que
-    es lo que dice la cuenta.
+    Tres cosas se restan y una no, y es lo que da sentido a la cuenta:
+
+    - **vendido** y **trasladado** se llevan su dinero: se van del lote.
+    - **el ajuste de un recuento** también, y es el único que es una pérdida de
+      verdad: ciento tres gramos que no estaban y que nadie sabe dónde fueron.
+      Lleva el signo puesto, así que un ajuste hacia arriba —carne que
+      reaparece— suma en vez de restar.
+    - **lo que se tira, no.** Su dinero no desaparece: se queda sobre lo que
+      sobrevive, el kilo sube, y ya está contado dentro de lo que queda.
+      Restarlo además sería contarlo dos veces.
     """
     from thegrill.models import IngredientLot, IngredientMovement, MovementKind
 
     salidas: dict[int, float] = {}
     for mv in (session.query(IngredientMovement)
                .filter_by(restaurant_id=restaurant_id)):
-        if mv.kind in (MovementKind.SALE, MovementKind.MOVE) and mv.lot_id:
+        if not mv.lot_id:
+            continue
+        if mv.kind in (MovementKind.SALE, MovementKind.MOVE):
             salidas[mv.lot_id] = round(salidas.get(mv.lot_id, 0.0) + (mv.cost or 0.0), 6)
+        elif mv.kind == MovementKind.ADJUST:
+            salidas[mv.lot_id] = round(salidas.get(mv.lot_id, 0.0) - (mv.cost or 0.0), 6)
 
     for lote in session.query(IngredientLot).filter_by(restaurant_id=restaurant_id):
         nacio = round(sum(
@@ -232,6 +242,103 @@ def _dinero_de_cada_lote(session, restaurant_id: int, semilla: int, parte: Parte
                 f"[dinero_del_lote] semilla {semilla} · {lote.serial}: nació "
                 f"valiendo {nacio:.2f}, salieron {salidas.get(lote.id, 0.0):.2f} y "
                 f"quedan {queda:.2f}")
+
+
+def _dos_caminos(session, restaurant_id: int, semilla: int, parte: Parte) -> None:
+    """El mismo número, contado por dos sitios distintos, tiene que dar igual.
+
+    Es la forma más barata de encontrar un fallo de verdad: la pantalla de
+    sedes suma la carne de una manera y el escandallo de otra, cada una
+    escrita en su día y por su motivo. Mientras las dos digan lo mismo, las
+    dos están bien o las dos están mal de la misma manera; el día que se
+    separan, una de las dos miente y el hostelero ve dos cifras distintas de
+    lo que tiene en la cámara.
+    """
+    from thegrill.models import IngredientLot
+    from thegrill.web import costing, sites
+
+    por_sedes = round(sum(x.cut_kg for x in sites.stock(session, restaurant_id)), 6)
+    por_cortes = round(sum(
+        v for v in costing.stock_on_hand(session, restaurant_id).values() if v > 0), 6)
+    # La pantalla de sedes no enseña lo que está a cero, así que se comparan
+    # los lotes con carne dentro: lo vacío no está en ninguna de las dos.
+    con_carne = round(sum(
+        l.qty_remaining for l in session.query(IngredientLot)
+        .filter_by(restaurant_id=restaurant_id) if l.qty_remaining > 1e-9), 6)
+    for nombre, cuanto in (("sedes contra lotes", abs(por_sedes - con_carne)),
+                           ("escandallo contra lotes", abs(por_cortes - con_carne))):
+        parte.peor(nombre, "kg").apunta(cuanto, "toda la casa", semilla)
+        if cuanto > HOLGURA_KG:
+            parte.hallazgos.append(
+                f"[dos_caminos] semilla {semilla} · {nombre}: {por_sedes:.6g} por "
+                f"sedes, {por_cortes:.6g} por escandallo, {con_carne:.6g} en los lotes")
+
+
+def _rotacion(session, restaurant_id: int, semilla: int, parte: Parte) -> None:
+    """Que la cola de salida esté de verdad en el orden que dice la casa.
+
+    FEFO es lo primero que caduca; FIFO, lo primero que entró. No es un detalle
+    de almacén: con carne, sacar en el orden que no toca acaba en un lote
+    pasado de fecha en un plato. Se comprueba la propiedad —cada uno antes que
+    el siguiente— y no el código que la produce.
+    """
+    from thegrill.models import Ingredient, Rotation
+    from thegrill.web import costing
+
+    for ing in session.query(Ingredient).filter_by(restaurant_id=restaurant_id):
+        cola = costing.rotation_order(session, restaurant_id, ing)
+        clave = ((lambda l: (l.expiry or date.max, l.received or date.max))
+                 if ing.rotation == Rotation.FEFO
+                 else (lambda l: (l.received or date.max, l.expiry or date.max)))
+        for antes, despues in zip(cola, cola[1:]):
+            if clave(antes) > clave(despues):
+                parte.hallazgos.append(
+                    f"[rotacion] semilla {semilla} · {ing.name} ({ing.rotation.value}): "
+                    f"{antes.serial or antes.id} sale antes que "
+                    f"{despues.serial or despues.id} y no le toca")
+                break
+
+
+def _leer_no_escribe(session, restaurant_id: int, semilla: int, parte: Parte) -> None:
+    """Que mirar una pantalla no cambie nada.
+
+    Suena obvio y no lo es: una pantalla que calcula un coste que falta, o que
+    ordena una lista tocando las filas, deja escrito lo que ha calculado sin
+    que nadie se lo haya pedido. Eso no da error, no sale en ningún aviso, y se
+    nota meses después porque un número cambió el día que alguien abrió una
+    pantalla. Aquí se abren todas las de mirar y se compara la cámara antes y
+    después, hasta la millonésima.
+    """
+    from thegrill.meat import service as meat_service
+    from thegrill.models import IngredientLot, Primal
+    from thegrill.web import aging, sites, tracing
+
+    def foto() -> tuple:
+        return (tuple(sorted(
+            (l.id, round(l.qty_remaining or 0.0, 9), round(l.unit_cost or 0.0, 9))
+            for l in session.query(IngredientLot).filter_by(restaurant_id=restaurant_id))),
+            tuple(sorted(
+                (p.id, round(p.weight_kg or 0.0, 9), p.status.value)
+                for p in session.query(Primal).filter_by(restaurant_id=restaurant_id))))
+
+    antes = foto()
+    hoy = date(2026, 9, 20)
+    sites.stock(session, restaurant_id)
+    filas = aging.board(session, restaurant_id, on=hoy)
+    aging.summary(session, restaurant_id, on=hoy, rows=filas)
+    meat_service.today(session, restaurant_id, on=hoy)
+    for p in session.query(Primal).filter_by(restaurant_id=restaurant_id):
+        try:
+            tracing.history(session, restaurant_id, p.serial)
+        except tracing.NotFound:
+            pass
+    session.flush()
+    despues = foto()
+    if antes != despues:
+        cambiadas = [a for a, d in zip(antes[0], despues[0]) if a != d][:3]
+        parte.hallazgos.append(
+            f"[mirar_cambia_las_cosas] semilla {semilla}: abrir las pantallas de "
+            f"mirar ha cambiado la cámara. Primeras filas distintas: {cambiadas}")
 
 
 def _una_casa(semilla: int, dias: int, golpes: int, parte: Parte) -> None:
@@ -262,6 +369,9 @@ def _una_casa(semilla: int, dias: int, golpes: int, parte: Parte) -> None:
         _conservacion(session, rid, semilla, parte)
         _libro(session, rid, semilla, parte)
         _dinero_de_cada_lote(session, rid, semilla, parte)
+        _dos_caminos(session, rid, semilla, parte)
+        _rotacion(session, rid, semilla, parte)
+        _leer_no_escribe(session, rid, semilla, parte)
         parte.piezas += session.query(Primal).filter_by(restaurant_id=rid).count()
     parte.casas += 1
     parte.dias += dias
