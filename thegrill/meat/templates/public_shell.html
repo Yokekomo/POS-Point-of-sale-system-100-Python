@@ -40,7 +40,16 @@
   }
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
+/* Y lo mismo por arriba para el navegador cuando es él quien mueve la página
+   —un enlace a una sección, el tabulador, o el teclado que sube el campo que
+   se está escribiendo—: `padding-bottom` en el cuerpo solo protege el final
+   del documento, y el botón de entrar no está al final, tiene debajo el pie y
+   los idiomas. Tumbado en una pantalla de 390 px de alto, el navegador lo
+   dejaba pegado al borde de abajo y el aviso de cookies encima: el botón
+   estaba, se veía a medias y no se podía pulsar. Con esto, cuando el
+   navegador acerca algo al borde de abajo deja libre lo que ocupa lo que
+   flota. */
+html{scroll-behavior:smooth;scroll-padding-bottom:var(--flotante,220px)}
 body{margin:0;background:var(--bg);color:var(--ink);
   font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   -webkit-font-smoothing:antialiased}

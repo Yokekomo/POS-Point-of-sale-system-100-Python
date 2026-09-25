@@ -1268,15 +1268,29 @@ def test_the_public_header_fits_in_one_row(browser):
         page.goto(f"{base}{ruta}")
         page.wait_for_load_state("networkidle")
         r = page.evaluate("""() => {
+            // Las líneas del nombre se cuentan por sus renglones y no por el
+            // alto de la caja: en pantalla táctil la caja tiene 46 px de alto
+            // mínimo para que quepa el dedo, y dividir eso entre el alto de un
+            // renglón daba dos líneas donde solo hay una.
             const marca = document.querySelector('.brand');
+            const nombre = marca.querySelector('i') || marca;
+            const renglones = Math.round(nombre.getBoundingClientRect().height /
+                                         parseFloat(getComputedStyle(nombre).lineHeight));
+            // Y las filas del menú por el centro de cada enlace, no por su
+            // borde de arriba: «entrar» es más alto que los demás y todos se
+            // alinean por el centro, así que los bordes nunca coinciden.
             const vistos = [...document.querySelectorAll('header nav a')]
               .filter(a => getComputedStyle(a).display !== 'none');
+            const filas = [];
+            for (const a of vistos) {
+              const r = a.getBoundingClientRect();
+              const centro = r.top + r.height / 2;
+              if (!filas.some(f => Math.abs(f - centro) < 8)) filas.push(centro);
+            }
             return {
               alto: Math.round(document.querySelector('header').getBoundingClientRect().height),
-              lineas_marca: Math.round(marca.getBoundingClientRect().height /
-                                       parseFloat(getComputedStyle(marca).lineHeight)),
-              filas: new Set(vistos.map(a =>
-                       Math.round(a.getBoundingClientRect().top))).size,
+              lineas_marca: renglones,
+              filas: filas.length,
             };
         }""")
         assert r["lineas_marca"] == 1, (ruta, "la marca se parte", r)
