@@ -260,6 +260,15 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
 
 ## Ya reparado
 
+- [x] **Una prueba que pasaba entera y fallaba suelta.** Las dos ediciones se
+      servían en el mismo proceso con una base de datos para cada una, y en
+      este proceso solo hay un motor: el último que lo abre se lo queda. El
+      servidor que arrancaba primero acababa sirviendo contra la base del otro
+      —donde la persona con la que se entra no existe—, así que el resultado
+      dependía del orden en que pytest montara las fixtures. Una base y dos
+      casas dentro, que es lo que hace el programa de verdad.
+      `tests/test_mobile.py`.
+
 - [x] **Un traslado ya no inventa un viaje que no existió.** Dos personas con
       la misma pantalla abierta ven la pieza en el obrador; la primera la manda
       a Playa y la segunda, un segundo después, escribe un albarán que dice

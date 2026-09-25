@@ -1008,16 +1008,26 @@ def test_the_signal_notice_and_the_news_do_not_cover_each_other(browser):
 
 
 @pytest.fixture(scope="module")
-def cocina(tmp_path_factory):
-    """La plataforma de cocina, servida aparte: tiene su propia plantilla."""
+def cocina(servidor):
+    """La plataforma de cocina, servida aparte: tiene su propia plantilla.
+
+    Comparte la base con la otra edición, y a propósito. En este proceso hay un
+    solo motor de base de datos: el último que lo abre se lo queda. Con una base
+    para cada servidor, el que arrancaba primero acababa sirviendo contra la
+    base del otro —donde la persona con la que se entra no existe—, así que
+    estas pruebas pasaban o fallaban según el orden en que pytest montara las
+    fixtures: el fichero entero en verde y la prueba suelta en rojo, que es la
+    peor manera de fallar porque nadie se fía de lo que dice.
+
+    Una base y dos casas dentro, que es además lo que hace el programa de
+    verdad. Y depender de `servidor` fija el orden: primero se abre la base y se
+    llena, después arranca esta.
+    """
     import uvicorn
 
     from thegrill.web import app as webapp
 
     playwright_module = pytest.importorskip("playwright.sync_api")
-    ruta = tmp_path_factory.mktemp("cocina") / "cocina.db"
-    db.init_engine(f"sqlite:///{ruta}")
-    db.create_all()
     port = free_port()
     config = uvicorn.Config(webapp.app, host="127.0.0.1", port=port, log_level="error")
     server = uvicorn.Server(config)
