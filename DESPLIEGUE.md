@@ -198,6 +198,14 @@ y guardarlo.
   para otro lo único nuevo son las fotos de ese día y un paquete pequeño.
 - **La clave `GRILL_DATA_KEY` guardada aparte.** Si se pierde, los datos de
   contacto cifrados no se recuperan.
+- **La persona que deja la casa.** En `Equipo`, cuando alguien está de baja
+  aparece «Borrar sus datos»: se le quitan el correo, la contraseña, el segundo
+  factor y los códigos de repuesto, y se queda su nombre y todo su trabajo. Esa
+  raya no es un criterio nuestro: el (UE) 931/2011 y el (CE) 852/2004 obligan a
+  conservar quién hizo qué con cada pieza, y el RGPD —artículo 17.3.b— excluye
+  del derecho de supresión justo lo que hay que conservar por ley. Queda escrito
+  quién lo hizo y cuándo. **Díselo a tus clientes**: es lo que tienen que poder
+  contestar el día que se lo pida un empleado suyo.
 - **Purga de solicitudes en un cron**, para no guardar datos personales de más:
   ```
   0 4 * * *  docker compose exec -T app sh -c 'python -m thegrill.cli --db "$GRILL_DB" purgar-solicitudes'

@@ -51,7 +51,21 @@
     <form method="post" action="/manager/equipo/{{ u.id }}/activar" style="margin:0">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <button class="ghost" style="padding:6px 12px">{{ t("team.deactivate") if u.active else t("team.reactivate") }}</button>
-    </form>{% endif %}</td>
+    </form>
+    {# [01873] Y el día que esa persona se va del todo. Solo cuando ya está de baja:
+       borrarle el correo a alguien que sigue trabajando lo deja fuera sin
+       avisar. Su nombre y su trabajo se quedan —el libro de firmas de una casa
+       de carne hay que conservarlo—; lo que se va es lo que ya no hace falta
+       para nada y se estaba guardando para siempre. #}
+    {% if olvidado(u) %}
+    <div class="muted" style="margin-top:6px;font-size:13px">{{ t("team.forgotten") }}</div>
+    {% elif not u.active %}
+    <form method="post" action="/manager/equipo/{{ u.id }}/olvidar" style="margin:6px 0 0"
+          onsubmit="return confirm({{ t('team.forget_help')|tojson }})">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="ghost" style="padding:6px 12px">{{ t("team.forget") }}</button>
+    </form>
+    {% endif %}{% endif %}</td>
 </tr>
 {% endfor %}
 </table>

@@ -809,6 +809,11 @@ ES = {
     'dl.mine_zip': 'Todo, con las fotos de las etiquetas',
     'dl.mine_zip_help': 'Lo mismo de arriba y, además, la foto de la etiqueta de cada pieza. La etiqueta es la prueba: el matadero, el lote y la fecha de sacrificio están ahí. Pesa más y tarda más en bajarse.',
     'dl.photos_missing': '{n} fotos constan en los datos y no estaban en el disco.',
+
+    'team.forget': 'Borrar sus datos',
+    'team.forget_help': 'Ya no trabaja aquí: se le quita el correo, la contraseña y el segundo factor. Su nombre y su trabajo se quedan, que eso hay que conservarlo por ley.',
+    'team.forgotten': 'Datos borrados',
+    'team.forget_first': 'Primero dale de baja',
 }
 
 EN = {
@@ -1603,6 +1608,11 @@ EN = {
     'dl.mine_zip': 'Everything, with the label photos',
     'dl.mine_zip_help': "The same as above and, on top of it, the photo of every piece's label. The label is the proof: the abattoir, the lot and the slaughter date are on it. It is heavier and takes longer to download.",
     'dl.photos_missing': '{n} photos are in the data and were not on the disk.',
+
+    'team.forget': 'Erase their data',
+    'team.forget_help': 'They no longer work here: their email, password and second factor go. Their name and their work stay, because that has to be kept by law.',
+    'team.forgotten': 'Data erased',
+    'team.forget_first': 'Deactivate them first',
 }
 
 FR = {
@@ -2397,6 +2407,11 @@ FR = {
     'dl.mine_zip': 'Tout, avec les photos des étiquettes',
     'dl.mine_zip_help': "La même chose qu'au-dessus et, en plus, la photo de l'étiquette de chaque primale. L'étiquette est la preuve : l'abattoir, le lot et la date d'abattage y sont. C'est plus lourd et plus long à télécharger.",
     'dl.photos_missing': "{n} photos figurent dans les données et n'étaient pas sur le disque.",
+
+    'team.forget': 'Effacer ses données',
+    'team.forget_help': 'Elle ne travaille plus ici : on retire son e-mail, son mot de passe et son second facteur. Son nom et son travail restent, parce que ça, la loi oblige à le conserver.',
+    'team.forgotten': 'Données effacées',
+    'team.forget_first': "Désactive-la d'abord",
 }
 
 DE = {
@@ -3191,6 +3206,11 @@ DE = {
     'dl.mine_zip': 'Alles, mit den Fotos der Etiketten',
     'dl.mine_zip_help': 'Dasselbe wie oben und zusätzlich das Foto vom Etikett jedes Stücks. Das Etikett ist der Nachweis: Schlachthof, Charge und Schlachtdatum stehen darauf. Es ist schwerer und lädt länger.',
     'dl.photos_missing': '{n} Fotos stehen in den Daten und lagen nicht auf der Platte.',
+
+    'team.forget': 'Seine Daten löschen',
+    'team.forget_help': 'Er arbeitet nicht mehr hier: E-Mail, Passwort und zweiter Faktor gehen weg. Name und Arbeit bleiben, denn das muss per Gesetz aufbewahrt werden.',
+    'team.forgotten': 'Daten gelöscht',
+    'team.forget_first': 'Deaktiviere ihn zuerst',
 }
 
 NL = {
@@ -3985,6 +4005,11 @@ NL = {
     'dl.mine_zip': "Alles, met de foto's van de etiketten",
     'dl.mine_zip_help': 'Hetzelfde als hierboven en daarbij de foto van het etiket van elk stuk. Het etiket is het bewijs: het slachthuis, de partij en de slachtdatum staan erop. Het is zwaarder en duurt langer om te downloaden.',
     'dl.photos_missing': "{n} foto's staan in de gegevens en lagen niet op de schijf.",
+
+    'team.forget': 'Zijn gegevens wissen',
+    'team.forget_help': 'Werkt hier niet meer: e-mail, wachtwoord en tweede factor gaan eraf. Naam en werk blijven, want dat moet je volgens de wet bewaren.',
+    'team.forgotten': 'Gegevens gewist',
+    'team.forget_first': 'Zet hem eerst op inactief',
 }
 
 AR = {
@@ -4779,6 +4804,11 @@ AR = {
     'dl.mine_zip': 'كل شيء، مع صور الملصقات',
     'dl.mine_zip_help': 'نفس ما سبق، وفوقه صورة ملصق كل قطعة. الملصق هو الدليل: المسلخ والدفعة وتاريخ الذبح مكتوبة عليه. حجمه أكبر ويستغرق وقتاً أطول.',
     'dl.photos_missing': '{n} صور مسجّلة في البيانات ولم تكن على القرص.',
+
+    'team.forget': 'امحُ بياناته',
+    'team.forget_help': 'لم يعد يعمل هنا: يُحذف بريده وكلمة مروره وعامله الثاني. اسمه وعمله يبقيان، فهذا يجب حفظه بحكم القانون.',
+    'team.forgotten': 'حُذفت البيانات',
+    'team.forget_first': 'أوقفه أولاً',
 }
 
 
@@ -5575,6 +5605,11 @@ HU = {
     'dl.mine_zip': 'Minden, a címkék fényképeivel',
     'dl.mine_zip_help': 'Ugyanaz, mint fent, és mellé minden darab címkéjének a fényképe. A címke a bizonyíték: a vágóhíd, a tétel és a vágás dátuma azon van. Nagyobb, és tovább tart letölteni.',
     'dl.photos_missing': '{n} fénykép szerepel az adatokban, és nem volt a lemezen.',
+
+    'team.forget': 'Adatainak törlése',
+    'team.forget_help': 'Már nem dolgozik itt: az e-mail, a jelszó és a második lépcső törlődik. A neve és a munkája marad, mert azt törvény szerint meg kell őrizni.',
+    'team.forgotten': 'Adatok törölve',
+    'team.forget_first': 'Előbb függeszd fel',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

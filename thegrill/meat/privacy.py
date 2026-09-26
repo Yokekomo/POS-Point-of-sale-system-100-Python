@@ -36,6 +36,11 @@ log = logging.getLogger(__name__)
 RETENTION_DAYS = 180
 MARK = "enc:v1:"          # lo que lleva delante un valor cifrado
 
+# Lo que se le pone de correo a quien ya no está. Ni es de nadie ni sirve para
+# entrar, y sigue siendo distinto del de los demás, que la tabla lo exige.
+BORRADO = "borrado-"
+BORRADO_DOMINIO = "invalid"      # RFC 2606: reservado, no existe ni puede existir
+
 
 def _key() -> bytes | None:
     """[00530] La clave de cifrado, derivada de `GRILL_DATA_KEY`. Sin ella, no hay cifrado."""
@@ -135,6 +140,61 @@ def note_access(session: Session, actor: User, count: int) -> None:
     """[00539] Mirar la bandeja de solicitudes deja huella. Quién y cuántas."""
     if count:
         audit(session, actor, "requests", "READ", f"{count} solicitudes")
+
+
+# --------------------------------------------- la persona que deja la casa
+def olvidar_a(session: Session, actor: User, quien: User) -> None:
+    """[01870] Un cocinero se va: se le borra lo suyo y se queda lo de la carne.
+
+    Aquí chocan dos leyes y hay que saber por dónde pasa la raya, porque
+    ninguna de las dos se puede incumplir.
+
+    Por un lado, el Reglamento (UE) 931/2011 y el (CE) 852/2004 obligan al
+    restaurante a poder decir **quién** hizo cada cosa con cada pieza: quién la
+    pesó, quién la despiezó, quién firmó el parte. Eso está escrito en el libro
+    de firmas y se queda, porque conservarlo es una obligación legal del
+    restaurante —el artículo 17.3.b del RGPD dice exactamente eso: el derecho
+    de supresión no alcanza a lo que hay que conservar por ley—.
+
+    Por otro, en cuanto esa persona deja la casa, su correo, su contraseña, su
+    segundo factor y sus códigos de repuesto no hacen falta para nada. Y se
+    quedaban ahí para siempre: en la base, en las treinta copias, y en el
+    fichero que se descarga el cliente. Un cocinero que estuvo tres meses hace
+    dos años seguía teniendo su correo y su secreto de dos pasos guardados en
+    un restaurante en el que ya no trabaja.
+
+    Así que se borra lo que sobra y se queda lo que la ley manda guardar. El
+    nombre se queda —es parte del registro, no un dato de contacto—, el trabajo
+    se queda entero, y queda escrito que esto se hizo, quién lo hizo y cuándo,
+    que es lo que hay que poder enseñar si lo preguntan.
+    """
+    from thegrill.models import AuthSession
+
+    if quien.restaurant_id != actor.restaurant_id:
+        raise PermissionError("esa persona no es de esta casa")
+    if quien.id == actor.id:
+        raise ValueError("a uno mismo no: lo haría quien entrara con tu cuenta")
+
+    audit(session, actor, f"user:{quien.id}", "FORGOTTEN", quien.name or "")
+    # Un correo que no es de nadie y que nadie puede usar para entrar. Tiene
+    # que seguir siendo único dentro de la casa, que la tabla lo exige.
+    quien.email = f"{BORRADO}{quien.id}@{BORRADO_DOMINIO}"
+    # Una contraseña que no es el resumen de ninguna: no hay nada que teclear
+    # que case con esto, así que la cuenta no se abre ni por casualidad.
+    quien.password_hash = "-"
+    quien.totp_secret = None
+    quien.totp_enabled = False
+    quien.recovery_codes = None
+    quien.last_login = None
+    quien.active = False
+    session.query(AuthSession).filter(AuthSession.user_id == quien.id).delete(
+        synchronize_session=False)
+    session.flush()
+
+
+def olvidada(quien: User) -> bool:
+    """[01871] Si de esa persona ya solo queda el nombre y su trabajo."""
+    return (quien.email or "").startswith(BORRADO)
 
 
 # ------------------------------------------------------ supresión y entrega

@@ -3028,7 +3028,8 @@ def team_page(request: Request, ctx=Depends(needs(perms.TEAM)),
     # comprueba la ruta: el general reparte managers de local, el de local no.
     roles = perms.grantable_roles(user)
     return page(request, "team.html", user, auth_session, session, error=error,
-                done=done, restaurant=restaurant, rows=rows, roles=roles)
+                done=done, restaurant=restaurant, rows=rows, roles=roles,
+                olvidado=privacy.olvidada)
 
 
 @app.post("/manager/equipo/nueva")
@@ -3087,6 +3088,30 @@ def toggle_user(user_id: int, request: Request, csrf: str = Form(""),
     if not perms.can_manage(user, target):
         raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
     target.active = not target.active
+    return RedirectResponse("/manager/equipo", status_code=303)
+
+
+@app.post("/manager/equipo/{user_id}/olvidar")
+def forget_user(user_id: int, request: Request, csrf: str = Form(""),
+                ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
+    """[01872] Esa persona ya no trabaja aquí: se le borra lo suyo.
+
+    El nombre y el trabajo se quedan —el libro de firmas de una casa de carne
+    hay que conservarlo, y el artículo 17.3.b del RGPD lo dice—. Lo que se va
+    es el correo, la contraseña, el segundo factor y los códigos de repuesto,
+    que en cuanto se fue no hacen falta para nada y estaban guardándose para
+    siempre, también en las treinta copias.
+    """
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
+    target = _own(session, user, User, user_id, request)
+    if not perms.can_manage(user, target):
+        raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
+    try:
+        privacy.olvidar_a(session, user, target)
+    except (PermissionError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=_dicho(e, lang)) from None
     return RedirectResponse("/manager/equipo", status_code=303)
 
 
