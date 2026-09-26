@@ -65,6 +65,22 @@ despeinarse**. Lo que crece no es la CPU: es la base de datos y las copias.
 | Cobros | **Stripe** | Guarda las tarjetas él, que para eso está certificado, y manda el aviso de recibo devuelto. |
 | Fotos y ficheros | El disco del servidor, o **S3/R2** cuando crezca | De momento no hace falta. |
 
+**Cuánto ocupa una foto de etiqueta.** Al subirla se endereza, se le quita el
+EXIF —con el GPS de quien la hizo— y se deja en 2400 px de lado largo y
+calidad 80: de los dos megas que manda un móvil quedan unos 250 kB. No es por
+ahorrar disco: es que lo que hay que leer de una etiqueta térmica cabe ahí, y
+lo que se tira es grano de sensor. Está medido leyendo las etiquetas después
+con OCR y con dos lectores de código de barras; por debajo de 1600 px se
+empieza a perder el lote, y a 1200 la foto ya no sirve de prueba. Por eso esos
+números no se tocan sin volver a medir.
+
+**Y HEIC no se acepta.** Una foto de iPhone subida desde la galería no la abre
+ni el servidor, ni la descarga de datos del cliente, ni el ordenador de un
+inspector. Se rechaza al subirla y se pide repetirla, que con la pieza delante
+son diez segundos; descubrirlo dos años después, en una inspección, no tiene
+arreglo. Los iPhone de ahora, al hacer la foto desde la propia pantalla, ya
+mandan JPEG.
+
 Con eso: **entre 20 y 40 € al mes** para empezar, subiendo con los clientes y no
 antes.
 
@@ -119,6 +135,26 @@ y guardarlo.
   copia se lleva la base **y las fotos de las etiquetas**, que están en otro
   volumen y son la prueba de qué matadero y qué lote traía cada pieza.
 
+  **Cómo queda la carpeta `/copias`, y por qué importa:**
+  ```
+  /copias/carnes-20260926-030000.tar.gz   ← un paquete por día (la base)
+  /copias/carnes-20260925-030000.tar.gz
+  /copias/fotos/                          ← el almacén, UNA sola copia de cada foto
+  ```
+  Las fotos no van dentro de los paquetes. Iban, y era un error caro: cada
+  paquete se llevaba la carpeta entera y se guardan treinta, así que la misma
+  foto vivía **treinta y una veces** en disco. Y sin ganar nada al comprimir,
+  porque un JPEG ya viene comprimido —meterlo en el `.tar.gz` ahorra un 0,03 %,
+  medido—. Ahora cada foto se guarda una vez en `/copias/fotos` y cada paquete
+  lleva la **lista** de las que había ese día, así que volver a una copia sigue
+  poniendo exactamente las de aquel día. Del almacén no se borra nada, ni
+  cuando la foto desaparece de `/app/subidas`.
+
+  > **El paquete ya no se basta solo.** Para llevarse una copia fuera hay que
+  > llevarse el paquete **y** la carpeta `/copias/fotos`. Si restauras un
+  > paquete sin su almacén, el programa se para y lo dice; no vuelve en
+  > silencio con las etiquetas en blanco.
+
   Ver qué copias hay y de cuándo son:
   ```
   docker compose exec app ls -lh /copias
@@ -147,7 +183,9 @@ y guardarlo.
   la base: sirve para volver de un borrado o de una actualización que salió
   mal, y **no sirve para nada si lo que se pierde es la máquina**. Copia esa
   carpeta a otro sitio —otro proveedor, un disco de casa— con lo que tengas a
-  mano (`rsync`, `rclone`, `restic`).
+  mano (`rsync`, `rclone`, `restic`). **La carpeta entera**, paquetes y
+  `fotos/`: es justo la forma que mejor le va a un `rsync`, porque de un día
+  para otro lo único nuevo son las fotos de ese día y un paquete pequeño.
 - **La clave `GRILL_DATA_KEY` guardada aparte.** Si se pierde, los datos de
   contacto cifrados no se recuperan.
 - **Purga de solicitudes en un cron**, para no guardar datos personales de más:

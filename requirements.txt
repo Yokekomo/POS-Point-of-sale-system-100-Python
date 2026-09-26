@@ -5,6 +5,7 @@ uvicorn>=0.27            # servidor
 jinja2>=3.1              # plantillas HTML
 python-multipart>=0.0.9  # subida de fotos
 openpyxl>=3.1            # hojas de registro en Excel para imprimir
+pillow>=11.3             # las fotos de las etiquetas: orientación, tamaño y EXIF fuera
 cryptography>=42         # cifrado de los datos de contacto (con GRILL_DATA_KEY)
 # Las zonas horarias, en el propio programa y no en el sistema. Windows no
 # trae ninguna, y las imágenes «slim» de Linux tampoco siempre: si falta, una

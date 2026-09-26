@@ -28,8 +28,8 @@ from thegrill.meat import novedades
 from thegrill.web import aging as aging_mod
 from thegrill.web import waste as waste_mod
 from thegrill.web import service as plataforma
-from thegrill.web import (butchery, costing, defrost, exacto, inventory, jornada,
-                          locking, rangos, sites)
+from thegrill.web import (butchery, costing, defrost, exacto, fotos, inventory,
+                          jornada, locking, rangos, sites)
 from thegrill.web.i18n import Aviso, t
 
 MAX_CUTS = 10
@@ -518,6 +518,17 @@ def store_label_photo(session: Session, primal: Primal, content_type: str,
     if len(payload) > plataforma.MAX_UPLOAD_BYTES:
         raise MeatError(t(lang, "valid.photo_too_big",
                           n=plataforma.MAX_UPLOAD_BYTES // (1024 * 1024)))
+
+    # [01845] Se abre antes de guardarla. Aquí se le aplica el giro a los píxeles
+    # —un móvil en vertical guarda tumbado y lo apunta en una etiqueta que se
+    # pierde en cuanto alguien toca el fichero—, se tira el EXIF entero con su
+    # GPS, y se deja en 2400 px y calidad 80: medido, se lee igual que la foto
+    # de dos megas y pesa 250 kB. Y lo que dice ser una imagen y no lo es se
+    # cae en esta línea, no en el disco.
+    try:
+        payload, content_type = fotos.normaliza(payload, content_type)
+    except fotos.FotoIlegible:
+        raise MeatError(Aviso("valid.photo_type", type=content_type or "—")) from None
 
     carpeta = os.path.join(upload_dir, str(primal.restaurant_id), "etiquetas")
     os.makedirs(carpeta, exist_ok=True)

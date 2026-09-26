@@ -60,3 +60,20 @@ def jornada_a_medianoche():
     jornada.POR_DEFECTO = 0
     yield
     jornada.POR_DEFECTO = antes
+
+
+def foto_jpeg(ancho: int = 60, alto: int = 45, color=(180, 60, 50)) -> bytes:
+    """Una foto de verdad, para las pruebas que suben una.
+
+    Antes valía con `b"\\xff\\xd8foto"`: nadie abría el fichero, solo se miraba
+    el tipo que decía quien lo subía. Ahora la foto se abre para enderezarla y
+    quitarle el EXIF, así que lo que no sea una imagen se cae —que es justo lo
+    que se quería— y estas pruebas necesitan una imagen de las de verdad.
+    """
+    import io
+
+    from PIL import Image
+
+    fuera = io.BytesIO()
+    Image.new("RGB", (ancho, alto), color).save(fuera, "JPEG", quality=90)
+    return fuera.getvalue()

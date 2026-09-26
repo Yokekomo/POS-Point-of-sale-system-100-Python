@@ -174,11 +174,64 @@ def test_photo_is_stored_with_checksum(ctx):
     s, rest, _, luis, tmp_path = ctx
     r = service.submit_record(s, luis, tpl(s, rest, "merma"),
                               {"producto": "Pollo", "cantidad": "2", "motivo": "Rotura", "area": "Almacén"})
-    att = service.store_attachment(s, r.record, "foto.jpg", "image/jpeg", b"\xff\xd8binario",
+    from conftest import foto_jpeg
+    att = service.store_attachment(s, r.record, "foto.jpg", "image/jpeg", foto_jpeg(),
                                    str(tmp_path / "uploads"))
-    assert att.size_bytes == 9 and len(att.sha256) == 64
+    assert att.size_bytes > 0 and len(att.sha256) == 64
     with open(att.stored_path, "rb") as fh:
-        assert fh.read() == b"\xff\xd8binario"
+        guardada = fh.read()
+    # Lo apuntado y lo guardado son lo mismo: el tamaño y la huella se toman
+    # de la foto **ya arreglada**, no de la que llegó.
+    import hashlib
+    assert len(guardada) == att.size_bytes
+    assert hashlib.sha256(guardada).hexdigest() == att.sha256
+
+
+def test_something_that_says_it_is_a_photo_and_is_not_never_reaches_the_disk(ctx):
+    """Solo se miraba el tipo **que decía** quien subía el fichero.
+
+    La extensión con la que se guardaba salía de ese mismo dato, así que un
+    ejecutable con la etiqueta cambiada se quedaba en el disco del servidor
+    llamándose `.jpg`. Ahora la foto se abre para arreglarla, y lo que no es
+    una imagen se cae ahí.
+    """
+    s, rest, _, luis, tmp_path = ctx
+    r = service.submit_record(s, luis, tpl(s, rest, "limpieza"), {"zona": "Cocina", "realizada": "1"})
+    with pytest.raises(service.ValidationError):
+        service.store_attachment(s, r.record, "foto.jpg", "image/jpeg",
+                                 b"MZ\x90\x00esto es un programa", str(tmp_path / "uploads"))
+    assert list((tmp_path / "uploads").rglob("*.jpg")) == []
+
+
+def test_the_photo_loses_its_gps_and_its_weight_on_the_way_in(ctx):
+    """El EXIF de un móvil lleva dónde estaba esa persona, con su hora.
+
+    Es un dato personal de un empleado, no dice nada de la carne, y se guardaba
+    dos años y en cada copia. Y la foto entera de doce megapíxeles no guarda
+    más información: guarda más grano.
+    """
+    import io
+
+    from PIL import Image
+
+    s, rest, _, luis, tmp_path = ctx
+    r = service.submit_record(s, luis, tpl(s, rest, "limpieza"), {"zona": "Cocina", "realizada": "1"})
+
+    grande = Image.new("RGB", (4032, 3024), (120, 90, 80))
+    exif = Image.Exif()
+    exif[0x0112] = 6                                  # tumbada, con nota de girarla
+    exif[34853] = {1: "N", 2: (40.0, 24.0, 51.0), 3: "O"}      # y el GPS dentro
+    crudo = io.BytesIO()
+    grande.save(crudo, "JPEG", quality=95, exif=exif)
+
+    att = service.store_attachment(s, r.record, "foto.jpg", "image/jpeg",
+                                   crudo.getvalue(), str(tmp_path / "uploads"))
+    with open(att.stored_path, "rb") as fh:
+        guardada = Image.open(io.BytesIO(fh.read()))
+    assert max(guardada.size) == 2400, guardada.size
+    assert guardada.size == (1800, 2400), "no se le aplicó el giro a los píxeles"
+    assert not guardada.getexif(), "la foto se guardó con su EXIF, y ahí va el GPS"
+    assert att.size_bytes < len(crudo.getvalue()) // 4
 
 
 def test_executable_upload_is_rejected(ctx):

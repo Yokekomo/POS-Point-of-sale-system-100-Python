@@ -3,6 +3,8 @@ import os
 import re
 
 import pytest
+
+from conftest import foto_jpeg
 from fastapi.testclient import TestClient
 
 from thegrill import db
@@ -117,7 +119,7 @@ def test_employee_submits_a_record_with_a_photo(client):
                        data={"csrf": token, "producto": "Pollo", "cantidad": "2,5",
                              "motivo": "Caducado", "area": "Cocina caliente",
                              "note": "bandeja del fondo"},
-                       files={"photos": ("merma.jpg", b"\xff\xd8foto", "image/jpeg")})
+                       files={"photos": ("merma.jpg", foto_jpeg(), "image/jpeg")})
     assert sent.status_code == 200 and "Registro guardado" in sent.text
 
     with db.session_scope() as s:
@@ -297,7 +299,7 @@ def test_photos_are_not_served_across_restaurants(client):
     client.post("/app/registro/merma",
                 data={"csrf": token, "producto": "Pollo", "cantidad": "1",
                       "motivo": "Rotura", "area": "Almacén"},
-                files={"photos": ("p.jpg", b"\xff\xd8secreto", "image/jpeg")})
+                files={"photos": ("p.jpg", foto_jpeg(), "image/jpeg")})
     with db.session_scope() as s:
         from thegrill.models import Attachment
         photo_id = s.query(Attachment).one().id
@@ -319,7 +321,7 @@ def test_an_employee_only_sees_his_own_photos(client):
     client.post("/app/registro/merma",
                 data={"csrf": token, "producto": "Pollo", "cantidad": "1",
                       "motivo": "Rotura", "area": "Almacén"},
-                files={"photos": ("p.jpg", b"\xff\xd8foto", "image/jpeg")})
+                files={"photos": ("p.jpg", foto_jpeg(), "image/jpeg")})
     with db.session_scope() as s:
         from thegrill.models import Attachment
         photo_id = s.query(Attachment).one().id

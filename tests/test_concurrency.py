@@ -757,15 +757,28 @@ def test_two_people_weighing_the_same_piece_do_not_count_the_loss_twice(casa):
     def trabajo(s, i):
         aging.weigh(s, _usuario(s, rest_id, "Ana"), "8017", pesos[i], on=HOY)
 
-    fallos = a_la_vez(trabajo)
-    assert se_lo_dijeron(fallos, "acaba de pesar otra persona", "no puede pesar"), fallos
+    a_la_vez(trabajo)
+    # Aquí no se exige que una de las dos falle: si a la primera le da tiempo a
+    # terminar —y con la máquina cargada le da tiempo—, la segunda pesa contra
+    # el peso nuevo y las dos pesadas son buenas. Nueve, ocho y siete, ocho y
+    # medio: eso es una pieza perdiendo agua dos veces, y está bien.
+    #
+    # Lo que no puede pasar nunca es que las dos apunten su merma contra los
+    # **mismos** nueve kilos de ayer. Ahí los kilos evaporados salen contados
+    # dos veces y el kilo de la pieza se recalcula dos veces desde el mismo
+    # punto de partida. Así que lo que se mira es la cadena: cada pesada parte
+    # de donde dejó la anterior, y la última dice lo que pesa la pieza.
     with db.session_scope() as s:
         pieza = s.query(Primal).filter_by(restaurant_id=rest_id, serial="8017").one()
-        assert round(pieza.weight_kg, 6) in (8.5, 8.7)
-        # Una sola merma apuntada, y contra los nueve kilos de verdad.
-        filas = s.query(PrimalWeighing).filter_by(serial="8017").all()
-        assert len(filas) == 1, [f.kg for f in filas]
-        assert round(filas[0].previous_kg, 6) == 9.0
+        filas = (s.query(PrimalWeighing).filter_by(serial="8017")
+                 .order_by(PrimalWeighing.id).all())
+        assert filas, "no se apuntó ninguna pesada"
+        venia = 9.0
+        for fila in filas:
+            assert round(fila.previous_kg, 6) == round(venia, 6), \
+                [(f.previous_kg, f.kg) for f in filas]
+            venia = fila.kg
+        assert round(pieza.weight_kg, 6) == round(filas[-1].kg, 6)
 
 
 def test_two_trims_at_once_do_not_put_the_same_kilos_in_the_chiller_twice(casa):

@@ -27,11 +27,25 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Alert, AlertSeverity, Attachment, FieldType, Notification,
                              NotificationKind, Record, RecordStatus, RecordTemplate,
                              RecordValue, Restaurant, Role, TemplateField, User)
-from thegrill.web import exacto, jornada
+from thegrill.web import exacto, fotos, jornada
 from thegrill.web.i18n import DEFAULT_LANG, t
 
+# [01843] HEIC ya no entra, y no es una manía: es que **nadie sabe abrirlo**.
+#
+# Se aceptaba, y una foto de iPhone subida desde la galería se guardaba tal
+# cual. Después: el servidor no puede abrirla —no hay ninguna librería de
+# Python libre que lo haga sin arrastrar una licencia de pago y una GPL—, el
+# ordenador del inspector tampoco, y la descarga de datos del cliente se lleva
+# un fichero que no se ve. Y nadie se entera hasta el día que hace falta la
+# etiqueta, dos años después. Un formato que no se puede abrir no es una
+# prueba: es sitio ocupado.
+#
+# Que se caiga al subirla es mucho mejor que descubrirlo en una inspección: el
+# aviso dice el tipo que llegó y se repite la foto, que se hace en diez
+# segundos con la pieza todavía delante. Y los iPhone de ahora, al subir desde
+# la cámara, ya mandan JPEG.
 ALLOWED_IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
-                       "image/heic": ".heic", "application/pdf": ".pdf"}
+                       "application/pdf": ".pdf"}
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 
 
@@ -269,6 +283,14 @@ def store_attachment(session: Session, record: Record, filename: str, content_ty
     if len(payload) > MAX_UPLOAD_BYTES:
         raise ValidationError({"foto": t(lang, "valid.photo_too_big",
                                          n=MAX_UPLOAD_BYTES // (1024 * 1024))})
+
+    # [01844] Se abre antes de guardarla: se le aplica el giro, se le quita el EXIF
+    # —con el GPS de quien la hizo dentro— y se deja del tamaño que hace falta
+    # para leerla. Lo que dice ser una imagen y no lo es, se cae aquí.
+    try:
+        payload, content_type = fotos.normaliza(payload, content_type)
+    except fotos.FotoIlegible:
+        raise ValidationError({"foto": t(lang, "valid.photo_type", type=content_type)}) from None
 
     digest = hashlib.sha256(payload).hexdigest()
     ext = ALLOWED_IMAGE_TYPES[content_type]

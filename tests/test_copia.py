@@ -20,10 +20,13 @@ Lo que se vigila, y por qué cada cosa:
 - **Que no se restaure por error.** La orden machaca lo que hay: sin `--si` no
   hace nada y lo dice.
 """
+import json
+import os
 import pathlib
+import shutil
 import sqlite3
 import tarfile
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
 
@@ -85,13 +88,112 @@ def test_the_whole_house_comes_back_from_a_backup(casa):
 
 
 def test_a_backup_without_the_label_photos_would_look_fine_and_not_be(casa):
-    """Las fotos van dentro del paquete, no solo la base."""
+    """Las fotos entran en la copia. En el almacén de al lado, pero entran."""
     carpeta, url, _, fotos = casa
     paquete = copia.hacer(url, carpeta / "copias", fotos)
     with tarfile.open(paquete, "r:gz") as tar:
         dentro = tar.getnames()
-    assert any(n.endswith("etiqueta.jpg") for n in dentro), dentro
+    assert copia.LISTA in dentro, dentro
     assert copia.leer_manifiesto(paquete)["fotos"] == 1
+    guardada = (carpeta / "copias" / copia.ALMACEN / "1" / "2026-09-20" / "etiqueta.jpg")
+    assert guardada.read_bytes() == (fotos / "1" / "2026-09-20" / "etiqueta.jpg").read_bytes()
+
+
+# --------------------------------------- la misma foto no se guarda 31 veces
+def test_the_same_photo_is_not_stored_once_for_every_backup(casa):
+    """Cada copia diaria se llevaba la carpeta entera de fotos dentro.
+
+    Y se guardan las treinta últimas: la misma foto vivía una vez en disco y
+    treinta en las copias. Treinta y una veces. Y sin ganar nada al apretar,
+    porque un JPEG ya viene apretado.
+    """
+    carpeta, url, _, fotos = casa
+    # Una foto de tamaño creíble, que si pesa veinte bytes no se nota nada.
+    gorda = fotos / "1" / "2026-09-20" / "gorda.jpg"
+    gorda.write_bytes(b"\xff\xd8\xff" + os.urandom(400_000))
+
+    def pesa(donde):
+        return sum(f.stat().st_size for f in pathlib.Path(donde).rglob("*") if f.is_file())
+
+    copia.hacer(url, carpeta / "copias", fotos, ahora=datetime(2026, 9, 20, 3, 0))
+    despues_de_una = pesa(carpeta / "copias")
+    for dia in range(21, 26):
+        copia.hacer(url, carpeta / "copias", fotos, ahora=datetime(2026, 9, dia, 3, 0))
+    seis = pesa(carpeta / "copias")
+
+    # Cinco copias más no pueden costar cinco fotos más.
+    crecio = seis - despues_de_una
+    assert crecio < 400_000, (
+        f"seis copias de la misma foto ocupan {crecio} bytes de más: se está "
+        "guardando la foto una vez por copia")
+
+
+def test_a_photo_that_was_replaced_still_comes_back_from_its_own_day(casa):
+    """Una etiqueta sale movida y se repite: la copia de ayer trae la de ayer.
+
+    Del almacén no se borra nada, ni cuando la foto desaparece de la carpeta
+    de trabajo. Es una copia de seguridad: lo que entra, se queda.
+    """
+    carpeta, url, _, fotos = casa
+    vieja = fotos / "1" / "2026-09-20" / "etiqueta.jpg"
+    tenia = vieja.read_bytes()
+    ayer = copia.hacer(url, carpeta / "copias", fotos, ahora=datetime(2026, 9, 20, 3, 0))
+
+    vieja.unlink()                      # la foto movida, fuera
+    (fotos / "1" / "2026-09-20" / "otra.jpg").write_bytes(b"\xff\xd8\xff-la-buena")
+    copia.hacer(url, carpeta / "copias", fotos, ahora=datetime(2026, 9, 21, 3, 0))
+
+    copia.restaurar(ayer, url, fotos)
+    assert vieja.read_bytes() == tenia
+    assert not (fotos / "1" / "2026-09-20" / "otra.jpg").exists(), \
+        "volver a ayer trajo una foto que ayer no existía"
+
+
+def test_a_backup_from_the_old_format_still_restores(casa, tmp_path):
+    """Una copia vieja tiene que poder abrirse el día que haga falta."""
+    carpeta, url, _, fotos = casa
+    antiguo = tmp_path / "vieja"
+    (antiguo / copia.FOTOS / "1" / "2026-09-20").mkdir(parents=True)
+    (antiguo / copia.FOTOS / "1" / "2026-09-20" / "etiqueta.jpg").write_bytes(b"de-2026")
+    copia._volcar_sqlite(url, antiguo / copia.BASE_SQLITE)
+    (antiguo / copia.MANIFIESTO).write_text(json.dumps({
+        "formato": 1, "hecha": "2026-09-20T03:00:00", "version": "0",
+        "base": "sqlite", "fichero": copia.BASE_SQLITE, "fotos": 1, "contenido": {}}))
+    paquete = tmp_path / "copias" / "carnes-20260920-030000.tar.gz"
+    paquete.parent.mkdir(parents=True)
+    with tarfile.open(paquete, "w:gz") as tar:
+        for cosa in sorted(antiguo.iterdir()):
+            tar.add(cosa, arcname=cosa.name)
+
+    copia.restaurar(paquete, url, fotos)
+    assert (fotos / "1" / "2026-09-20" / "etiqueta.jpg").read_bytes() == b"de-2026"
+
+
+def test_a_package_that_travelled_without_its_store_says_so(casa, tmp_path):
+    """El paquete ya no se basta solo, y eso hay que decirlo, no callarlo.
+
+    Volver con las etiquetas en blanco y sin una palabra es lo peor que puede
+    hacer una restauración: parece que salió bien.
+    """
+    carpeta, url, _, fotos = casa
+    paquete = copia.hacer(url, carpeta / "copias", fotos)
+    solo = tmp_path / "otro-disco"
+    solo.mkdir()
+    shutil.copy2(paquete, solo / paquete.name)     # el paquete sin su almacén
+
+    with pytest.raises(copia.CopiaError, match="almacén"):
+        copia.restaurar(solo / paquete.name, url, fotos)
+
+
+def test_pruning_the_old_packages_never_touches_the_store(casa):
+    """Borrar copias viejas no puede llevarse las fotos de todas."""
+    carpeta, url, _, fotos = casa
+    for dia in range(20, 26):
+        copia.hacer(url, carpeta / "copias", fotos, ahora=datetime(2026, 9, dia, 3, 0))
+    copia.limpiar(carpeta / "copias", guardar=2)
+    guardada = carpeta / "copias" / copia.ALMACEN / "1" / "2026-09-20" / "etiqueta.jpg"
+    assert guardada.is_file(), "la limpieza se llevó el almacén de fotos"
+    assert len(list((carpeta / "copias").glob("carnes-*.tar.gz"))) == 2
 
 
 def test_what_was_just_written_is_inside_the_backup(casa):

@@ -1494,7 +1494,7 @@ def upload_label_photo(serial: str, request: Request,
                                _leer_foto(request, subida, lang),
                                UPLOAD_DIR, lang=lang)
     except meat.MeatError as e:
-        return RedirectResponse(f"{volver}?foto={quote(str(e))}", status_code=303)
+        return RedirectResponse(f"{volver}?foto={quote(_dicho(e, lang))}", status_code=303)
     return RedirectResponse(volver, status_code=303)
 
 
@@ -2815,7 +2815,7 @@ def save_pricing(request: Request, currency: str = Form("EUR"),
             yearly_on=bool(yearly_on), yearly_months=_num(yearly_months, 10.0) or 10.0)
     except tarifa.TarifaError as e:
         return RedirectResponse(
-            _vuelta(volver, mercado, f"error={quote(str(e))}"), status_code=303)
+            _vuelta(volver, mercado, f"error={quote(_dicho(e, lang))}"), status_code=303)
     return RedirectResponse(_vuelta(volver, mercado, "done=1"),
                             status_code=303)
 

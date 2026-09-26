@@ -51,9 +51,12 @@ from thegrill import version
 MANIFIESTO = "copia.json"
 BASE_SQLITE = "base.sqlite"
 BASE_SQL = "base.sql"           # el volcado de PostgreSQL
-FOTOS = "fotos"
+FOTOS = "fotos"                 # dentro del paquete, en las copias del formato 1
+LISTA = "fotos.txt"             # las que había ese día, una por línea
+ALMACEN = "fotos"               # al lado de los paquetes, compartido por todos
 
-FORMATO = 1                     # si algún día cambia lo de dentro, sube esto
+FORMATO = 2                     # si algún día cambia lo de dentro, sube esto
+FORMATOS = (1, 2)               # los que este programa sabe restaurar
 PLAZO_VOLCADO = 3600            # una hora para `pg_dump`: una base grande tarda
 
 
@@ -160,13 +163,14 @@ def hacer(db_url: str, destino: str | os.PathLike, fotos_dir: str | os.PathLike 
             _volcar_postgres(db_url, trabajo / BASE_SQL)
 
         fotos = pathlib.Path(fotos_dir) if fotos_dir else None
-        cuantas = 0
-        if fotos and fotos.is_dir():
-            shutil.copytree(fotos, trabajo / FOTOS)
-            cuantas = sum(1 for _ in (trabajo / FOTOS).rglob("*") if _.is_file())
+        guardadas = _al_almacen(fotos, carpeta / ALMACEN)
+        cuantas = len(guardadas)
+        if guardadas:
+            (trabajo / LISTA).write_text("\n".join(guardadas) + "\n", encoding="utf-8")
 
         manifiesto = {
             "formato": FORMATO,
+            "fotos_en": ALMACEN,
             "hecha": ahora.isoformat(timespec="seconds"),
             "version": version.actual(),
             "base": clase,
@@ -181,6 +185,78 @@ def hacer(db_url: str, destino: str | os.PathLike, fotos_dir: str | os.PathLike 
             for cosa in sorted(trabajo.iterdir()):
                 tar.add(cosa, arcname=cosa.name)
     return paquete
+
+
+def _al_almacen(fotos: pathlib.Path | None,
+                almacen: pathlib.Path) -> list[str]:
+    """[01835] Deja las fotos en el almacén de al lado y dice cuáles había.
+
+    Antes cada copia diaria se llevaba **la carpeta entera** de fotos dentro
+    del paquete, y se guardan las treinta últimas: cada foto vivía una vez en
+    disco y treinta en las copias. Treinta y una veces la misma foto. Y encima
+    sin ganar nada al apretar, porque un JPEG ya viene apretado: meter las
+    fotos en el `.tar.gz` ahorra un 0,03 %, medido.
+
+    Así que las fotos no van dentro del paquete: van a un almacén al lado, una
+    sola vez, y el paquete se lleva la **lista** de las que había ese día.
+    Volver de una copia es volver a ese día: se ponen exactamente las de su
+    lista, ni una más.
+
+    Del almacén no se borra nunca nada, ni cuando la foto desaparece de la
+    carpeta de trabajo —una etiqueta que sale movida y se repite—. Es una copia
+    de seguridad: lo que entra, se queda. Por eso tampoco se comparan fechas ni
+    tamaños; si el fichero ya está, es el mismo, porque el nombre lo pone un
+    `uuid` que no se repite.
+
+    **Esto cambia una cosa importante y hay que saberla: el paquete ya no se
+    basta solo.** Para llevarse una copia fuera hay que llevarse el paquete
+    **y** el almacén. Lo dice el manifiesto (`fotos_en`) y lo dice el
+    despliegue.
+    """
+    if fotos is None or not fotos.is_dir():
+        return []
+    almacen.mkdir(parents=True, exist_ok=True)
+    listas: list[str] = []
+    for fichero in sorted(fotos.rglob("*")):
+        if not fichero.is_file() or fichero.is_symlink():
+            continue
+        relativa = fichero.relative_to(fotos)
+        listas.append(relativa.as_posix())
+        destino = almacen / relativa
+        if destino.exists():
+            continue
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        # A un fichero temporal primero: si se corta la copia a la mitad, en el
+        # almacén no se queda media foto con el nombre de la buena.
+        medio = destino.with_name(destino.name + ".a-medias")
+        shutil.copy2(fichero, medio)
+        medio.replace(destino)
+    return listas
+
+
+def _del_almacen(lista: list[str], almacen: pathlib.Path,
+                 destino: pathlib.Path) -> int:
+    """[01836] Devuelve a su sitio las fotos que había el día de esa copia."""
+    puestas = 0
+    faltan: list[str] = []
+    for relativa in lista:
+        # Una lista que viniera de fuera no puede sacarnos de la carpeta.
+        camino = (almacen / relativa).resolve()
+        if not str(camino).startswith(str(almacen.resolve()) + os.sep):
+            raise CopiaError(f"la lista de fotos trae una ruta que se sale: {relativa}")
+        if not camino.is_file():
+            faltan.append(relativa)
+            continue
+        fuera = destino / relativa
+        fuera.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(camino, fuera)
+        puestas += 1
+    if faltan:
+        raise CopiaError(
+            f"faltan {len(faltan)} fotos en el almacén «{almacen}» (por ejemplo "
+            f"«{faltan[0]}»). El paquete y el almacén viajan juntos: sin él la "
+            "copia vuelve sin las etiquetas, que es lo que pide una inspección.")
+    return puestas
 
 
 def leer_manifiesto(paquete: str | os.PathLike) -> dict:
@@ -230,7 +306,7 @@ def restaurar(paquete: str | os.PathLike, db_url: str,
     las dos y nadie sabe por qué.
     """
     manifiesto = leer_manifiesto(paquete)
-    if manifiesto.get("formato") != FORMATO:
+    if manifiesto.get("formato") not in FORMATOS:
         raise CopiaError(f"esa copia es del formato {manifiesto.get('formato')} y este "
                          f"programa entiende el {FORMATO}")
 
@@ -254,14 +330,21 @@ def restaurar(paquete: str | os.PathLike, db_url: str,
             _restaurar_postgres(trabajo / BASE_SQL, db_url)
 
         if fotos_dir:
-            guardadas = trabajo / FOTOS
             destino = pathlib.Path(fotos_dir)
-            if guardadas.is_dir():
-                if destino.exists():
-                    shutil.rmtree(destino)
-                shutil.copytree(guardadas, destino)
-            else:
-                destino.mkdir(parents=True, exist_ok=True)
+            dentro = trabajo / FOTOS
+            if destino.exists():
+                shutil.rmtree(destino)
+            destino.mkdir(parents=True, exist_ok=True)
+            if dentro.is_dir():
+                # [01837] Una copia del formato 1: las fotos venían dentro del paquete.
+                # Se siguen restaurando, que una copia vieja tiene que poder
+                # abrirse el día que haga falta.
+                shutil.rmtree(destino)
+                shutil.copytree(dentro, destino)
+            elif (trabajo / LISTA).is_file():
+                lista = [l for l in (trabajo / LISTA).read_text(encoding="utf-8")
+                         .splitlines() if l.strip()]
+                _del_almacen(lista, pathlib.Path(paquete).parent / ALMACEN, destino)
     return manifiesto
 
 

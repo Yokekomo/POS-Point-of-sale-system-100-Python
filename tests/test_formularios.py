@@ -82,8 +82,12 @@ def test_the_temperature_that_was_wrong_comes_back_to_be_corrected(client):
 
 # -------------------------------------------- la pantalla de error se lee
 def _banner(html: str) -> str:
+    # El cartel rojo lleva ahora `role="alert"` y `tabindex="-1"`, para que un
+    # lector de pantalla lo cante y para poder llevarle el cursor. Buscarlo
+    # exigiendo que la etiqueta acabe justo después de la clase dejaba la
+    # prueba en blanco y el fallo parecía del programa.
     import re
-    hallado = re.findall(r'<div class="banner bad">(.*?)</div>', html, re.S)
+    hallado = re.findall(r'<div class="banner bad"[^>]*>(.*?)</div>', html, re.S)
     return hallado[0].strip() if hallado else ""
 
 
@@ -206,7 +210,12 @@ def test_the_reception_screen_does_not_open_a_thousand_pixels_down(client):
     """El cursor iba a los kilos, y con el bloque del lote abierto eso está
     mil píxeles más abajo: en el móvil la pantalla abría ahí, enseñando media
     hoja de nada y sin poder ver siquiera en qué lote se estaba."""
-    primera = client.get("/recepcion").text
+    import re
+    # Sin los guiones: en sus comentarios se habla de `autofocus` —de por qué
+    # no está—, y buscar la palabra a pelo en toda la página encontraba el
+    # comentario y daba por puesto un atributo que no está en ninguna casilla.
+    primera = re.sub(r"<script.*?</script>", "", client.get("/recepcion").text,
+                     flags=re.S)
     assert "autofocus" not in primera             # la primera bolsa, por arriba
 
 
