@@ -58,11 +58,25 @@
   {% if h.label.pack_date %}<dt>{{ t("m.rec.pack") }}</dt><dd>{{ h.label.pack_date }}</dd>{% endif %}
   {% if h.label.label_product %}<dt>{{ t("m.rec.label_name") }}</dt><dd>{{ h.label.label_product }}</dd>{% endif %}
   {% if h.label.halal %}<dt>{{ t("m.rec.halal") }}</dt><dd>✓</dd>{% endif %}
-  {% if h.label.arrival %}<dt>{{ t("trace.arrival") }}</dt>
-    <dd>{% set estado = t("m.rec.arrival_frozen") if h.label.arrival == "FROZEN"
-                        else t("m.rec.arrival_chilled") %}
+  {# [01880] Hasta cuándo vale. Toda la rotación del programa se sostiene sobre esta
+     fecha y en la historia de la pieza no aparecía por ningún lado. Las dos:
+     una pieza congelada se rige por la del arcón y la de la etiqueta deja de
+     valer, así que enseñar solo una es el dato que falta el día que
+     preguntan. #}
+  {% if h.label.use_by %}<dt>{{ t("m.rec.use_by") }}</dt><dd>{{ h.label.use_by }}</dd>{% endif %}
+  {% if h.label.frozen_use_by %}<dt>{{ t("m.rec.frozen_use_by") }}</dt>
+    <dd>{{ h.label.frozen_use_by }}</dd>{% endif %}
+  {# [01881] La temperatura a la que bajó del camión, que es la primera pregunta de
+     una inspección de carne. Se enseñaba solo si además estaba apuntado si
+     venía fresca o congelada: una casa que apuntaba los grados y no lo otro
+     tenía el número guardado y no salía en ninguna pantalla. Ahora la
+     temperatura se enseña siempre que la haya, y el estado cuando lo haya. #}
+  {% if h.label.arrival or h.label.arrival_c is not none %}
+  <dt>{{ t("trace.arrival") }}</dt>
+    <dd>{% set estado = (t("m.rec.arrival_frozen") if h.label.arrival == "FROZEN"
+                         else t("m.rec.arrival_chilled")) if h.label.arrival else "" %}
       {% if h.label.arrival_c is not none %}{{ t("trace.arrival_line", estado=estado,
-          grados="%.10g"|format(h.label.arrival_c)) }}{% else %}{{ estado }}{% endif %}
+          grados="%.10g"|format(h.label.arrival_c))|trim }}{% else %}{{ estado }}{% endif %}
       {% if h.label.frozen_on_arrival %}
       <div class="muted">{{ t("trace.frozen_on_arrival") }}</div>{% endif %}</dd>
   {% endif %}
@@ -235,6 +249,35 @@
 <h2>{{ t("trace.trims") }}</h2>
 <p class="sub">{{ t("trace.trims_help") }}</p>
 {% for trim in h.trims %}{{ tarjeta(trim) }}{% endfor %}
+{% endif %}
+
+{% if h.weighings %}
+{# [01882] Lo que le fue pasando en la cámara. Se veía lo que pesa hoy, pero no las
+   seis semanas que la llevaron hasta ahí. En una carne madurada esa es la
+   mitad de lo que se pregunta: cuánto perdió, cuándo y por qué. Y con el
+   precio del kilo al lado, porque lo que se evapora no se lo lleva nadie —el
+   dinero de la pieza no baja— y eso hay que poder enseñarlo. #}
+<h2>{{ t("trace.weighings") }}</h2>
+<p class="sub">{{ t("trace.weighings_help") }}</p>
+<div class="card scroll">
+<table>
+<tr><th>{{ t("common.date") }}</th><th>{{ t("m.rec.storage") }}</th>
+    <th class="num">{{ t("m.df.opening") }}</th><th class="num">{{ t("m.df.left") }}</th>
+    <th class="num">{{ t("m.ag.lost") }}</th>
+    {% if can("money") %}<th class="num">{{ t("m.ag.per_kg") }}</th>{% endif %}</tr>
+{% for p in h.weighings %}
+<tr>
+  <td>{{ p.date }}</td>
+  <td>{{ t("m.st." ~ (p.storage.value if p.storage else "CHILLED")) }}
+      {%- if p.kind and p.kind.value == "TRIM" %} · {{ t("m.ag.trim") }}{% endif %}</td>
+  <td class="num">{{ "%.3f"|format(p.previous_kg or 0) }}</td>
+  <td class="num">{{ "%.3f"|format(p.kg or 0) }}</td>
+  <td class="num">{{ "%.3f"|format(p.loss_kg or 0) }}</td>
+  {% if can("money") %}<td class="num">{% if p.cost_per_kg %}{{ "%.2f"|format(p.cost_per_kg) }}{% endif %}</td>{% endif %}
+</tr>
+{% endfor %}
+</table>
+</div>
 {% endif %}
 
 {% if h.weight_sales %}

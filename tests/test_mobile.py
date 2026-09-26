@@ -1727,3 +1727,40 @@ def test_the_cookie_notice_never_eats_the_screen(browser):
             gordos[lang] = round(parte, 2)
         context.close()
     assert not gordos, gordos
+
+
+# ------------------------------------- y lo que sale de la impresora de verdad
+def test_what_an_inspector_prints_is_the_meat_and_not_the_menu(browser):
+    """«Enséñame esa pieza» acababa en tres hojas, dos de ellas de navegación.
+
+    Salía la columna del menú, la barra de abajo, el cajón de «Más» y los
+    botones, y la carne apretada en una columna estrecha porque el menú seguía
+    ocupando su sitio. Y en tema oscuro, encima, fondo negro: se come el tóner
+    y no se lee.
+    """
+    from thegrill.models import Primal
+
+    base, chromium = browser
+    context = chromium.new_context(viewport={"width": 1280, "height": 900})
+    page = context.new_page()
+    entra(page, base)
+    with db.session_scope() as session:
+        serial = session.query(Primal).first().serial
+
+    for ruta in (f"/trazabilidad?serial={serial}", "/hoy", "/carne"):
+        page.goto(f"{base}{ruta}", wait_until="load")
+        page.emulate_media(media="print")
+        en_papel = page.evaluate("""() => {
+            const ve = s => [...document.querySelectorAll(s)]
+                .filter(e => getComputedStyle(e).display !== 'none' &&
+                             e.getBoundingClientRect().width > 0).length;
+            const cuerpo = getComputedStyle(document.body);
+            return {menu: ve('.side'), barra: ve('.tabs'), botones: ve('button'),
+                    fondo: cuerpo.backgroundColor, letra: cuerpo.color};
+        }""")
+        assert en_papel["menu"] == 0 and en_papel["barra"] == 0, (ruta, en_papel)
+        assert en_papel["botones"] == 0, (ruta, en_papel)
+        assert en_papel["fondo"] == "rgb(255, 255, 255)", (ruta, en_papel)
+        assert en_papel["letra"] == "rgb(0, 0, 0)", (ruta, en_papel)
+        page.emulate_media(media="screen")
+    context.close()

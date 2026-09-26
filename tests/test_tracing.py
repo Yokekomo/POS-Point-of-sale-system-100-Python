@@ -707,3 +707,75 @@ def test_one_piece_alone_still_gets_all_of_it(ctx):
     montar_burger(s, rest, ana)
     h = tracing.history(s, rest.id, "8017")
     assert h.butchery.share == 1.0 and not h.butchery.shared
+
+
+# =========================== lo que pregunta un inspector delante de una pieza
+#
+# Siempre lo mismo: de dónde vino, qué matadero, qué lote, a qué temperatura
+# bajó del camión, hasta cuándo valía, qué le pasó mientras estuvo guardada y
+# en qué acabó. En una hoja, y que se pueda imprimir.
+def _con_papeles(s, rest, serial="9017", **extra):
+    datos = dict(restaurant_id=rest.id, serial=serial, sku="RIBEYE_AUS",
+                 lot="DXB20260910", weight_kg=9.0, received_kg=9.0,
+                 received_date=HOY, landed_usd_per_kg=30.0, piece_cost_usd=270.0,
+                 supplier_lot="A-77123", producer_plant="Teys Biloela",
+                 est_code="ES 10.03456/M CE", origin="AUS", grade="MB4",
+                 slaughter_date=HOY - timedelta(days=10),
+                 expiry_label=HOY + timedelta(days=90),
+                 frozen_use_by=HOY + timedelta(days=200),
+                 arrival_c=2.0, arrival=Storage.CHILLED,
+                 status=PrimalStatus.IN_STOCK)
+    datos.update(extra)
+    pieza = Primal(**datos)
+    s.add(pieza); s.flush()
+    return pieza
+
+
+def test_the_use_by_date_is_on_the_sheet(ctx):
+    """Toda la rotación del programa se sostiene sobre esa fecha, y no salía.
+
+    Y las dos: una pieza congelada se rige por la del arcón y la de la etiqueta
+    deja de valer, así que enseñar solo una es justo el dato que falta el día
+    que preguntan por ella.
+    """
+    s, rest, ana, _ = ctx
+    _con_papeles(s, rest)
+    h = tracing.history(s, rest.id, "9017")
+    assert h.label.use_by == HOY + timedelta(days=90)
+    assert h.label.frozen_use_by == HOY + timedelta(days=200)
+
+
+def test_the_arrival_temperature_reaches_the_sheet_on_its_own(ctx):
+    """La temperatura sola tiene que llegar hasta la hoja, sin nada más.
+
+    Que esté en la base no basta: se enseñaba solo si además constaba si venía
+    fresca o congelada, así que una casa que apuntaba los grados y no lo otro
+    tenía el número guardado y no salía en ninguna pantalla. Lo que se mira
+    aquí es que la etiqueta llega con ella; que la pantalla la pinte se mira en
+    `tests/test_meat_app.py`, delante del HTML.
+    """
+    s, rest, ana, _ = ctx
+    _con_papeles(s, rest, serial="9099", arrival=None, supplier_lot=None,
+                 producer_plant=None, est_code=None, origin=None, grade=None,
+                 slaughter_date=None, expiry_label=None, frozen_use_by=None)
+    h = tracing.history(s, rest.id, "9099")
+    assert h.label, "la etiqueta salió vacía teniendo la temperatura"
+    assert h.label.arrival_c == 2.0 and h.label.arrival is None
+
+
+def test_what_happened_in_the_chiller_is_listed(ctx):
+    """Se veía lo que pesa hoy, no las seis semanas que la llevaron hasta ahí.
+
+    En una carne madurada esa es la mitad de lo que se pregunta: cuánto
+    perdió, cuándo y por qué.
+    """
+    s, rest, ana, _ = ctx
+    _con_papeles(s, rest, serial="9018")
+    aging.weigh(s, ana, "9018", 8.6, on=HOY + timedelta(days=7))
+    aging.weigh(s, ana, "9018", 8.2, on=HOY + timedelta(days=14))
+    h = tracing.history(s, rest.id, "9018")
+    assert len(h.weighings) == 2, h.weighings
+    assert [round(p.kg, 3) for p in h.weighings] == [8.6, 8.2]
+    # Y en orden: una historia al revés no es una historia.
+    assert h.weighings[0].date <= h.weighings[1].date
+    assert round(h.weighings[1].previous_kg, 3) == 8.6

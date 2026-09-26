@@ -814,6 +814,9 @@ ES = {
     'team.forget_help': 'Ya no trabaja aquí: se le quita el correo, la contraseña y el segundo factor. Su nombre y su trabajo se quedan, que eso hay que conservarlo por ley.',
     'team.forgotten': 'Datos borrados',
     'team.forget_first': 'Primero dale de baja',
+
+    'trace.weighings': 'Lo que le pasó en la cámara',
+    'trace.weighings_help': 'Cada vez que se pesó, desde que entró. Es el registro de qué le ha pasado a esta pieza mientras estuvo guardada: lo que pierde una carne madurada no es un descuido, es el trabajo.',
 }
 
 EN = {
@@ -1613,6 +1616,9 @@ EN = {
     'team.forget_help': 'They no longer work here: their email, password and second factor go. Their name and their work stay, because that has to be kept by law.',
     'team.forgotten': 'Data erased',
     'team.forget_first': 'Deactivate them first',
+
+    'trace.weighings': 'What happened to it in the chiller',
+    'trace.weighings_help': 'Every time it was weighed, from the day it came in. It is the record of what happened to this piece while it was kept: what an aged cut loses is not carelessness, it is the work.',
 }
 
 FR = {
@@ -2412,6 +2418,9 @@ FR = {
     'team.forget_help': 'Elle ne travaille plus ici : on retire son e-mail, son mot de passe et son second facteur. Son nom et son travail restent, parce que ça, la loi oblige à le conserver.',
     'team.forgotten': 'Données effacées',
     'team.forget_first': "Désactive-la d'abord",
+
+    'trace.weighings': 'Ce qui lui est arrivé en chambre',
+    'trace.weighings_help': "Chaque pesée, depuis son arrivée. C'est le registre de ce qui est arrivé à cette primale pendant qu'elle était gardée : ce que perd une viande maturée n'est pas une négligence, c'est le travail.",
 }
 
 DE = {
@@ -3211,6 +3220,9 @@ DE = {
     'team.forget_help': 'Er arbeitet nicht mehr hier: E-Mail, Passwort und zweiter Faktor gehen weg. Name und Arbeit bleiben, denn das muss per Gesetz aufbewahrt werden.',
     'team.forgotten': 'Daten gelöscht',
     'team.forget_first': 'Deaktiviere ihn zuerst',
+
+    'trace.weighings': 'Was im Kühlraum mit ihm passiert ist',
+    'trace.weighings_help': 'Jede Wiegung, seit es hereinkam. Das ist der Nachweis, was mit diesem Stück passiert ist, solange es lag: Was gereiftes Fleisch verliert, ist keine Nachlässigkeit, das ist die Arbeit.',
 }
 
 NL = {
@@ -4010,6 +4022,9 @@ NL = {
     'team.forget_help': 'Werkt hier niet meer: e-mail, wachtwoord en tweede factor gaan eraf. Naam en werk blijven, want dat moet je volgens de wet bewaren.',
     'team.forgotten': 'Gegevens gewist',
     'team.forget_first': 'Zet hem eerst op inactief',
+
+    'trace.weighings': 'Wat er in de koelcel mee gebeurde',
+    'trace.weighings_help': 'Elke weging, vanaf de dag dat het binnenkwam. Het is de vastlegging van wat er met dit stuk gebeurde terwijl het lag: wat gerijpt vlees verliest is geen slordigheid, dat is het werk.',
 }
 
 AR = {
@@ -4809,6 +4824,9 @@ AR = {
     'team.forget_help': 'لم يعد يعمل هنا: يُحذف بريده وكلمة مروره وعامله الثاني. اسمه وعمله يبقيان، فهذا يجب حفظه بحكم القانون.',
     'team.forgotten': 'حُذفت البيانات',
     'team.forget_first': 'أوقفه أولاً',
+
+    'trace.weighings': 'ما جرى لها في الثلاجة',
+    'trace.weighings_help': 'كل مرة وُزنت فيها، منذ دخولها. هذا سجل ما جرى لهذه القطعة وهي محفوظة: ما يفقده اللحم المعتَّق ليس إهمالاً، بل هو العمل نفسه.',
 }
 
 
@@ -5610,6 +5628,9 @@ HU = {
     'team.forget_help': 'Már nem dolgozik itt: az e-mail, a jelszó és a második lépcső törlődik. A neve és a munkája marad, mert azt törvény szerint meg kell őrizni.',
     'team.forgotten': 'Adatok törölve',
     'team.forget_first': 'Előbb függeszd fel',
+
+    'trace.weighings': 'Mi történt vele a hűtőben',
+    'trace.weighings_help': 'Minden mérés, a beérkezés napjától. Ez a nyoma annak, mi történt ezzel a darabbal, amíg állt: amit az érlelt hús veszít, az nem hanyagság, hanem maga a munka.',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

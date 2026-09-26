@@ -1650,3 +1650,21 @@ class TestComoLlega:
         assert "Cómo llegó" in ficha
         assert "Refrigerada a 2,4 °C" in ficha
         assert "Congelada al entrar" in ficha
+
+
+def test_the_arrival_temperature_is_printed_even_without_the_rest(client, tmp_path):
+    """La primera pregunta de una inspección de carne, y estaba escondida.
+
+    La pantalla la enseñaba solo si además constaba si la pieza venía fresca o
+    congelada. Una casa que apuntaba los grados y no lo otro tenía el número
+    guardado en la base y no salía en ninguna parte.
+    """
+    signup(client)
+    with db.session_scope() as s:
+        casa = s.query(User).filter_by(email="albano@marina.com").one().restaurant_id
+        s.add(Primal(restaurant_id=casa, serial="8077", sku="RIB", weight_kg=9.0,
+                     received_kg=9.0, received_date=HOY, landed_usd_per_kg=30.0,
+                     piece_cost_usd=270.0, arrival_c=2.0,   # los grados y nada más
+                     status=PrimalStatus.IN_STOCK))
+    hoja = client.get("/trazabilidad?serial=8077").text
+    assert "2 °C" in hoja, "la temperatura no llegó a la hoja"

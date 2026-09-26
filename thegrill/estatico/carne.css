@@ -595,3 +595,32 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
 .drawer .close{position:absolute;top:6px;inset-inline-end:8px;color:var(--muted);
   font-size:28px;line-height:1;text-decoration:none;padding:8px 12px;border-radius:10px}
 .drawer .close:hover{color:var(--ink);background:var(--bg)}
+
+/* [01883] En papel.
+ *
+ * Lo que un inspector pide es «enséñame esa pieza», y lo que sale de la
+ * impresora era la pantalla entera: el menú de la izquierda, la barra de
+ * abajo, el cajón de «Más» y los botones. Tres hojas de las cuales dos son
+ * navegación, y la carne apretada en una columna estrecha porque el menú
+ * seguía ocupando su sitio.
+ *
+ * Aquí se quita todo lo que no es el papel. Vale para todas las pantallas de
+ * trabajo; las dos que ya traían sus propias reglas —las etiquetas y el parte
+ * del día— las escriben dentro de su página, así que siguen mandando ellas.
+ */
+@media print{
+  .side,.tabs,.topbar,.drawer,.pila-avisos,.aviso-red,
+  .tour-otra-vez,form,button,.btn{display:none !important}
+  .shell,.body{display:block !important}
+  main{padding:0 !important;max-width:none !important}
+  .card{break-inside:avoid;box-shadow:none;border:1px solid #999}
+  .scroll{overflow:visible !important}
+  a{text-decoration:none}
+  /* Negro sobre blanco: una pantalla oscura impresa se come el tóner y no se
+     lee. Y las variables del tema se apagan, que si no las tarjetas salen
+     grises sobre gris. */
+  :root,:root[data-theme="dark"]{
+    --bg:#fff;--card:#fff;--ink:#000;--muted:#333;--line:#999;
+    --accent:#000;--accent-ink:#fff}
+  body{background:#fff;color:#000}
+}

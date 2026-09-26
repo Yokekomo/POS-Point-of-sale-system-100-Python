@@ -26,7 +26,8 @@ from sqlalchemy.orm import Session
 from thegrill.engine.recipes import cost_recipe
 from thegrill.models import (Despiece, DespieceCut, DespiecePrimal, Ingredient,
                              IngredientLot, IngredientMovement, MovementKind, PosProduct,
-                             Primal, PrimalStatus, Site, WeightSale)
+                             Primal, PrimalStatus, PrimalWeighing, Site,
+                             WeightSale)
 from thegrill.web import costing, exacto
 
 EPSILON = 1e-9
@@ -284,6 +285,14 @@ class Label:
     label_product: str | None = None
     halal: bool | None = None
     has_photo: bool = False
+    # [01877] Hasta cuándo vale. No estaba, y es la pregunta que va justo detrás de
+    # «de dónde viene»: toda la rotación del programa se sostiene sobre esta
+    # fecha y en la historia de la pieza no aparecía por ningún sitio. Son dos,
+    # y hay que enseñar las dos: una pieza congelada se rige por la del arcón y
+    # la de la etiqueta deja de valer, así que enseñar solo una es justo el
+    # dato que falta el día que preguntan por ella.
+    use_by: date | None = None
+    frozen_use_by: date | None = None
     # [01496] Cómo bajó del camión: no es lo mismo llegar congelada que llegar fresca
     # y acabar en el arcón el mismo día.
     arrival: str | None = None
@@ -295,7 +304,8 @@ class Label:
         return any([self.supplier_lot, self.producer_plant, self.est_code, self.breed,
                     self.origin, self.grade, self.slaughter_date, self.pack_date,
                     self.label_product, self.halal, self.has_photo,
-                    self.arrival, self.arrival_c, self.frozen_on_arrival])
+                    self.arrival, self.arrival_c, self.frozen_on_arrival,
+                    self.use_by, self.frozen_use_by])
 
 
 @dataclass
@@ -319,6 +329,9 @@ class PrimalHistory:
     # deja lote: sin esto, una pieza madurada vendida entera al corte salía en
     # la trazabilidad como carne que no se vendió nunca.
     weight_sales: list[SaleLine] = field(default_factory=list)
+    # [01879] Las pesadas: lo que perdió, cuándo y por qué. Ver el comentario de
+    # arriba, donde se leen.
+    weighings: list = field(default_factory=list)
 
     # [01499] --- resumen
     #
@@ -517,9 +530,18 @@ def history(session: Session, restaurant_id: int, serial: str) -> PrimalHistory:
                             pack_date=primal.pack_date,
                             label_product=primal.label_product, halal=primal.halal,
                             has_photo=bool(primal.photo_ref),
+                            use_by=primal.expiry_label,
+                            frozen_use_by=primal.frozen_use_by,
                             arrival=(primal.arrival.value if primal.arrival else None),
                             arrival_c=primal.arrival_c,
                             frozen_on_arrival=primal.frozen_on_arrival))
+    # [01878] Y lo que le fue pasando en la cámara. Se veía lo que pesa hoy, pero no
+    # las seis semanas que la llevaron hasta ahí: las pesadas son el registro
+    # de qué le ha pasado a esa pieza mientras estuvo guardada, que es la mitad
+    # de lo que se pregunta en una inspección de una carne madurada.
+    out.weighings = (session.query(PrimalWeighing)
+                     .filter_by(restaurant_id=restaurant_id, serial=primal.serial)
+                     .order_by(PrimalWeighing.date, PrimalWeighing.id).all())
 
     ratios = revenue_ratios(session, restaurant_id)
     names = {i.id: i for i in session.query(Ingredient).filter_by(restaurant_id=restaurant_id)}
