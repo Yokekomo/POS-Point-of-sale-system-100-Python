@@ -25,7 +25,12 @@ from thegrill.web import auth, exacto
 # se importa de `gateway` porque `gateway` importa este módulo.
 PROVEEDOR = "stripe"
 
-TRIAL_DAYS = 15        # quince días de prueba, sin cobrar
+# [01749] Treinta días, y no quince, por una razón de oficio y no de marketing: un
+# lomo madura entre treinta y cuarenta y cinco. Con quince, el cliente devolvía
+# la tarjeta antes de haber visto un solo ciclo completo —sin rendimiento real,
+# sin merma de maduración, sin el número por el que compró—. Se le pedía que
+# decidiera sobre algo que el programa todavía no le había podido enseñar.
+TRIAL_DAYS = 30        # treinta días de prueba, sin cobrar
 
 
 class BillingError(ValueError):

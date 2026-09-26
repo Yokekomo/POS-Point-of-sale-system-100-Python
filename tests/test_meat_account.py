@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient
 
 from thegrill import db
 from thegrill.meat import app as meatapp
-from thegrill.meat import billing, security
+from thegrill.meat import billing, security, tarifa
 
 # El navegador de estas pruebas habla español: los textos que se comprueban
 # abajo son los españoles. Quien llega sin decir nada recibe inglés.
@@ -93,7 +93,7 @@ def test_the_front_door_explains_what_this_is(client):
     for path in ("/precios", "/solicitar", "/login"):
         assert f'href="{path}"' in home.text
     assert client.get("/precios").status_code == 200
-    assert "15 días de prueba" in client.get("/precios").text
+    assert f"{billing.TRIAL_DAYS} días de prueba" in client.get("/precios").text
 
 
 def test_nobody_signs_themselves_up(client):
@@ -679,7 +679,14 @@ PUBLICAS = {"/", "/precios", "/solicitar", "/cookies", "/login", "/signup", "/jo
             "/sw.js",
             # El icono de la pestaña: el navegador lo pide él solo, también en
             # la pantalla de entrar. Es un dibujo, no lleva nada de la casa.
-            "/favicon.ico"}
+            "/favicon.ico",
+            # El manifiesto: nombre, colores e iconos, y nada más. **Tiene** que
+            # ser público, porque iOS lo lee al añadir el programa a la pantalla
+            # de inicio, que es cuando puede no haber ninguna sesión abierta. Y
+            # sin que lo lea ahí, lo que se crea es un marcador y no una
+            # aplicación —y el marcador pierde la cola de apuntes a los siete
+            # días, que es el fallo que esto viene a tapar.
+            "/manifest.webmanifest"}
 
 
 def test_no_screen_opens_without_logging_in(client):
@@ -871,7 +878,7 @@ def test_the_owner_sets_the_price_the_sales_site_shows(client):
     """
     # De partida, noventa y nueve euros y sin rebaja.
     publico = client.get("/precios").text
-    assert '<b>99 <span class="uni">€</span></b>' in publico
+    assert f'<b>{tarifa.POR_DEFECTO:g} <span class="uni">€</span></b>' in publico
     assert "Oferta de lanzamiento" not in publico
 
     como_dueno(client)
@@ -899,7 +906,7 @@ def test_a_discount_that_is_not_a_discount_is_refused(client):
         "sale_on": "1", "sale_price": "120"})
     assert respuesta.status_code == 303
     assert "error=" in respuesta.headers["location"]
-    assert '<b>99 <span class="uni">€</span></b>' in client.get("/precios").text
+    assert f'<b>{tarifa.POR_DEFECTO:g} <span class="uni">€</span></b>' in client.get("/precios").text
 
 
 def test_a_discount_with_a_date_switches_itself_off(client):
@@ -943,8 +950,8 @@ def test_nobody_but_the_owner_touches_the_price(client):
     assert manager.post("/admin/tarifa", data={
         "csrf": token, "currency": "EUR", "per_outlet": "1"}).status_code == 404
     with db.session_scope() as s:
-        from thegrill.meat import tarifa
-        assert tarifa.publicada(s).normal == 99.0
+        # Sigue el de serie: el intento de cambiarlo no llegó a nada.
+        assert tarifa.publicada(s).normal == tarifa.POR_DEFECTO
 
 
 def test_the_owner_has_the_explanation_link_at_hand(client):

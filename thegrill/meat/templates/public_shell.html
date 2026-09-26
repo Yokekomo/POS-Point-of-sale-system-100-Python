@@ -11,6 +11,24 @@
 <link rel="icon" href="/static/icono.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="apple-touch-icon" href="/static/icono-180.png">
+{# [01747] Lo que convierte «añadir a pantalla de inicio» en una aplicación de verdad.
+
+   Sin esto, en un iPhone lo que se crea es un **marcador** que abre Safari. Y un
+   marcador no tiene la exención de Apple al borrado de los siete días: Safari
+   vacía todo lo que escribe un guion —incluida la cola de apuntes que se
+   guardan en la cámara sin cobertura— cuando pasa una semana sin que nadie
+   entre en el sitio. Un móvil de cámara guardado en un cajón durante las
+   vacaciones volvía con la cola vacía y sin decírselo a nadie.
+
+   `apple-mobile-web-app-capable` es la etiqueta vieja de Apple y sigue haciendo
+   falta: iOS no lee `display: standalone` del manifiesto en todas las
+   versiones. Las dos van juntas a propósito. #}
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="{{ t('m.app.short') }}">
+<meta name="theme-color" content="#8a3d1f">
 <style>
 /* La portada va por su cuenta: es lo primero que ve alguien que no nos conoce,
    y no tiene por qué parecerse a la pantalla de trabajo. Oscura, con la carne

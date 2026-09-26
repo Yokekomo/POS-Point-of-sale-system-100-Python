@@ -13,6 +13,7 @@ from thegrill.web import i18n
 
 ES = {
     "m.app.title": "Control de carnes",
+    "m.app.short": 'Carnes',
     "m.app.tagline": "Del primal al plato, pieza a pieza",
     "m.nav.today": "Hoy",
     # [00478] ---- los tutoriales guiados, uno por pantalla
@@ -351,6 +352,7 @@ ES = {
     "ld.q7": '¿Cuánto voy a ahorrar?',
     "ld.a7": 'No lo sé, y quien te dé un número tampoco. Depende de cuánto se te esté yendo ahora, que es justo lo que no sabes. Lo que sí sé es que un descuadre que se ve todos los días se corrige, y uno que aparece en una línea de «merma» a fin de mes, no.',
     "ld.final_h": "Empieza por un primal",
+    "ld.yours": 'Y si un día te vas, te llevas todo: un Excel con cada recepción, cada despiece, cada pesada y cada inventario de tu casa. Se descarga también el día que cancelas.',
     "ld.final_sub": 'Un primal, un despiece y un cierre de turno. Con eso ya sabes cuánto se te estaba yendo.',
     "ld.footer": 'Hecho por gente de cocina, para gente de cocina.',
     "cook.title": 'Cookies',
@@ -401,6 +403,7 @@ ES = {
     "pub.f.sub": 'Cuéntanos quién sois y os damos de alta. Sin registro abierto: cada cuenta la creamos nosotros.',
     "pub.f.restaurant": 'Nombre del restaurante',
     "pub.f.legal": 'Nombre fiscal',
+    "pub.f.later": 'Lo de facturar, para después (opcional)',
     "pub.f.tax": 'Número fiscal',
     "pub.f.country": 'País',
     "pub.f.address": 'Dirección',
@@ -761,6 +764,7 @@ ES = {
 
 EN = {
     "m.app.title": "Meat control",
+    "m.app.short": 'Meat',
     "m.app.tagline": "From primal to plate, piece by piece",
     "m.nav.today": "Today",
     # [00487] ---- los tutoriales guiados, uno por pantalla
@@ -1093,6 +1097,7 @@ EN = {
     "ld.q7": 'How much will I save?',
     "ld.a7": 'I do not know, and nobody who gives you a number does either. It depends on how much is leaking now, which is exactly what you cannot see. What I do know is that a gap you see every day gets fixed, and one that shows up as a line called "waste" at month end does not.',
     "ld.final_h": "Start with one primal",
+    "ld.yours": 'And if you ever leave, you take everything with you: a spreadsheet with every delivery, every butchery, every weighing and every count of your house. It downloads on the day you cancel too.',
     "ld.final_sub": 'One primal, one butchery and one shift close. That alone tells you what was leaking.',
     "ld.footer": 'Made by kitchen people, for kitchen people.',
     "cook.title": 'Cookies',
@@ -1143,6 +1148,7 @@ EN = {
     "pub.f.sub": 'Tell us who you are and we will set you up. No open sign-up: we create every account ourselves.',
     "pub.f.restaurant": 'Restaurant name',
     "pub.f.legal": 'Legal name',
+    "pub.f.later": 'Billing details, for later (optional)',
     "pub.f.tax": 'Tax number',
     "pub.f.country": 'Country',
     "pub.f.address": 'Address',
@@ -1503,6 +1509,7 @@ EN = {
 
 FR = {
     "m.app.title": "Contrôle des viandes",
+    "m.app.short": 'Viandes',
     "m.app.tagline": "Du primal à l'assiette, pièce par pièce",
     "m.nav.today": "Aujourd'hui",
     # [00490] ---- los tutoriales guiados, uno por pantalla
@@ -1835,6 +1842,7 @@ FR = {
     "ld.q7": 'Combien vais-je économiser ?',
     "ld.a7": "Je n'en sais rien, et personne qui vous donne un chiffre n'en sait rien non plus. Cela dépend de ce qui fuit aujourd'hui, et c'est précisément ce que vous ne voyez pas. Ce que je sais, c'est qu'un écart qu'on voit tous les jours se corrige, et qu'un écart qui apparaît sous « perte » en fin de mois, non.",
     "ld.final_h": "Commencez par une primale",
+    "ld.yours": 'Et si un jour vous partez, vous emportez tout : un tableur avec chaque réception, chaque découpe, chaque pesée et chaque inventaire de votre maison. Il se télécharge aussi le jour où vous résiliez.',
     "ld.final_sub": 'Un primal, une découpe et une fermeture de service. Cela suffit à savoir ce qui fuyait.',
     "ld.footer": 'Fait par des gens de cuisine, pour des gens de cuisine.',
     "cook.title": 'Cookies',
@@ -1885,6 +1893,7 @@ FR = {
     "pub.f.sub": "Dites-nous qui vous êtes et nous ouvrons votre compte. Pas d'inscription libre : chaque compte, c'est nous qui le créons.",
     "pub.f.restaurant": 'Nom du restaurant',
     "pub.f.legal": 'Raison sociale',
+    "pub.f.later": 'La facturation, pour plus tard (facultatif)',
     "pub.f.tax": 'Numéro fiscal',
     "pub.f.country": 'Pays',
     "pub.f.address": 'Adresse',
@@ -2245,6 +2254,7 @@ FR = {
 
 DE = {
     "m.app.title": "Fleischkontrolle",
+    "m.app.short": 'Fleisch',
     "m.app.tagline": "Vom Primal auf den Teller, Stück für Stück",
     "m.nav.today": "Heute",
     # [00493] ---- los tutoriales guiados, uno por pantalla
@@ -2577,6 +2587,7 @@ DE = {
     "ld.q7": 'Wie viel spare ich?',
     "ld.a7": 'Ich weiß es nicht, und wer dir eine Zahl nennt, weiß es auch nicht. Es hängt davon ab, wie viel gerade versickert — und genau das siehst du nicht. Was ich weiß: eine Lücke, die man täglich sieht, wird abgestellt; eine, die am Monatsende als Zeile „Verlust“ auftaucht, nicht.',
     "ld.final_h": "Fang mit einem Primal an",
+    "ld.yours": 'Und wenn du eines Tages gehst, nimmst du alles mit: eine Tabelle mit jedem Wareneingang, jeder Zerlegung, jeder Wiegung und jeder Inventur deines Hauses. Sie lädt sich auch an dem Tag herunter, an dem du kündigst.',
     "ld.final_sub": 'Ein Primal, eine Zerlegung, ein Schichtabschluss. Das allein zeigt dir, was versickert ist.',
     "ld.footer": 'Von Küchenleuten für Küchenleute gemacht.',
     "cook.title": 'Cookies',
@@ -2627,6 +2638,7 @@ DE = {
     "pub.f.sub": 'Sagt uns, wer ihr seid, und wir richten euch ein. Keine offene Registrierung: jedes Konto legen wir selbst an.',
     "pub.f.restaurant": 'Name des Restaurants',
     "pub.f.legal": 'Firmenname',
+    "pub.f.later": 'Das für die Rechnung, für später (optional)',
     "pub.f.tax": 'Steuernummer',
     "pub.f.country": 'Land',
     "pub.f.address": 'Adresse',
@@ -2987,6 +2999,7 @@ DE = {
 
 NL = {
     "m.app.title": "Vleescontrole",
+    "m.app.short": 'Vlees',
     "m.app.tagline": "Van primal tot bord, stuk voor stuk",
     "m.nav.today": "Vandaag",
     # [00496] ---- los tutoriales guiados, uno por pantalla
@@ -3319,6 +3332,7 @@ NL = {
     "ld.q7": 'Hoeveel ga ik besparen?',
     "ld.a7": 'Dat weet ik niet, en wie je een getal geeft ook niet. Het hangt af van hoeveel er nu weglekt, en dat is precies wat je niet ziet. Wat ik wel weet: een verschil dat je elke dag ziet wordt gecorrigeerd, en een verschil dat eind van de maand als regel «derving» opduikt niet.',
     "ld.final_h": "Begin met één primal",
+    "ld.yours": 'En ga je ooit weg, dan neem je alles mee: een spreadsheet met elke ontvangst, elk uitsnijden, elke weging en elke telling van je huis. Hij downloadt ook op de dag dat je opzegt.',
     "ld.final_sub": 'Eén primal, één uitsnijding en één dienstafsluiting. Dat alleen al vertelt je wat er weglekte.',
     "ld.footer": 'Gemaakt door keukenmensen, voor keukenmensen.',
     "cook.title": 'Cookies',
@@ -3369,6 +3383,7 @@ NL = {
     "pub.f.sub": 'Vertel ons wie jullie zijn en wij zetten jullie klaar. Geen open registratie: elk account maken wij zelf aan.',
     "pub.f.restaurant": 'Naam van het restaurant',
     "pub.f.legal": 'Statutaire naam',
+    "pub.f.later": 'Wat voor de factuur nodig is, voor later (optioneel)',
     "pub.f.tax": 'Btw-nummer',
     "pub.f.country": 'Land',
     "pub.f.address": 'Adres',
@@ -3729,6 +3744,7 @@ NL = {
 
 AR = {
     "m.app.title": "مراقبة اللحوم",
+    "m.app.short": 'اللحوم',
     "m.app.tagline": "من القطعة الكبيرة إلى الطبق، قطعةً قطعة",
     "m.nav.today": "اليوم",
     # [00499] ---- los tutoriales guiados, uno por pantalla
@@ -4061,6 +4077,7 @@ AR = {
     "ld.q7": 'كم سأوفّر؟',
     "ld.a7": 'لا أعرف، ومن يعطيك رقماً لا يعرف أيضاً. الأمر يتوقّف على كم يضيع عندك الآن، وهذا بالضبط ما لا تراه. لكنّ ما أعرفه أن فرقاً تراه كل يوم يُصحَّح، وفرقاً يظهر سطراً اسمه «هدر» في آخر الشهر لا يُصحَّح.',
     "ld.final_h": 'ابدأ بقطعة واحدة',
+    "ld.yours": 'وإن رحلت يوماً، تأخذ كل شيء معك: ملف إكسل بكل استلام وكل تقطيع وكل وزن وكل جرد في مطبخك. ويُنزَّل حتى في اليوم الذي تلغي فيه اشتراكك.',
     "ld.final_sub": 'قطعة كبيرة، وتقطيع واحد، وإقفال وردية. هذا وحده يقول لك كم كان يضيع.',
     "ld.footer": 'صنعه أهل المطبخ، لأهل المطبخ.',
     "cook.title": 'ملفات الارتباط',
@@ -4111,6 +4128,7 @@ AR = {
     "pub.f.sub": 'أخبرنا من أنتم ونفتح لكم الحساب. لا تسجيل مفتوح: كل حساب نفتحه نحن.',
     "pub.f.restaurant": 'اسم المطعم',
     "pub.f.legal": 'الاسم القانوني',
+    "pub.f.later": 'بيانات الفوترة، لاحقاً (اختياري)',
     "pub.f.tax": 'الرقم الضريبي',
     "pub.f.country": 'البلد',
     "pub.f.address": 'العنوان',
@@ -4473,6 +4491,7 @@ AR = {
 # ============================================================ Magyar
 HU = {
     "m.app.title": 'Húskontroll',
+    "m.app.short": 'Húsok',
     "m.app.tagline": 'Az egész darabtól a tányérig, darabról darabra',
     "m.nav.today": 'Ma',
     # [00502] ---- los tutoriales guiados, uno por pantalla
@@ -4805,6 +4824,7 @@ HU = {
     "ld.q7": 'Mennyit fogok megspórolni?',
     "ld.a7": 'Nem tudom, és aki számot mond neked, az sem tudja. Attól függ, mennyi szivárog el most — épp az, amit nem látsz. Amit viszont tudok: egy eltérés, amit minden nap látsz, kijavul; az pedig, amelyik a hónap végén egy «selejt» nevű sorban bukkan fel, nem.',
     "ld.final_h": 'Kezdd egyetlen darabbal',
+    "ld.yours": 'És ha egy nap elmész, mindent viszel magaddal: egy táblázatot a ház minden bevételezésével, darabolásával, mérésével és leltárával. Azon a napon is letölthető, amikor felmondasz.',
     "ld.final_sub": 'Egy egész darab, egy bontás és egy műszakzárás. Már ennyiből kiderül, mennyi szivárgott el.',
     "ld.footer": 'Konyhás emberek csinálták, konyhás embereknek.',
     "cook.title": 'Sütik',
@@ -4855,6 +4875,7 @@ HU = {
     "pub.f.sub": 'Mondd el, kik vagytok, és megnyitjuk a fiókot. Nincs szabad regisztráció: minden fiókot mi hozunk létre.',
     "pub.f.restaurant": 'Az étterem neve',
     "pub.f.legal": 'Cégnév',
+    "pub.f.later": 'A számlázáshoz, későbbre (nem kötelező)',
     "pub.f.tax": 'Adószám',
     "pub.f.country": 'Ország',
     "pub.f.address": 'Cím',

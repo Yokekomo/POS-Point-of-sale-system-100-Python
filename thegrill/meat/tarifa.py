@@ -17,7 +17,13 @@ from thegrill.models import Tarifa, User
 from thegrill.web import exacto
 
 # [00666] Lo que se enseña mientras nadie haya dicho otra cosa.
-POR_DEFECTO = 99.0
+#
+# Estaba en 99. El más barato de los que hacen algo parecido en España cobra 149
+# y no reparte el coste de un primal entre sus cortes, ni pesa la maduración
+# cada día, ni cuadra el residuo. A un dueño que se gasta seiscientos euros al
+# mes de gestoría y veinticinco mil de carne, un precio de 79 no le abarata la
+# decisión: le dice que esto es un apaño de alguien que no se lo cree.
+POR_DEFECTO = 149.0
 MESES_AL_AÑO = 12
 
 

@@ -3607,6 +3607,52 @@ def tour_seen(request: Request, pantalla: str = Form(...), completo: str = Form(
     return JSONResponse({"ok": True})
 
 
+@app.get("/manifest.webmanifest", include_in_schema=False)
+def manifest(request: Request, session: Session = Depends(get_db)):
+    """[01746] El manifiesto. Lo que convierte un marcador en una aplicación.
+
+    Esto no es un adorno de pantalla de inicio: es lo único que protege el
+    trabajo que se apunta sin cobertura.
+
+    Safari borra **todo** el almacenamiento que escribe un guion —incluido el
+    `localStorage` donde vive la cola de apuntes— a los siete días de usar
+    Safari sin que nadie entre en el sitio. Es política de Apple, no un fallo.
+    Y la propia Apple dice cuál es la salida: las aplicaciones añadidas a la
+    pantalla de inicio se libran, porque llevan su propio contador.
+
+    Pero sin manifiesto, «añadir a pantalla de inicio» **no crea una
+    aplicación**: crea un marcador que abre Safari, y ese no tiene la exención.
+    Traducido a una cocina: el móvil de la cámara con iPhone se queda ocho días
+    en un cajón —dos semanas de vacaciones, un local que cierra en agosto— y la
+    cola de apuntes pendientes puede desaparecer sin avisar a nadie.
+
+    Va servido desde aquí y no como fichero suelto para que el nombre y los
+    colores salgan en el idioma de quien lo instala, que es lo que va a ver en
+    la pantalla de inicio de su móvil todos los días.
+    """
+    lang = lang_for(request, session)
+    return JSONResponse({
+        "name": i18n.t(lang, "m.app.title"),
+        "short_name": i18n.t(lang, "m.app.short"),
+        "description": i18n.t(lang, "m.app.tagline"),
+        "lang": lang,
+        "dir": "rtl" if i18n.direction(lang) == "rtl" else "ltr",
+        "start_url": "/hoy",
+        # `standalone` es lo que hace que se abra sin la barra del navegador, y
+        # es también lo que le dice a iOS que esto es una aplicación y no un
+        # marcador. Sin esta línea, todo lo de arriba no sirve de nada.
+        "display": "standalone",
+        "orientation": "any",
+        "background_color": "#f6f6f4",
+        "theme_color": "#8a3d1f",
+        "icons": [
+            {"src": "/static/icono-180.png", "sizes": "180x180", "type": "image/png"},
+            {"src": "/static/icono.svg", "sizes": "any", "type": "image/svg+xml",
+             "purpose": "any maskable"},
+        ],
+    }, media_type="application/manifest+json")
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
     """[00335] El icono de la casa.

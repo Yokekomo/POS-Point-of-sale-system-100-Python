@@ -101,10 +101,15 @@
     </div>
     <p class="lead" style="margin-top:32px">{{ t("ld.proof_note") }}</p>
     <p class="lead" style="margin-top:14px;color:var(--ink)">{{ t("ld.proof_weight") }}</p>
-    <div class="year">
-      <div><small>{{ t("ld.year_label") }}</small><b>{{ t("ld.year_value") }}</b></div>
-      <p>{{ t("ld.year_note") }}</p>
-    </div>
+    {# [01748] Aquí había «2.091 € al año», que es 6,97 × 300 servicios. Era coherente
+       consigo mismo y era una invención: da por hecho la misma pérdida todos los
+       días del año. Y tres secciones más abajo, la propia FAQ dice —y dice bien—
+       «no lo sé, y quien te dé un número tampoco».
+       Lo medido se queda: 130 gramos en un turno y un corte, que cualquiera puede
+       comprobar esta noche con su báscula. Lo extrapolado se va. Un controller con
+       ganas desmonta el 2.091 en diez segundos, y con él se lleva la credibilidad
+       de todo lo demás, que sí es cierto. #}
+    <p class="lead" style="margin-top:26px;color:var(--ink)">{{ t("ld.year_note") }}</p>
   </div>
 </section>
 
@@ -181,6 +186,11 @@
   <div class="wrap">
     <h2>{{ t("ld.final_h") }}</h2>
     <p class="lead" style="margin:22px auto 0">{{ t("ld.final_sub") }}</p>
+    {# [01750] Esto estaba enterrado en la FAQ, y es de lo poco que no dice ninguno de
+       los cinco competidores. Al dueño que ya se quemó con un programa anterior
+       le importa más que media hoja de características, y es verdad: la
+       exportación funciona **también** con la cuenta cancelada. #}
+    <p class="lead" style="margin:16px auto 0;color:var(--ink)">{{ t("ld.yours") }}</p>
     <div class="cta-row">
       <a class="btn primary" href="/solicitar">{{ t("pub.request") }}</a>
       <span class="badge"><b>✓</b> {{ t("ld.trial_badge", days=trial_days) }}</span>

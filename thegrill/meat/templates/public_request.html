@@ -9,23 +9,20 @@
 <form method="post" action="/solicitar">
   <div class="grid">
     <div><label for="restaurant_name">{{ t("pub.f.restaurant") }} <span class="req">*</span></label>
-      <input id="restaurant_name" name="restaurant_name" required value="{{ sub.restaurant_name or '' }}"></div>
-    <div><label for="legal_name">{{ t("pub.f.legal") }}</label>
-      <input id="legal_name" name="legal_name" value="{{ sub.legal_name or '' }}"></div>
-    <div><label for="tax_number">{{ t("pub.f.tax") }}</label>
-      <input id="tax_number" name="tax_number" value="{{ sub.tax_number or '' }}"></div>
-    <div><label for="country">{{ t("pub.f.country") }}</label>
-      <input id="country" name="country" value="{{ sub.country or '' }}"></div>
+      <input id="restaurant_name" name="restaurant_name" required autocomplete="organization"
+             value="{{ sub.restaurant_name or '' }}"></div>
     <div><label for="contact_name">{{ t("pub.f.contact") }} <span class="req">*</span></label>
-      <input id="contact_name" name="contact_name" required value="{{ sub.contact_name or '' }}"></div>
-    <div><label for="contact_role">{{ t("pub.f.role") }}</label>
-      <input id="contact_role" name="contact_role" value="{{ sub.contact_role or '' }}"></div>
+      <input id="contact_name" name="contact_name" required autocomplete="name"
+             value="{{ sub.contact_name or '' }}"></div>
     <div><label for="email">{{ t("pub.f.email") }} <span class="req">*</span></label>
-      <input id="email" name="email" type="email" required value="{{ sub.email or '' }}"></div>
+      <input id="email" name="email" type="email" required autocomplete="email"
+             value="{{ sub.email or '' }}"></div>
     <div><label for="phone">{{ t("pub.f.phone") }}</label>
-      <input id="phone" name="phone" value="{{ sub.phone or '' }}"></div>
-    <div><label for="cooks">{{ t("pub.f.cooks") }}</label>
-      <input id="cooks" name="cooks" inputmode="numeric"></div>
+      <input id="phone" name="phone" type="tel" autocomplete="tel"
+             value="{{ sub.phone or '' }}"></div>
+    <div><label for="country">{{ t("pub.f.country") }}</label>
+      <input id="country" name="country" autocomplete="country-name"
+             value="{{ sub.country or '' }}"></div>
     <div><label for="outlets">{{ t("pub.f.outlets") }}</label>
       <input id="outlets" name="outlets" inputmode="numeric" value="1"></div>
     <div><label for="plan">{{ t("pub.f.plan") }}</label>
@@ -33,10 +30,36 @@
         {% for p in plans %}<option value="{{ p.value }}">{{ t("plan." ~ p.value) }}</option>{% endfor %}
       </select></div>
   </div>
-  <label for="address">{{ t("pub.f.address") }}</label>
-  <textarea id="address" name="address" rows="2">{{ sub.address or '' }}</textarea>
   <label for="message">{{ t("pub.f.message") }}</label>
   <textarea id="message" name="message" rows="3">{{ sub.message or '' }}</textarea>
+
+  {# [01751] Lo fiscal, plegado y con su nombre delante.
+     Ninguno de estos campos era obligatorio, pero estaban los trece a la vista:
+     nombre fiscal, número fiscal, dirección, cargo, cocineros. Eso no es un
+     formulario para informarse, es un alta de cliente, y se le estaba pidiendo
+     a alguien que acaba de ver un vídeo de cuarenta segundos. El que quiera
+     adelantarlo lo abre; el que solo quiere que le cuenten, manda tres casillas.
+     Se abre solo si ya trae algo escrito, para que un error de validación no
+     esconda lo que la persona había puesto. #}
+  <details class="card" style="margin:14px 0"
+           {% if sub.legal_name or sub.tax_number or sub.address or sub.contact_role %}open{% endif %}>
+    <summary>{{ t("pub.f.later") }}</summary>
+    <div class="grid" style="margin-top:12px">
+      <div><label for="legal_name">{{ t("pub.f.legal") }}</label>
+        <input id="legal_name" name="legal_name" autocomplete="organization"
+               value="{{ sub.legal_name or '' }}"></div>
+      <div><label for="tax_number">{{ t("pub.f.tax") }}</label>
+        <input id="tax_number" name="tax_number" value="{{ sub.tax_number or '' }}"></div>
+      <div><label for="contact_role">{{ t("pub.f.role") }}</label>
+        <input id="contact_role" name="contact_role" autocomplete="organization-title"
+               value="{{ sub.contact_role or '' }}"></div>
+      <div><label for="cooks">{{ t("pub.f.cooks") }}</label>
+        <input id="cooks" name="cooks" inputmode="numeric"></div>
+    </div>
+    <label for="address">{{ t("pub.f.address") }}</label>
+    <textarea id="address" name="address" rows="2"
+              autocomplete="street-address">{{ sub.address or '' }}</textarea>
+  </details>
   <div class="help">{{ t("pub.f.privacy") }}</div>
   <div class="help">{{ t("priv.notice", days=retention_days) }}</div>
   <div class="help">{{ t("pub.f.no_card") }}</div>
