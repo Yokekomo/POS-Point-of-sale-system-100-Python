@@ -270,10 +270,14 @@ def test_every_public_page_wears_the_same_clothes(client):
     Antes heredaban el diseño de la pantalla de trabajo y parecían otro
     programa, que es lo que hace dudar a quien va a escribir su contraseña.
     """
+    from conftest import con_lo_de_fuera
     fuera = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH)
-    portada = fuera.get("/").text
+    portada = con_lo_de_fuera(fuera, fuera.get("/").text)
     for ruta in ("/precios", "/cookies", "/solicitar", "/login"):
-        html = fuera.get(ruta).text
+        pagina = fuera.get(ruta).text
+        # Con su hoja: desde que el estilo vive fuera, la paleta no está en el
+        # HTML. Lo que se mira es lo que le llega al navegador.
+        html = con_lo_de_fuera(fuera, pagina)
         assert "--ember" in html, ruta                      # la misma paleta
         assert 'class="brand"' in html, ruta                # la misma cabecera
         assert "<footer>" in html, ruta                     # y el mismo pie

@@ -834,10 +834,30 @@ def test_a_piece_cannot_go_to_the_freezer_and_to_the_dry_ager_at_once(casa):
         aging.move(s, _usuario(s, rest_id, "Ana"), "8017", destinos[i],
                    target_days=30, use_by=HOY + timedelta(days=90), on=HOY)
 
-    fallos = a_la_vez(trabajo)
-    assert se_lo_dijeron(fallos, "acaba de mover otra persona", "ya está ahí"), fallos
+    a_la_vez(trabajo)
+    # Aquí tampoco se exige que una de las dos falle. Si a la primera le da
+    # tiempo a terminar, la segunda mueve la pieza de donde la dejó la primera
+    # —de la cámara de maduración al congelador— y las dos son buenas: es una
+    # pieza que se ha movido dos veces en un minuto, que pasa.
+    #
+    # Lo que no puede pasar es que las dos escriban contra el **mismo** sitio
+    # de partida: ahí quedan dos viajes que dicen los dos que salió de la
+    # cámara, la pieza acaba en uno de los dos destinos y el otro albarán está
+    # inventado. Así que se mira la cadena: cada viaje sale de donde llegó el
+    # anterior, y la pieza está donde dice el último.
+    from thegrill.models import AuditLog
     with db.session_scope() as s:
         pieza = s.query(Primal).filter_by(restaurant_id=rest_id, serial="8017").one()
+        viajes = [f.detail.split(" · ")[0] for f in
+                  s.query(AuditLog).filter_by(key="8017", action="move")
+                  .order_by(AuditLog.id).all()]
+        assert viajes, "no se firmó ningún traslado"
+        venia = "CHILLED"
+        for viaje in viajes:
+            desde, hasta = viaje.split(" → ")
+            assert desde == venia, viajes
+            venia = hasta
+        assert venia == pieza.storage.value, (viajes, pieza.storage)
         assert pieza.storage in destinos
         # Madurar apunta el peso de entrada; congelar lo borra. No pueden estar
         # las dos cosas: sin ese peso no hay manera de decir lo que ha perdido.
@@ -867,3 +887,125 @@ def test_a_trim_that_is_rejected_leaves_nothing_in_the_chiller(casa):
         assert s.query(IngredientLot).filter_by(parent_serial="8017").all() == []
         pieza = s.query(Primal).filter_by(restaurant_id=rest_id, serial="8017").one()
         assert round(pieza.weight_kg, 6) == 9.0
+
+
+# ================================== la segunda llega con lo de antes en la mano
+#
+# Las pruebas de arriba lanzan dos hilos y miran que los números cuadren. Eso
+# comprueba lo que se ve, pero tiene un agujero: en una máquina descansada los
+# dos hilos se resuelven en fila —uno acaba antes de que el otro empiece— y
+# entonces **no hay carrera que ganar**. La prueba sale verde aunque no haya
+# candado ninguno, que es justo lo que no puede pasar con una guardia.
+#
+# Aquí se provoca a mano lo que en la cocina pasa solo: dos sesiones abiertas,
+# las dos leen la pieza, una escribe, y la otra intenta escribir con lo que
+# leyó antes. Sin candado, la segunda pisa a la primera y nadie se entera.
+# Pasa siempre, en cualquier máquina, cargada o no.
+def _dos_sesiones(casa):
+    """Dos sesiones abiertas a la vez, como dos móviles en la misma cámara."""
+    rest_id = casa[0]
+    una, otra = db._SessionFactory(), db._SessionFactory()
+    return rest_id, una, otra
+
+
+def _ana(session, rest_id):
+    return session.query(User).filter_by(restaurant_id=rest_id, name="Ana").one()
+
+
+def test_the_second_move_written_against_what_was_read_before_is_refused(casa):
+    """Dos viajes de la misma pieza, los dos contra «está en cámara»."""
+    from thegrill.models import Storage
+    from thegrill.web import aging
+
+    rest_id, una, otra = _dos_sesiones(casa)
+    try:
+        # La segunda ya tiene la pieza leída **en la mano**: es su petición, que
+        # empezó antes. Guardarla en una variable no es un detalle de la
+        # prueba: es lo que hace que sea la pieza de antes y no una relectura.
+        vista = aging.find(otra, rest_id, "8017")
+        assert vista.storage is None or vista.storage == Storage.CHILLED
+        aging.move(una, _ana(una, rest_id), "8017", Storage.AGING,
+                   target_days=30, on=HOY)
+        una.commit()
+        with pytest.raises(aging.AgingError, match="acaba de mover"):
+            aging.move(otra, _ana(otra, rest_id), "8017", Storage.FROZEN,
+                       use_by=HOY + timedelta(days=90), on=HOY)
+            otra.commit()
+    finally:
+        una.close(), otra.close()
+    with db.session_scope() as s:
+        pieza = s.query(Primal).filter_by(serial="8017").one()
+        assert pieza.storage == Storage.AGING
+        assert pieza.aging_start_kg == 9.0, "el peso de entrada a maduración se perdió"
+
+
+def test_the_second_weighing_written_against_yesterdays_weight_is_refused(casa):
+    """Dos mermas apuntadas contra los mismos nueve kilos de ayer."""
+    from thegrill.models import PrimalWeighing
+    from thegrill.web import aging
+
+    rest_id, una, otra = _dos_sesiones(casa)
+    try:
+        # La segunda trae la pieza leída de antes, como su petición.
+        vista = aging.find(otra, rest_id, "8017")
+        assert round(vista.weight_kg, 6) == 9.0
+        aging.weigh(una, _ana(una, rest_id), "8017", 8.5, on=HOY)
+        una.commit()
+        with pytest.raises(aging.AgingError, match="acaba de pesar"):
+            aging.weigh(otra, _ana(otra, rest_id), "8017", 8.7, on=HOY)
+            otra.commit()
+    finally:
+        una.close(), otra.close()
+    with db.session_scope() as s:
+        assert round(s.query(Primal).filter_by(serial="8017").one().weight_kg, 6) == 8.5
+        assert len(s.query(PrimalWeighing).filter_by(serial="8017").all()) == 1
+
+
+def test_the_second_cut_written_against_the_old_kilos_is_refused(casa):
+    """De nueve kilos no salen diez porque las dos ventas leyeran nueve."""
+    from thegrill.models import WeightSale
+    from thegrill.web import aging
+
+    rest_id, una, otra = _dos_sesiones(casa)
+    try:
+        # La segunda trae la pieza leída de antes, como su petición.
+        vista = aging.find(otra, rest_id, "8017")
+        assert round(vista.weight_kg, 6) == 9.0
+        aging.sell_by_weight(una, _ana(una, rest_id), "8017", 5000.0, price=40.0, on=HOY)
+        una.commit()
+        with pytest.raises(aging.AgingError, match="acaba de tocar"):
+            aging.sell_by_weight(otra, _ana(otra, rest_id), "8017", 5000.0,
+                                 price=40.0, on=HOY)
+            otra.commit()
+    finally:
+        una.close(), otra.close()
+    with db.session_scope() as s:
+        pieza = s.query(Primal).filter_by(serial="8017").one()
+        ventas = s.query(WeightSale).filter_by(serial="8017").all()
+        assert len(ventas) == 1
+        assert round(pieza.weight_kg + sum(v.grams for v in ventas) / 1000, 6) == 9.0
+
+
+def test_the_second_trim_written_against_the_old_weight_is_refused(casa):
+    """Dos limpiezas, dos recortes en cámara y de la pieza baja uno."""
+    from thegrill.web import aging
+
+    rest_id, una, otra = _dos_sesiones(casa)
+    item_id = casa[4]
+    try:
+        # La segunda trae la pieza leída de antes, como su petición.
+        vista = aging.find(otra, rest_id, "8017")
+        assert round(vista.weight_kg, 6) == 9.0
+        aging.trim(una, _ana(una, rest_id), "8017", removed_kg=2.0,
+                   parts=[aging.TrimPart(item_id=item_id, kg=1.0)], on=HOY)
+        una.commit()
+        with pytest.raises(aging.AgingError, match="acaba de tocar"):
+            aging.trim(otra, _ana(otra, rest_id), "8017", removed_kg=2.0,
+                       parts=[aging.TrimPart(item_id=item_id, kg=1.0)], on=HOY)
+            otra.commit()
+    finally:
+        una.close(), otra.close()
+    with db.session_scope() as s:
+        assert round(s.query(Primal).filter_by(serial="8017").one().weight_kg, 6) == 7.0
+        recortes = s.query(IngredientLot).filter_by(parent_serial="8017").all()
+        assert len(recortes) == 1, [l.serial for l in recortes]
