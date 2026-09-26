@@ -22,6 +22,29 @@ import pytest
 from thegrill import db
 
 
+# Lo que una ruta pide cuando va a trabajar contra la base: la sesión, el
+# permiso —que la lee para saber quién es— o cualquier cosa colgada de ellos.
+DE_LA_BASE = {"session", "ctx", "get_db", "needs", "el_formulario", "el_cuerpo"}
+
+
+def _toca_la_base(funcion) -> bool:
+    """Si esta ruta va a bajar a la base, mire como mire su firma.
+
+    Mirar solo los nombres de los parámetros dejaba un hueco: `async def
+    x(db=Depends(get_db))` no se llama «session» y pasaba de largo. Así que se
+    mira también de qué cuelga cada parámetro, que es lo que de verdad dice a
+    qué va la ruta.
+    """
+    firma = inspect.signature(funcion)
+    if DE_LA_BASE & set(firma.parameters):
+        return True
+    for parametro in firma.parameters.values():
+        dependencia = getattr(parametro.default, "dependency", None)
+        if dependencia is not None and getattr(dependencia, "__name__", "") in DE_LA_BASE:
+            return True
+    return False
+
+
 def _rutas_async_con_base(app):
     """Las rutas que se atienden en el hilo del servidor y además tocan la base."""
     fuera = []
@@ -29,10 +52,29 @@ def _rutas_async_con_base(app):
         funcion = getattr(ruta, "endpoint", None)
         if funcion is None or not inspect.iscoroutinefunction(funcion):
             continue
-        parametros = set(inspect.signature(funcion).parameters)
-        if {"session", "ctx"} & parametros:
+        if _toca_la_base(funcion):
             fuera.append(f"{getattr(ruta, 'path', '?')} ({funcion.__name__})")
     return fuera
+
+
+def test_the_guard_catches_a_route_that_does_not_call_it_session():
+    """La guardia no puede depender de cómo se llamen los parámetros.
+
+    Sin esto, `async def x(db=Depends(get_db))` pasaba de largo y volvía a
+    dejar a la casa sin pantallas mientras alguien guarda. La guardia se
+    comprueba a sí misma con la ruta que antes se le escapaba.
+    """
+    from fastapi import Depends, FastAPI
+
+    from thegrill.meat.app import get_db
+
+    falsa = FastAPI()
+
+    @falsa.get("/cuela")
+    async def cuela(db=Depends(get_db)):        # noqa: ANN001, ANN202
+        return {}
+
+    assert _rutas_async_con_base(falsa) == ["/cuela (cuela)"]
 
 
 def test_no_screen_of_the_meat_edition_writes_on_the_server_thread():
