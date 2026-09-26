@@ -40,5 +40,9 @@ jobs:
       - name: Instalar el navegador
         run: playwright install --with-deps chromium
 
+      # `-rs` lista al final cada prueba saltada con su motivo. La primera vez
+      # que esto corrió, trece se saltaron calladas —tres ficheros buscaban el
+      # navegador en una ruta escrita a mano que aquí no existe— y el parte
+      # decía «1176 pasadas» tan ancho. Un salto en el servidor hay que verlo.
       - name: Pasar la suite
-        run: pytest tests/ -q
+        run: pytest tests/ -q -rs

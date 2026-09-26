@@ -21,7 +21,6 @@ from thegrill import bench, db
 
 PHONE = {"width": 390, "height": 844}        # un iPhone de los normales
 TABLET = {"width": 820, "height": 1180}      # un iPad en vertical
-CHROMIUM = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
 HOY = date(2026, 9, 20)
 
 # Las pantallas donde se trabaja con las manos ocupadas.
@@ -628,13 +627,23 @@ def test_a_delivery_is_booked_one_piece_at_a_time_with_its_label(browser):
     page.fill("input[name='serial:0']", "9300")
     page.fill("input[name='price:0']", "32")
     page.fill("input[name='g:0']", "9200")
-    page.click("form[action='/recepcion'] button[type=submit]")
-    # Con margen: dar de alta una pieza escribe en la base, vuelve a pintar la
-    # pantalla y sube la foto, y esta prueba corre con la suite entera por
-    # delante. Con ocho segundos fallaba una de cada muchas, y solo con la
-    # máquina cargada: la prueba acusaba al muelle de no guardar cuando lo que
-    # pasaba es que no le había dado tiempo a contestar.
-    page.wait_for_selector(".banner.ok", timeout=30000)
+    # Se espera a que la pantalla cambie, y después a que diga algo. Con
+    # margen: dar de alta una pieza escribe en la base, vuelve a pintar la
+    # pantalla y sube la foto, esta prueba corre con la suite entera por
+    # delante, y en un servidor de integración compartido eso es lento de
+    # verdad —con treinta segundos se agotó el tiempo allí, y con ocho fallaba
+    # hasta en una máquina normal con carga—.
+    with page.expect_navigation(timeout=60000):
+        page.click("form[action='/recepcion'] button[type=submit]")
+    page.wait_for_selector(".banner", timeout=60000)
+    # Y se mira **cuál** de los avisos ha salido. Esperando directamente al
+    # verde, una pieza rechazada —un número repetido, un peso que no cuadra—
+    # dejaba la prueba esperando hasta agotar el tiempo, y el parte decía
+    # «tardó demasiado» cuando lo que pasaba es que el muelle había dicho que
+    # no. Un fallo de verdad disfrazado de lentitud es el peor parte que hay.
+    aviso = page.locator(".banner").first
+    assert "ok" in (aviso.get_attribute("class") or ""), (
+        f"el muelle no dio la pieza por buena: «{aviso.inner_text().strip()}»")
 
     with db.session_scope() as session:
         pieza = session.query(Primal).filter_by(serial="9300").one()

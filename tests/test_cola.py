@@ -22,7 +22,6 @@ import pytest
 
 from thegrill import bench, db
 
-CHROMIUM = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
 MOVIL = {"width": 390, "height": 844}
 HOY = date(2026, 9, 20)
 
@@ -63,13 +62,17 @@ def servidor(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def navegador(servidor):
-    import os
+    """El navegador. Dónde buscarlo y qué hacer si no está lo decide
+    `conftest.abre_navegador`: en el ordenador de alguien se salta, y en el
+    servidor de integración se cae. Antes se buscaba en una sola ruta escrita
+    a mano —la de la máquina donde se escribió— y en cualquier otra estas
+    pruebas se saltaban calladas, con la suite en verde.
+    """
+    from conftest import abre_navegador
 
     base, playwright_module = servidor
-    if not os.path.exists(CHROMIUM):
-        pytest.skip("no hay navegador instalado en esta máquina")
     with playwright_module.sync_playwright() as pw:
-        chromium = pw.chromium.launch(executable_path=CHROMIUM)
+        chromium = abre_navegador(pw)
         yield base, chromium
         chromium.close()
 

@@ -283,7 +283,6 @@ def test_the_tutorial_is_kept_for_when_there_is_no_signal(client):
 # que se pueda saltar con el guante puesto, que no vuelva, y que en la cámara
 # —sin línea— siga funcionando.
 PHONE = {"width": 390, "height": 844}
-CHROMIUM = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
 
 
 def free_port() -> int:
@@ -321,13 +320,17 @@ def servidor(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def browser(servidor):
-    import os
+    """El navegador. Dónde buscarlo y qué hacer si no está lo decide
+    `conftest.abre_navegador`: en el ordenador de alguien se salta, y en el
+    servidor de integración se cae. Antes se buscaba en una sola ruta escrita
+    a mano —la de la máquina donde se escribió— y en cualquier otra estas
+    pruebas se saltaban calladas, con la suite en verde.
+    """
+    from conftest import abre_navegador
 
     base, playwright_module = servidor
-    if not os.path.exists(CHROMIUM):
-        pytest.skip("no hay navegador instalado en esta máquina")
     with playwright_module.sync_playwright() as pw:
-        chromium = pw.chromium.launch(executable_path=CHROMIUM)
+        chromium = abre_navegador(pw)
         yield base, chromium
         chromium.close()
 
