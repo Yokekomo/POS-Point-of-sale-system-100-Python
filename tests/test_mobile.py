@@ -1764,3 +1764,71 @@ def test_what_an_inspector_prints_is_the_meat_and_not_the_menu(browser):
         assert en_papel["letra"] == "rgb(0, 0, 0)", (ruta, en_papel)
         page.emulate_media(media="screen")
     context.close()
+
+
+def test_a_whole_delivery_fits_in_the_pocket_with_no_signal(browser):
+    """El camión entero sin cobertura: veinte piezas apuntadas y ninguna perdida.
+
+    Una cámara de despiece es una caja de hormigón y el punto de acceso se ve
+    desde fuera. Lo que pasa de verdad no es «se cae la red un momento» sino
+    «se descarga un camión entero sin línea»: veinte bolsas, una detrás de
+    otra, y la señal vuelve cuando se sale al muelle.
+
+    Lo que se mide aquí es lo que se rompe en ese caso y no en el de dos
+    apuntes: que la memoria del teléfono aguante veinte, que el contador diga
+    cuántas van, que al volver la señal entren **las veinte**, **una sola vez
+    cada una** y **en el orden en que se pesaron** —porque el número de pieza
+    lo da el servidor al recibirla, y si llegan cambiadas de orden el número
+    que se escribió en la bolsa no es el que queda en el papel.
+    """
+    from thegrill.models import Primal
+
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    entra(page, base)
+    page.goto(f"{base}/recepcion")
+    page.wait_for_selector("form[data-cola]")
+
+    with db.session_scope() as session:
+        antes = session.query(Primal).count()
+
+    # La primera bolsa, con línea: es la que deja puesto lo del camión.
+    page.fill("input[name=sku]", "Striploin AUS")
+    page.fill("input[name=use_by]", "2026-10-30")
+    page.fill("input[name='g:0']", "7000")
+    page.click("form[data-cola] button[type=submit]")
+    page.wait_for_load_state("networkidle")
+
+    context.set_offline(True)
+    page.evaluate("() => window.dispatchEvent(new Event('offline'))")
+    pesos = [7100 + n * 37 for n in range(19)]
+    for gramos in pesos:
+        page.fill("input[name='g:0']", str(gramos))
+        page.click("form[data-cola] button[type=submit]")
+        page.wait_for_timeout(90)
+
+    # Nadie trabaja a ciegas: el contador dice cuántas esperan.
+    assert page.locator("#colapanel").is_visible()
+    esperando = page.evaluate("() => JSON.parse(localStorage.grill_cola || '[]').length")
+    assert esperando == 19, f"el teléfono solo se quedó con {esperando} de 19"
+
+    context.set_offline(False)
+    page.evaluate("() => window.dispatchEvent(new Event('online'))")
+    for _ in range(40):
+        page.wait_for_timeout(1000)
+        if page.evaluate("() => JSON.parse(localStorage.grill_cola || '[]').length") == 0:
+            break
+    assert page.evaluate("() => JSON.parse(localStorage.grill_cola || '[]')") == []
+    assert page.evaluate("() => JSON.parse(localStorage.grill_apartados || '[]')") == [], \
+        "el servidor rechazó alguna y se quedó apartada"
+
+    with db.session_scope() as session:
+        llegaron = (session.query(Primal).order_by(Primal.id)
+                    .all()[antes:])
+        gramos = [round(p.weight_kg * 1000) for p in llegaron]
+        assert len(llegaron) == 20, f"llegaron {len(llegaron)} de 20: {gramos}"
+        # En el orden en que se pesaron, que es el orden de los números.
+        assert gramos == [7000] + pesos, gramos
+        assert len(set(p.serial for p in llegaron)) == 20, "dos piezas con el mismo número"
+    context.close()

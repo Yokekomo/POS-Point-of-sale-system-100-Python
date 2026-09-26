@@ -14,7 +14,7 @@ from thegrill import db
 from thegrill.meat import app as meatapp
 from thegrill.meat import bugs
 from thegrill.web import i18n
-from thegrill.models import BugReport, BugStatus, Restaurant, Role, User
+from thegrill.models import BugReport, BugStatus, Primal, Restaurant, Role, User
 from tests.meat_helpers import SPANISH, add_user, csrf_from, login, signup
 
 HOY = date.today()
@@ -388,3 +388,35 @@ def test_the_butchery_history_says_what_came_out_and_how_many(client):
     historia = client.get("/despiece").text
     assert "Entrecot (12)" in historia          # qué salió y cuántas piezas
     assert i18n.t("es", "m.tg.what_came_out") in historia
+
+
+def test_a_piece_without_its_label_photo_says_so_on_the_screen(client, tmp_path, monkeypatch):
+    """Sin señal la foto no cabe en la cola: la pieza entra sin su etiqueta.
+
+    El camión se descarga dentro de la cámara, sin línea, y las piezas quedan
+    sin foto. Lo único que lo decía era el texto del botón —«Hacer foto» en vez
+    de «Repetir la foto»—: veinte filas iguales y hay que leer veinte botones
+    para saber cuál falta. La etiqueta es la prueba de (UE) 931/2011 art. 3(3);
+    tiene que verse desde lejos y con guante, como el precio que falta.
+    """
+    from tests.conftest import foto_jpeg
+
+    monkeypatch.setattr(meatapp, "UPLOAD_DIR", str(tmp_path / "subidas"))
+    pagina = client.get("/recepcion").text
+    client.post("/recepcion", data={"lot": "ALB-90", "sku": "Striploin",
+                                    "g:0": "9400", "price:0": "30",
+                                    "csrf": csrf_from(pagina)})
+    sinfoto = i18n.t("es", "m.rec.photo_missing")
+    muelle = client.get("/recepcion").text
+    assert muelle.count(sinfoto) == 1, "la pieza sin etiqueta no se distingue"
+
+    with db.session_scope() as s:
+        serial = s.query(Primal).one().serial
+    subida = client.post(f"/carne/{serial}/foto",
+                         data={"csrf": csrf_from(muelle), "next": "/recepcion"},
+                         files={"foto": ("etiqueta.jpg", foto_jpeg(), "image/jpeg")})
+    assert subida.status_code == 303, subida.text[:200]
+
+    muelle = client.get("/recepcion").text
+    assert sinfoto not in muelle                # ya tiene su etiqueta
+    assert i18n.t("es", "m.rec.photo_seen") in muelle

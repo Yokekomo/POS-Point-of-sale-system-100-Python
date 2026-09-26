@@ -271,6 +271,15 @@
     {% elif p.status.value != 'IN_STOCK' %}
     <span class="tag">{{ p.status.value }}</span>
     {% endif %}
+    {# [01885] La pieza que se quedó sin su etiqueta. Sin señal la foto no cabe en
+       la cola, así que un camión descargado dentro de la cámara deja veinte
+       piezas sin ella y lo único que lo decía era que el botón ponía «Hacer
+       foto» en vez de «Repetir la foto»: veinte filas iguales y hay que leer
+       veinte botones. La etiqueta es la prueba de (UE) 931/2011 art. 3(3), así
+       que se ve desde lejos y con guante, como el precio que falta. #}
+    {% if not p.photo_ref %}
+    <span class="tag warn">{{ t("m.rec.photo_missing") }}</span>
+    {% endif %}
     <span class="kg">{{ "%.2f"|format(p.weight_kg) }} kg</span>
   </div>
   <div class="detalle muted">
