@@ -2796,6 +2796,7 @@ def save_pricing(request: Request, currency: str = Form("EUR"),
     """
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
+    lang = lang_for(request, session, user)
     try:
         hasta = date.fromisoformat(sale_until) if sale_until.strip() else None
     except ValueError:
