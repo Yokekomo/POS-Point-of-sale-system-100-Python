@@ -804,6 +804,11 @@ ES = {
     'err.mt.dish_dup': 'Ya hay un plato llamado {name}',
     'err.mt.trim_pct': 'La merma de limpieza va entre 0 y 100',
     'err.mt.line_other_dish': 'Esa línea no es de este plato',
+
+    'm.rec.photo': 'Foto de la etiqueta',
+    'dl.mine_zip': 'Todo, con las fotos de las etiquetas',
+    'dl.mine_zip_help': 'Lo mismo de arriba y, además, la foto de la etiqueta de cada pieza. La etiqueta es la prueba: el matadero, el lote y la fecha de sacrificio están ahí. Pesa más y tarda más en bajarse.',
+    'dl.photos_missing': '{n} fotos constan en los datos y no estaban en el disco.',
 }
 
 EN = {
@@ -1593,6 +1598,11 @@ EN = {
     'err.mt.dish_dup': 'There is already a dish called {name}',
     'err.mt.trim_pct': 'The trim waste goes between 0 and 100',
     'err.mt.line_other_dish': 'That line is not of this dish',
+
+    'm.rec.photo': 'Label photo',
+    'dl.mine_zip': 'Everything, with the label photos',
+    'dl.mine_zip_help': "The same as above and, on top of it, the photo of every piece's label. The label is the proof: the abattoir, the lot and the slaughter date are on it. It is heavier and takes longer to download.",
+    'dl.photos_missing': '{n} photos are in the data and were not on the disk.',
 }
 
 FR = {
@@ -2382,6 +2392,11 @@ FR = {
     'err.mt.dish_dup': "Il y a déjà un plat qui s'appelle {name}",
     'err.mt.trim_pct': 'La perte de parage va de 0 à 100',
     'err.mt.line_other_dish': "Cette ligne n'est pas de ce plat",
+
+    'm.rec.photo': "Photo de l'étiquette",
+    'dl.mine_zip': 'Tout, avec les photos des étiquettes',
+    'dl.mine_zip_help': "La même chose qu'au-dessus et, en plus, la photo de l'étiquette de chaque primale. L'étiquette est la preuve : l'abattoir, le lot et la date d'abattage y sont. C'est plus lourd et plus long à télécharger.",
+    'dl.photos_missing': "{n} photos figurent dans les données et n'étaient pas sur le disque.",
 }
 
 DE = {
@@ -3171,6 +3186,11 @@ DE = {
     'err.mt.dish_dup': 'Es gibt schon ein Gericht namens {name}',
     'err.mt.trim_pct': 'Der Parierverlust liegt zwischen 0 und 100',
     'err.mt.line_other_dish': 'Diese Zeile gehört nicht zu diesem Gericht',
+
+    'm.rec.photo': 'Foto des Etiketts',
+    'dl.mine_zip': 'Alles, mit den Fotos der Etiketten',
+    'dl.mine_zip_help': 'Dasselbe wie oben und zusätzlich das Foto vom Etikett jedes Stücks. Das Etikett ist der Nachweis: Schlachthof, Charge und Schlachtdatum stehen darauf. Es ist schwerer und lädt länger.',
+    'dl.photos_missing': '{n} Fotos stehen in den Daten und lagen nicht auf der Platte.',
 }
 
 NL = {
@@ -3960,6 +3980,11 @@ NL = {
     'err.mt.dish_dup': 'Er is al een gerecht dat {name} heet',
     'err.mt.trim_pct': 'De derving bij het bijsnijden ligt tussen 0 en 100',
     'err.mt.line_other_dish': 'Die regel hoort bij een ander gerecht',
+
+    'm.rec.photo': 'Foto van het etiket',
+    'dl.mine_zip': "Alles, met de foto's van de etiketten",
+    'dl.mine_zip_help': 'Hetzelfde als hierboven en daarbij de foto van het etiket van elk stuk. Het etiket is het bewijs: het slachthuis, de partij en de slachtdatum staan erop. Het is zwaarder en duurt langer om te downloaden.',
+    'dl.photos_missing': "{n} foto's staan in de gegevens en lagen niet op de schijf.",
 }
 
 AR = {
@@ -4749,6 +4774,11 @@ AR = {
     'err.mt.dish_dup': 'يوجد طبق اسمه {name} من قبل',
     'err.mt.trim_pct': 'نسبة هدر التنظيف بين 0 و100',
     'err.mt.line_other_dish': 'هذا السطر ليس من هذا الطبق',
+
+    'm.rec.photo': 'صورة الملصق',
+    'dl.mine_zip': 'كل شيء، مع صور الملصقات',
+    'dl.mine_zip_help': 'نفس ما سبق، وفوقه صورة ملصق كل قطعة. الملصق هو الدليل: المسلخ والدفعة وتاريخ الذبح مكتوبة عليه. حجمه أكبر ويستغرق وقتاً أطول.',
+    'dl.photos_missing': '{n} صور مسجّلة في البيانات ولم تكن على القرص.',
 }
 
 
@@ -5540,6 +5570,11 @@ HU = {
     'err.mt.dish_dup': 'Már van {name} nevű étel',
     'err.mt.trim_pct': 'A tisztítási veszteség 0 és 100 között van',
     'err.mt.line_other_dish': 'Az a sor nem ehhez az ételhez tartozik',
+
+    'm.rec.photo': 'A címke fényképe',
+    'dl.mine_zip': 'Minden, a címkék fényképeivel',
+    'dl.mine_zip_help': 'Ugyanaz, mint fent, és mellé minden darab címkéjének a fényképe. A címke a bizonyíték: a vágóhíd, a tétel és a vágás dátuma azon van. Nagyobb, és tovább tart letölteni.',
+    'dl.photos_missing': '{n} fénykép szerepel az adatokban, és nem volt a lemezen.',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

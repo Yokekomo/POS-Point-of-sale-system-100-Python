@@ -13,6 +13,15 @@
       <div class="muted">{{ t("dl.mine_help") }}</div></div>
     <a class="btn" href="/descargas/mis-datos.xlsx">{{ t("dl.download") }}</a>
   </div>
+  {# [01869] Y con las fotos. La etiqueta es la prueba —el matadero, el lote y la
+     fecha de sacrificio están ahí—, así que llevarse solo las filas es
+     llevarse media casa. Va debajo y no en lugar del otro porque pesa mucho
+     más: el que solo quiere los números no tiene por qué bajarse dos gigas. #}
+  <div class="rowflex" style="margin-top:12px">
+    <div style="flex:1"><b>{{ t("dl.mine_zip") }}</b>
+      <div class="muted">{{ t("dl.mine_zip_help") }}</div></div>
+    <a class="btn ghost" href="/descargas/mis-datos.zip">{{ t("dl.download") }}</a>
+  </div>
 </div>
 {% endif %}
 <div class="card">

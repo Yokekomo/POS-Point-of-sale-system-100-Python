@@ -13,6 +13,7 @@ import json
 import logging
 import random
 import os
+import tempfile
 from urllib.parse import quote, urlsplit
 from datetime import date, datetime, timedelta, timezone
 import zoneinfo
@@ -25,6 +26,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                RedirectResponse, Response)
 from fastapi.staticfiles import StaticFiles
+from starlette.background import BackgroundTask
 from starlette.datastructures import FormData, UploadFile   # los de request.form()
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -3543,6 +3545,38 @@ def download_my_data(request: Request, ctx=Depends(require_manager_even_blocked)
     nombre = exportar.nombre_fichero(restaurant.name if restaurant else "", date.today())
     return Response(payload, media_type=XLSX_MEDIA, headers={
         "Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
+@app.get("/descargas/mis-datos.zip")
+def download_my_data_zip(request: Request, ctx=Depends(require_manager_even_blocked),
+                         session: Session = Depends(get_db)):
+    """[01868] Lo mismo, y **con las fotos de las etiquetas**.
+
+    El libro solo llevaba filas, y la foto de la etiqueta no es un adorno de la
+    fila: es la prueba. El matadero, el lote y la fecha de sacrificio están
+    escritos ahí, y lo que enseña un restaurante en una inspección es la
+    etiqueta. Un cliente que se llevaba solo las filas se llevaba media casa, y
+    la mitad que faltaba era justo la que vale delante de un inspector.
+
+    Se escribe en un fichero temporal y no en memoria: la carpeta de fotos de
+    una casa de un año son un par de gigas, y meterlos en la memoria del
+    servidor que atiende a las demás es tirarlas a todas. El fichero se borra
+    solo en cuanto acaba de mandarse.
+    """
+    user, _ = ctx
+    restaurant = session.get(Restaurant, user.restaurant_id)
+    lang = lang_for(request, session, user)
+    temporal = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    temporal.close()
+    try:
+        exportar.paquete(session, user.restaurant_id, lang, temporal.name)
+    except Exception:
+        os.unlink(temporal.name)
+        raise
+    nombre = exportar.nombre_fichero(restaurant.name if restaurant else "",
+                                     date.today()).replace(".xlsx", ".zip")
+    return FileResponse(temporal.name, media_type="application/zip", filename=nombre,
+                        background=BackgroundTask(os.unlink, temporal.name))
 
 
 @app.get("/descargas/{code}.xlsx")

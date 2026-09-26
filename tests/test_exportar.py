@@ -34,8 +34,8 @@ from thegrill.meat import app as meatapp
 from thegrill.meat import service as meat
 from thegrill.models import (Billing, CountItemKind, CountPeriod, Ingredient,
                              IngredientItem,
-                             MeatCount, MeatCountLine, Restaurant, Role, Unit,
-                             User)
+                             MeatCount, MeatCountLine, Primal, Restaurant, Role,
+                             Unit, User)
 from tests.meat_helpers import SPANISH, add_user, new_house
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -197,3 +197,124 @@ def test_the_column_headings_come_out_in_the_language_of_the_house(casas):
         assert esperado in cabeceras, cabeceras
         texto = _todo_el_texto(wb)
         assert "m.rec." not in texto and "common." not in texto, "salió una clave sin traducir"
+
+
+# ============================== y las fotos, que es lo que vale como prueba
+def test_what_the_customer_takes_away_includes_the_label_photos(casas, tmp_path):
+    """El libro llevaba filas. La etiqueta es la prueba, y no iba.
+
+    El matadero, el lote y la fecha de sacrificio están escritos en la
+    etiqueta, y lo que enseña un restaurante en una inspección es la etiqueta,
+    no una casilla de una hoja de cálculo que ha escrito él mismo. Este módulo
+    existe porque el cliente tiene que poder cumplir con lo que la ley le exige
+    a él; llevándose solo las filas se llevaba media casa, y la que faltaba era
+    la mitad que vale delante de un inspector.
+    """
+    import zipfile
+
+    from thegrill.meat import exportar
+
+    casa, _ = casas
+    with db.session_scope() as s:
+        carpeta = tmp_path / "subidas"
+        carpeta.mkdir(exist_ok=True)
+        for pieza in s.query(Primal).filter_by(restaurant_id=casa):
+            foto = carpeta / f"{pieza.serial}.jpg"
+            foto.write_bytes(b"\xff\xd8\xff" + pieza.serial.encode())
+            pieza.photo_ref = str(foto)
+        seriales = [p.serial for p in s.query(Primal).filter(
+            Primal.restaurant_id == casa, Primal.photo_ref.isnot(None))]
+
+    destino = tmp_path / "todo.zip"
+    with db.session_scope() as s:
+        cuenta = exportar.paquete(s, casa, "es", destino)
+    assert seriales, "la casa de la prueba salió sin piezas"
+    assert cuenta["fotos"] == len(seriales)
+
+    with zipfile.ZipFile(destino) as z:
+        dentro = z.namelist()
+        assert exportar.LIBRO in dentro
+        for serial in seriales:
+            assert f"{exportar.FOTOS}/{serial}.jpg" in dentro, dentro
+            assert z.read(f"{exportar.FOTOS}/{serial}.jpg").endswith(serial.encode())
+
+
+def test_a_photo_that_is_no_longer_on_disk_does_not_cost_him_the_rest(casas, tmp_path):
+    """Una foto que falta no puede dejar al cliente sin sus datos.
+
+    Y tampoco puede desaparecer sin decirlo: el que abre el paquete tiene que
+    saber que falta y cuántas.
+    """
+    import zipfile
+
+    from thegrill.meat import exportar
+
+    casa, _ = casas
+    with db.session_scope() as s:
+        s.query(Primal).filter_by(restaurant_id=casa).first().photo_ref = \
+            str(tmp_path / "la-que-ya-no-esta.jpg")
+
+    destino = tmp_path / "todo.zip"
+    with db.session_scope() as s:
+        cuenta = exportar.paquete(s, casa, "es", destino)
+    assert cuenta == {"fotos": 0, "faltan": 1, "bytes": 0}
+    with zipfile.ZipFile(destino) as z:
+        assert exportar.LIBRO in z.namelist()
+        assert "1 fotos" in z.read(f"{exportar.FOTOS}/FALTAN.txt").decode()
+
+
+def test_the_rows_say_which_photo_is_theirs(casas, tmp_path):
+    """Sin eso, el que lo abre tiene las filas por un lado y las fotos por otro."""
+    from thegrill.meat import exportar
+
+    casa, _ = casas
+    with db.session_scope() as s:
+        pieza = s.query(Primal).filter_by(restaurant_id=casa).first()
+        pieza.photo_ref = str(tmp_path / "loquesea.jpg")
+        serial = pieza.serial
+        assert exportar.nombre_foto(pieza) == f"{exportar.FOTOS}/{serial}.jpg"
+    with db.session_scope() as s:
+        libro = _abre(exportar.libro(s, casa, "es"))
+    hoja = libro[libro.sheetnames[0]]
+    cabeceras = [c.value for c in hoja[1]]
+    assert "Foto de la etiqueta" in cabeceras, cabeceras
+
+
+def test_the_house_that_stopped_paying_can_still_take_its_proof(casas, tmp_path):
+    """Y por la puerta por la que se descarga, el día que ya no es cliente.
+
+    Es el día que importa: el programa se cierra y lo que la ley le exige
+    conservar sigue siendo suyo. Con las etiquetas, que son la prueba.
+    """
+    import zipfile
+
+    from thegrill.meat import exportar
+
+    casa, _ = casas
+    carpeta = tmp_path / "subidas"
+    carpeta.mkdir(exist_ok=True)
+    with db.session_scope() as s:
+        for pieza in s.query(Primal).filter_by(restaurant_id=casa):
+            foto = carpeta / f"{pieza.serial}.jpg"
+            foto.write_bytes(b"\xff\xd8\xff-etiqueta")
+            pieza.photo_ref = str(foto)
+    _bloquea(casa)
+
+    cliente = entra("albano@marina.com")
+    respuesta = cliente.get("/descargas/mis-datos.zip")
+    assert respuesta.status_code == 200
+    assert respuesta.headers["content-type"] == "application/zip"
+    assert respuesta.headers["content-disposition"].endswith('.zip"')
+
+    destino = tmp_path / "bajado.zip"
+    destino.write_bytes(respuesta.content)
+    with zipfile.ZipFile(destino) as z:
+        assert exportar.LIBRO in z.namelist()
+        assert any(n.startswith(f"{exportar.FOTOS}/") for n in z.namelist()), z.namelist()
+
+
+def test_nobody_else_takes_the_house_away_in_a_zip_either(casas):
+    """La puerta nueva tiene la misma cerradura que la de al lado."""
+    casa, _ = casas
+    de_la_plantilla = add_user("albano@marina.com", "cocinero@marina.com", "Luis")
+    assert de_la_plantilla.get("/descargas/mis-datos.zip").status_code in (303, 403)

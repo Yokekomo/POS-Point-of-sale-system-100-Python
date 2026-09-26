@@ -45,7 +45,9 @@ sirve para lo único que se le va a pedir: cuadrar.
 from __future__ import annotations
 
 import io
+import os
 import unicodedata
+import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Callable, Sequence
@@ -57,6 +59,10 @@ from thegrill import models as m
 # El ancho de las columnas en Excel se mide en caracteres, no en píxeles. Estos
 # son los que caben sin que el encabezado salga cortado en las siete lenguas:
 # el alemán y el húngaro son los que mandan.
+# Cómo se llaman las cosas dentro del `.zip` que se descarga el cliente.
+LIBRO = "datos.xlsx"
+FOTOS = "fotos"
+
 ANCHO = 18
 ANCHO_LARGO = 30
 
@@ -136,6 +142,10 @@ def hojas(gente: dict[int, str], tg: dict[int, str], cuenta: dict[int, Any],
             Col("m.rec.supplier_lot", lambda r: r.supplier_lot or ""),
             Col("m.rec.plant", lambda r: r.producer_plant or "", ANCHO_LARGO),
             Col("m.rec.est", lambda r: r.est_code or ""),
+            # [01864] Cómo se llama su foto dentro del paquete. Sin esta columna, el
+            # que abre el fichero tiene las filas por un lado y las fotos por
+            # otro y no sabe cuál es de cuál.
+            Col("m.rec.photo", lambda r: nombre_foto(r) or "", ANCHO_LARGO),
             Col("m.rec.breed", lambda r: r.breed or ""),
             Col("m.rec.slaughter", lambda r: r.slaughter_date),
             Col("m.rec.pack", lambda r: r.pack_date),
@@ -447,6 +457,71 @@ def libro(session: Session, restaurant_id: int, lang: str = "es") -> bytes:
     fuera = io.BytesIO()
     wb.save(fuera)
     return fuera.getvalue()
+
+
+def nombre_foto(pieza) -> str:
+    """[01865] Cómo se llama la foto de esa pieza dentro del paquete que se descarga.
+
+    Con el número del primal delante, y no el nombre con el que se guardó en el
+    servidor —que es un `uuid` y no le dice nada a nadie—: el que abra la
+    carpeta dentro de dos años busca por el número que sale en la fila.
+    """
+    ruta = (pieza.photo_ref or "").strip()
+    if not ruta:
+        return ""
+    extension = os.path.splitext(ruta)[1].lower() or ".jpg"
+    limpio = "".join(c if c.isalnum() or c in "-_" else "-" for c in (pieza.serial or ""))
+    return f"{FOTOS}/{limpio or pieza.id}{extension}"
+
+
+def paquete(session: Session, restaurant_id: int, lang: str, destino) -> dict:
+    """[01866] Todo lo de la casa en un `.zip`: el libro y **las fotos de las etiquetas**.
+
+    El libro solo llevaba filas. Y la foto de la etiqueta no es un adorno de la
+    fila: es **la prueba**. El matadero, el lote y la fecha de sacrificio están
+    escritos ahí, y lo que enseña un restaurante en una inspección es la
+    etiqueta, no una casilla de una hoja de cálculo que ha escrito él mismo.
+
+    Este módulo ya decía por qué existe: el (UE) 931/2011 art. 3(3) obliga al
+    restaurante a tener esa información recuperable, y el (CE) 852/2004 art.
+    5(4) a presentar la prueba y conservarla. Un cliente que se llevaba solo
+    las filas se llevaba media casa, y la mitad que faltaba era justo la que
+    vale como prueba.
+
+    Se escribe en el fichero que se le dé y no en memoria: la carpeta de fotos
+    de una casa de un año son un par de gigas, y meter eso en la memoria del
+    servidor que atiende a las demás es tirarlas a todas.
+    """
+    escrito = {"fotos": 0, "faltan": 0, "bytes": 0}
+    with zipfile.ZipFile(destino, "w", zipfile.ZIP_DEFLATED) as zip_:
+        zip_.writestr(LIBRO, libro(session, restaurant_id, lang))
+        vistos: set[str] = set()
+        piezas = (session.query(m.Primal)
+                  .filter(m.Primal.restaurant_id == restaurant_id,
+                          m.Primal.photo_ref.isnot(None))
+                  .order_by(m.Primal.id))
+        for pieza in piezas:
+            dentro = nombre_foto(pieza)
+            if not dentro or dentro in vistos:
+                continue
+            vistos.add(dentro)
+            try:
+                # Sin comprimir: un JPEG ya viene comprimido y apretarlo otra
+                # vez es gastar el procesador del servidor para nada.
+                zip_.write(pieza.photo_ref, dentro, zipfile.ZIP_STORED)
+                escrito["fotos"] += 1
+                escrito["bytes"] += os.path.getsize(pieza.photo_ref)
+            except OSError:
+                # [01867] Una foto que ya no está en el disco no puede dejar al cliente
+                # sin el resto de sus datos. Se apunta dentro del propio
+                # paquete, para que el que lo abra sepa que falta y cuál.
+                escrito["faltan"] += 1
+                vistos.discard(dentro)
+        if escrito["faltan"]:
+            zip_.writestr(f"{FOTOS}/FALTAN.txt", (
+                f"{escrito['faltan']} fotos constan en los datos y no estaban en el "
+                "disco del servidor al hacer esta copia.\n"))
+    return escrito
 
 
 def nombre_fichero(casa: str, hoy: date) -> str:
