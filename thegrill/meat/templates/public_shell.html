@@ -67,7 +67,15 @@
    estaba, se veía a medias y no se podía pulsar. Con esto, cuando el
    navegador acerca algo al borde de abajo deja libre lo que ocupa lo que
    flota. */
-html{scroll-behavior:smooth;scroll-padding-bottom:var(--flotante,220px)}
+/* Y lo mismo por arriba. La cabecera va pegada, así que cuando el navegador
+   acerca algo —una ancla, el campo al que se salta con el tabulador, el botón
+   de entrar— lo deja justo debajo del borde... y la cabecera se le pone
+   encima. Con el zoom del 400 % la ventana mide 256 px y la cabecera 66: el
+   botón de entrar quedaba debajo de ella, visible a medias y sin poder
+   pulsarse. `--cabecera` la mide el navegador; el número de repuesto es para
+   quien llegue sin guiones. */
+html{scroll-behavior:smooth;scroll-padding-bottom:var(--flotante,220px);
+  scroll-padding-top:var(--cabecera,90px)}
 body{margin:0;background:var(--bg);color:var(--ink);
   font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   -webkit-font-smoothing:antialiased}
@@ -328,6 +336,22 @@ footer a:hover{color:var(--ink)}
 @media (max-width:560px){
   #cookiebar form,#cookiebar button{width:100%}
   #cookiebar button{text-align:center}
+}
+/* El aviso no puede comerse la pantalla. Con el zoom del 400 % —que es lo que
+   usa quien ve poco: 1280 px vistos a 320— la ventana se queda en 256 px de
+   alto, y este aviso medía 206 en alemán y en húngaro. El ochenta por ciento
+   de la pantalla, en un aviso. Debajo no quedaba nada: ni la portada, ni el
+   botón de entrar, ni el de pedir acceso. Y para quitarlo hay que encontrar su
+   botón dentro de ese ochenta por ciento.
+
+   Con el tope, el aviso se queda en un tercio y se desliza por dentro si el
+   texto es largo: se lee entero igual, pero sin tapar la casa. El tercio es el
+   mismo número que se usa para el hueco de abajo, así que lo que había escrito
+   al final de la página se sigue leyendo. */
+@media (max-height:620px){
+  #cookiebar{max-height:33vh;overflow-y:auto;overscroll-behavior:contain;
+    padding:10px 12px;gap:10px;font-size:13px;line-height:1.35}
+  #cookiebar button{min-height:40px;padding:8px 14px}
 }
 /* El aviso flota sobre la página, así que hay que dejarle su hueco al final:
    si no, tapa lo último que hay escrito y en un teléfono eso son cinco o seis
@@ -712,6 +736,9 @@ if (window.caches) {
     .map(function (id) { return document.getElementById(id); })
     .filter(Boolean);
   if (!cajas.length) return;
+  // Y la cabecera va pegada arriba, así que lo mismo por ese lado: se mide
+  // para que el navegador no deje nada justo debajo de ella al acercarlo.
+  var cabecera = document.querySelector("header");
   function reservar() {
     // Cada barra que se ve, más los 24 px que se deja con la siguiente y con
     // el final de la página. Las que están escondidas no ocupan nada.
@@ -721,6 +748,10 @@ if (window.caches) {
     });
     document.documentElement.style.setProperty(
       "--flotante", alto ? alto + "px" : "0px");
+    if (cabecera) {
+      document.documentElement.style.setProperty(
+        "--cabecera", Math.round(cabecera.getBoundingClientRect().height) + 12 + "px");
+    }
   }
   reservar();
   window.addEventListener("resize", reservar);

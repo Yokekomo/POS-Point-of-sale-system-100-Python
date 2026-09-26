@@ -1626,3 +1626,83 @@ def test_a_phone_that_refuses_notifications_still_gets_the_rest(browser):
     assert apuntado == "9002", (
         "la vuelta se rompió en el primer aviso: el segundo no se ha mirado")
     context.close()
+
+
+# ------------------------- la pantalla de quien ve poco: el zoom del 400 %
+#
+# No es una postura del teléfono: es un monitor normal con la letra muy
+# grande. La norma de accesibilidad lo dice con números —1280 × 1024 al 400 %
+# son 320 × 256 de página— y es la pantalla de quien no ve bien de cerca, que
+# en una cocina son unos cuantos.
+ZOOM_400 = {"width": 320, "height": 256}
+
+
+@pytest.fixture(scope="module")
+def zoom_page(browser):
+    """La misma casa vista con la letra al 400 %."""
+    base, chromium = browser
+    context = chromium.new_context(viewport=ZOOM_400)
+    page = context.new_page()
+    entra(page, base)
+    yield base, page
+    context.close()
+
+
+def test_the_work_screens_reflow_when_the_letters_are_four_times_bigger(zoom_page):
+    """A 320 px de ancho no se arrastra la página de lado para leer un número.
+
+    A ese tamaño la ventana es más ancha que alta, así que el programa creía
+    que era un teléfono tumbado y sacaba la columna del ordenador: 184 px de
+    los 320. Catorce de diecisiete pantallas se desbordaban.
+    """
+    base, page = zoom_page
+    anchos = {}
+    for ruta in SCREENS:
+        page.goto(f"{base}{ruta}", wait_until="load")
+        anchos[ruta] = page.evaluate(
+            "() => [document.documentElement.scrollWidth, window.innerWidth]")
+    desbordadas = {r: v for r, v in anchos.items() if v[0] > v[1] + 1}
+    assert not desbordadas, desbordadas
+
+
+def test_the_side_column_gives_way_to_the_bottom_bar_at_that_size(zoom_page):
+    """Y lo que sale es la barra de abajo, no la columna del despacho."""
+    base, page = zoom_page
+    page.goto(f"{base}/hoy", wait_until="load")
+    visible = page.evaluate("""() => {
+        const ve = (s) => {
+            const el = document.querySelector(s);
+            if (!el) return false;
+            const e = getComputedStyle(el);
+            return e.display !== 'none' && el.getBoundingClientRect().width > 0;
+        };
+        return {columna: ve('.side'), barra: ve('.tabs')};
+    }""")
+    assert visible == {"columna": False, "barra": True}, visible
+
+
+def test_the_cookie_notice_never_eats_the_screen(browser):
+    """Con la letra al 400 % el aviso medía el ochenta por ciento de la pantalla.
+
+    Debajo no quedaba nada: ni la portada, ni el botón de entrar. Y para
+    quitarlo hay que encontrar su botón dentro de ese ochenta por ciento. Se
+    mide en los siete idiomas, porque el alemán y el húngaro son los largos.
+    """
+    from thegrill.web import i18n
+
+    base, chromium = browser
+    gordos = {}
+    for lang in i18n.LANGUAGES:
+        context = chromium.new_context(viewport=ZOOM_400,
+                                       extra_http_headers={"accept-language": lang})
+        page = context.new_page()
+        page.goto(f"{base}/", wait_until="load")
+        parte = page.evaluate("""() => {
+            const b = document.getElementById('cookiebar');
+            if (!b || b.hidden) return 0;
+            return b.getBoundingClientRect().height / window.innerHeight;
+        }""")
+        if parte > 0.36:
+            gordos[lang] = round(parte, 2)
+        context.close()
+    assert not gordos, gordos
