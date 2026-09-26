@@ -148,11 +148,21 @@ def test_losing_more_than_a_maturing_explains_raises_an_alert(ctx):
 
 
 def test_a_frozen_piece_is_weighed_without_the_aging_alarm(ctx):
+    """Congelada no madura: no salta la alarma **de maduración**.
+
+    Lo que este caso comprueba es que no se le cuente a nadie una maduración
+    que no ha existido. Antes decía además que no saltaba ninguna alarma, y de
+    cuatro kilos perdidos de diez en el arcón no se enteraba nadie: eso no era
+    «no hay nada que avisar», era el único sitio donde el programa se callaba
+    justo lo más raro que puede pasar. Congelada, la carne no pierde peso.
+    """
     s, rest, ana, _ = ctx
     pieza(s, rest, kg=10.0)
     aging.move(s, ana, "8017", Storage.FROZEN, on=HOY)
     r = aging.weigh(s, ana, "8017", 6.0, on=HOY + timedelta(days=30))
-    assert r.alert is None                       # congelada no madura: no hay nada que avisar
+    assert r.alert is not None
+    assert r.alert.code == "meat.cold_loss"      # y no la de maduración
+    assert r.alert.severity == AlertSeverity.CRITICAL
     assert r.cost_per_kg == pytest.approx(50.0)  # 300 € entre 6 kg
 
 
@@ -727,3 +737,66 @@ def test_the_yield_bands_only_look_at_what_is_still_worth_looking_at(ctx):
     s.flush()
     tramos = aging.yield_by_days(s, rest.id, on=HOY)
     assert tramos and tramos[0].pieces == 4, tramos
+
+
+# ------------------------------------- la que adelgaza donde no puede adelgazar
+def test_a_piece_that_shrinks_in_the_chiller_is_not_ageing_it_is_missing(ctx):
+    """El aviso estaba puesto justo donde adelgazar es normal, y callaba donde no.
+
+    Madurando, perder peso es lo que se espera: ahí el listón está donde una
+    maduración deja de explicarlo. En cámara normal o en el arcón no hay nada
+    que lo explique —una pieza entera y tapada pierde menos del uno por ciento
+    a la semana, y congelada no pierde nada—, y sin embargo era el único sitio
+    donde no se avisaba de nada. Una pieza de nueve kilos que aparecía con uno
+    en la cámara no levantaba ni una línea.
+
+    Lo que sobra ahí no se lo ha llevado el aire: es un despiece, una merma o
+    una venta que nadie apuntó.
+    """
+    from thegrill.models import Alert
+
+    s, rest, ana, _ = ctx
+    for n, almacen in enumerate((Storage.CHILLED, Storage.FROZEN)):
+        serial = f"70{n}"
+        p = pieza(s, rest, serial=serial)
+        p.storage = almacen
+        s.flush()
+        antes = s.query(Alert).count()
+        resultado = aging.weigh(s, ana, serial, 1.0, on=HOY)      # 9,0 kg -> 1,0 kg
+        nuevos = s.query(Alert).order_by(Alert.id).all()[antes:]
+        assert len(nuevos) == 1, f"{almacen.value}: nadie se enteró de un -89 %"
+        assert nuevos[0].severity == AlertSeverity.CRITICAL
+        assert nuevos[0].code == "meat.cold_loss"
+        # Y cuenta lo de esta pesada, no un proceso que no existe.
+        assert "8 kg" in nuevos[0].message and resultado.loss_kg == 8.0
+
+
+def test_the_scale_wobbling_in_the_chiller_does_not_wake_anyone(ctx):
+    """Un aviso que salta por nada deja de leerse, y entonces no avisa de nada."""
+    from thegrill.models import Alert
+
+    s, rest, ana, _ = ctx
+    p = pieza(s, rest, serial="711")
+    p.storage = Storage.CHILLED
+    s.flush()
+    antes = s.query(Alert).count()
+    aging.weigh(s, ana, "711", 8.8, on=HOY)                # -2,2 %: la balanza
+    assert s.query(Alert).count() == antes
+
+
+def test_ageing_keeps_its_own_thresholds(ctx):
+    """Lo de madurar no se toca: ahí el 3 % es el lunes de cualquier pieza."""
+    from thegrill.models import Alert
+
+    s, rest, ana, _ = ctx
+    p = pieza(s, rest, serial="712")
+    p.storage = Storage.AGING
+    p.aging_start_kg = 9.0
+    s.flush()
+    antes = s.query(Alert).count()
+    aging.weigh(s, ana, "712", 8.7, on=HOY)                # -3,3 % madurando: normal
+    assert s.query(Alert).count() == antes
+
+    aging.weigh(s, ana, "712", 7.5, on=HOY)                # -13,8 % de golpe: no
+    nuevos = s.query(Alert).order_by(Alert.id).all()[antes:]
+    assert len(nuevos) == 1 and nuevos[0].code == "aging.loss"

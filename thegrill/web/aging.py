@@ -43,6 +43,16 @@ EPSILON = 1e-9
 SINGLE_LOSS_PCT = 10.0      # de una pesada a la siguiente
 TOTAL_LOSS_PCT = 20.0       # desde que entró a madurar
 CRITICAL_LOSS_PCT = 30.0    # a partir de aquí no es maduración, es un problema
+
+# [01896] Y en cámara normal o en el arcón, donde la carne **no** se evapora. Una
+# pieza entera tapada pierde menos del uno por ciento a la semana; en el
+# congelador, nada. Así que aquí el listón es mucho más bajo que madurando, y
+# lo que sobra no lo explica el aire: lo explica un despiece, una merma o una
+# venta que nadie apuntó.
+# El 5 % deja sitio a lo único que sí explica unos kilos aquí: el agua que
+# suelta una pieza al descongelarse. Por encima de eso ya no es agua.
+FRIO_LOSS_PCT = 5.0         # de una pesada a la siguiente, sin madurar
+FRIO_CRITICAL_PCT = 10.0    # esto ya no es una báscula mal puesta
 GAIN_TOLERANCE_KG = 0.05    # la báscula tiene su juego; más que esto es un error
 TRIM_VALUE_INDEX = 0.25     # lo que vale un recorte frente al corte del que sale
 MAX_TRIM_PARTS = 3          # lo que sale aprovechable de una limpieza, en la práctica
@@ -529,29 +539,59 @@ def _pct(part: float, whole: float) -> float:
     return round(part / whole * 100, 2)
 
 
+def _cuanto_preocupa(result: WeighResult) -> tuple[AlertSeverity, str, str] | None:
+    """[01897] Si esta pesada merece un aviso, de qué gravedad y contando qué.
+
+    Madurando, perder peso es lo que se espera: el listón está donde una
+    maduración deja de explicarlo —un 10 % de golpe, un 20 % acumulado, un 30 %
+    ya es un problema— y por debajo no se molesta a nadie.
+
+    En cámara normal o en el arcón no hay nada que explique perder peso. Una
+    pieza entera y tapada pierde menos del uno por ciento a la semana y
+    congelada no pierde nada, así que un 3 % de una pesada a la siguiente ya
+    merece que alguien lo mire y un 10 % no es la báscula.
+
+    El aviso estaba solo para lo que madura, que es justo el sitio donde
+    adelgazar es normal, y callaba en los dos sitios donde no lo es. Una pieza
+    de nueve kilos que aparece con uno en la cámara no levantaba nada.
+    """
+    if result.storage == Storage.AGING:
+        if result.total_loss_pct >= CRITICAL_LOSS_PCT:
+            return AlertSeverity.CRITICAL, "aging.loss", "alert.aging_loss"
+        if result.total_loss_pct >= TOTAL_LOSS_PCT or result.loss_pct >= SINGLE_LOSS_PCT:
+            return AlertSeverity.WARNING, "aging.loss", "alert.aging_loss"
+        return None
+    if result.loss_pct >= FRIO_CRITICAL_PCT:
+        return AlertSeverity.CRITICAL, "meat.cold_loss", "alert.cold_loss"
+    if result.loss_pct >= FRIO_LOSS_PCT:
+        return AlertSeverity.WARNING, "meat.cold_loss", "alert.cold_loss"
+    return None
+
+
 def _announce(session: Session, user: User, result: WeighResult, lang: str) -> None:
-    """[00845] Avisa cuando la pieza pierde más de lo que una maduración explica."""
-    if result.storage != Storage.AGING:
+    """[00845] Avisa cuando la pieza pierde más de lo que su sitio explica."""
+    cuanto = _cuanto_preocupa(result)
+    if cuanto is None:
         return
-    severity = None
-    if result.total_loss_pct >= CRITICAL_LOSS_PCT:
-        severity = AlertSeverity.CRITICAL
-    elif result.total_loss_pct >= TOTAL_LOSS_PCT or result.loss_pct >= SINGLE_LOSS_PCT:
-        severity = AlertSeverity.WARNING
-    if severity is None:
-        return
+    severity, code, clave = cuanto
+    # Madurando se cuenta lo perdido desde que entró, que es la cifra del
+    # proceso. En frío se cuenta lo de **esta** pesada: no hay proceso ninguno,
+    # hay unos kilos que estaban ayer y hoy no.
+    madurando = result.storage == Storage.AGING
+    pct = result.total_loss_pct if madurando else result.loss_pct
+    kg = result.total_loss_kg if madurando else result.loss_kg
 
     now = datetime.utcnow()
-    alert = Alert(restaurant_id=user.restaurant_id, code="aging.loss",
-                  message=t(lang, "alert.aging_loss", serial=result.serial,
-                            sku=result.sku, pct=f"{result.total_loss_pct:.10g}",
-                            kg=f"{result.total_loss_kg:.10g}", days=result.days or 0),
+    alert = Alert(restaurant_id=user.restaurant_id, code=code,
+                  message=t(lang, clave, serial=result.serial, sku=result.sku,
+                            pct=f"{pct:.10g}", kg=f"{kg:.10g}", days=result.days or 0),
                   severity=severity, created_at=now)
     session.add(alert)
     session.flush()
     result.alert = alert
     targets = [uid for uid in service.manager_ids(session, user.restaurant_id) if uid != user.id]
-    service.notify(session, user.restaurant_id, targets, title=t(lang, "alert.aging_title"),
+    service.notify(session, user.restaurant_id, targets,
+                   title=t(lang, "alert.aging_title" if madurando else "alert.meat_title"),
                    body=alert.message, severity=severity, alert_id=alert.id, now=now)
 
 
