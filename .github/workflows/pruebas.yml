@@ -29,10 +29,15 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      # El `.lock` y no el `.txt`: el `.txt` admite versiones nuevas y el `.lock`
+      # dice las exactas con las que se construye la imagen que se despliega.
+      # Probando con el `.txt`, el verde de aquí no decía nada de lo que corre
+      # en el servidor del cliente, y al revés: una librería nueva podía poner
+      # esto en rojo sin que producción hubiera cambiado nada.
       - name: Instalar lo que hace falta
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.lock
           pip install playwright
 
       # `--with-deps` trae también las bibliotecas del sistema que Chromium

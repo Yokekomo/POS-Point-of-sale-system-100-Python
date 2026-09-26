@@ -14,9 +14,12 @@ $EDITOR .env                       # dominio, contraseña de la base y clave de 
 docker compose up -d --build
 
 # el dueño de la plataforma, solo la primera vez
-docker compose exec app python -m thegrill.cli \
+# Comillas simples alrededor de todo: `$GRILL_DB` tiene que expandirla el
+# contenedor, que es quien la conoce. Con comillas dobles la expande el shell
+# del host, donde esa variable no existe, y el comando recibe `--db ""`.
+docker compose exec app sh -c 'python -m thegrill.cli \
     --db "$GRILL_DB" crear-dueno \
-    --email tu@correo.com --nombre "Tu nombre" --password "una-clave-larga"
+    --email tu@correo.com --nombre "Tu nombre" --password "una-clave-larga"'
 ```
 
 Y ya está: `https://tu-dominio` sirve la web de venta con su certificado, y
@@ -116,7 +119,7 @@ y guardarlo.
   contacto cifrados no se recuperan.
 - **Purga de solicitudes en un cron**, para no guardar datos personales de más:
   ```
-  0 4 * * *  docker compose exec -T app python -m thegrill.cli --db "$GRILL_DB" purgar-solicitudes
+  0 4 * * *  docker compose exec -T app sh -c 'python -m thegrill.cli --db "$GRILL_DB" purgar-solicitudes'
   ```
 - **Vigilancia**: que alguien te avise si la web deja de responder. Uptime
   Kuma en la misma máquina, o el comprobador gratuito de cualquiera.
