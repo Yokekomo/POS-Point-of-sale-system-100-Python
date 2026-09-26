@@ -528,7 +528,13 @@ def de_cero(correo: str, pantalla: str) -> None:
 def test_a_tutorial_that_could_not_be_shown_is_not_burned(browser):
     """Un día sin nada que enseñar no puede gastar el tutorial de esa pantalla."""
     base, chromium = browser
-    context = telefono(chromium)
+    # Sin el trabajador de la web. Es lo que sirve la pantalla desde su propia
+    # copia cuando no hay señal —y está bien que lo haga—, pero una petición
+    # que sale de él no pasa por el desvío de abajo: llegaba la página de
+    # verdad, con sus anclajes, y esta prueba fallaba una de cada tantas según
+    # le diera tiempo al trabajador a ponerse en marcha. Aquí se mide otra
+    # cosa; el trabajador tiene sus propias pruebas.
+    context = telefono(chromium, service_workers="block")
     try:
         de_cero("paco0@banco.com", "merma")
         page = context.new_page()
@@ -553,6 +559,10 @@ def test_a_tutorial_that_could_not_be_shown_is_not_burned(browser):
         page.route("**/merma", sin_anclajes)
         page.goto(f"{base}/merma")
         page.wait_for_timeout(700)
+        # Que el desvío haya llegado a usarse: si no, lo que se está midiendo
+        # es una página que nadie ha tocado, y el verde no vale nada.
+        assert page.evaluate("document.querySelectorAll('[data-nada]').length") > 0, \
+            "la página llegó sin pasar por el desvío: esta prueba no ha medido nada"
         assert page.locator(".driver-popover").count() == 0, "salió sin sus anclajes"
 
         with db.session_scope() as session:
