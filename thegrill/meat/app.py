@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 
 from thegrill import config, db, version
 from thegrill.meat import (billing, bugs, exportar, gateway, mailer, novedades, perms,
-                           privacy, security, tarifa, tours, tutorial)
+                           privacy, pruebas, security, tarifa, tours, tutorial)
 from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
 from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, CountPeriod,
@@ -2693,6 +2693,38 @@ def group_payment(request: Request, group: str = Form(...), action: str = Form("
         elif action == "block":
             billing.mark_unpaid(session, user, casa, block=True, note=note.strip() or None)
     return RedirectResponse("/admin?done=1", status_code=303)
+
+
+@app.get("/admin/pruebas", response_class=HTMLResponse)
+def tests_page(request: Request, ctx=Depends(require_owner),
+               session: Session = Depends(get_db)):
+    """[01778] Pasar las pruebas aquí, en el servidor que atiende a los clientes.
+
+    Las pruebas se pasan en el ordenador de quien programa y en el servidor de
+    integración, y las dos cosas comprueban **otra máquina**: otro Python, otro
+    disco, otro reloj, otra zona horaria. Lo que solo se rompe en el servidor de
+    verdad —una zona horaria que no está instalada, una columna que no volvió
+    sola al actualizar, un disco lleno— no se ve de ninguna otra forma, y lo que
+    llega es un cliente diciendo que «no va».
+    """
+    user, auth_session = ctx
+    return page(request, "tests.html", user, auth_session, session,
+                grupos=pruebas.GRUPOS, tanda=pruebas.ultima())
+
+
+@app.post("/admin/pruebas")
+def run_tests(request: Request, grupo: str = Form("rapidas"), csrf: str = Form(""),
+              ctx=Depends(require_owner), session: Session = Depends(get_db)):
+    """[01779] Arranca una pasada. Si ya hay una en marcha, no arranca otra.
+
+    Dos pasadas de la suite a la vez en la máquina que atiende a los clientes es
+    exactamente lo que no hay que hacer, así que el candado está en el módulo y
+    no en la pantalla: da igual cuántas pestañas se abran.
+    """
+    user, auth_session = ctx
+    _guard(request, session, user, auth_session, csrf)
+    pruebas.lanzar(grupo, user.email)
+    return RedirectResponse("/admin/pruebas", status_code=303)
 
 
 def _vuelta(volver: str, mercado: str, aviso: str) -> str:

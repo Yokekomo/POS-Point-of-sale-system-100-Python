@@ -141,6 +141,16 @@
 {% endif %}
 </div>
 
+{% if can("platform") %}
+{# [01780] El enlace a las pruebas, aquí. Es lo primero que se mira cuando algo huele
+   mal en el servidor de verdad, y estaba en ninguna parte. #}
+<div class="card rowflex" style="align-items:center;gap:10px">
+  <div style="flex:1"><b>{{ t("test.title") }}</b>
+    <div class="muted">{{ t("test.sub") }}</div></div>
+  <a class="btn ghost" href="/admin/pruebas">{{ t("test.run") }}</a>
+</div>
+{% endif %}
+
 {% if can("platform") and mercados is defined %}
 {# [01762] El configurador de la tarifa, aquí y no en la consola de cuentas.
 

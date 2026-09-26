@@ -1,0 +1,65 @@
+{% extends "base.html" %}{% block title %}{{ t("test.title") }}{% endblock %}
+{% block body %}
+<h1>{{ t("test.title") }}</h1>
+<p class="sub">{{ t("test.sub") }}</p>
+
+{# [01776] Mientras corre, la pantalla se recarga sola. Con una etiqueta del navegador
+   y no con un guion: así funciona también si el guion no llega —que es medio
+   motivo por el que existe esta pantalla— y no hay nada que mantener. #}
+{% if tanda and tanda.corriendo %}
+<meta http-equiv="refresh" content="5">
+<div class="banner warn" role="alert" tabindex="-1">{{ t("test.running") }}</div>
+{% endif %}
+
+<div class="card">
+<form method="post" action="/admin/pruebas">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label for="grupo">{{ t("test.group") }}</label>
+  <select id="grupo" name="grupo">
+    {% for codigo, g in grupos.items() %}
+    <option value="{{ codigo }}" {% if tanda and tanda.grupo == codigo %}selected{% endif %}>
+      {{ t("grupo." ~ codigo) }} · {{ t("test.minutes", n=g.minutos) }}</option>
+    {% endfor %}
+  </select>
+  <button class="wide" style="margin-top:12px" type="submit"
+          {% if tanda and tanda.corriendo %}disabled{% endif %}>{{ t("test.run") }}</button>
+</form>
+<div class="help" style="margin-top:10px">{{ t("test.safe") }}</div>
+</div>
+
+{% if tanda and not tanda.corriendo %}
+<div class="sum" style="margin-top:20px">
+  <div><small>{{ t("test.passed") }}</small><b>{{ tanda.pasan }}</b></div>
+  <div><small>{{ t("test.failed") }}</small><b>{{ tanda.fallos | length }}</b></div>
+  <div><small>{{ t("test.skipped") }}</small><b>{{ tanda.saltadas }}</b></div>
+  <div><small>{{ t("common.date") }}</small><b>{{ "%.0f"|format(tanda.segundos) }} s</b></div>
+</div>
+
+{% if tanda.error %}
+<div class="banner bad" role="alert" tabindex="-1" style="margin-top:14px">
+  <b>{{ tanda.error }}</b></div>
+{% elif tanda.fallos %}
+{# [01777] Cada fallo con su número de comentario delante. Todo el programa está
+   numerado para esto: «se rompió en el 01683» lleva directo al sitio, y el
+   número no cambia aunque alguien añada tres renglones por encima. #}
+<div class="card scroll" style="margin-top:14px">
+<table>
+<tr><th>{{ t("test.number") }}</th><th>{{ t("form.record") }}</th><th>{{ t("common.note") if t("common.note") != "common.note" else "" }}</th></tr>
+{% for f in tanda.fallos %}
+<tr>
+  <td><b>{% if f.numero %}{{ f.numero }}{% else %}—{% endif %}</b></td>
+  <td>{{ f.prueba }}<div class="muted">{{ f.fichero }}:{{ f.linea }}</div></td>
+  <td class="muted">{{ f.porque }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% else %}
+<div class="banner ok" role="status" style="margin-top:14px">{{ t("test.all_good") }}</div>
+{% endif %}
+
+{% if tanda.saltadas %}
+<p class="help">{{ t("test.skipped_help") }}</p>
+{% endif %}
+{% endif %}
+{% endblock %}
