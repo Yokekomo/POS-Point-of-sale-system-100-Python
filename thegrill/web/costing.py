@@ -31,7 +31,7 @@ from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, Ingredient,
                              MovementKind, PosMatch, PosProduct, Recipe, RecipeKind,
                              Restaurant, SalesByProduct, Site, User)
 from thegrill.web import jornada, locking, service, sites
-from thegrill.web.i18n import DEFAULT_LANG, t
+from thegrill.web.i18n import DEFAULT_LANG, Aviso, t
 
 EPSILON = 1e-9
 
@@ -190,9 +190,9 @@ def receive(session: Session, user: User, item: IngredientItem, qty: float, unit
             on: date | None = None) -> IngredientLot:
     """[01076] Da de alta un lote y deja su movimiento de entrada."""
     if qty <= 0:
-        raise ValueError("La cantidad recibida tiene que ser mayor que cero")
+        raise ValueError(Aviso("err.co.qty_zero"))
     if unit_cost < 0:
-        raise ValueError("El precio no puede ser negativo")
+        raise ValueError(Aviso("err.co.price_neg"))
     on = on or received or jornada.del_usuario(session, user)
     lot = IngredientLot(restaurant_id=user.restaurant_id, item_id=item.id,
                         ingredient_id=item.ingredient_id, lot_code=lot_code, expiry=expiry,
@@ -311,7 +311,7 @@ def consume_sales(session: Session, user: User, sales: list[tuple],
     result = ConsumptionResult(date=on)
     donde = sites.of_user(session, user) if site_id is None else session.get(Site, site_id)
     if donde is not None and donde.restaurant_id != user.restaurant_id:
-        raise ValueError("Esa sede no es de esta casa")
+        raise ValueError(Aviso("err.co.site_other_house"))
     site_id = donde.id if donde is not None else None
     result.site = donde.name if donde is not None else ""
 

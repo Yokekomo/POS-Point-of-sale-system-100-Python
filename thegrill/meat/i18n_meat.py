@@ -786,6 +786,24 @@ ES = {
     "alert.frozen_warm": "{serial} bajó del camión a {c} °C. Congelado tiene que venir a {limit} °C o menos.",
     "alert.arrival_cold": "{serial} bajó del camión a {c} °C, por debajo de {limit} °C: se ha congelado en el viaje.",
     "alert.heavy_piece": "{serial} pesa {kg} kg, más de {limit} kg. Compruébalo antes de que entre en cámara.",
+
+    # [01819] ---- los avisos de trabajo: lo que salta cuando algo no cuadra
+    #                (ver thegrill/web/i18n.Aviso)
+    'err.mt.cut_name': 'El corte necesita un nombre',
+    'err.mt.cut_dup': 'Ya hay un corte llamado {name}',
+    'err.mt.item_name': 'El artículo necesita un nombre',
+    'err.mt.ing_name': 'El ingrediente necesita un nombre',
+    'err.mt.ing_dup': 'Ya hay un ingrediente llamado {name}',
+    'err.mt.cost_neg': 'El coste no puede ser negativo',
+    'err.mt.portion_zero': 'La porción tiene que ser mayor que cero',
+    'err.mt.portion_neg': 'La porción no puede ser negativa',
+    'err.mt.ing_other_house': 'Ese ingrediente no es de este restaurante',
+    'err.mt.tg_needed': 'El despiece necesita su número',
+    'err.mt.tg_dup': 'Ya hay un despiece con el número {tg}',
+    'err.mt.dish_name': 'El plato necesita un nombre',
+    'err.mt.dish_dup': 'Ya hay un plato llamado {name}',
+    'err.mt.trim_pct': 'La merma de limpieza va entre 0 y 100',
+    'err.mt.line_other_dish': 'Esa línea no es de este plato',
 }
 
 EN = {
@@ -1557,6 +1575,24 @@ EN = {
     "alert.frozen_warm": "{serial} came off the lorry at {c} °C. Frozen has to arrive at {limit} °C or below.",
     "alert.arrival_cold": "{serial} came off the lorry at {c} °C, below {limit} °C: it froze on the way.",
     "alert.heavy_piece": "{serial} weighs {kg} kg, over {limit} kg. Check it before it goes into the chiller.",
+
+    # [01819] ---- los avisos de trabajo: lo que salta cuando algo no cuadra
+    #                (ver thegrill/web/i18n.Aviso)
+    'err.mt.cut_name': 'The cut needs a name',
+    'err.mt.cut_dup': 'There is already a cut called {name}',
+    'err.mt.item_name': 'The article needs a name',
+    'err.mt.ing_name': 'The ingredient needs a name',
+    'err.mt.ing_dup': 'There is already an ingredient called {name}',
+    'err.mt.cost_neg': 'The cost cannot be negative',
+    'err.mt.portion_zero': 'The portion has to be more than zero',
+    'err.mt.portion_neg': 'The portion cannot be negative',
+    'err.mt.ing_other_house': 'That ingredient is not of this restaurant',
+    'err.mt.tg_needed': 'The butchery needs its number',
+    'err.mt.tg_dup': 'There is already a butchery numbered {tg}',
+    'err.mt.dish_name': 'The dish needs a name',
+    'err.mt.dish_dup': 'There is already a dish called {name}',
+    'err.mt.trim_pct': 'The trim waste goes between 0 and 100',
+    'err.mt.line_other_dish': 'That line is not of this dish',
 }
 
 FR = {
@@ -2328,6 +2364,24 @@ FR = {
     "alert.frozen_warm": "{serial} est descendue du camion à {c} °C. Le surgelé doit arriver à {limit} °C ou moins.",
     "alert.arrival_cold": "{serial} est descendue du camion à {c} °C, sous {limit} °C : elle a gelé en route.",
     "alert.heavy_piece": "{serial} pèse {kg} kg, plus de {limit} kg. Vérifiez avant de la mettre en chambre.",
+
+    # [01819] ---- los avisos de trabajo: lo que salta cuando algo no cuadra
+    #                (ver thegrill/web/i18n.Aviso)
+    'err.mt.cut_name': "La découpe a besoin d'un nom",
+    'err.mt.cut_dup': "Il y a déjà une découpe qui s'appelle {name}",
+    'err.mt.item_name': "L'article a besoin d'un nom",
+    'err.mt.ing_name': "L'ingrédient a besoin d'un nom",
+    'err.mt.ing_dup': "Il y a déjà un ingrédient qui s'appelle {name}",
+    'err.mt.cost_neg': 'Le coût ne peut pas être négatif',
+    'err.mt.portion_zero': 'La portion doit être supérieure à zéro',
+    'err.mt.portion_neg': 'La portion ne peut pas être négative',
+    'err.mt.ing_other_house': "Cet ingrédient n'est pas de ce restaurant",
+    'err.mt.tg_needed': 'La découpe a besoin de son numéro',
+    'err.mt.tg_dup': 'Il y a déjà une découpe avec le numéro {tg}',
+    'err.mt.dish_name': "Le plat a besoin d'un nom",
+    'err.mt.dish_dup': "Il y a déjà un plat qui s'appelle {name}",
+    'err.mt.trim_pct': 'La perte de parage va de 0 à 100',
+    'err.mt.line_other_dish': "Cette ligne n'est pas de ce plat",
 }
 
 DE = {
@@ -3099,6 +3153,24 @@ DE = {
     "alert.frozen_warm": "{serial} kam mit {c} °C vom Lkw. Tiefgekühlt muss mit {limit} °C oder weniger ankommen.",
     "alert.arrival_cold": "{serial} kam mit {c} °C vom Lkw, unter {limit} °C: unterwegs eingefroren.",
     "alert.heavy_piece": "{serial} wiegt {kg} kg, mehr als {limit} kg. Prüfe es, bevor es in die Kammer geht.",
+
+    # [01819] ---- los avisos de trabajo: lo que salta cuando algo no cuadra
+    #                (ver thegrill/web/i18n.Aviso)
+    'err.mt.cut_name': 'Der Zuschnitt braucht einen Namen',
+    'err.mt.cut_dup': 'Es gibt schon einen Zuschnitt namens {name}',
+    'err.mt.item_name': 'Der Artikel braucht einen Namen',
+    'err.mt.ing_name': 'Die Zutat braucht einen Namen',
+    'err.mt.ing_dup': 'Es gibt schon eine Zutat namens {name}',
+    'err.mt.cost_neg': 'Die Kosten dürfen nicht negativ sein',
+    'err.mt.portion_zero': 'Die Portion muss über null sein',
+    'err.mt.portion_neg': 'Die Portion darf nicht negativ sein',
+    'err.mt.ing_other_house': 'Diese Zutat gehört nicht zu diesem Restaurant',
+    'err.mt.tg_needed': 'Die Zerlegung braucht ihre Nummer',
+    'err.mt.tg_dup': 'Es gibt schon eine Zerlegung mit der Nummer {tg}',
+    'err.mt.dish_name': 'Das Gericht braucht einen Namen',
+    'err.mt.dish_dup': 'Es gibt schon ein Gericht namens {name}',
+    'err.mt.trim_pct': 'Der Parierverlust liegt zwischen 0 und 100',
+    'err.mt.line_other_dish': 'Diese Zeile gehört nicht zu diesem Gericht',
 }
 
 NL = {
@@ -3870,6 +3942,24 @@ NL = {
     "alert.frozen_warm": "{serial} kwam van de wagen op {c} °C. Diepvries moet op {limit} °C of lager aankomen.",
     "alert.arrival_cold": "{serial} kwam van de wagen op {c} °C, onder {limit} °C: onderweg bevroren.",
     "alert.heavy_piece": "{serial} weegt {kg} kg, meer dan {limit} kg. Controleer het voor het de koeling in gaat.",
+
+    # [01819] ---- los avisos de trabajo: lo que salta cuando algo no cuadra
+    #                (ver thegrill/web/i18n.Aviso)
+    'err.mt.cut_name': 'Het deelstuk heeft een naam nodig',
+    'err.mt.cut_dup': 'Er is al een deelstuk dat {name} heet',
+    'err.mt.item_name': 'Het artikel heeft een naam nodig',
+    'err.mt.ing_name': 'Het ingrediënt heeft een naam nodig',
+    'err.mt.ing_dup': 'Er is al een ingrediënt dat {name} heet',
+    'err.mt.cost_neg': 'De kostprijs kan niet negatief zijn',
+    'err.mt.portion_zero': 'De portie moet meer dan nul zijn',
+    'err.mt.portion_neg': 'De portie kan niet negatief zijn',
+    'err.mt.ing_other_house': 'Dat ingrediënt hoort bij een ander restaurant',
+    'err.mt.tg_needed': 'De uitsnijding heeft zijn nummer nodig',
+    'err.mt.tg_dup': 'Er is al een uitsnijding met nummer {tg}',
+    'err.mt.dish_name': 'Het gerecht heeft een naam nodig',
+    'err.mt.dish_dup': 'Er is al een gerecht dat {name} heet',
+    'err.mt.trim_pct': 'De derving bij het bijsnijden ligt tussen 0 en 100',
+    'err.mt.line_other_dish': 'Die regel hoort bij een ander gerecht',
 }
 
 AR = {
@@ -4641,6 +4731,24 @@ AR = {
     "alert.frozen_warm": "نزلت {serial} من الشاحنة عند {c} °م. المجمَّد يجب أن يصل عند {limit} °م أو أقل.",
     "alert.arrival_cold": "نزلت {serial} من الشاحنة عند {c} °م، دون {limit} °م: تجمدت في الطريق.",
     "alert.heavy_piece": "تزن {serial} مقدار {kg} كجم، أكثر من {limit} كجم. تحقق قبل إدخالها الغرفة.",
+
+    # [01819] ---- los avisos de trabajo: lo que salta cuando algo no cuadra
+    #                (ver thegrill/web/i18n.Aviso)
+    'err.mt.cut_name': 'القطعية تحتاج اسماً',
+    'err.mt.cut_dup': 'توجد قطعية اسمها {name} من قبل',
+    'err.mt.item_name': 'الصنف يحتاج اسماً',
+    'err.mt.ing_name': 'المكوّن يحتاج اسماً',
+    'err.mt.ing_dup': 'يوجد مكوّن اسمه {name} من قبل',
+    'err.mt.cost_neg': 'التكلفة لا تكون بالسالب',
+    'err.mt.portion_zero': 'الحصة لا بد أن تكون أكبر من صفر',
+    'err.mt.portion_neg': 'الحصة لا تكون بالسالب',
+    'err.mt.ing_other_house': 'هذا المكوّن ليس من هذا المطعم',
+    'err.mt.tg_needed': 'التقطيع يحتاج رقمه',
+    'err.mt.tg_dup': 'يوجد تقطيع بالرقم {tg} من قبل',
+    'err.mt.dish_name': 'الطبق يحتاج اسماً',
+    'err.mt.dish_dup': 'يوجد طبق اسمه {name} من قبل',
+    'err.mt.trim_pct': 'نسبة هدر التنظيف بين 0 و100',
+    'err.mt.line_other_dish': 'هذا السطر ليس من هذا الطبق',
 }
 
 
@@ -5414,6 +5522,24 @@ HU = {
     "alert.frozen_warm": "{serial} {c} °C-on jött le a kocsiról. A fagyasztottnak {limit} °C-on vagy az alatt kell érkeznie.",
     "alert.arrival_cold": "{serial} {c} °C-on jött le a kocsiról, {limit} °C alatt: útközben lefagyott.",
     "alert.heavy_piece": "{serial} súlya {kg} kg, több mint {limit} kg. Ellenőrizd, mielőtt hűtőbe kerül.",
+
+    # [01819] ---- los avisos de trabajo: lo que salta cuando algo no cuadra
+    #                (ver thegrill/web/i18n.Aviso)
+    'err.mt.cut_name': 'A szeletnek kell egy név',
+    'err.mt.cut_dup': 'Már van {name} nevű szelet',
+    'err.mt.item_name': 'A cikknek kell egy név',
+    'err.mt.ing_name': 'Az alapanyagnak kell egy név',
+    'err.mt.ing_dup': 'Már van {name} nevű alapanyag',
+    'err.mt.cost_neg': 'A költség nem lehet negatív',
+    'err.mt.portion_zero': 'Az adagnak nullánál nagyobbnak kell lennie',
+    'err.mt.portion_neg': 'Az adag nem lehet negatív',
+    'err.mt.ing_other_house': 'Az az alapanyag nem ehhez az étteremhez tartozik',
+    'err.mt.tg_needed': 'A bontásnak kell a száma',
+    'err.mt.tg_dup': 'Már van {tg} számú bontás',
+    'err.mt.dish_name': 'Az ételnek kell egy név',
+    'err.mt.dish_dup': 'Már van {name} nevű étel',
+    'err.mt.trim_pct': 'A tisztítási veszteség 0 és 100 között van',
+    'err.mt.line_other_dish': 'Az a sor nem ehhez az ételhez tartozik',
 }
 
 CATALOGUES = {"es": ES, "en": EN, "fr": FR, "de": DE, "nl": NL, "ar": AR, "hu": HU}

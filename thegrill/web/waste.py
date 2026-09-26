@@ -21,7 +21,7 @@ from thegrill.models import (Alert, AlertSeverity, Ingredient, IngredientLot,
                              IngredientMovement, LossKind, MovementKind, Primal,
                              PrimalWeighing, User)
 from thegrill.web import costing, jornada, locking, rangos, service, sites
-from thegrill.web.i18n import t
+from thegrill.web.i18n import Aviso, t
 
 EPSILON = 1e-9
 
@@ -63,27 +63,26 @@ def record(session: Session, user: User, kg: float, serial: str | None = None,
     cuyo caso se tira del lote que toque por rotación.
     """
     if kg <= 0:
-        raise WasteError("Los kilos tirados tienen que ser mayores que cero")
+        raise WasteError(Aviso("err.wa.kg_zero"))
     rangos.peso_corte(kg, lang or "es")
     if pieces is not None and pieces < 0:
-        raise WasteError("Las piezas no pueden ser negativas")
+        raise WasteError(Aviso("err.wa.units_neg"))
     on = on or jornada.del_usuario(session, user)
     lang = lang or service.restaurant_language(session, user.restaurant_id)
 
     lot = _find_lot(session, user, serial, ingredient_id)
     if kg > lot.qty_remaining + EPSILON:
-        raise WasteError(
-            f"Se quieren tirar {kg:.10g} y del lote {lot.serial or lot.id} solo "
-            f"quedan {lot.qty_remaining:.10g}. Una merma no puede dejar el stock en negativo.")
+        raise WasteError(Aviso("err.wa.short", kg=f"{kg:.10g}",
+                               serial=lot.serial or lot.id,
+                               queda=f"{lot.qty_remaining:.10g}"))
 
     ingredient = session.get(Ingredient, lot.ingredient_id)
     before = lot.unit_cost
     value = round(lot.qty_remaining * lot.unit_cost, 6)   # lo que valía el lote entero
     thrown = round(kg * lot.unit_cost, 6)
     if not locking.take(session, IngredientLot, lot.id, "qty_remaining", kg):
-        raise WasteError(
-            f"Del lote {lot.serial or lot.id} ya no quedan {kg:.10g} kg: otra persona "
-            "acaba de gastarlos. Mira lo que queda y repítelo.")
+        raise WasteError(Aviso("err.wa.gone", serial=lot.serial or lot.id,
+                               kg=f"{kg:.10g}"))
 
     absorbed = False
     if absorb and lot.qty_remaining > EPSILON:
@@ -118,28 +117,29 @@ def _find_lot(session: Session, user: User, serial: str | None,
         lot = (session.query(IngredientLot)
                .filter_by(restaurant_id=user.restaurant_id, serial=serial.strip()).first())
         if lot is None:
-            raise WasteError(f"No hay ninguna pieza con el serial {serial}")
+            raise WasteError(Aviso("err.wa.no_lot", serial=serial))
         if lot.qty_remaining <= EPSILON:
-            raise WasteError(f"Del lote {serial} no queda nada que tirar")
+            raise WasteError(Aviso("err.wa.empty", serial=serial))
         try:
             sites.guard(session, user, lot)   # no se tira la carne de otra sede
         except sites.SiteError as e:
-            raise WasteError(str(e)) from None
+            raise WasteError(*e.args) from None
         return lot
     if ingredient_id:
         ingredient = session.get(Ingredient, ingredient_id)
         if ingredient is None or ingredient.restaurant_id != user.restaurant_id:
-            raise WasteError("Ese ingrediente no es de este restaurante")
+            raise WasteError(Aviso("err.wa.ing_other_house"))
         # [01531] La merma sale de donde está quien la apunta: el que tira carne en el
         # local no está tirando la del obrador.
         mia = sites.of_user(session, user)
         lots = costing.rotation_order(session, user.restaurant_id, ingredient,
                                       site_id=mia.id if mia else None)
         if not lots:
-            raise WasteError(f"No queda stock de {ingredient.name}"
-                             + (f" en {mia.name}" if mia else ""))
+            raise WasteError(Aviso("err.wa.no_stock_site", name=ingredient.name,
+                                   site=mia.name) if mia else
+                             Aviso("err.wa.no_stock", name=ingredient.name))
         return lots[0]
-    raise WasteError("Hay que decir de qué pieza o de qué ingrediente es la merma")
+    raise WasteError(Aviso("err.wa.what"))
 
 
 def _ref(lot: IngredientLot, pieces: int | None, reason: str | None) -> str:

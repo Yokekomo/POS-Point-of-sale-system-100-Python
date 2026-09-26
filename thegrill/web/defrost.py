@@ -27,7 +27,7 @@ from thegrill.models import (Alert, AlertSeverity, ConsumptionMode, DefrostEntry
                              Ingredient, IngredientLot, IngredientMovement, MovementKind,
                              SalesByProduct, ShiftClosure, User)
 from thegrill.web import aging, caducidad, costing, jornada, locking, service, sites
-from thegrill.web.i18n import t
+from thegrill.web.i18n import Aviso, t
 
 EPSILON = 1e-6
 
@@ -77,7 +77,7 @@ def _lot_by_serial(session: Session, restaurant_id: int, serial: str) -> Ingredi
     lot = (session.query(IngredientLot)
            .filter_by(restaurant_id=restaurant_id, serial=serial).first())
     if lot is None:
-        raise DefrostError(f"No hay ninguna pieza con el serial {serial}")
+        raise DefrostError(Aviso("err.df.no_lot", serial=serial))
     return lot
 
 
@@ -88,7 +88,7 @@ def _thaw_serial(session: Session, restaurant_id: int, base: str) -> str:
         if not (session.query(IngredientLot)
                 .filter_by(restaurant_id=restaurant_id, serial=candidate).first()):
             return candidate
-    raise DefrostError(f"Demasiadas salidas del congelador del lote {base}")
+    raise DefrostError(Aviso("err.df.too_many", base=base))
 
 
 def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
@@ -106,9 +106,7 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
     if not lot.frozen:
         return lot
     if kg <= EPSILON:
-        raise DefrostError(
-            f"Para sacar del congelador el número {lot.serial} hace falta su peso: "
-            f"es lo que deja de estar en espera.")
+        raise DefrostError(Aviso("err.df.no_weight", serial=lot.serial))
     dia = on or jornada.del_usuario(session, user)
     casa = caducidad.de_la_casa(session, lot.restaurant_id)
     if kg >= lot.qty_remaining - EPSILON:
@@ -133,9 +131,8 @@ def thaw(session: Session, user: User, lot: IngredientLot, kg: float,
     # salido de ninguna parte. Un error que se ve se arregla; uno que deja
     # carne inventada en el inventario no lo ve nadie hasta el recuento.
     if not locking.take(session, IngredientLot, lot.id, "qty_remaining", movido):
-        raise DefrostError(
-            f"Del número {lot.serial} ya no quedan {movido:.10g} kg en el congelador: "
-            "otra persona acaba de sacarlos. Mira lo que queda y repítelo.")
+        raise DefrostError(Aviso("err.df.gone", serial=lot.serial,
+                                 kg=f"{movido:.10g}"))
     if salen:
         lot.pieces = max(0, (lot.pieces or 0) - salen)
     hijo = IngredientLot(
@@ -165,12 +162,12 @@ def record(session: Session, user: User, kind: DefrostKind, serial: str, pieces:
            note: str | None = None) -> DefrostEntry:
     """[01130] Apunta una salida a descongelar o un recuento de cierre."""
     if pieces < 0 or total_kg < 0:
-        raise DefrostError("Ni las piezas ni el peso pueden ser negativos")
+        raise DefrostError(Aviso("err.df.neg"))
     lot = _lot_by_serial(session, user.restaurant_id, serial)
     try:
         sites.guard(session, user, lot)       # ese arcón no se abre desde aquí
     except sites.SiteError as e:
-        raise DefrostError(str(e)) from None
+        raise DefrostError(*e.args) from None
     if kind == DefrostKind.INTAKE and lot.frozen:
         # [01156] Lo que sale del arcón deja de estar en espera, y lo que se queda no.
         lot = thaw(session, user, lot, total_kg, pieces, on=on or jornada.del_usuario(session, user))
@@ -467,7 +464,7 @@ def _claim_shift(session: Session, user: User, result: ShiftClose,
         if not locking.claim(session, ShiftClosure, row.id,
                              {"closed_at": row.closed_at},
                              {"closed_at": datetime.utcnow()}):
-            raise DefrostError(t(lang, "defrost.closing_now"))
+            raise DefrostError(Aviso("defrost.closing_now"))
         return row
     row = ShiftClosure(restaurant_id=user.restaurant_id, date=result.date,
                        shift=result.shift or "", site_id=site_id,
@@ -480,7 +477,7 @@ def _claim_shift(session: Session, user: User, result: ShiftClose,
         # Se deshace lo de aquí entero —que no había tocado la cámara todavía—
         # y se le dice que mire cómo ha quedado el turno.
         session.rollback()
-        raise DefrostError(t(lang, "defrost.closing_now")) from None
+        raise DefrostError(Aviso("defrost.closing_now")) from None
     return row
 
 

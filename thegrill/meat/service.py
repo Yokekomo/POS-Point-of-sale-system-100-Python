@@ -30,7 +30,7 @@ from thegrill.web import waste as waste_mod
 from thegrill.web import service as plataforma
 from thegrill.web import (butchery, costing, defrost, exacto, inventory, jornada,
                           locking, rangos, sites)
-from thegrill.web.i18n import t
+from thegrill.web.i18n import Aviso, t
 
 MAX_CUTS = 10
 # [00621] En cocina se habla en gramos, no en kilos. Cada unidad base tiene su unidad
@@ -559,10 +559,10 @@ def create_cut(session: Session, user: User, name: str, min_stock: float | None 
     """
     name = name.strip()
     if not name:
-        raise MeatError("El corte necesita un nombre")
+        raise MeatError(Aviso("err.mt.cut_name"))
     if (session.query(Ingredient)
             .filter_by(restaurant_id=user.restaurant_id, name=name).first()):
-        raise MeatError(f"Ya hay un corte llamado {name}")
+        raise MeatError(Aviso("err.mt.cut_dup", name=name))
     cut = Ingredient(restaurant_id=user.restaurant_id, name=name, unit=Unit.KG,
                      rotation=rotation, consumption=consumption,
                      min_stock=min_stock, category=CATEGORY,
@@ -577,7 +577,7 @@ def add_article(session: Session, user: User, cut: Ingredient, name: str,
     """[00580] Una procedencia concreta del mismo corte. Todas se gastan en una cola."""
     name = name.strip()
     if not name:
-        raise MeatError("El artículo necesita un nombre")
+        raise MeatError(Aviso("err.mt.item_name"))
     item = IngredientItem(restaurant_id=user.restaurant_id, ingredient_id=cut.id,
                           name=name, supplier=(supplier or None))
     session.add(item)
@@ -628,14 +628,14 @@ def create_extra(session: Session, user: User, name: str, unit: Unit = Unit.KG,
     """
     name = name.strip()
     if not name:
-        raise MeatError("El ingrediente necesita un nombre")
+        raise MeatError(Aviso("err.mt.ing_name"))
     if (session.query(Ingredient)
             .filter_by(restaurant_id=user.restaurant_id, name=name).first()):
-        raise MeatError(f"Ya hay un ingrediente llamado {name}")
+        raise MeatError(Aviso("err.mt.ing_dup", name=name))
     if cost is not None and cost < 0:
-        raise MeatError("El coste no puede ser negativo")
+        raise MeatError(Aviso("err.mt.cost_neg"))
     if portion_g is not None and portion_g <= 0:
-        raise MeatError("La porción tiene que ser mayor que cero")
+        raise MeatError(Aviso("err.mt.portion_zero"))
     extra = Ingredient(restaurant_id=user.restaurant_id, name=name, unit=unit,
                        rotation=Rotation.FIFO, consumption=ConsumptionMode.COUNT,
                        category=EXTRA, portion_g=portion_g)
@@ -652,12 +652,12 @@ def set_extra_cost(session: Session, user: User, ingredient_id: int, cost: float
     """[00587] Cambia el coste configurado y su porción. Se aplica a los platos desde ya."""
     extra = session.get(Ingredient, ingredient_id)
     if extra is None or extra.restaurant_id != user.restaurant_id:
-        raise MeatError("Ese ingrediente no es de este restaurante")
+        raise MeatError(Aviso("err.mt.ing_other_house"))
     if cost < 0:
-        raise MeatError("El coste no puede ser negativo")
+        raise MeatError(Aviso("err.mt.cost_neg"))
     if portion_g is not None:
         if portion_g < 0:
-            raise MeatError("La porción no puede ser negativa")
+            raise MeatError(Aviso("err.mt.portion_neg"))
         extra.portion_g = portion_g or None
     item = extra.items[0] if extra.items else None
     if item is None:
@@ -763,7 +763,7 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
                           site=nombres.get(next(iter(donde)), "")))
     tg = tg.strip()
     if not tg:
-        raise MeatError("El despiece necesita su número")
+        raise MeatError(Aviso("err.mt.tg_needed"))
     if session.query(Despiece).filter_by(restaurant_id=user.restaurant_id, tg=tg).first():
         # [00637] Si el número lo puso la casa —TG-0007, el que propone la pantalla—,
         # dos carniceros que abren la hoja a la vez traen el mismo y el segundo
@@ -772,7 +772,7 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
         # mirar qué despiece es el que ya existe.
         libre = _free_tg(session, user.restaurant_id) if AUTO_TG.match(tg) else None
         if libre is None:
-            raise MeatError(f"Ya hay un despiece con el número {tg}")
+            raise MeatError(Aviso("err.mt.tg_dup", tg=tg))
         tg = libre
 
     numero = {"tg": tg}
@@ -785,7 +785,7 @@ def post_butchery(session: Session, user: User, tg: str, serials: list[str],
         libre = (_free_tg(session, user.restaurant_id)
                  if AUTO_TG.match(numero["tg"]) else None)
         if libre is None:
-            raise MeatError(f"Ya hay un despiece con el número {numero['tg']}") from None
+            raise MeatError(Aviso("err.mt.tg_dup", tg=numero["tg"])) from None
         numero["tg"] = libre
 
     def montar():
@@ -888,7 +888,7 @@ def add_dish(session: Session, user: User, name: str, cut_id: int, grams: float,
     """
     name = name.strip()
     if not name:
-        raise MeatError("El plato necesita un nombre")
+        raise MeatError(Aviso("err.mt.dish_name"))
     cut = session.get(Ingredient, cut_id)
     if cut is None or cut.restaurant_id != user.restaurant_id:
         raise MeatError(t(lang, "m.menu.need_cut"))
@@ -897,7 +897,7 @@ def add_dish(session: Session, user: User, name: str, cut_id: int, grams: float,
 
     code = "".join(ch if ch.isalnum() else "_" for ch in name.lower()).strip("_")[:64]
     if session.query(Recipe).filter_by(restaurant_id=user.restaurant_id, code=code).first():
-        raise MeatError(f"Ya hay un plato llamado {name}")
+        raise MeatError(Aviso("err.mt.dish_dup", name=name))
 
     if by_weight and not price_per_kg:
         raise MeatError(t(lang, "m.menu.need_price_kg"))
@@ -978,12 +978,12 @@ def add_plate_line(session: Session, user: User, dish: Recipe, ingredient_id: in
     """[00601] Añade al plato algo que no es la carne. La cantidad, en gramos."""
     ingredient = session.get(Ingredient, ingredient_id)
     if ingredient is None or ingredient.restaurant_id != user.restaurant_id:
-        raise MeatError("Ese ingrediente no es de este restaurante")
+        raise MeatError(Aviso("err.mt.ing_other_house"))
     if qty_small <= 0:
         raise MeatError(t(lang, "m.plate.qty"))
     qty = to_base(ingredient.unit, qty_small)
     if not 0 <= waste_pct < 100:
-        raise MeatError("La merma de limpieza va entre 0 y 100")
+        raise MeatError(Aviso("err.mt.trim_pct"))
     # [00643] Detrás de lo que ya hay, para que la carne siga la primera y el orden del
     # plato sea el orden en que se fue montando.
     last = max((l.sort_order for l in dish.lines), default=0)
@@ -999,7 +999,7 @@ def remove_plate_line(session: Session, user: User, dish: Recipe, line_id: int,
     """[00602] Quita del plato una línea. La de carne no se quita: el plato es de carne."""
     line = session.get(RecipeLine, line_id)
     if line is None or line.recipe_id != dish.id:
-        raise MeatError("Esa línea no es de este plato")
+        raise MeatError(Aviso("err.mt.line_other_dish"))
     carne = meat_line(dish, session)
     if carne is not None and line.id == carne.id:
         raise MeatError(t(lang, "m.menu.need_cut"))

@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from thegrill.models import (Ingredient, IngredientLot, IngredientMovement, MovementKind,
                              Primal, PrimalStatus, Site, SiteKind, SitePar, Transfer, User)
 from thegrill.web import exacto, jornada, locking
+from thegrill.web.i18n import Aviso
 
 EPSILON = 1e-9
 PRIMAL = "PRIMAL"
@@ -115,13 +116,13 @@ def create(session: Session, user: User, name: str,
     """
     name = (name or "").strip()
     if not name:
-        raise SiteError("La sede necesita un nombre")
+        raise SiteError(Aviso("err.st.name"))
     # [01442] El obrador primero: un local consume de algún sitio, y la carne que ya
     # había en la casa estaba en la sede principal, no en el local nuevo.
     main(session, user.restaurant_id)
     if (session.query(Site)
             .filter_by(restaurant_id=user.restaurant_id, name=name).first()):
-        raise SiteError(f"Ya hay una sede llamada {name}")
+        raise SiteError(Aviso("err.st.dup", name=name))
     site = Site(restaurant_id=user.restaurant_id, name=name, kind=kind,
                 address=(address or "").strip() or None, created_at=datetime.utcnow())
     session.add(site)
@@ -153,8 +154,7 @@ def guard(session: Session, user: User, obj) -> Site:
     donde = where(session, user.restaurant_id, obj)
     mia = of_user(session, user)
     if mia is not None and mia.id != donde.id:
-        raise SiteError(f"Eso está en {donde.name}, y tú trabajas en {mia.name}: "
-                        f"primero hay que traerlo.")
+        raise SiteError(Aviso("err.st.elsewhere", donde=donde.name, mia=mia.name))
     return donde
 
 
@@ -174,7 +174,7 @@ def set_chamber(session: Session, user: User, serial: str,
               or session.query(IngredientLot)
               .filter_by(restaurant_id=user.restaurant_id, serial=serial).first())
     if objeto is None:
-        raise SiteError(f"No hay ninguna pieza ni ningún lote con el número {serial}")
+        raise SiteError(Aviso("err.st.nothing", serial=serial))
     guard(session, user, objeto)
     objeto.chamber = nombre
     session.flush()
@@ -233,7 +233,7 @@ def set_par(session: Session, user: User, site_id: int, *, ingredient_id: int | 
     """
     site = _site(session, user, site_id)
     if not ingredient_id and not (sku or "").strip():
-        raise SiteError("Hay que decir de qué corte o de qué pieza es el mínimo")
+        raise SiteError(Aviso("err.st.min_what"))
     query = session.query(SitePar).filter_by(restaurant_id=user.restaurant_id, site_id=site.id)
     row = (query.filter_by(ingredient_id=ingredient_id).first() if ingredient_id
            else query.filter_by(sku=(sku or "").strip()).first())
@@ -272,16 +272,17 @@ def send_primal(session: Session, user: User, serial: str, to_site_id: int,
               .filter_by(restaurant_id=user.restaurant_id, serial=(serial or "").strip())
               .first())
     if primal is None:
-        raise SiteError(f"No hay ninguna pieza con el número {serial}")
+        raise SiteError(Aviso("err.st.no_primal", serial=serial))
     if primal.status != PrimalStatus.IN_STOCK:
-        raise SiteError(f"La pieza {primal.serial} ya no está en stock")
+        raise SiteError(Aviso("err.st.not_in_stock", serial=primal.serial))
     destino = _site(session, user, to_site_id)
     origen = guard(session, user, primal)      # no se manda lo que no es tuyo
     if desde is not None and origen.id != desde:
-        raise SiteError(f"La pieza {primal.serial} ya no está donde la viste: "
-                        f"ahora está en {origen.name}. Mírala antes de mandarla.")
+        raise SiteError(Aviso("err.st.primal_moved", serial=primal.serial,
+                              origen=origen.name))
     if origen.id == destino.id:
-        raise SiteError(f"La pieza {primal.serial} ya está en {destino.name}")
+        raise SiteError(Aviso("err.st.primal_there", serial=primal.serial,
+                              destino=destino.name))
 
     coste = (primal.piece_cost_usd if primal.piece_cost_usd is not None
              else (primal.landed_usd_per_kg or 0) * (primal.weight_kg or 0) or None)
@@ -292,8 +293,7 @@ def send_primal(session: Session, user: User, serial: str, to_site_id: int,
     if not locking.claim(session, Primal, primal.id,
                          {"site_id": primal.site_id, "status": PrimalStatus.IN_STOCK},
                          {"site_id": destino.id}):
-        raise SiteError(f"La pieza {primal.serial} la acaba de mover o despiezar otra "
-                        "persona: mírala antes de volver a mandarla.")
+        raise SiteError(Aviso("err.st.primal_taken", serial=primal.serial))
     session.add(Transfer(restaurant_id=user.restaurant_id, date=on, kind=PRIMAL,
                          serial=primal.serial, label=primal.sku,
                          kg=round(primal.weight_kg or 0.0, 6), cost=coste,
@@ -319,23 +319,23 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
     """
     on = on or jornada.del_usuario(session, user)
     if kg <= 0:
-        raise SiteError("Los kilos que se mandan tienen que ser más de cero")
+        raise SiteError(Aviso("err.st.kg_zero"))
     lot = (session.query(IngredientLot)
            .filter_by(restaurant_id=user.restaurant_id, serial=(serial or "").strip())
            .first())
     if lot is None:
-        raise SiteError(f"No hay ningún corte con el número {serial}")
+        raise SiteError(Aviso("err.st.no_lot", serial=serial))
     if kg > lot.qty_remaining + EPSILON:
-        raise SiteError(
-            f"Se quieren mandar {kg:.10g} kg y del lote {lot.serial} solo quedan "
-            f"{lot.qty_remaining:.10g}.")
+        raise SiteError(Aviso("err.st.lot_short", kg=f"{kg:.10g}", serial=lot.serial,
+                              queda=f"{lot.qty_remaining:.10g}"))
     destino = _site(session, user, to_site_id)
     origen = guard(session, user, lot)         # no se manda lo que no es tuyo
     if desde is not None and origen.id != desde:
-        raise SiteError(f"El corte {lot.serial} ya no está donde lo viste: "
-                        f"ahora está en {origen.name}. Míralo antes de mandarlo.")
+        raise SiteError(Aviso("err.st.lot_moved", serial=lot.serial,
+                              origen=origen.name))
     if origen.id == destino.id:
-        raise SiteError(f"El corte {lot.serial} ya está en {destino.name}")
+        raise SiteError(Aviso("err.st.lot_there", serial=lot.serial,
+                              destino=destino.name))
 
     ingredient = session.get(Ingredient, lot.ingredient_id)
     etiqueta = ingredient.name if ingredient else lot.serial
@@ -345,7 +345,7 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
         movido = lot.qty_remaining
         if not locking.claim(session, IngredientLot, lot.id, {"site_id": lot.site_id},
                              {"site_id": destino.id}):
-            raise SiteError(f"El corte {lot.serial} lo acaba de mover otra persona.")
+            raise SiteError(Aviso("err.st.lot_taken", serial=lot.serial))
     else:
         movido = round(kg, 6)
         nuevo_serial = _child_serial(session, user.restaurant_id, lot.serial)
@@ -359,9 +359,8 @@ def send_cut(session: Session, user: User, serial: str, kg: float, to_site_id: i
         # salieron del obrador, y el obrador seguía teniéndolos. Dos veces la
         # misma carne, y nadie lo ve hasta el recuento.
         if not locking.take(session, IngredientLot, lot.id, "qty_remaining", movido):
-            raise SiteError(
-                f"Del lote {lot.serial} ya no quedan {movido:.10g} kg: otra persona "
-                "acaba de mandar o gastar parte. Mira lo que queda y repítelo.")
+            raise SiteError(Aviso("err.st.lot_gone", serial=lot.serial,
+                                  kg=f"{movido:.10g}"))
         if piezas:
             lot.pieces = max(0, (lot.pieces or 0) - piezas)
         hijo = IngredientLot(
@@ -419,16 +418,16 @@ def _child_serial(session: Session, restaurant_id: int, base: str) -> str:
         if not (session.query(IngredientLot)
                 .filter_by(restaurant_id=restaurant_id, serial=candidate).first()):
             return candidate
-    raise SiteError(f"Demasiados traslados del lote {base}")
+    raise SiteError(Aviso("err.st.too_many", base=base))
 
 
 def _site(session: Session, user: User, site_id: int) -> Site:
     """[01435] La sede de ese número, comprobando que es de esta casa y está abierta."""
     site = session.get(Site, site_id or 0)
     if site is None or site.restaurant_id != user.restaurant_id:
-        raise SiteError("Esa sede no es de esta casa")
+        raise SiteError(Aviso("err.st.other_house"))
     if not site.active:
-        raise SiteError(f"La sede {site.name} está cerrada")
+        raise SiteError(Aviso("err.st.closed", name=site.name))
     return site
 
 
@@ -440,7 +439,7 @@ def assign(session: Session, user: User, person: User, site_id: int | None) -> U
     entre donde está él y no en otro sitio.
     """
     if person.restaurant_id != user.restaurant_id:
-        raise SiteError("Esa persona no es de esta casa")
+        raise SiteError(Aviso("err.st.person_other_house"))
     person.site_id = _site(session, user, site_id).id if site_id else None
     session.flush()
     return person
@@ -450,9 +449,9 @@ def set_active(session: Session, user: User, site_id: int, active: bool) -> Site
     """[01437] Cierra o reabre una sede. Cerrada no recibe carne, pero lo suyo no se borra."""
     site = session.get(Site, site_id or 0)
     if site is None or site.restaurant_id != user.restaurant_id:
-        raise SiteError("Esa sede no es de esta casa")
+        raise SiteError(Aviso("err.st.other_house"))
     if not active and site.id == main(session, user.restaurant_id).id:
-        raise SiteError(f"{site.name} es la sede principal: no se puede cerrar")
+        raise SiteError(Aviso("err.st.main", name=site.name))
     site.active = bool(active)
     session.flush()
     return site

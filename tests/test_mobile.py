@@ -1578,3 +1578,51 @@ def test_the_bottom_bar_never_covers_the_way_in(browser):
     }""")
     assert encima["suyo"], f"algo tapa el botón de entrar: {encima['quien']}"
     tumbado.close()
+
+
+# ------------------------------- el aviso grave, en el teléfono del carnicero
+def test_a_phone_that_refuses_notifications_still_gets_the_rest(browser):
+    """Chrome de Android no deja construir un aviso a mano: revienta.
+
+    Y esa llamada iba dentro del `then` del sondeo, así que el error caía en un
+    `catch` vacío: se tragaba el aviso grave, se saltaba los que venían detrás
+    en la misma tanda y no dejaba rastro. Justo el aviso que no puede perderse
+    —una cámara a nueve grados— no llegaba a ningún teléfono.
+
+    Aquí se pone un teléfono que hace exactamente eso —contestar «Illegal
+    constructor»— y se comprueba que la vuelta termina igual: el número de la
+    barra se pone al día y queda apuntado por dónde iba.
+    """
+    base, chromium = browser
+    context = telefono(chromium)
+    page = context.new_page()
+    entra(page, base)
+
+    # Un teléfono que dice que sí al permiso y luego no deja construir nada,
+    # que es lo que hace Android de verdad.
+    page.add_init_script("""
+        window.__intentos = 0;
+        function Prohibida() { window.__intentos++; throw new TypeError("Illegal constructor"); }
+        Prohibida.permission = "granted";
+        Prohibida.requestPermission = function () { return Promise.resolve("granted"); };
+        Object.defineProperty(window, "Notification", { value: Prohibida, writable: true });
+        delete navigator.serviceWorker;
+    """)
+    # Dos avisos graves sin leer: si el primero tumba la vuelta, el segundo
+    # tampoco llega y el número se queda como estaba.
+    page.route("**/api/notificaciones", lambda ruta: ruta.fulfill(
+        status=200, content_type="application/json",
+        body='{"unread": 2, "items": ['
+             '{"id": 9001, "title": "Camara a 9 grados", "body": "Sala 2",'
+             ' "severity": "CRITICAL"},'
+             '{"id": 9002, "title": "Pieza caducando", "body": "8017",'
+             ' "severity": "CRITICAL"}]}'))
+    page.goto(f"{base}/hoy")
+    page.wait_for_function(
+        "document.querySelector('#navbadge') && "
+        "document.querySelector('#navbadge').textContent === '2'",
+        timeout=5000)
+    apuntado = page.evaluate("localStorage.getItem('grill_last_notif')")
+    assert apuntado == "9002", (
+        "la vuelta se rompió en el primer aviso: el segundo no se ha mirado")
+    context.close()

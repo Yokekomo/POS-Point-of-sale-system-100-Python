@@ -115,7 +115,10 @@ def test_a_row_from_before_the_markets_existed_is_the_default_one(sesion):
 
     p = tarifa.publicada(sesion, tarifa.MERCADO_POR_DEFECTO)
     assert p.normal == 88.0, "la fila vieja se quedó huérfana"
-    # Y se adopta: a partir de ahora lleva su mercado escrito.
+    # Y la página de venta no la toca: es pública, y mirar un precio no escribe.
+    assert sesion.query(Tarifa).filter(Tarifa.mercado.is_(None)).count() == 1
+    # Quien la adopta es la pantalla del dueño, la primera vez que entra.
+    tarifa.fila(sesion, tarifa.MERCADO_POR_DEFECTO)
     assert sesion.query(Tarifa).filter(Tarifa.mercado.is_(None)).count() == 0
 
 
@@ -219,3 +222,25 @@ def test_a_market_that_does_not_exist_is_refused(consola):
     r = consola.post("/admin/tarifa", data={
         "csrf": csrf(pagina), "mercado": "MARTE", "currency": "EUR", "per_outlet": "10"})
     assert r.status_code == 303 and "error=" in r.headers["location"]
+
+
+# ------------------------------------------- mirar un precio no escribe nada
+def test_looking_at_the_price_page_never_writes_a_row(sesion):
+    """La página de precios es pública: cualquiera la abre desde internet.
+
+    Al no encontrar la tarifa de su mercado se la creaba: un `INSERT` por una
+    visita de alguien que solo está mirando. Dos cosas malas de una vez. Una,
+    que cualquiera de fuera hace escribir a la base abriendo una dirección.
+    Y dos, que si en ese momento hay alguien de casa guardando su trabajo, la
+    base está cogida y la página de venta se queda esperando a que la suelte
+    —hasta medio minuto—, con el visitante delante.
+    """
+    sesion.query(Tarifa).delete()
+    sesion.flush()
+    for mercado in tarifa.MERCADOS:
+        for _ in range(3):
+            p = tarifa.publicada(sesion, mercado)
+            assert p.mercado == mercado
+            assert p.normal == tarifa.MERCADOS[mercado].por_local
+            assert p.on_sale, "la oferta del mes tiene que verse aunque no haya fila"
+    assert sesion.query(Tarifa).count() == 0, "una visita ha escrito en la base"

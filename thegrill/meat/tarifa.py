@@ -176,35 +176,77 @@ PAISES = {
 }
 
 
-def fila(session: Session, mercado: str | None = None) -> Tarifa:
-    """[00660] La tarifa de un mercado. Si todavía no hay ninguna, se crea la de partida.
+def _codigo(mercado: str | None) -> str:
+    """[01829] El mercado que se pide, o el de partida si ese nombre no existe."""
+    codigo = (mercado or MERCADO_POR_DEFECTO).upper()
+    return codigo if codigo in MERCADOS else MERCADO_POR_DEFECTO
+
+
+def guardada(session: Session, mercado: str | None = None) -> Tarifa | None:
+    """[01830] La tarifa escrita de un mercado, si la hay. **No escribe nada.**
+
+    Esto lo llama la página de precios, que es pública: la ve cualquiera desde
+    internet, sin cuenta y sin nada. Antes esa página, al no encontrar la
+    tarifa de su mercado, la creaba —un `INSERT` en una visita de alguien que
+    solo está mirando—. Dos cosas malas de una vez: cualquiera de fuera hacía
+    escribir a la base con solo abrir una dirección, y si la base estaba
+    cogida por alguien de casa que guardaba su trabajo, la página de venta se
+    quedaba esperando a que lo soltara. Mirar un precio no escribe.
 
     Una fila sin mercado escrito es la del mercado de partida: así una base que
     ya estaba funcionando con la tabla vieja —cuando solo había un precio para
-    todo el planeta— no se queda sin precio al actualizar.
+    todo el planeta— no se queda sin precio al actualizar. Aquí se lee como si
+    fuera la suya, sin tocarla; quien la pone al día es `fila()`.
     """
-    codigo = (mercado or MERCADO_POR_DEFECTO).upper()
-    if codigo not in MERCADOS:
-        codigo = MERCADO_POR_DEFECTO
+    codigo = _codigo(mercado)
     row = (session.query(Tarifa).filter(Tarifa.mercado == codigo)
            .order_by(Tarifa.id).first())
     if row is None and codigo == MERCADO_POR_DEFECTO:
         row = (session.query(Tarifa).filter(Tarifa.mercado.is_(None))
                .order_by(Tarifa.id).first())
-        if row is not None:
+    return row
+
+
+def fila(session: Session, mercado: str | None = None) -> Tarifa:
+    """[00660] La tarifa de un mercado. Si todavía no hay ninguna, se crea la de partida.
+
+    Esta sí escribe, así que la llaman las pantallas del dueño —el configurador
+    y el guardado—, donde hay una persona identificada detrás de la escritura.
+    """
+    codigo = _codigo(mercado)
+    row = guardada(session, codigo)
+    if row is not None:
+        if row.mercado is None:
             row.mercado = codigo
             session.flush()
-    if row is None:
-        base = MERCADOS[codigo]
-        row = Tarifa(mercado=codigo, currency=base.moneda, per_outlet=base.por_local,
-                     extra_outlet=base.local_extra,
-                     yearly_on=True, yearly_months=base.meses_año,
-                     # La oferta del mes, encendida y sin fecha: hasta fin de mes
-                     # y renovándose sola. Ver el comentario de `OFERTA_PCT`.
-                     sale_on=True, sale_price=exacto.eur(base.por_local * (100 - OFERTA_PCT) / 100))
-        session.add(row)
-        session.flush()
+        return row
+    base = MERCADOS[codigo]
+    row = Tarifa(mercado=codigo, currency=base.moneda, per_outlet=base.por_local,
+                 extra_outlet=base.local_extra,
+                 yearly_on=True, yearly_months=base.meses_año,
+                 # La oferta del mes, encendida y sin fecha: hasta fin de mes
+                 # y renovándose sola. Ver el comentario de `OFERTA_PCT`.
+                 sale_on=True, sale_price=exacto.eur(base.por_local * (100 - OFERTA_PCT) / 100))
+    session.add(row)
+    session.flush()
     return row
+
+
+def _de_partida(codigo: str, hoy: date) -> Publicada:
+    """[01831] Lo que vale un mercado mientras nadie le haya tocado el precio.
+
+    Con la oferta del mes puesta y renovándose sola, igual que la fila que se
+    crearía si el dueño entrase a guardar: lo que se enseña no puede depender
+    de si alguien ha abierto esa pantalla alguna vez.
+    """
+    base = MERCADOS[codigo]
+    return Publicada(
+        mercado=codigo, currency=base.moneda,
+        normal=exacto.eur(base.por_local),
+        extra=exacto.eur(base.local_extra) if base.local_extra else None,
+        price=exacto.eur(base.por_local * (100 - OFERTA_PCT) / 100),
+        on_sale=True, label="", until=fin_de_mes(hoy),
+        yearly_on=True, yearly_months=round(base.meses_año, 2))
 
 
 def fin_de_mes(hoy: date) -> date:
@@ -224,12 +266,18 @@ def publicada(session: Session, mercado: str | None = None,
     Y una rebaja **sin** fecha de fin es la oferta del mes: llega hasta el
     último día del mes en curso y se renueva sola. Ver `OFERTA_PCT`.
     """
-    row = fila(session, mercado)
+    codigo = _codigo(mercado)
+    row = guardada(session, codigo)
     hoy = on or date.today()
+    if row is None:
+        # [01832] Nadie le ha puesto precio todavía a este mercado: se enseña el de
+        # partida, tal cual, sin escribirlo. Se escribe el día que el dueño
+        # entre a cambiarlo.
+        return _de_partida(codigo, hoy)
     hasta = row.sale_until or fin_de_mes(hoy)
     rebajada = bool(row.sale_on and row.sale_price and hoy <= hasta)
     return Publicada(
-        mercado=row.mercado or MERCADO_POR_DEFECTO,
+        mercado=row.mercado or codigo,
         currency=row.currency or "EUR",
         normal=exacto.eur(row.per_outlet or POR_DEFECTO),
         extra=exacto.eur(row.extra_outlet) if row.extra_outlet else None,

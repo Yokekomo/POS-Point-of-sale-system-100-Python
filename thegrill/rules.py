@@ -8,6 +8,7 @@ from datetime import date, timedelta
 
 from thegrill import config
 from thegrill.models import SourceStatus
+from thegrill.web.i18n import Aviso
 
 FISH_KEYWORDS = ("fish", "seafood", "salmon", "tuna", "shrimp", "prawn", "octopus",
                  "squid", "pescado", "marisco", "gamba", "pulpo", "atun", "salmon")
@@ -72,26 +73,30 @@ def validate_tg(tg_in: TGInput) -> list[Issue]:
     """
     issues: list[Issue] = []
     if not tg_in.serials:
-        issues.append(Issue("TG_NO_PRIMALS", f"{tg_in.tg}: sin primales de entrada", "ERROR"))
+        issues.append(Issue("TG_NO_PRIMALS", Aviso("err.bu.no_primals", tg=tg_in.tg), "ERROR"))
     imported = (tg_in.origin or "").upper() in config.IMPORTED_ORIGINS
     for s in tg_in.serials:
         if s is None:
             if imported:
-                issues.append(Issue("PHANTOM_SERIAL", f"{tg_in.tg}: primal importado sin serial => FANTASMA a recuperar", "FLAG"))
+                issues.append(Issue("PHANTOM_SERIAL",
+                                    Aviso("err.bu.phantom", tg=tg_in.tg), "FLAG"))
             # [00820] local sin etiqueta: permitido, sin issue
     if not tg_in.cuts:
-        issues.append(Issue("TG_NO_CUTS", f"{tg_in.tg}: sin cortes de salida", "ERROR"))
+        issues.append(Issue("TG_NO_CUTS", Aviso("err.bu.no_cuts_out", tg=tg_in.tg), "ERROR"))
     for c in tg_in.cuts:
         if c.get("by_weight"):
             # [00821] Corte que sale entero y se cortará al vender: no hay piezas ni
             # gramos por pieza que exigir, pero los kilos que entran, sí.
             if not c.get("total_kg") or c["total_kg"] <= 0:
-                issues.append(Issue("CUT_NO_KG", f"{tg_in.tg}/{c.get('cut_name')}: kilos obligatorios", "ERROR"))
+                issues.append(Issue("CUT_NO_KG", Aviso("err.bu.cut_kg", tg=tg_in.tg,
+                                                      cut=c.get("cut_name")), "ERROR"))
             continue
         if not c.get("pieces") or c["pieces"] <= 0:
-            issues.append(Issue("CUT_NO_PIECES", f"{tg_in.tg}/{c.get('cut_name')}: nº piezas obligatorio", "ERROR"))
+            issues.append(Issue("CUT_NO_PIECES", Aviso("err.bu.cut_pieces", tg=tg_in.tg,
+                                                       cut=c.get("cut_name")), "ERROR"))
         if not c.get("weight_per_piece_g") or c["weight_per_piece_g"] <= 0:
-            issues.append(Issue("CUT_NO_WEIGHT", f"{tg_in.tg}/{c.get('cut_name')}: peso/pieza obligatorio", "ERROR"))
+            issues.append(Issue("CUT_NO_WEIGHT", Aviso("err.bu.cut_weight", tg=tg_in.tg,
+                                                       cut=c.get("cut_name")), "ERROR"))
     return issues
 
 

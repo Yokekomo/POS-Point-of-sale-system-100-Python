@@ -33,8 +33,8 @@ from thegrill.models import (Alert, AlertSeverity, AuditLog, IngredientItem, Ing
                              IngredientMovement, LossKind, MovementKind, Primal,
                              PrimalStatus, PrimalWeighing, Restaurant, Storage, User,
                              WeightSale)
-from thegrill.web import caducidad, exacto, jornada, rangos, service, sites
-from thegrill.web.i18n import t
+from thegrill.web import caducidad, exacto, jornada, locking, rangos, service, sites
+from thegrill.web.i18n import Aviso, t
 
 EPSILON = 1e-9
 
@@ -325,9 +325,9 @@ def find(session: Session, restaurant_id: int, serial: str) -> Primal:
     primal = (session.query(Primal)
               .filter_by(restaurant_id=restaurant_id, serial=(serial or "").strip()).first())
     if primal is None:
-        raise AgingError(f"No hay ninguna pieza con el número {serial}")
+        raise AgingError(Aviso("err.ag.no_primal", serial=serial))
     if primal.status != PrimalStatus.IN_STOCK:
-        raise AgingError(f"La pieza {primal.serial} ya no está en stock")
+        raise AgingError(Aviso("err.ag.not_in_stock", serial=primal.serial))
     return primal
 
 
@@ -340,7 +340,10 @@ def here(session: Session, user: User, primal: Primal) -> Primal:
     try:
         sites.guard(session, user, primal)
     except sites.SiteError as e:
-        raise AgingError(str(e)) from None
+        # [01820] El aviso de la sede ya sabe decirse en cualquier idioma: se pasa
+        # entero, no su texto en español. Convertirlo a `str` aquí era tirar la
+        # clave y dejar el aviso en español para el resto del camino.
+        raise AgingError(*e.args) from None
     return primal
 
 
@@ -394,31 +397,40 @@ def move(session: Session, user: User, serial: str, storage: Storage,
     primal = here(session, user, find(session, user.restaurant_id, serial))
     was = where(primal)
     if was == storage:
-        raise AgingError(f"La pieza {primal.serial} ya está ahí")
+        raise AgingError(Aviso("err.ag.already_there", serial=primal.serial))
     if storage == Storage.AGING and not primal.weight_kg:
-        raise AgingError(f"La pieza {primal.serial} no tiene peso: no se puede madurar lo que no se pesa")
+        raise AgingError(Aviso("err.ag.no_weight", serial=primal.serial))
     if target_days is not None and target_days <= 0:
-        raise AgingError("Los días de maduración tienen que ser más de cero")
+        raise AgingError(Aviso("err.ag.days_zero"))
 
-    primal.storage = storage
-    primal.storage_since = on
+    cambios: dict = {"storage": storage, "storage_since": on}
     if storage == Storage.AGING:
-        primal.aging_start_kg = primal.weight_kg
-        primal.aging_target_days = target_days
+        cambios["aging_start_kg"] = primal.weight_kg
+        cambios["aging_target_days"] = target_days
     else:
-        primal.aging_start_kg = None
-        primal.aging_target_days = None
+        cambios["aging_start_kg"] = None
+        cambios["aging_target_days"] = None
     if storage == Storage.FROZEN and use_by:
-        primal.frozen_use_by = use_by
+        cambios["frozen_use_by"] = use_by
     if storage != Storage.FROZEN and was == Storage.FROZEN:
         # [00885] Sale del congelador. La fecha del congelador deja de mandar, pero
         # borrarla a secas dejaba a la pieza **sin ninguna fecha**: una que
         # llegó congelada no trae más que esa, y al descongelarla se quedaba
         # sin caducidad, sin aviso y sin sitio en la cola de rotación. Lo que
         # manda ahora es la de después de descongelar.
-        primal.expiry_label = caducidad.tras_descongelar(
+        cambios["expiry_label"] = caducidad.tras_descongelar(
             primal.expiry_label, on, session.get(Restaurant, primal.restaurant_id))
-        primal.frozen_use_by = None
+        cambios["frozen_use_by"] = None
+
+    # [01810] El sitio de antes va metido en la propia orden. Dos personas que mueven
+    # la misma pieza a la vez leían las dos «está en cámara» y escribían las dos:
+    # una la mandaba a madurar y la otra al congelador, se quedaba la última y
+    # en el historial aparecían los dos viajes como si los dos hubieran pasado.
+    # Con el peso de entrada a maduración escrito por una y el congelador de la
+    # otra, la merma de esa pieza ya no se podía calcular. Ahora la segunda se
+    # entera de que llega segunda.
+    if not locking.claim(session, Primal, primal.id, {"storage": primal.storage}, cambios):
+        raise AgingError(Aviso("err.ag.moved", serial=primal.serial))
 
     _audit(session, user, primal.serial, f"{was.value} → {storage.value}", note)
     session.flush()
@@ -439,15 +451,14 @@ def weigh(session: Session, user: User, serial: str, kg: float,
     on = on or jornada.del_usuario(session, user)
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     if kg <= 0:
-        raise AgingError("El peso tiene que ser mayor que cero")
+        raise AgingError(Aviso("err.ag.kg_zero"))
     rangos.peso_pieza(kg, lang)
 
     primal = here(session, user, find(session, user.restaurant_id, serial))
     previous = round(primal.weight_kg or 0.0, 6)
     if kg > previous + GAIN_TOLERANCE_KG:
-        raise AgingError(
-            f"La pieza {primal.serial} pesaba {previous:.10g} kg y no puede pesar "
-            f"{kg:.10g}. Una pieza no engorda en la cámara: revisa la báscula o el número.")
+        raise AgingError(Aviso("err.ag.heavier", serial=primal.serial,
+                               previous=f"{previous:.10g}", kg=f"{kg:.10g}"))
 
     # [00886] Dentro del juego de la báscula, una pieza que "engorda" no ha engordado:
     # es la balanza. Se apunta lo leído, pero el peso que se guarda es el de
@@ -457,10 +468,12 @@ def weigh(session: Session, user: User, serial: str, kg: float,
         note = " · ".join(x for x in (note, t(lang, "m.ag.scale", kg=f"{kg:.10g}")) if x)[:512]
         kg = previous
 
+    antes_en_la_base = primal.weight_kg
     cost = total_cost(primal)
     before_per_kg = cost_per_kg(primal)
     # [00887] El coste de la pieza se fija aquí: a partir de ahora el kilo se calcula
     # contra el peso de hoy, no contra el del día que llegó.
+    cambios: dict = {"weight_kg": round(kg, 6)}
     if cost is not None:
         ahora = round(cost / kg, 6) if kg > EPSILON else None
         # [01619] Y una pesada no abarata el kilo. Nunca. Aquí solo se pesa lo que se
@@ -473,9 +486,17 @@ def weigh(session: Session, user: User, serial: str, kg: float,
         if ahora is not None and before_per_kg is not None and ahora < before_per_kg:
             ahora = before_per_kg
             cost = round(ahora * kg, 6)
-        primal.piece_cost_usd = cost
-        primal.landed_usd_per_kg = ahora
-    primal.weight_kg = round(kg, 6)
+        cambios["piece_cost_usd"] = cost
+        cambios["landed_usd_per_kg"] = ahora
+    # [01811] El peso de antes va dentro de la orden de escribir. Dos personas pesando
+    # la misma pieza a la vez leían las dos los nueve kilos de ayer y guardaban
+    # las dos: quedaba el último número y en el historial constaban **dos**
+    # mermas contra el mismo peso de partida. Los kilos evaporados salían
+    # contados dos veces y el kilo de esa pieza, recalculado dos veces sobre el
+    # mismo punto de partida, dejaba de valer lo que vale.
+    if not locking.claim(session, Primal, primal.id,
+                         {"weight_kg": antes_en_la_base}, cambios):
+        raise AgingError(Aviso("err.ag.weighed", serial=primal.serial))
 
     storage = where(primal)
     days = days_in(primal, on)
@@ -563,15 +584,14 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
     previous = round(primal.weight_kg or 0.0, 6)
 
     if removed_kg is None and new_kg is None:
-        raise AgingError("Hay que decir cuánto se ha quitado, o cuánto pesa ya limpia")
+        raise AgingError(Aviso("err.ag.trim_what"))
     if removed_kg is None:
         removed_kg = round(previous - (new_kg or 0.0), 6)
     if removed_kg <= 0:
-        raise AgingError("Lo que se quita limpiando tiene que ser más de cero")
+        raise AgingError(Aviso("err.ag.trim_zero"))
     if removed_kg >= previous:
-        raise AgingError(
-            f"Se quieren quitar {removed_kg:.10g} kg de la pieza {primal.serial}, que pesa "
-            f"{previous:.10g}. Una limpieza no puede dejar la pieza en nada.")
+        raise AgingError(Aviso("err.ag.trim_all", removed=f"{removed_kg:.10g}",
+                               serial=primal.serial, previous=f"{previous:.10g}"))
 
     parts = [p for p in (parts or []) if p.kg and p.kg > 0]
     # [00888] Una pieza sin precio no se limpia guardando recortes, por lo mismo que no
@@ -581,52 +601,69 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
     # puerta desde siempre; a la limpieza se le olvidó, y la limpieza la hace
     # el carnicero, que es justo quien no ve dinero y no puede darse cuenta.
     if parts and total_cost(primal) is None:
-        raise AgingError(t(lang, "m.ag.trim_needs_price", serial=primal.serial))
+        raise AgingError(Aviso("m.ag.trim_needs_price", serial=primal.serial))
     kept_total = round(sum(p.kg for p in parts), 6)
     if kept_total > removed_kg + 0.001:
-        raise AgingError(
-            f"Se han quitado {removed_kg:.10g} kg y se quieren guardar {kept_total:.10g}. "
-            "De una limpieza no sale más de lo que se ha cortado.")
+        raise AgingError(Aviso("err.ag.trim_more", removed=f"{removed_kg:.10g}",
+                               kept=f"{kept_total:.10g}"))
     thrown = round(removed_kg - kept_total, 6)
     if waste_kg is not None and abs(round(waste_kg, 6) - thrown) > 0.01:
-        raise AgingError(
-            f"No cuadra: {removed_kg:.10g} kg quitados, {kept_total:.10g} guardados y "
-            f"{waste_kg:.10g} tirados. Lo que se quita es lo que se guarda más lo que se tira.")
+        raise AgingError(Aviso("err.ag.trim_sum", removed=f"{removed_kg:.10g}",
+                               kept=f"{kept_total:.10g}", waste=f"{waste_kg:.10g}"))
 
     before_per_kg = cost_per_kg(primal)
     whole = total_cost(primal)
     kept_cost = 0.0
-    lotes = []
-    for part in parts:
-        lot = _keep_trim(session, user, primal, part.kg, part.item_id,
-                         value_index=part.value_index, use_by=use_by, on=on)
-        part.serial = lot.serial
-        lotes.append(lot)
+
+    # [01813] Primero se comprueba **todo** lo que va a entrar en cámara, y solo
+    # después se escribe. Antes los lotes se iban creando uno a uno y el
+    # artículo de cada uno se miraba al llegarle el turno: si el tercer recorte
+    # traía un artículo de otra casa o la pieza no tenía fecha de consumo, el
+    # error subía a la ruta, la ruta lo enseñaba en rojo... y los dos primeros
+    # lotes se guardaban igual, porque la sesión se cierra bien y se confirma.
+    # Quedaban recortes en la cámara de una limpieza que el carnicero veía
+    # rechazada, y los volvía a meter al repetirla.
+    plan = [_recorte(session, user, primal, part, use_by, before_per_kg) for part in parts]
 
     # [00889] Lo que se llevan los recortes se reparte en céntimos enteros, y lo que
     # queda en la pieza es el resto exacto. Calculando cada parte por su lado
     # —kilos por precio por índice— y restando, la pieza se quedaba con unas
     # milésimas de más o de menos que ya no cuadraban con nada.
-    if whole is not None and lotes:
-        objetivo = min(exacto.eur(whole),
-                       exacto.eur(sum(l.qty * l.unit_cost for l in lotes)))
-        trozos = exacto.repartir_dinero(objetivo, [l.qty * l.unit_cost for l in lotes])
-        for part, lot, cost in zip(parts, lotes, trozos):
+    brutos = [round(p.kg, 6) * unit_cost for p, (_, _, unit_cost) in zip(parts, plan)]
+    if whole is not None and plan:
+        objetivo = min(exacto.eur(whole), exacto.eur(sum(brutos)))
+        trozos = exacto.repartir_dinero(objetivo, brutos)
+        for part, cost in zip(parts, trozos):
             part.cost = cost
-            lot.unit_cost = round(cost / lot.qty, 6) if lot.qty > EPSILON else 0.0
-            for mv in session.query(IngredientMovement).filter_by(lot_id=lot.id):
-                mv.cost = cost
         kept_cost = exacto.eur(sum(trozos))
     else:
-        for part, lot in zip(parts, lotes):
-            part.cost = round(lot.qty * lot.unit_cost, 6)
+        for part, bruto in zip(parts, brutos):
+            part.cost = round(bruto, 6)
             kept_cost = round(kept_cost + part.cost, 6)
 
-    primal.weight_kg = round(previous - removed_kg, 6)
+    nuevo_peso = round(previous - removed_kg, 6)
+    cambios: dict = {"weight_kg": nuevo_peso}
     if whole is not None:
-        primal.piece_cost_usd = exacto.eur(max(0.0, exacto.eur(whole) - kept_cost))
-        primal.landed_usd_per_kg = (round(primal.piece_cost_usd / primal.weight_kg, 6)
-                                    if primal.weight_kg > EPSILON else None)
+        cambios["piece_cost_usd"] = exacto.eur(max(0.0, exacto.eur(whole) - kept_cost))
+        cambios["landed_usd_per_kg"] = (round(cambios["piece_cost_usd"] / nuevo_peso, 6)
+                                        if nuevo_peso > EPSILON else None)
+    # [01814] Los kilos que se quitan salen con el peso de antes metido en la orden.
+    # Dos limpiezas a la vez sobre la misma pieza leían las dos los nueve kilos
+    # y escribían las dos su resta: se apuntaban los dos recortes en cámara y
+    # de la pieza solo bajaba uno. La costra seca se contaba dos veces como
+    # género y el rendimiento de esa pieza quedaba inventado.
+    if not locking.claim(session, Primal, primal.id,
+                         {"weight_kg": primal.weight_kg}, cambios):
+        raise AgingError(Aviso("err.ag.trimmed", serial=primal.serial))
+
+    for part, (item, expiry, _), cost in zip(parts, plan,
+                                             [p.cost or 0.0 for p in parts]):
+        lot = _keep_trim(session, user, primal, part.kg, item, expiry,
+                         unit_cost=(round(cost / round(part.kg, 6), 6)
+                                    if round(part.kg, 6) > EPSILON else 0.0),
+                         cost=cost, on=on)
+        part.serial = lot.serial
+
     session.add(PrimalWeighing(
         restaurant_id=user.restaurant_id, primal_id=primal.id, serial=primal.serial,
         date=on, storage=where(primal), kind=LossKind.TRIM, previous_kg=previous,
@@ -647,20 +684,26 @@ def trim(session: Session, user: User, serial: str, removed_kg: float | None = N
         kept_kg=kept_total, kept_cost=kept_cost, waste_kg=thrown, parts=parts)
 
 
-def _keep_trim(session: Session, user: User, primal: Primal, kg: float, item_id: int,
-               value_index: float, use_by: date | None, on: date) -> IngredientLot:
-    """[00847] Mete los recortes en cámara con su propio lote y su parte del coste."""
-    item = session.get(IngredientItem, item_id)
+def _recorte(session: Session, user: User, primal: Primal, part: TrimPart,
+             use_by: date | None, per_kg: float | None) -> tuple[IngredientItem, date, float]:
+    """[01815] Comprueba un recorte antes de escribir nada: artículo, fecha y precio.
+
+    Todo lo que puede decir que no de una parte se dice aquí, con la pieza
+    todavía intacta y la cámara sin tocar.
+    """
+    item = session.get(IngredientItem, part.item_id)
     if item is None or item.restaurant_id != user.restaurant_id:
-        raise AgingError("Ese artículo no es de este restaurante")
+        raise AgingError(Aviso("err.ag.item_other_house"))
     expiry = use_by or primal.frozen_use_by or primal.expiry_label
     if expiry is None:
-        raise AgingError(
-            "Los recortes necesitan fecha de consumo y la pieza no trae ninguna. "
-            "Una caducidad no se inventa.")
-    per_kg = cost_per_kg(primal) or 0.0
-    unit_cost = round(per_kg * max(0.0, value_index), 6)
+        raise AgingError(Aviso("err.ag.trim_no_date"))
+    return item, expiry, round((per_kg or 0.0) * max(0.0, part.value_index), 6)
 
+
+def _keep_trim(session: Session, user: User, primal: Primal, kg: float,
+               item: IngredientItem, expiry: date, unit_cost: float, cost: float,
+               on: date) -> IngredientLot:
+    """[00847] Mete los recortes en cámara con su propio lote y su parte del coste."""
     from thegrill.web.butchery import next_serial      # el mismo contador de siempre
     serial = next_serial(session, user.restaurant_id, primal.serial, 90)
     lot = IngredientLot(restaurant_id=user.restaurant_id, item_id=item.id,
@@ -677,7 +720,7 @@ def _keep_trim(session: Session, user: User, primal: Primal, kg: float, item_id:
         item.last_cost = unit_cost
     session.add(IngredientMovement(
         restaurant_id=user.restaurant_id, ingredient_id=item.ingredient_id, lot_id=lot.id,
-        date=on, kind=MovementKind.IN, qty=lot.qty, cost=round(lot.qty * unit_cost, 6),
+        date=on, kind=MovementKind.IN, qty=lot.qty, cost=round(cost, 6),
         source="trim", source_ref=serial, created_by=user.id))
     session.flush()
     return lot
@@ -694,28 +737,27 @@ def sell_by_weight(session: Session, user: User, serial: str, grams: float,
     """
     on = on or jornada.del_usuario(session, user)
     if grams <= 0:
-        raise AgingError("Los gramos vendidos tienen que ser más de cero")
+        raise AgingError(Aviso("err.ag.grams_zero"))
     if price < 0:
-        raise AgingError("El precio no puede ser negativo")
+        raise AgingError(Aviso("err.ag.price_neg"))
 
     primal = here(session, user, find(session, user.restaurant_id, serial))
     if where(primal) == Storage.FROZEN:
         # [00891] Lo congelado está en espera: no se corta al peso ni se cobra. Primero
         # sale del arcón, y cuando esté descongelado se vende.
-        raise AgingError(
-            f"La pieza {primal.serial} está congelada: hay que sacarla a descongelar "
-            f"antes de venderla al corte.")
+        raise AgingError(Aviso("err.ag.frozen", serial=primal.serial))
     kg = round(grams / 1000, 6)
     available = round(primal.weight_kg or 0.0, 6)
     if kg > available + EPSILON:
-        raise AgingError(
-            f"Se quieren cortar {kg:.10g} kg de la pieza {primal.serial} y solo quedan "
-            f"{available:.10g}. Una venta no puede dejar la pieza en negativo.")
+        raise AgingError(Aviso("err.ag.sale_short", kg=f"{kg:.10g}",
+                               serial=primal.serial, queda=f"{available:.10g}"))
 
     per_kg = cost_per_kg(primal)
     cost = round(kg * per_kg, 6) if per_kg is not None else 0.0
     whole = total_cost(primal)
-    primal.weight_kg = round(available - kg, 6)
+    antes_en_la_base = primal.weight_kg
+    queda = round(available - kg, 6)
+    cambios: dict = {"weight_kg": queda}
     if whole is not None:
         # [00892] El trozo se lleva su parte: el kilo de lo que queda no se mueve.
         #
@@ -728,18 +770,30 @@ def sell_by_weight(session: Session, user: User, serial: str, grams: float,
         # milésimas cada vez, siempre para abajo, siempre en la carne madurada,
         # que es la cara.
         if per_kg is not None:
-            primal.piece_cost_usd = round(per_kg * primal.weight_kg, 6)
-            primal.landed_usd_per_kg = per_kg
+            cambios["piece_cost_usd"] = round(per_kg * queda, 6)
+            cambios["landed_usd_per_kg"] = per_kg
         else:
-            primal.piece_cost_usd = round(max(0.0, whole - cost), 6)
+            cambios["piece_cost_usd"] = round(max(0.0, whole - cost), 6)
 
-    finished = primal.weight_kg <= EPSILON
+    finished = queda <= EPSILON
     if finished:
-        primal.status = PrimalStatus.CUT
-        primal.status_ref = "PESO"
-        primal.status_date = on
-        primal.weight_kg = 0.0
-        primal.piece_cost_usd = 0.0
+        cambios["status"] = PrimalStatus.CUT
+        cambios["status_ref"] = "PESO"
+        cambios["status_date"] = on
+        cambios["weight_kg"] = 0.0
+        cambios["piece_cost_usd"] = 0.0
+
+    # [01812] Los gramos se descuentan con el peso de antes metido en la orden. Dos
+    # cortes a la vez sobre la misma pieza leían los dos los mismos kilos
+    # disponibles y guardaban los dos el resto de **su** corte: se cobraban las
+    # dos ventas y de la pieza solo bajaba una. Los kilos fantasma se quedaban
+    # en la cámara del programa hasta el recuento, y el coste del plato salía
+    # de un kilo que ya no existía. Y el estado va dentro también: lo que otra
+    # persona acaba de despiezar no se vende al corte.
+    if not locking.claim(session, Primal, primal.id,
+                         {"weight_kg": antes_en_la_base, "status": primal.status},
+                         cambios):
+        raise AgingError(Aviso("err.ag.sold", serial=primal.serial))
 
     session.add(WeightSale(
         restaurant_id=user.restaurant_id, primal_id=primal.id, serial=primal.serial,

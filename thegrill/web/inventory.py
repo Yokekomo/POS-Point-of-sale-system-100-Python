@@ -23,7 +23,7 @@ from thegrill.models import (Alert, AlertSeverity, CountItemKind, CountPeriod, C
                              MeatCountLine, MovementKind, Primal, PrimalStatus, Storage, User)
 from thegrill.web import (aging, costing, exacto, jornada, locking, rangos,
                           service, sites)
-from thegrill.web.i18n import t
+from thegrill.web.i18n import Aviso, t
 
 EPSILON = 1e-9
 
@@ -106,7 +106,7 @@ def open_count(session: Session, user: User, period: CountPeriod = CountPeriod.M
                .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN,
                           site_id=site_id).first())
     if already:
-        raise InventoryError(f"Ya hay un inventario abierto del {already.date}")
+        raise InventoryError(Aviso("err.inv.open", date=already.date))
 
     count = MeatCount(restaurant_id=user.restaurant_id, date=on, period=period,
                       note=note, created_by=user.id, site_id=site_id,
@@ -122,8 +122,7 @@ def open_count(session: Session, user: User, period: CountPeriod = CountPeriod.M
         # [01276] Dos encargados le han dado a abrir en el mismo segundo. Se deshace lo
         # de aquí —que no es más que una lista— y se cuenta en la que ya está.
         session.rollback()
-        raise InventoryError("Otra persona acaba de abrir el inventario de esta cámara") \
-            from None
+        raise InventoryError(Aviso("err.inv.opened")) from None
     return count
 
 
@@ -140,9 +139,9 @@ def record(session: Session, user: User, count: MeatCount, serial: str, kg: floa
     Al cerrar se avisa, porque una pieza en discusión no es una pieza contada.
     """
     if count.status != CountStatus.OPEN:
-        raise InventoryError("El inventario ya está cerrado")
+        raise InventoryError(Aviso("err.inv.closed"))
     if kg < 0:
-        raise InventoryError("El peso contado no puede ser negativo")
+        raise InventoryError(Aviso("err.inv.kg_neg"))
     rangos.peso_corte(kg, lang or "es")
     line = _linea(session, count, serial)
 
@@ -227,8 +226,7 @@ def _linea(session: Session, count: MeatCount, serial: str) -> MeatCountLine:
         ya = (session.query(MeatCountLine)
               .filter_by(count_id=count.id, serial=serial).one_or_none())
         if ya is None:                                   # pragma: no cover
-            raise InventoryError("Vuelve a intentarlo: esa pieza se está "
-                                 "apuntando ahora mismo") from None
+            raise InventoryError(Aviso("err.inv.line_busy")) from None
         return ya
     return nueva
 
@@ -259,7 +257,7 @@ def close_count(session: Session, user: User, count: MeatCount,
                 lang: str | None = None) -> CloseResult:
     """[01257] Cierra el inventario: cuadra, re-ancla el stock y avisa de lo que falta."""
     if count.status == CountStatus.CLOSED:
-        raise InventoryError("Ese inventario ya estaba cerrado")
+        raise InventoryError(Aviso("err.inv.was_closed"))
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     now = datetime.utcnow()
 
@@ -271,7 +269,7 @@ def close_count(session: Session, user: User, count: MeatCount,
     if not locking.claim(session, MeatCount, count.id, {"status": CountStatus.OPEN},
                          {"status": CountStatus.CLOSED, "closed_by": user.id,
                           "closed_at": now, "open_key": None}):
-        raise InventoryError(t(lang, "inv.closed_by_other"))
+        raise InventoryError(Aviso("inv.closed_by_other"))
 
     # [01284] Lo esperado se relee al cerrar: el ajuste tiene que cuadrar contra el
     # estado de ahora, no contra el de cuando se abrió la hoja.
@@ -429,11 +427,11 @@ def cancel_count(session: Session, user: User, count: MeatCount,
                  reason: str | None = None) -> MeatCount:
     """[01261] Cancela un inventario a medias. No ajusta nada y no cuenta para el mes."""
     if count.status != CountStatus.OPEN:
-        raise InventoryError("Solo se puede cancelar un inventario abierto")
+        raise InventoryError(Aviso("err.inv.only_open"))
     if not locking.claim(session, MeatCount, count.id, {"status": CountStatus.OPEN},
                          {"status": CountStatus.CANCELLED, "closed_by": user.id,
                           "closed_at": datetime.utcnow(), "open_key": None}):
-        raise InventoryError("Otra persona acaba de cerrar o cancelar este inventario")
+        raise InventoryError(Aviso("err.inv.gone"))
     count.cancel_reason = (reason or "").strip() or None
     count.complete = False
     session.flush()
@@ -542,9 +540,7 @@ def recover(session: Session, user: User, serial: str, kg: float | None = None,
     if lot is not None:
         return _recover_cut(session, user, lot, kg, note, on, lang)
 
-    raise InventoryError(
-        f"No hay ninguna pieza con el serial {serial}. Si nunca estuvo en el "
-        "sistema, hay que darla de alta diciendo de qué artículo es y a qué precio.")
+    raise InventoryError(Aviso("err.inv.unknown", serial=serial))
 
 
 def _recover_primal(session: Session, user: User, primal: Primal, kg: float | None,
@@ -556,9 +552,8 @@ def _recover_primal(session: Session, user: User, primal: Primal, kg: float | No
     pieza que ya está repartida en cortes, y esos kilos saldrían dos veces.
     """
     if primal.status == PrimalStatus.CUT:
-        raise InventoryError(
-            f"El primal {primal.serial} consta cortado en {primal.status_ref}. "
-            "Si el despiece fue un error, hay que corregir el despiece, no la pieza.")
+        raise InventoryError(Aviso("err.inv.cut", serial=primal.serial,
+                                   ref=primal.status_ref))
     was_suspect = primal.suspect_phantom
     primal.suspect_phantom = False
     if kg:
@@ -582,12 +577,11 @@ def _recover_cut(session: Session, user: User, lot: IngredientLot, kg: float | N
     coste, para que el cuadre lo vea.
     """
     if kg is None or kg <= 0:
-        raise InventoryError("Hay que decir cuántos kilos han aparecido")
+        raise InventoryError(Aviso("err.inv.found_kg"))
     difference = round(kg - lot.qty_remaining, 6)
     if difference <= 0:
-        raise InventoryError(
-            f"El corte {lot.serial} ya consta con {lot.qty_remaining}. "
-            "Para bajarlo, se cuenta en un inventario.")
+        raise InventoryError(Aviso("err.inv.lot_higher", serial=lot.serial,
+                                   qty=f"{lot.qty_remaining:.10g}"))
     lot.qty_remaining = round(kg, 6)
     value = round(difference * lot.unit_cost, 6)
     session.add(IngredientMovement(
@@ -616,15 +610,15 @@ def adopt(session: Session, user: User, serial: str, item_id: int, kg: float,
     on = on or jornada.del_usuario(session, user)
     lang = lang or service.restaurant_language(session, user.restaurant_id)
     if kg <= 0:
-        raise InventoryError("La cantidad tiene que ser mayor que cero")
+        raise InventoryError(Aviso("err.inv.qty_zero"))
     if unit_cost < 0:
-        raise InventoryError("El precio no puede ser negativo")
+        raise InventoryError(Aviso("err.inv.price_neg"))
     if (session.query(IngredientLot)
             .filter_by(restaurant_id=user.restaurant_id, serial=serial).first()):
-        raise InventoryError(f"Ya existe una pieza con el serial {serial}")
+        raise InventoryError(Aviso("err.inv.dup_serial", serial=serial))
     item = session.get(IngredientItem, item_id)
     if item is None or item.restaurant_id != user.restaurant_id:
-        raise InventoryError("Ese artículo no es de este restaurante")
+        raise InventoryError(Aviso("err.inv.item_other_house"))
 
     lot = IngredientLot(restaurant_id=user.restaurant_id, item_id=item.id,
                         ingredient_id=item.ingredient_id, serial=serial,

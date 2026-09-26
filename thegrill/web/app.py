@@ -20,7 +20,7 @@ from fastapi.responses import (HTMLResponse, JSONResponse, PlainTextResponse,
                                RedirectResponse, Response)
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from starlette.datastructures import UploadFile   # el que devuelve request.form(), no el de FastAPI
+from starlette.datastructures import FormData, UploadFile   # los que devuelve request.form(), no los de FastAPI
 
 from thegrill import db, version
 from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, CountStatus,
@@ -54,6 +54,17 @@ seguridad.enganchar(app)
 
 
 # --------------------------------------------------------------- utilidades
+async def el_formulario(request: Request) -> FormData:
+    """[01828] El formulario, leído en el hilo que atiende, antes de bajar a trabajar.
+
+    Igual que en la edición de carne: una ruta `async def` corre en el hilo del
+    servidor, y ahí dentro se escribe en la base. Mientras SQLite hace esperar
+    a la segunda persona que guarda, ese hilo está parado para toda la casa.
+    Esperar la red se hace aquí, que es un suspiro; el trabajo, en otro hilo.
+    """
+    return await request.form()
+
+
 def get_db():
     """[00900] Una sesión con la base para cada petición, que se cierra al acabar."""
     with db.session_scope() as session:
@@ -395,8 +406,9 @@ def record_form(code: str, request: Request, ctx=Depends(require_user),
 
 
 @app.post("/app/registro/{code}", response_class=HTMLResponse)
-async def record_submit(code: str, request: Request, ctx=Depends(require_user),
-                        session: Session = Depends(get_db)):
+def record_submit(code: str, request: Request, ctx=Depends(require_user),
+                  form: FormData = Depends(el_formulario),
+                  session: Session = Depends(get_db)):
     """[00925] Guarda una hoja rellenada, con su fecha de trabajo y quién la firmó."""
     user, auth_session = ctx
     tpl = (session.query(RecordTemplate)
@@ -404,7 +416,6 @@ async def record_submit(code: str, request: Request, ctx=Depends(require_user),
     if tpl is None:
         raise HTTPException(status_code=404, detail=i18n.t(lang_for(request, session, user), "error.template_not_found"))
 
-    form = await request.form()
     try:
         auth.check_csrf(auth_session, form.get("csrf"), lang_for(request, session, user))
     except auth.PermissionDenied as e:
@@ -431,7 +442,7 @@ async def record_submit(code: str, request: Request, ctx=Depends(require_user),
     for upload in photos:
         if not isinstance(upload, UploadFile) or not upload.filename:
             continue
-        payload = await upload.read()
+        payload = upload.file.read()
         try:
             service.store_attachment(session, result.record, upload.filename,
                                      upload.content_type or "application/octet-stream",
@@ -945,12 +956,12 @@ def open_inventory(request: Request, period: str = Form("MONTHLY"), csrf: str = 
 
 
 @app.post("/inventario/contar")
-async def record_count(request: Request, ctx=Depends(require_user),
-                       session: Session = Depends(get_db)):
+def record_count(request: Request, ctx=Depends(require_user),
+                 form: FormData = Depends(el_formulario),
+                 session: Session = Depends(get_db)):
     """[00955] Apunta lo pesado. Contar lo puede hacer cualquiera: se hace en la cámara."""
     user, auth_session = ctx
     from thegrill.models import MeatCount
-    form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     count = (session.query(MeatCount)
              .filter_by(restaurant_id=user.restaurant_id, status=CountStatus.OPEN).first())
@@ -1154,11 +1165,11 @@ def map_pos_product(request: Request, pos_name: str = Form(...), recipe_id: int 
 
 
 @app.post("/ventas")
-async def register_sales(request: Request, ctx=Depends(require_user),
-                         session: Session = Depends(get_db)):
+def register_sales(request: Request, ctx=Depends(require_user),
+                   form: FormData = Depends(el_formulario),
+                   session: Session = Depends(get_db)):
     """[00964] Descuenta del almacén lo vendido. Cualquiera del equipo puede cargarlo."""
     user, auth_session = ctx
-    form = await request.form()
     lang = lang_for(request, session, user)
     try:
         auth.check_csrf(auth_session, form.get("csrf"), lang)

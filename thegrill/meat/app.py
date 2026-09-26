@@ -25,7 +25,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                RedirectResponse, Response)
 from fastapi.staticfiles import StaticFiles
-from starlette.datastructures import UploadFile   # el de request.form()
+from starlette.datastructures import FormData, UploadFile   # los de request.form()
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -87,6 +87,29 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # --------------------------------------------------------------- utilidades
+async def el_formulario(request: Request) -> FormData:
+    """[01826] El formulario, leído en el hilo que atiende, antes de bajar a trabajar.
+
+    Una ruta escrita con `async def` corre **en el hilo del servidor**, el
+    mismo para toda la casa. Y aquí dentro se escribe en la base: cuando dos
+    personas guardan a la vez, SQLite hace esperar a la segunda —hasta treinta
+    segundos, que es lo que se le ha puesto— y durante esa espera el hilo está
+    parado. No parado para ella: parado **para todos**. Cuatro guardando a la
+    vez y la casa entera se queda sin pantallas un minuto largo, con el camión
+    en el muelle. Y no sale en ningún registro, porque nadie ha fallado.
+
+    Leer el formulario sí hay que esperarlo —llega por la red—, así que se hace
+    aquí, que es un suspiro, y la ruta se queda siendo una función normal: el
+    servidor la manda a otro hilo y el suyo sigue atendiendo a los demás.
+    """
+    return await request.form()
+
+
+async def el_cuerpo(request: Request) -> bytes:
+    """[01827] Lo que viene en crudo, por lo mismo: se lee aquí y se trabaja aparte."""
+    return await request.body()
+
+
 def get_db():
     """[00174] Una sesión con la base para cada petición, que se cierra al acabar."""
     with db.session_scope() as session:
@@ -336,7 +359,7 @@ def _guard(request, session, user, auth_session, csrf: str) -> None:
     try:
         auth.check_csrf(auth_session, csrf, lang_for(request, session, user))
     except auth.PermissionDenied as e:
-        raise HTTPException(status_code=403, detail=str(e)) from None
+        raise HTTPException(status_code=403, detail=_aviso_de(e)) from None
 
 
 def _ya_estaba(request, session, user, envio: str, destino: str):
@@ -489,7 +512,23 @@ def _dicho(e: Exception, lang: str = "es") -> str:
                       kg=f"{e.como_kilos:.10g}", g=e.gramos)
     if isinstance(e, exacto.NoEsUnNumero):
         return i18n.t(lang, "valid.not_a_number_value", value=e.escrito)
-    return str(e)
+    # [01823] Y lo demás, en el idioma de quien lo lee. Los avisos de trabajo del
+    # programa —«de la pieza 8017 solo quedan 4 kg»— salían con `str(e)`, o sea
+    # en español, a cualquier cocina del mundo: se trabajaba en neerlandés o en
+    # árabe hasta que algo fallaba, y justo entonces la pantalla cambiaba de
+    # idioma. Ahora el aviso trae su clave y se dice donde toca.
+    return i18n.en(e, lang)
+
+
+def _aviso_de(e: Exception):
+    """[01825] El aviso de un fallo tal cual vino, sin convertirlo a texto todavía.
+
+    `str(e)` aquí lo dejaba en español para el resto del camino: la pantalla de
+    error lo recibía ya escrito y no tenía nada que traducir. Lo que se pasa es
+    el aviso entero, que se acuerda de su clave, y se dice en el idioma de
+    quien lo lee al pintarlo.
+    """
+    return e.args[0] if e.args else str(e)
 
 
 def _g(raw: str | None, default: float | None = None) -> float | None:
@@ -576,7 +615,9 @@ async def redirect_handler(request: Request, exc: HTTPException):
                 lang = lang_for(request)
     except Exception:                                    # noqa: BLE001
         lang = lang_for(request)
-    detalle = exc.detail or ""
+    # [01824] El detalle también se traduce: lo que llega es el aviso con su clave,
+    # no un texto ya escrito en español.
+    detalle = i18n.en(exc.detail, lang) if exc.detail else ""
     if not str(detalle).strip():
         detalle = i18n.t(lang, SIN_TEXTO.get(exc.status_code, "error.other"))
     # [00362] Volver a donde se estaba, no a la portada: el que se equivoca en una
@@ -614,6 +655,7 @@ def _pantalla_de_error(request: Request, codigo: int, detalle: str):
                 lang = lang_for(request)
     except Exception:                                    # noqa: BLE001
         lang = lang_for(request)
+    detalle = i18n.en(detalle, lang) if detalle else ""
     # [01719] Volver a donde se estaba, no a la portada: el que se equivoca en una
     # casilla quiere la misma pantalla, no empezar de cero.
     volver = request.headers.get("referer") or ""
@@ -736,7 +778,8 @@ def root(request: Request, session: Session = Depends(get_db)):
 
 
 @app.post("/pasarela/stripe")
-async def gateway_webhook(request: Request, session: Session = Depends(get_db)):
+def gateway_webhook(request: Request, payload: bytes = Depends(el_cuerpo),
+                    session: Session = Depends(get_db)):
     """[00205] Lo que cuenta la pasarela de pago: recibos cobrados, fallados y bajas.
 
     Es pública porque la llama la pasarela, así que aquí no manda la sesión
@@ -745,7 +788,6 @@ async def gateway_webhook(request: Request, session: Session = Depends(get_db)):
     """
     if gateway.secret() is None:
         return JSONResponse({"error": "gateway not configured"}, status_code=503)
-    payload = await request.body()
     try:
         result = gateway.apply(session, payload, request.headers.get("stripe-signature", ""))
     except gateway.GatewayError as e:
@@ -819,9 +861,9 @@ def request_form(request: Request, session: Session = Depends(get_db), sent: int
 
 
 @app.post("/solicitar", response_class=HTMLResponse)
-async def submit_request(request: Request, session: Session = Depends(get_db)):
+def submit_request(request: Request, form: FormData = Depends(el_formulario),
+                   session: Session = Depends(get_db)):
     """[00210] La única puerta abierta a internet. Con freno y sin datos de pago."""
-    form = await request.form()
     lang = lang_for(request, session)
     data = {k: (form.get(k) or "").strip() for k in
             ("restaurant_name", "legal_name", "tax_number", "country", "address",
@@ -940,7 +982,7 @@ def second_step(request: Request, code: str = Form(...), csrf: str = Form(""),
     try:
         auth.check_csrf(auth_session, csrf, lang)
     except auth.PermissionDenied as e:
-        raise HTTPException(status_code=403, detail=str(e)) from None
+        raise HTTPException(status_code=403, detail=_aviso_de(e)) from None
 
     # [00365] El freno también aquí: seis dígitos se prueban muy deprisa.
     key = f"2fa:{user.id}|{client_ip(request)}"
@@ -1085,11 +1127,11 @@ def _reception(request, user, auth_session, session, *, done=None, error="",
 
 
 @app.post("/recepcion", response_class=HTMLResponse)
-async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
-                  session: Session = Depends(get_db)):
+def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
+            form: FormData = Depends(el_formulario),
+            session: Session = Depends(get_db)):
     """[00226] Un lote de recepción: cada pieza con su número, su peso y su precio."""
     user, auth_session = ctx
-    form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
     repetido = _ya_estaba(request, session, user, str(form.get("envio") or ""), "/recepcion")
@@ -1100,13 +1142,13 @@ async def receive(request: Request, ctx=Depends(needs(perms.RECEIVE)),
     # leía una línea por encima, y un «4 C» —la tecla de al lado— reventaba la
     # pantalla entera con un 500 en vez de contestar «ahí va un número».
     try:
-        return await _recibir(request, user, auth_session, session, form, lang)
+        return _recibir(request, user, auth_session, session, form, lang)
     except (meat.MeatError, ValueError) as e:
         return _reception(request, user, auth_session, session, error=_dicho(e, lang),
                           previo=_lo_escrito(form))
 
 
-async def _recibir(request, user, auth_session, session, form, lang):
+def _recibir(request, user, auth_session, session, form, lang):
     """[00227] Lee el formulario del muelle y da de alta lo que ha llegado.
 
     El precio no lo pone el muelle: quien descarga apunta qué es, cuánto pesa,
@@ -1194,7 +1236,7 @@ async def _recibir(request, user, auth_session, session, form, lang):
     subida = form.get("foto")
     if created and isinstance(subida, UploadFile) and subida.filename:
         meat.store_label_photo(session, created[0], subida.content_type or "",
-                               await _leer_foto(request, subida, lang),
+                               _leer_foto(request, subida, lang),
                                UPLOAD_DIR, lang=lang)
     # [00375] Lo del camión se queda escrito: la siguiente pieza es de la misma caja y
     # nadie vuelve a teclear el matadero veinte veces.
@@ -1216,7 +1258,7 @@ async def _recibir(request, user, auth_session, session, form, lang):
     return _hecho(auth_session, "/recepcion", hecho, previo=_del_camion(form))
 
 
-async def _leer_foto(request: Request, subida, lang: str = "es") -> bytes:
+def _leer_foto(request: Request, subida, lang: str = "es") -> bytes:
     """[00228] Lee una foto sin meterse en memoria lo que no cabe.
 
     Antes se leía entera y después se miraba si pasaba del tope: un envío de
@@ -1235,7 +1277,7 @@ async def _leer_foto(request: Request, subida, lang: str = "es") -> bytes:
     if dicho and dicho.isdigit() and int(dicho) > tope * 2:
         raise demasiado
     trozos, leido = [], 0
-    while trozo := await subida.read(1024 * 1024):
+    while trozo := subida.file.read(1024 * 1024):
         leido += len(trozo)
         if leido > tope:
             raise demasiado
@@ -1280,11 +1322,11 @@ def _prices(request, user, auth_session, session, *, done="", error="", previo=N
 
 
 @app.post("/recepcion/precios", response_class=HTMLResponse)
-async def save_prices(request: Request, ctx=Depends(needs(perms.MONEY)),
-                      session: Session = Depends(get_db)):
+def save_prices(request: Request, ctx=Depends(needs(perms.MONEY)),
+                form: FormData = Depends(el_formulario),
+                session: Session = Depends(get_db)):
     """[00233] Activa las piezas: a cada una su precio, o el mismo a todas."""
     user, auth_session = ctx
-    form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
     repetido = _ya_estaba(request, session, user, str(form.get("envio") or ""),
@@ -1352,11 +1394,11 @@ def _butchery(request, user, auth_session, session, *, done=None, issues=(), err
 
 
 @app.post("/despiece", response_class=HTMLResponse)
-async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
-                        session: Session = Depends(get_db)):
+def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
+                  form: FormData = Depends(el_formulario),
+                  session: Session = Depends(get_db)):
     """[00236] Vuelca el despiece a cámara: cada corte, con su serial y su coste."""
     user, auth_session = ctx
-    form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
     # [00381] Ahora la hoja se puede apuntar sin señal, así que el teléfono reintenta:
@@ -1422,9 +1464,10 @@ async def post_butchery(request: Request, ctx=Depends(needs(perms.BUTCHER)),
 
 # ============================================================== CÁMARA
 @app.post("/carne/{serial}/foto")
-async def upload_label_photo(serial: str, request: Request,
-                             ctx=Depends(needs(perms.RECEIVE)),
-                             session: Session = Depends(get_db)):
+def upload_label_photo(serial: str, request: Request,
+                       ctx=Depends(needs(perms.RECEIVE)),
+                       form: FormData = Depends(el_formulario),
+                       session: Session = Depends(get_db)):
     """[00237] La foto de la etiqueta de una pieza.
 
     Va aparte del formulario de recepción y no por la cola de sin cobertura: en
@@ -1435,7 +1478,6 @@ async def upload_label_photo(serial: str, request: Request,
     etiqueta, la etiqueta está.
     """
     user, auth_session = ctx
-    form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
     volver = str(form.get("next") or "/recepcion")
@@ -1449,7 +1491,7 @@ async def upload_label_photo(serial: str, request: Request,
         return RedirectResponse(volver, status_code=303)
     try:
         meat.store_label_photo(session, pieza, subida.content_type or "",
-                               await _leer_foto(request, subida, lang),
+                               _leer_foto(request, subida, lang),
                                UPLOAD_DIR, lang=lang)
     except meat.MeatError as e:
         return RedirectResponse(f"{volver}?foto={quote(str(e))}", status_code=303)
@@ -1743,11 +1785,11 @@ def aging_weigh(request: Request, serial: str = Form(...), g: str = Form(""),
 
 
 @app.post("/maduracion/conteo", response_class=HTMLResponse)
-async def aging_daily_count(request: Request, ctx=Depends(needs(perms.COUNT)),
-                            session: Session = Depends(get_db)):
+def aging_daily_count(request: Request, ctx=Depends(needs(perms.COUNT)),
+                      form: FormData = Depends(el_formulario),
+                      session: Session = Depends(get_db)):
     """[00252] El conteo diario de la nevera de maduración: se pesan todas de una vez."""
     user, auth_session = ctx
-    form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
     repetido = _ya_estaba(request, session, user, str(form.get("envio") or ""), "/maduracion")
@@ -1779,11 +1821,11 @@ async def aging_daily_count(request: Request, ctx=Depends(needs(perms.COUNT)),
 
 
 @app.post("/maduracion/limpiar", response_class=HTMLResponse)
-async def aging_trim(request: Request, ctx=Depends(needs(perms.AGE)),
-                     session: Session = Depends(get_db)):
+def aging_trim(request: Request, ctx=Depends(needs(perms.AGE)),
+               form: FormData = Depends(el_formulario),
+               session: Session = Depends(get_db)):
     """[00253] Limpia la pieza: parte se aprovecha, parte se tira, y el resto sube de precio."""
     user, auth_session = ctx
-    form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
     try:
@@ -2000,11 +2042,11 @@ def site_pars_page(site_id: int, request: Request, ctx=Depends(needs(perms.TEAM)
 
 
 @app.post("/sedes/{site_id}/minimos", response_class=HTMLResponse)
-async def save_site_pars(site_id: int, request: Request, ctx=Depends(needs(perms.TEAM)),
-                         session: Session = Depends(get_db)):
+def save_site_pars(site_id: int, request: Request, ctx=Depends(needs(perms.TEAM)),
+                   form: FormData = Depends(el_formulario),
+                   session: Session = Depends(get_db)):
     """[00264] Guarda de una vez lo que esa sede quiere tener siempre. Vacío es «lo de la casa»."""
     user, auth_session = ctx
-    form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
     site = _own(session, user, Site, site_id, request)
@@ -2077,7 +2119,7 @@ def new_cut(request: Request, name: str = Form(...), min_stock: str = Form(""),
                         if consumption in ConsumptionMode.__members__
                         else ConsumptionMode.RECIPE)
     except (meat.MeatError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse("/cortes", status_code=303)
 
 
@@ -2092,7 +2134,7 @@ def new_article(cut_id: int, request: Request, name: str = Form(...),
     try:
         meat.add_article(session, user, cut, name, supplier.strip() or None)
     except meat.MeatError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse("/cortes", status_code=303)
 
 
@@ -2123,7 +2165,7 @@ def new_dish(request: Request, name: str = Form(...), cut_id: int = Form(...),
                       pos_code=pos_code, pos_name=pos_name,
                       by_weight=bool(by_weight), price_per_kg=_eur(price_per_kg), lang=lang)
     except (meat.MeatError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse("/carta", status_code=303)
 
 
@@ -2154,7 +2196,7 @@ def new_extra(request: Request, name: str = Form(...), unit: str = Form("KG"),
                           unit=Unit[unit] if unit in Unit.__members__ else Unit.KG,
                           cost=_eur(cost), portion_g=_g(portion))
     except (meat.MeatError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse("/ingredientes?saved=1", status_code=303)
 
 
@@ -2170,7 +2212,7 @@ def update_extra_cost(ingredient_id: int, request: Request, cost: str = Form(...
         meat.set_extra_cost(session, user, ingredient_id, _eur(cost, 0.0) or 0.0,
                             portion_g=_g(portion, 0.0))
     except (meat.MeatError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse("/ingredientes?saved=1", status_code=303)
 
 
@@ -2212,7 +2254,7 @@ def add_plate_line(code: str, request: Request, ingredient_id: int = Form(...),
                             waste_pct=_num(waste_pct, 0.0) or 0.0,
                             lang=lang_for(request, session, user))
     except (meat.MeatError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse(f"/carta/{code}", status_code=303)
 
 
@@ -2227,7 +2269,7 @@ def remove_plate_line(code: str, line_id: int, request: Request, csrf: str = For
         meat.remove_plate_line(session, user, dish, line_id,
                                lang=lang_for(request, session, user))
     except meat.MeatError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse(f"/carta/{code}", status_code=303)
 
 
@@ -2247,7 +2289,7 @@ def set_plate_grams(code: str, request: Request, grams: str = Form(...), csrf: s
         meat.set_plate_grams(session, user, dish, _g(grams, 0.0) or 0.0,
                              lang=lang_for(request, session, user))
     except (meat.MeatError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse(f"/carta/{code}", status_code=303)
 
 
@@ -2281,18 +2323,18 @@ def _sales(request, user, auth_session, session, *, done="", error="", parsed=No
 
 
 @app.post("/ventas/fichero", response_class=HTMLResponse)
-async def read_sales_file(request: Request, ctx=Depends(needs(perms.MENU)),
-                          session: Session = Depends(get_db)):
+def read_sales_file(request: Request, ctx=Depends(needs(perms.MENU)),
+                    form: FormData = Depends(el_formulario),
+                    session: Session = Depends(get_db)):
     """[00281] Lee el parte de ventas del POS y enseña lo entendido. No descuenta nada."""
     user, auth_session = ctx
-    form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     upload = form.get("file")
     if upload is None or not getattr(upload, "filename", ""):
         return _sales(request, user, auth_session, session,
                       error=i18n.t(lang_for(request, session, user), "sale.no_file"))
     try:
-        parsed = pos_import.parse(await upload.read(), upload.filename)
+        parsed = pos_import.parse(upload.file.read(), upload.filename)
     except (pos_import.ImportError_, ValueError) as e:
         return _sales(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
 
@@ -2312,11 +2354,11 @@ async def read_sales_file(request: Request, ctx=Depends(needs(perms.MENU)),
 
 
 @app.post("/ventas")
-async def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
-                       session: Session = Depends(get_db)):
+def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
+                 form: FormData = Depends(el_formulario),
+                 session: Session = Depends(get_db)):
     """[00282] Lo vendido en el POS descuenta de cámara por rotación, plato a plato."""
     user, auth_session = ctx
-    form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
 
@@ -2411,7 +2453,7 @@ def open_inventory(request: Request, period: str = Form("MONTHLY"), site: str = 
                              else CountPeriod.MONTHLY,
                              site_id=mia.id if mia else elegida)
     except inventory.InventoryError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse("/inventario", status_code=303)
 
 
@@ -2436,11 +2478,11 @@ def _open_sheet(session: Session, user, form_id: str = "", lang: str = "es") -> 
 
 
 @app.post("/inventario/contar")
-async def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
-                       session: Session = Depends(get_db)):
+def record_count(request: Request, ctx=Depends(needs(perms.COUNT)),
+                 form: FormData = Depends(el_formulario),
+                 session: Session = Depends(get_db)):
     """[00286] Contar lo puede hacer cualquiera: se hace en la cámara, con la balanza."""
     user, auth_session = ctx
-    form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     lang = lang_for(request, session, user)
     repetido = _ya_estaba(request, session, user, str(form.get("envio") or ""), "/inventario")
@@ -2486,7 +2528,7 @@ def close_inventory(request: Request, csrf: str = Form(""), hoja: str = Form("")
     try:
         inventory.close_count(session, user, count, lang=lang_for(request, session, user))
     except inventory.InventoryError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from None
+        raise HTTPException(status_code=409, detail=_aviso_de(e)) from None
     return RedirectResponse("/inventario", status_code=303)
 
 
@@ -2501,7 +2543,7 @@ def cancel_inventory(request: Request, reason: str = Form(""), csrf: str = Form(
     try:
         inventory.cancel_count(session, user, count, reason)
     except inventory.InventoryError as e:
-        raise HTTPException(status_code=409, detail=str(e)) from None
+        raise HTTPException(status_code=409, detail=_aviso_de(e)) from None
     return RedirectResponse("/inventario", status_code=303)
 
 
@@ -2519,7 +2561,7 @@ def recover_piece(request: Request, serial: str = Form(...), g: str = Form(""),
                           note=note.strip() or None,
                           lang=lang_for(request, session, user))
     except (inventory.InventoryError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse("/inventario?done=1", status_code=303)
 
 
@@ -2540,7 +2582,7 @@ def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(.
                         expiry=date.fromisoformat(expiry), note=note.strip() or None,
                         lang=lang_for(request, session, user))
     except (inventory.InventoryError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse("/inventario?done=1", status_code=303)
 
 
@@ -2823,11 +2865,11 @@ def set_request_status(request_id: int, request: Request, status: str = Form(...
 
 
 @app.post("/admin/casa")
-async def create_account(request: Request, ctx=Depends(require_owner),
-                         session: Session = Depends(get_db)):
+def create_account(request: Request, ctx=Depends(require_owner),
+                   form: FormData = Depends(el_formulario),
+                   session: Session = Depends(get_db)):
     """[00302] Da de alta la casa y la cuenta de su manager. Es el único camino."""
     user, auth_session = ctx
-    form = await request.form()
     _guard(request, session, user, auth_session, form.get("csrf"))
     plan = form.get("plan")
     try:
@@ -2851,7 +2893,7 @@ async def create_account(request: Request, ctx=Depends(require_owner),
             contact_phone=(form.get("contact_phone") or "").strip(),
             billing_email=(form.get("billing_email") or "").strip())
     except (billing.BillingError, auth.AuthError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     billing.audit(session, user, restaurant.id, restaurant.slug, "CREATED", restaurant.name)
     return RedirectResponse("/admin?done=1", status_code=303)
 
@@ -2878,7 +2920,7 @@ def set_billing(restaurant_id: int, request: Request, action: str = Form(...),
         else:
             raise HTTPException(status_code=400, detail="")
     except (billing.BillingError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse("/admin?done=1", status_code=303)
 
 
@@ -2898,7 +2940,7 @@ def attach_payment(restaurant_id: int, request: Request, provider: str = Form("s
                                       reference=reference, brand=brand, last4=last4,
                                       expiry=expiry)
     except billing.BillingError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse("/admin?done=1", status_code=303)
 
 
@@ -2961,7 +3003,7 @@ def close_alert(alert_id: int, request: Request, resolution: str = Form(...),
         # contesta lo mismo que las demás puertas: eso no existe.
         raise HTTPException(status_code=404, detail="") from None
     except (ValueError, service.ValidationError) as e:
-        raise HTTPException(status_code=400, detail=str(e)) from None
+        raise HTTPException(status_code=400, detail=_aviso_de(e)) from None
     return RedirectResponse("/manager/alertas", status_code=303)
 
 
@@ -3398,7 +3440,7 @@ def set_bug_status(report_id: int, request: Request, estado: str = Form(...),
                         BugStatus[estado] if estado in BugStatus.__members__
                         else BugStatus.SEEN, note=note)
     except bugs.BugError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from None
+        raise HTTPException(status_code=404, detail=_aviso_de(e)) from None
     return RedirectResponse("/admin/fallos", status_code=303)
 
 

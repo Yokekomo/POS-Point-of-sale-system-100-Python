@@ -120,8 +120,14 @@ class FueraDeRango(ValueError):
 
 
 @dataclass(frozen=True)
-class Aviso:
-    """[01354] El número sí puede ser, y está mal. Se guarda y se avisa."""
+class Sospecha:
+    """[01354] El número sí puede ser, y está mal. Se guarda y se avisa.
+
+    Se llamaba `Aviso`, que es ahora el nombre de otra cosa —el texto que sabe
+    decirse en siete idiomas—. Dos cosas distintas con el mismo nombre en la
+    misma casa acaban confundiéndose, y esta no es un texto: es una cifra que
+    cuadra pero huele mal.
+    """
     code: str
     message: str
 
@@ -178,7 +184,7 @@ def gramos_racion(gramos: float | None, lang: str = "es") -> None:
 
 def llegada(grados: float | None, almacen: Storage, serial: str,
             kg: float | None = None, lang: str = "es",
-            restaurant=None) -> list[Aviso]:
+            restaurant=None) -> list[Sospecha]:
     """[01362] Lo que hay que mirar de una pieza que acaba de bajar del camión.
 
     Devuelve avisos, no excepciones: todo lo que llega aquí ya pasó el filtro
@@ -186,19 +192,19 @@ def llegada(grados: float | None, almacen: Storage, serial: str,
     función es lo que el manager ve hoy en sus alertas, no dentro de un mes en
     un cuadre.
     """
-    fuera: list[Aviso] = []
+    fuera: list[Sospecha] = []
     suya = banda(almacen, restaurant)
     if grados is not None and suya and not _dentro(grados, suya):
         frio = almacen == Storage.FROZEN
         caliente = grados > suya[1]
         clave = ("haccp.arrival_warm" if caliente else "haccp.arrival_cold")
-        fuera.append(Aviso(clave, t(
+        fuera.append(Sospecha(clave, t(
             lang, "alert." + ("frozen_warm" if frio and caliente else
                               "chilled_warm" if caliente else "arrival_cold"),
             serial=serial, c=_numero(grados),
             limit=_numero(suya[1] if caliente else suya[0]))))
     if kg is not None and kg > PIEZA_PESADA:
-        fuera.append(Aviso("meat.heavy_piece", t(
+        fuera.append(Sospecha("meat.heavy_piece", t(
             lang, "alert.heavy_piece", serial=serial, kg=_numero(kg),
             limit=_numero(PIEZA_PESADA))))
     return fuera

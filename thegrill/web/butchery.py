@@ -29,6 +29,7 @@ from thegrill.models import (Despiece, DespieceCut, DespiecePrimal, IngredientIt
                              PrimalStatus, Storage, User)
 from thegrill.rules import TGInput, validate_tg
 from thegrill.web import exacto, jornada, locking
+from thegrill.web.i18n import Aviso, Avisos
 
 EPSILON = 1e-9
 MAX_CUTS_PER_PRIMAL = 10      # lo que sale de un primal en la práctica
@@ -88,11 +89,12 @@ def check(session: Session, despiece: Despiece) -> list[str]:
     """[01021] Todo lo que impide volcar este despiece, dicho de una vez."""
     problems: list[str] = []
     if despiece.posted:
-        problems.append(f"{despiece.tg}: ya estaba volcado al almacén")
+        problems.append(Aviso("err.bu.posted", tg=despiece.tg))
 
     cuts = list(despiece.cuts)
     if len(cuts) > MAX_CUTS_PER_PRIMAL:
-        problems.append(f"{despiece.tg}: {len(cuts)} cortes, más de los {MAX_CUTS_PER_PRIMAL} habituales")
+        problems.append(Aviso("err.bu.too_many_cuts", tg=despiece.tg, n=len(cuts),
+                              max=MAX_CUTS_PER_PRIMAL))
 
     serials = [p.serial for p in despiece.primals]
     for issue in validate_tg(TGInput(despiece.tg, despiece.country, serials,
@@ -105,9 +107,9 @@ def check(session: Session, despiece: Despiece) -> list[str]:
 
     for cut in cuts:
         if cut.item_id is None:
-            problems.append(f"{despiece.tg}/{cut.cut_name}: sin artículo, no puede entrar en almacén")
+            problems.append(Aviso("err.bu.cut_no_item", tg=despiece.tg, cut=cut.cut_name))
         if cut.value_index is None or cut.value_index <= 0:
-            problems.append(f"{despiece.tg}/{cut.cut_name}: índice de valor inválido")
+            problems.append(Aviso("err.bu.cut_index", tg=despiece.tg, cut=cut.cut_name))
 
     for link in despiece.primals:
         if link.serial is None:
@@ -115,11 +117,12 @@ def check(session: Session, despiece: Despiece) -> list[str]:
         primal = (session.query(Primal)
                   .filter_by(restaurant_id=despiece.restaurant_id, serial=link.serial).first())
         if primal is None:
-            problems.append(f"{despiece.tg}: el serial {link.serial} no está en el registro")
+            problems.append(Aviso("err.bu.serial_unknown", tg=despiece.tg, serial=link.serial))
         elif primal.status != PrimalStatus.IN_STOCK:
-            problems.append(f"{despiece.tg}: el serial {link.serial} ya estaba {primal.status.value}")
+            problems.append(Aviso("err.bu.serial_status", tg=despiece.tg,
+                                  serial=link.serial, status=primal.status.value))
         elif primal_cost(primal) is None:
-            problems.append(f"{despiece.tg}: el serial {link.serial} no tiene coste")
+            problems.append(Aviso("err.bu.serial_no_cost", tg=despiece.tg, serial=link.serial))
     return problems
 
 
@@ -145,7 +148,7 @@ def allocate(cuts: list[DespieceCut], total_cost: float) -> list[Allocation]:
     usable = [c for c in cuts if c.total_kg > EPSILON]
     total_weight = sum(c.total_kg * (c.value_index or 1.0) for c in usable)
     if total_weight <= EPSILON:
-        raise ButcheryError("El despiece no tiene cortes con peso: no hay entre qué repartir")
+        raise ButcheryError(Aviso("err.bu.no_cuts"))
 
     pesos = [c.total_kg * (c.value_index or 1.0) for c in usable]
     costes = exacto.repartir_dinero(total_cost, pesos)
@@ -165,7 +168,7 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
     """
     problems = check(session, despiece)
     if problems:
-        raise ButcheryError("; ".join(problems))
+        raise ButcheryError(Avisos(problems))
 
     cuts = list(despiece.cuts)
     total_cuts_kg = round(sum(c.total_kg for c in cuts if not c.is_trim), 6)
@@ -209,9 +212,7 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
 
     if use_by is None:
         if not expiries:
-            raise ButcheryError(
-                f"{despiece.tg}: los primales no traen fecha de consumo y no se ha dado una. "
-                "Una fecha de caducidad no se inventa.")
+            raise ButcheryError(Aviso("err.bu.no_date", tg=despiece.tg))
         use_by = min(expiries)
 
     allocations = allocate(cuts, total_cost)
@@ -240,9 +241,7 @@ def post(session: Session, user: User, despiece: Despiece, use_by: date | None =
                           {"status": PrimalStatus.CUT, "status_ref": despiece.tg},
                           {"status": PrimalStatus.IN_STOCK, "status_ref": None,
                            "status_date": None})
-        raise ButcheryError(
-            f"{despiece.tg}: la pieza {primal.serial} la acaba de despiezar otra "
-            "persona. Mira el despiece que ya está hecho antes de repetirlo.")
+        raise ButcheryError(Aviso("err.bu.taken", tg=despiece.tg, serial=primal.serial))
 
     result = PostResult(tg=despiece.tg, mass=mass,
                         yield_pct=yield_pct(despiece.weight_before_kg, total_cuts_kg),
@@ -314,7 +313,7 @@ def trace(session: Session, restaurant_id: int, serial: str) -> dict:
     lot = (session.query(IngredientLot)
            .filter_by(restaurant_id=restaurant_id, serial=serial).first())
     if lot is None:
-        raise ButcheryError(f"No hay ningún corte con el serial {serial}")
+        raise ButcheryError(Aviso("err.bu.no_lot", serial=serial))
     movements = (session.query(IngredientMovement)
                  .filter_by(restaurant_id=restaurant_id, lot_id=lot.id)
                  .order_by(IngredientMovement.date, IngredientMovement.id).all())

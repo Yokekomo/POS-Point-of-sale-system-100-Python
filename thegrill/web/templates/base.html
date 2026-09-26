@@ -333,6 +333,35 @@ img,svg,video{max-width:100%;height:auto}
   function remember(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
   function recall(key) { try { return Number(localStorage.getItem(key) || 0); } catch (e) { return 0; } }
   var lastSeen = recall("grill_last_notif");
+  // [01833] El aviso grave, por el camino que el teléfono deja abierto.
+  //
+  // Esto era `new Notification(...)` a pelo. En el ordenador va; en el móvil
+  // —que es donde está el que trabaja— **revienta**: Chrome de Android no deja
+  // construirla así y contesta «Illegal constructor», y el Safari del iPhone ni
+  // la tiene si la web no está instalada en la pantalla de inicio. Y como la
+  // llamada iba dentro del `then`, el error caía en el `.catch` vacío de abajo:
+  // se tragaba el aviso, se saltaba los que venían detrás en la misma tanda y ni
+  // siquiera apuntaba por dónde iba. O sea, justo el aviso que no puede
+  // perderse —una cámara a nueve grados, una pieza caducando— no llegaba a
+  // ningún teléfono y no dejaba rastro de no haber llegado.
+  //
+  // En el móvil la avisa el trabajador de la web, que sí puede; en el
+  // ordenador, la de siempre; y si no se puede ninguna de las dos, no pasa
+  // nada: el número de la barra y la columna de novedades siguen ahí. Lo que no
+  // puede es volver a tumbar el resto de la vuelta.
+  function avisar(it) {
+    try {
+      if (!window.Notification || Notification.permission !== "granted") return;
+      var comoEs = { body: it.body, tag: "grill-" + it.id };
+      if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+        navigator.serviceWorker.ready.then(function (reg) {
+          return reg.showNotification(it.title, comoEs);
+        }).catch(function () { try { new Notification(it.title, comoEs); } catch (e) {} });
+        return;
+      }
+      new Notification(it.title, comoEs);
+    } catch (e) { /* este aparato no deja: el número y la columna siguen ahí */ }
+  }
   function poll() {
     fetch("/api/notificaciones", { headers: { Accept: "application/json" } })
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -343,10 +372,7 @@ img,svg,video{max-width:100%;height:auto}
         var top = lastSeen;
         d.items.forEach(function (it) {
           if (it.id > top) top = it.id;
-          if (it.id > lastSeen && it.severity === "CRITICAL" &&
-              window.Notification && Notification.permission === "granted") {
-            new Notification(it.title, { body: it.body, tag: "grill-" + it.id });
-          }
+          if (it.id > lastSeen && it.severity === "CRITICAL") avisar(it);
         });
         if (top !== lastSeen) { lastSeen = top; remember("grill_last_notif", top); }
       })

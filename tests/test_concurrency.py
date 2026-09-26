@@ -738,3 +738,119 @@ def test_a_butchery_of_three_that_loses_one_gives_the_others_back(casa, monkeypa
                     if d.tg == "TG-TRES"]
         assert s.query(IngredientLot).filter(
             IngredientLot.lot_code == "TG-TRES").count() == 0
+
+
+# ============================================ la misma pieza en maduración
+#
+# La cámara de maduración es donde más manos hay encima de la misma pieza: el
+# carnicero la limpia, el de cámara la pesa cada mañana y el de sala corta al
+# peso para el pase. Los tres tocan los mismos kilos, y los kilos de una pieza
+# madurada son los caros de la casa. Aquí se comprueba que dos a la vez no
+# pueden dejar la pieza pesando una cosa y habiendo salido otra.
+def test_two_people_weighing_the_same_piece_do_not_count_the_loss_twice(casa):
+    """Una pesada por pieza y día: dos contra el mismo peso de ayer no."""
+    from thegrill.models import PrimalWeighing
+    from thegrill.web import aging
+    rest_id = casa[0]
+    pesos = [8.5, 8.7]
+
+    def trabajo(s, i):
+        aging.weigh(s, _usuario(s, rest_id, "Ana"), "8017", pesos[i], on=HOY)
+
+    fallos = a_la_vez(trabajo)
+    assert se_lo_dijeron(fallos, "acaba de pesar otra persona", "no puede pesar"), fallos
+    with db.session_scope() as s:
+        pieza = s.query(Primal).filter_by(restaurant_id=rest_id, serial="8017").one()
+        assert round(pieza.weight_kg, 6) in (8.5, 8.7)
+        # Una sola merma apuntada, y contra los nueve kilos de verdad.
+        filas = s.query(PrimalWeighing).filter_by(serial="8017").all()
+        assert len(filas) == 1, [f.kg for f in filas]
+        assert round(filas[0].previous_kg, 6) == 9.0
+
+
+def test_two_trims_at_once_do_not_put_the_same_kilos_in_the_chiller_twice(casa):
+    """Dos limpiezas a la vez: se quitan dos kilos, no cuatro."""
+    from thegrill.models import PrimalWeighing
+    from thegrill.web import aging
+    rest_id, _obrador, _playa, _sierra, item_id = casa
+
+    def trabajo(s, i):
+        aging.trim(s, _usuario(s, rest_id, "Ana"), "8017", removed_kg=2.0,
+                   parts=[aging.TrimPart(item_id=item_id, kg=1.0)], on=HOY)
+
+    fallos = a_la_vez(trabajo)
+    assert se_lo_dijeron(fallos, "acaba de tocar otra persona", "no puede dejar la pieza"), fallos
+    with db.session_scope() as s:
+        pieza = s.query(Primal).filter_by(restaurant_id=rest_id, serial="8017").one()
+        assert round(pieza.weight_kg, 6) == 7.0
+        assert len(s.query(PrimalWeighing).filter_by(serial="8017").all()) == 1
+        # Y un solo lote de recortes en cámara, no dos.
+        recortes = s.query(IngredientLot).filter_by(parent_serial="8017").all()
+        assert len(recortes) == 1, [l.serial for l in recortes]
+
+
+def test_two_cuts_at_once_never_sell_more_kilos_than_the_piece_has(casa):
+    """De nueve kilos no salen diez: la segunda venta se entera de que llega tarde."""
+    from thegrill.models import WeightSale
+    from thegrill.web import aging
+
+    rest_id = casa[0]
+
+    def trabajo(s, i):
+        aging.sell_by_weight(s, _usuario(s, rest_id, "Ana"), "8017", 5000.0,
+                             price=40.0, on=HOY)
+
+    fallos = a_la_vez(trabajo)
+    assert se_lo_dijeron(fallos, "acaba de tocar otra persona", "solo quedan"), fallos
+    with db.session_scope() as s:
+        pieza = s.query(Primal).filter_by(restaurant_id=rest_id, serial="8017").one()
+        ventas = s.query(WeightSale).filter_by(serial="8017").all()
+        assert len(ventas) == 1
+        # Lo cobrado y lo descontado dicen lo mismo.
+        assert round(pieza.weight_kg + sum(v.grams for v in ventas) / 1000, 6) == 9.0
+
+
+def test_a_piece_cannot_go_to_the_freezer_and_to_the_dry_ager_at_once(casa):
+    """Dos destinos a la vez: uno manda, y al otro se le dice."""
+    from thegrill.models import Storage
+    from thegrill.web import aging
+    rest_id = casa[0]
+    destinos = [Storage.AGING, Storage.FROZEN]
+
+    def trabajo(s, i):
+        aging.move(s, _usuario(s, rest_id, "Ana"), "8017", destinos[i],
+                   target_days=30, use_by=HOY + timedelta(days=90), on=HOY)
+
+    fallos = a_la_vez(trabajo)
+    assert se_lo_dijeron(fallos, "acaba de mover otra persona", "ya está ahí"), fallos
+    with db.session_scope() as s:
+        pieza = s.query(Primal).filter_by(restaurant_id=rest_id, serial="8017").one()
+        assert pieza.storage in destinos
+        # Madurar apunta el peso de entrada; congelar lo borra. No pueden estar
+        # las dos cosas: sin ese peso no hay manera de decir lo que ha perdido.
+        if pieza.storage == Storage.AGING:
+            assert pieza.aging_start_kg == 9.0 and pieza.aging_target_days == 30
+        else:
+            assert pieza.aging_start_kg is None and pieza.frozen_use_by is not None
+
+
+def test_a_trim_that_is_rejected_leaves_nothing_in_the_chiller(casa):
+    """Si una parte no entra, no entra ninguna: la cámara se queda como estaba.
+
+    El error subía a la ruta y la ruta lo enseñaba en rojo, pero la sesión se
+    cerraba bien y lo ya escrito se guardaba. Quedaban recortes de una limpieza
+    que el carnicero veía rechazada, y los volvía a meter al repetirla.
+    """
+    from thegrill.web import aging
+    rest_id, _obrador, _playa, _sierra, item_id = casa
+    with db.session_scope() as s:
+        ana = _usuario(s, rest_id, "Ana")
+        with pytest.raises(aging.AgingError):
+            aging.trim(s, ana, "8017", removed_kg=3.0, on=HOY, parts=[
+                aging.TrimPart(item_id=item_id, kg=1.0),
+                aging.TrimPart(item_id=item_id + 9999, kg=1.0),   # de otra casa
+            ])
+    with db.session_scope() as s:
+        assert s.query(IngredientLot).filter_by(parent_serial="8017").all() == []
+        pieza = s.query(Primal).filter_by(restaurant_id=rest_id, serial="8017").one()
+        assert round(pieza.weight_kg, 6) == 9.0
