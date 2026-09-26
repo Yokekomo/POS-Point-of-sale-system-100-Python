@@ -265,11 +265,27 @@ def test_pinch_to_zoom_is_never_blocked(phone_pages):
     assert "viewport-fit=cover" in meta          # para que las zonas seguras existan
 
 
+
+
+def hojas_de(page) -> str:
+    """Todo el estilo que le llega a esa pantalla, esté donde esté.
+
+    Desde que la hoja vive en su propio fichero —para bajarla una vez y no en
+    cada pantalla— mirar solo los `<style>` de la página no encuentra nada.
+    """
+    trozos = page.evaluate(
+        "() => [...document.querySelectorAll('style')].map(s => s.textContent)")
+    for donde in page.eval_on_selector_all(
+            "link[rel=stylesheet]", "els => els.map(e => e.href)"):
+        trozos.append(page.request.get(donde).text())
+    return "".join(trozos)
+
+
 def test_the_notch_and_the_home_bar_do_not_eat_the_screen(phone_pages):
     """Con `viewport-fit=cover` hay que apartarse de la muesca a mano."""
     base, page = phone_pages
     page.goto(f"{base}/hoy")
-    hoja = page.evaluate("() => [...document.querySelectorAll('style')].map(s => s.textContent).join('')")
+    hoja = hojas_de(page)
     assert "env(safe-area-inset-left)" in hoja and "env(safe-area-inset-bottom)" in hoja
 
 
@@ -1139,8 +1155,7 @@ def test_the_kitchen_edition_keeps_the_same_rules(cocina_phone):
     page.goto(f"{base}/manager")
     meta = page.get_attribute("meta[name=viewport]", "content")
     assert "user-scalable=no" not in meta and "maximum-scale" not in meta
-    hoja = page.evaluate(
-        "() => [...document.querySelectorAll('style')].map(s => s.textContent).join('')")
+    hoja = hojas_de(page)
     assert "env(safe-area-inset-left)" in hoja and "pointer:coarse" in hoja
     assert page.eval_on_selector("nav a", "el => getComputedStyle(el).touchAction") == "manipulation"
 
@@ -1618,10 +1633,16 @@ def test_a_phone_that_refuses_notifications_still_gets_the_rest(browser):
              '{"id": 9002, "title": "Pieza caducando", "body": "8017",'
              ' "severity": "CRITICAL"}]}'))
     page.goto(f"{base}/hoy")
-    page.wait_for_function(
-        "document.querySelector('#navbadge') && "
-        "document.querySelector('#navbadge').textContent === '2'",
-        timeout=5000)
+    # A mano y no con `wait_for_function`: esa compila una cadena dentro de la
+    # página, y la política de contenido de este programa no deja evaluar
+    # cadenas —que es justo lo que se quiere de una política—.
+    for _ in range(60):
+        if page.evaluate("() => { var b = document.querySelector('#navbadge');"
+                         "return b && b.textContent; }") == "2":
+            break
+        page.wait_for_timeout(100)
+    else:
+        raise AssertionError("el contador no llegó a ponerse al día")
     apuntado = page.evaluate("localStorage.getItem('grill_last_notif')")
     assert apuntado == "9002", (
         "la vuelta se rompió en el primer aviso: el segundo no se ha mirado")

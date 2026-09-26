@@ -712,7 +712,10 @@ def test_the_screens_tell_the_browser_which_theme_they_are_in(client):
     signup(client)
     for ruta in ("/hoy", "/carne", "/inventario", "/recepcion"):
         html = client.get(ruta).text
-        assert "color-scheme:light dark" in html, ruta
+        # En la propia página, no en la hoja de estilo: la hoja es un fichero
+        # aparte y llega unas décimas después. En esas décimas el navegador
+        # saca las barras y los desplegables en claro, y luego cambian.
+        assert '<meta name="color-scheme" content="light dark">' in html, ruta
 
 
 # ------------------------------------------- dos momentos del día, dos pantallas
@@ -943,11 +946,12 @@ class TestNovedades:
 
     def test_every_work_screen_can_show_them(self, client):
         """El aviso no sirve si solo sale en una pantalla: sale en todas."""
+        from conftest import con_lo_de_fuera
         signup(client)
         for ruta in ("/hoy", "/recepcion", "/despiece", "/carne", "/inventario", "/merma"):
             html = client.get(ruta).text
             assert 'id="pilavisos"' in html, ruta
-            assert "/api/novedades" in html, ruta
+            assert "/api/novedades" in con_lo_de_fuera(client, html), ruta
 
     def test_a_critical_alert_can_tell_which_one_is_new(self, client):
         """El contador de avisos manda el número de cada uno.

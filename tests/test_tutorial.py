@@ -48,8 +48,13 @@ def client(tmp_path, monkeypatch):
 
 
 def pasos_de(html: str):
-    """Los pasos que el servidor le ha mandado de verdad a esa página."""
-    trozo = re.search(r"var PASOS = (\[.*?\]);", html, re.S)
+    """Los pasos que el servidor le ha mandado de verdad a esa página.
+
+    El código del tutorial vive ahora en su propio fichero —se baja una vez, no
+    en cada pantalla—; lo que sigue viniendo en la página es lo suyo de esa
+    pantalla, que es justo esto.
+    """
+    trozo = re.search(r"\n  pasos: (\[.*?\]),\n", html, re.S)
     return json.loads(trozo.group(1)) if trozo else None
 
 

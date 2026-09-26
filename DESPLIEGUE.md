@@ -61,6 +61,16 @@ despeinarse**. Lo que crece no es la CPU: es la base de datos y las copias.
 | Servidor | Un VPS de 2 vCPU y 4 GB en **Hetzner** (Falkenstein o Helsinki) o **OVH** | Cuesta entre 5 y 15 € al mes y sobra para empezar. En Europa, que es lo que importa. |
 | Base de datos | **PostgreSQL gestionado** —Neon, Supabase o el de tu proveedor— en región europea | Que las copias y el punto de restauración no dependan de que te acuerdes tú. |
 | Delante | **Cloudflare** en plan gratuito | TLS, caché de lo estático, protección contra saturación y un cortafuegos de aplicación sin tocar el servidor. |
+
+**Lo estático ya viene preparado para esa caché.** El estilo y los guiones se
+sirven en `/estatico/<nombre>.<huella>.css`, con la huella de su propio
+contenido en el nombre y `Cache-Control: public, max-age=31536000, immutable`.
+No hay que configurar nada delante: Cloudflare —o cualquier proxy— los guarda
+y deja de preguntar. Y como la huella cambia con el contenido, un despliegue
+nuevo estrena nombre y llega a todo el mundo sin purgar caché a mano.
+
+Lo que **no** hay que hacer es poner una regla que cachee el HTML: ahí va lo de
+cada casa, y con sesión dentro.
 | Correo | **Postmark**, **Resend** o **Amazon SES** | Un servidor propio de correo acaba en la carpeta de spam. Estos entregan. |
 | Cobros | **Stripe** | Guarda las tarjetas él, que para eso está certificado, y manda el aviso de recibo devuelto. |
 | Fotos y ficheros | El disco del servidor, o **S3/R2** cuando crezca | De momento no hace falta. |

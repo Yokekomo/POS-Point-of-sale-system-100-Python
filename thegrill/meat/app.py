@@ -41,9 +41,9 @@ from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, Cou
                              Rotation, Site, SiteKind, Storage, Unit, User)
 from thegrill.models import BugStatus
 from thegrill.web import (aging, auth, butchery, caducidad, cifras, costing, cuadre,
-                          defrost, exacto, i18n, impuestos, inventory, jornada,
-                          money, pesos, pos_import, rangos, service, sites,
-                          tracing, twofactor, waste)
+                          defrost, estaticos, exacto, i18n, impuestos, inventory,
+                          jornada, money, pesos, pos_import, rangos, service,
+                          sites, tracing, twofactor, waste)
 
 log = logging.getLogger(__name__)
 
@@ -84,6 +84,12 @@ cifras.enganchar(templates.env)
 app = FastAPI(title="Control de carnes", docs_url=None, redoc_url=None, openapi_url=None)
 os.makedirs(PHOTO_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+# [01853] Los estilos y los guiones, fuera del HTML y guardados por el navegador.
+estaticos.enganchar(app, templates)
+# Los que hacen falta para que una pantalla de trabajo abra en la cámara: el
+# ayudante los guarda al instalarse, con las demás cosas que no llevan datos.
+ESTATICOS_DE_MANO = ("carne.css", "tutorial.css", "carne.js", "carne-fin.js",
+                     "tutorial.js")
 
 
 # --------------------------------------------------------------- utilidades
@@ -3599,8 +3605,13 @@ const DE_MANO = ['/hoy', '/inventario', '/maduracion', '/carne', '/descongelado'
 
 // El tutorial también abre en la cámara, y el icono lo pide cada pantalla.
 // Nada de esto lleva datos de nadie, así que sobrevive al cierre de sesión.
+//
+// Y con ellos la hoja de estilo y el guion, que desde que están fuera del HTML
+// son dos ficheros más que pedir: sin guardarlos, una pantalla que sí estaba
+// guardada se abría en la cámara **sin estilo ninguno**, que es peor que no
+// abrirse, porque parece que el programa se ha roto.
 const DEL_ARMAZON = ['/static/tour/driver.js', '/static/tour/driver.css',
-                     '/static/icono.svg'];
+                     '/static/icono.svg', __ESTATICOS__];
 
 async function llenar(nombre, rutas) {
   const cache = await caches.open(nombre);
@@ -3644,10 +3655,16 @@ self.addEventListener('fetch', event => {
   // al lado. Por eso lo primero es el plazo, y lo segundo la copia.
   const PLAZO = 2500;      // en una cámara, más de esto es que no hay
 
+  // Lo que no lleva datos de nadie —el estilo, el guion, el icono— va al
+  // armazón, que no se borra al cerrar la sesión. Si fuera al otro almacén,
+  // el primer cierre de sesión dejaría las pantallas guardadas sin estilo.
+  const DEPOSITO = (url.pathname.startsWith('/estatico/') ||
+                    url.pathname.startsWith('/static/')) ? ARMAZON : CACHE;
+
   const conRed = () => fetch(req).then(res => {
     if (res.ok && res.type === 'basic') {
       const copia = res.clone();
-      caches.open(CACHE).then(c => c.put(req, copia));
+      caches.open(DEPOSITO).then(c => c.put(req, copia));
     }
     return res;
   });
@@ -3721,6 +3738,12 @@ button:hover{filter:brightness(1.08)}</style></head><body><div>
 </script>
 </div></body></html>`;
 """
+    # [01857] Las direcciones de hoy de la hoja y del guion. Llevan la huella de su
+    # contenido, así que cambian con cada versión y no se pueden escribir a
+    # mano en el guion del ayudante: se ponen aquí, al servirlo.
+    codigo = codigo.replace(
+        "__ESTATICOS__",
+        ", ".join(json.dumps(estaticos.url(x)) for x in ESTATICOS_DE_MANO))
     codigo = (codigo.replace("__TITULO__", i18n.t(lang, "off.title"))
               .replace("__CUERPO__", i18n.t(lang, "off.body"))
               .replace("__REINTENTAR__", i18n.t(lang, "off.retry"))

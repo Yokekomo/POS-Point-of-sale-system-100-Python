@@ -77,3 +77,19 @@ def foto_jpeg(ancho: int = 60, alto: int = 45, color=(180, 60, 50)) -> bytes:
     fuera = io.BytesIO()
     Image.new("RGB", (ancho, alto), color).save(fuera, "JPEG", quality=90)
     return fuera.getvalue()
+
+
+def con_lo_de_fuera(cliente, html: str) -> str:
+    """La página, más los estilos y los guiones que enlaza.
+
+    Desde que el estilo y el guion viven en su propio fichero —para bajarlos
+    una vez y no en cada pantalla—, buscar una regla o una línea de código
+    dentro del HTML ya no encuentra nada. Esto devuelve lo que de verdad le
+    llega al navegador cuando abre esa pantalla, que es lo que hay que mirar.
+    """
+    import re
+
+    trozos = [html]
+    for direccion in re.findall(r'(?:href|src)="(/estatico/[^"]+)"', html):
+        trozos.append(cliente.get(direccion).text)
+    return "\n".join(trozos)

@@ -1,0 +1,38 @@
+/* Las ventanas del tutorial, para una mano con guante.
+ *
+ * Esto vivía dentro del HTML de cada pantalla. Se sacó aquí para que el
+ * navegador lo guarde una vez en vez de bajárselo entero en cada pestaña que
+ * se toca; el nombre con el que se pide lleva la huella de este contenido, así
+ * que al cambiarlo cambia el nombre y le llega a todo el mundo.
+ * Ver thegrill/web/estaticos.py.
+ */
+/* Las ventanas del tutorial son para una mano con guante: botones altos y el
+   de saltar siempre a la vista. */
+.driver-popover{background:var(--card);color:var(--ink);border:1px solid var(--line);
+  border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.45);max-width:22rem}
+.driver-popover-title{font-size:17px;font-weight:700;color:var(--ink)}
+.driver-popover-description{color:var(--muted);font-size:15px;line-height:1.45}
+.driver-popover-progress-text{color:var(--muted);font-size:13px}
+.driver-popover-footer button{min-height:48px;padding:0 18px;border-radius:10px;
+  font:inherit;font-weight:650;border:1px solid var(--line);background:var(--bg);
+  color:var(--ink);text-shadow:none}
+.driver-popover-footer .driver-popover-next-btn{background:var(--accent);
+  border-color:var(--accent);color:var(--accent-ink)}
+.driver-popover-arrow{border-color:var(--card)}
+.driver-popover-close-btn.tour-saltar{color:var(--muted);font-size:15px;font-weight:650;
+  width:auto;height:48px;padding:0 14px;inset-inline-end:4px;top:2px}
+.driver-popover-close-btn.tour-saltar:hover{color:var(--ink)}
+/* En árabe las ventanas y sus botones van de derecha a izquierda, como todo
+   lo demás: si no, el «siguiente» queda donde el ojo busca el «atrás». */
+[dir="rtl"] .driver-popover-footer{flex-direction:row-reverse}
+[dir="rtl"] .driver-popover{direction:rtl;text-align:right}
+/* El «?» de repetir: flota a la derecha del título y no empuja nada. */
+.tour-otra-vez{float:inline-end;width:34px;height:34px;border-radius:999px;
+  border:1px solid var(--line);color:var(--muted);text-decoration:none;
+  display:flex;align-items:center;justify-content:center;font-weight:700;
+  margin-inline-start:12px}
+.tour-otra-vez:hover{border-color:var(--accent);color:var(--accent)}
+@media (pointer:coarse){.tour-otra-vez{width:44px;height:44px}}
+/* En papel no hay tutorial: el parte del día se cuelga en el pase. */
+@media print{.driver-popover,.driver-overlay,.driver-active-element,
+  .tour-otra-vez{display:none !important}}

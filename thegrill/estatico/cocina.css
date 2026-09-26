@@ -1,0 +1,235 @@
+/* Los estilos de las pantallas de la edición de cocina.
+ *
+ * Esto vivía dentro del HTML de cada pantalla. Se sacó aquí para que el
+ * navegador lo guarde una vez en vez de bajárselo entero en cada pestaña que
+ * se toca; el nombre con el que se pide lleva la huella de este contenido, así
+ * que al cambiarlo cambia el nombre y le llega a todo el mundo.
+ * Ver thegrill/web/estaticos.py.
+ */
+:root{
+  --bg:#f6f6f4; --card:#fff; --ink:#1c1b19; --muted:#6b6862; --line:#e2e0db;
+  --accent:#8a3d1f; --accent-ink:#fff; --ok:#2f6b3f; --warn:#8a6a10; --bad:#a32020;
+  --okbg:#e8f2ea; --warnbg:#fbf2dc; --badbg:#fae9e9; --radius:12px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#171614; --card:#211f1d; --ink:#f0eeea; --muted:#a6a199; --line:#33302c;
+        --accent:#d4753f; --accent-ink:#1a1512; --ok:#7bc08d; --warn:#e0bc63; --bad:#e88b8b;
+        --okbg:#1e2b21; --warnbg:#2e2718; --badbg:#2e1c1c;}
+}
+*{box-sizing:border-box}
+/* Que el navegador sepa en qué tema va: sin esto pinta sus propias barras de
+   desplazamiento en blanco, y en una pantalla oscura eso es una raya de tiza
+   al lado de la carne. Con esto, las barras, los desplegables y los
+   calendarios salen del color de la casa. */
+html{color-scheme:light dark}
+/* Y aun así la barra se nota más de lo que hace falta: se deja fina y del
+   color de las líneas, que es lo que separa una tabla de la de al lado. */
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:999px;
+  border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:padding-box;
+  border:2px solid transparent}
+::-webkit-scrollbar-corner{background:transparent}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}  /* el iPhone no infla el texto al girar */
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+a,button,.btn,label,summary{touch-action:manipulation}     /* sin el retardo de los 300 ms */
+a{color:var(--accent)}
+header.top{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.topwrap{max-width:960px;margin:0 auto;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+  /* La muesca y la barra del iPhone: el contenido no se mete debajo. */
+  padding:12px max(16px,env(safe-area-inset-right)) 12px max(16px,env(safe-area-inset-left));
+  padding-top:max(12px,env(safe-area-inset-top))}
+.brand{font-weight:650;letter-spacing:-.01em;margin-right:auto;
+  color:inherit;text-decoration:none}          /* el nombre siempre vuelve al principio */
+a.brand:hover{color:var(--accent)}
+.brand small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+nav a{display:inline-block;padding:6px 10px;border-radius:8px;text-decoration:none;font-size:14px}
+nav a:hover{background:var(--bg)}
+main{max-width:960px;margin:0 auto;
+  padding:20px max(16px,env(safe-area-inset-right)) max(64px,calc(48px + env(safe-area-inset-bottom)))
+          max(16px,env(safe-area-inset-left))}
+h1{font-size:22px;margin:0 0 4px;letter-spacing:-.02em}
+h2{font-size:17px;margin:28px 0 10px;letter-spacing:-.01em}
+p.sub{color:var(--muted);margin:0 0 20px;font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+/* Las casillas de una fila se alinean por abajo, no por arriba: si un nombre
+   ocupa dos líneas —«Temperatura al recibir (°C)»— y el de al lado una, los
+   dos huecos de escribir quedaban a distinta altura y la fila parecía torcida.
+   Pegadas al suelo de la fila, se leen como una línea.
+
+   Solo donde hay un nombre encima de un hueco: la misma rejilla se usa para
+   los recuadros de cifras, y ahí bajarlo todo al suelo dejaría los números
+   flotando. Un navegador que no entienda `:has` se queda como estaba. */
+.grid > div:has(> label){display:flex;flex-direction:column;justify-content:flex-end}
+.grid > div:has(> label) > label{margin-bottom:auto}
+.tile{display:block;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px;text-decoration:none;color:inherit}
+.tile:hover{border-color:var(--accent)}
+.tile b{display:block;font-size:16px;margin-bottom:4px}
+.tile span{color:var(--muted);font-size:13px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+/* ================================== las cifras de un corte, en una rejilla
+   Producido, vendido, lo que queda, lo tirado y —para quien ve dinero— lo que
+   se ha ganado. En una tabla esto son ocho columnas y en el móvil las del
+   dinero se van fuera de la pantalla, que son justo las que se miran. Cada
+   cifra con su nombre encima y que envuelva sola. */
+.cifras{display:grid;gap:12px;margin-top:12px;
+  grid-template-columns:repeat(auto-fit,minmax(104px,1fr))}
+.cifras .dato{min-width:0}
+.cifras .dato span{display:block;font-size:12px;color:var(--muted);font-weight:600;
+  letter-spacing:.01em}
+.cifras .dato b{display:block;font-size:17px;margin-top:2px;letter-spacing:-.01em}
+.cifras .dato .mas{display:block;font-size:12px;color:var(--muted);font-weight:400;
+  margin-top:1px}
+.cifras .dato.dinero b{color:var(--accent)}
+/* La foto de la etiqueta del proveedor, dentro de la ficha de la pieza. Se ve,
+   no se enlaza: lo que se quiere es comparar de un vistazo lo que se tecleó
+   con lo que pone el papel, y un enlace que hay que pulsar no lo enseña.
+   Fondo blanco porque una etiqueta es papel: en modo oscuro, una foto
+   recortada sin fondo queda flotando en el negro. */
+a.fotoetq{display:block;margin:0 0 14px;border:1px solid var(--line);border-radius:12px;
+  overflow:hidden;background:#fff;max-width:420px}
+a.fotoetq img{display:block;width:100%;height:auto;max-height:340px;object-fit:contain}
+.kpi b{display:block;font-size:26px;letter-spacing:-.02em;line-height:1.1}
+/* El símbolo de la moneda va pegado al número —«1485 €»— y no en el nombre
+   del recuadro, donde se pierde: en el móvil ese nombre se parte en dos
+   líneas y el símbolo acaba solo al final. Más pequeño que la cifra, que lo
+   que se lee de un vistazo es el número. */
+.kpi b .uni{font-size:17px;font-weight:600;color:var(--muted)}
+.kpi span{color:var(--muted);font-size:13px}
+label{display:block;margin:14px 0 4px;font-size:14px;font-weight:550}
+label .req{color:var(--bad)}
+input,select,textarea{width:100%;padding:11px 12px;font:inherit;color:inherit;background:var(--bg);
+  border:1px solid var(--line);border-radius:10px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+input[type=checkbox]{width:22px;height:22px;vertical-align:middle}
+.help{color:var(--muted);font-size:13px;margin-top:4px}
+.err{color:var(--bad);font-size:13px;margin-top:4px}
+button,.btn{display:inline-block;padding:12px 18px;font:inherit;font-weight:600;border:0;border-radius:10px;
+  background:var(--accent);color:var(--accent-ink);cursor:pointer;text-decoration:none;text-align:center}
+button.ghost,.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:500}
+button.wide{width:100%;margin-top:18px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:550;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.scroll{overflow-x:auto}
+td.when{white-space:nowrap}
+input[type=file]{padding:9px}
+.tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+.tag.ok{background:var(--okbg);color:var(--ok)}
+.tag.warn{background:var(--warnbg);color:var(--warn)}
+.tag.bad{background:var(--badbg);color:var(--bad)}
+.banner{padding:12px 14px;border-radius:10px;margin-bottom:16px;font-size:14px}
+.banner.bad{background:var(--badbg);color:var(--bad)}
+.banner.ok{background:var(--okbg);color:var(--ok)}
+.banner.warn{background:var(--warnbg);color:var(--warn)}
+.bar{height:7px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.rowflex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--muted);font-size:13px}
+/* El eco de una casilla de peso: los gramos que se acaban de escribir, en
+   kilos. Queda pegado debajo de la casilla y ocupa sitio siempre —aunque
+   esté vacío— para que la hoja no dé un salto al escribir el primer dígito:
+   una pantalla que se mueve sola debajo del dedo hace fallar el toque
+   siguiente, y aquí se teclea de pie y con guantes. */
+.eco{display:block;min-height:1.2em;margin-top:2px;font-variant-numeric:tabular-nums}
+.eco[data-mal]{color:var(--bad, #b00)}
+.tree td:first-child{white-space:nowrap}
+.lvl{display:inline-block}
+.num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowrap}
+[dir="rtl"] .num{text-align:start}
+.code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--bg);border:1px solid var(--line);
+  padding:4px 10px;border-radius:8px;letter-spacing:.08em;font-weight:650}
+.bell{position:relative;white-space:nowrap}
+.badge{display:inline-block;min-width:19px;padding:1px 6px;border-radius:999px;background:var(--bad);
+  color:#fff;font-size:11px;font-weight:700;text-align:center;vertical-align:1px;margin-left:2px}
+.badge[hidden]{display:none}
+[hidden]{display:none !important}   /* que ninguna regla nuestra le gane a `hidden` */
+.notif{border-left:3px solid var(--line);padding:10px 14px;margin-bottom:12px;border-radius:0 10px 10px 0}
+.notif.unread{border-left-color:var(--accent);background:var(--card);border:1px solid var(--line);
+  border-left:3px solid var(--accent)}
+.notif.crit.unread{border-left-color:var(--bad)}
+.notif.crit{border-left-color:var(--bad)}
+[dir="rtl"] .notif{border-left:0;border-right:3px solid var(--line);border-radius:10px 0 0 10px}
+[dir="rtl"] .notif.unread{border-left:1px solid var(--line);border-right:3px solid var(--accent)}
+[dir="rtl"] .notif.crit.unread,[dir="rtl"] .notif.crit{border-right-color:var(--bad)}
+[dir="rtl"] th,[dir="rtl"] td{text-align:right}
+[dir="rtl"] .brand{margin-right:0;margin-left:auto}
+.langbar{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.langbar a{padding:6px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;
+  font-size:13px;color:var(--ink);background:var(--card)}
+.langbar a.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+/* --- El teléfono y la tablet, que es donde se trabaja de verdad.
+   El carnicero no lleva un ordenador a la cámara: lleva el móvil en el
+   bolsillo del delantal y lo toca con el dorso del dedo o con el guante
+   puesto. Así que en pantalla pequeña la barra se desliza en vez de
+   amontonarse, y todo lo que se toca es grande. */
+.topwrap{gap:10px}
+nav{display:flex;flex-wrap:wrap;gap:2px;align-items:center}
+@media (max-width:760px){
+  header.top{position:static}                 /* la barra no se come la pantalla */
+  /* Y la barra de arriba con el mismo margen que el texto de debajo: con 12
+     aquí y 14 ahí, el nombre de la casa no caía en la misma vertical que el
+     título de la pantalla. Dos márgenes distintos en la misma columna se ven
+     aunque no se sepan medir. La barra de enlaces se desliza sola, así que
+     los dos píxeles no le quitan nada. */
+  .topwrap{padding:10px 14px;gap:8px;flex-wrap:nowrap;align-items:flex-start}
+  .brand{font-size:15px}
+  .brand small{font-size:11px}
+  nav{order:3;width:100%;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;
+      -webkit-overflow-scrolling:touch;padding-bottom:4px;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav a{flex:0 0 auto;white-space:nowrap;font-size:15px;padding:10px 12px}
+  /* Catorce y no doce, lo mismo que en la edición de carne. Dos píxeles no se
+     discuten a ojo, pero por debajo de catorce la primera letra de cada línea
+     se mete bajo el redondeo del cristal en un teléfono de los de ahora. Lo
+     que se estrechaba para dejarle sitio a las tablas ya no hace falta: las
+     anchas van en su propio carril, que se desliza aparte. */
+  main{padding:14px max(14px,env(safe-area-inset-right))
+       max(56px,calc(40px + env(safe-area-inset-bottom))) max(14px,env(safe-area-inset-left))}
+  h1{font-size:20px}
+  .card{padding:13px}
+  .grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  table{font-size:15px}
+  th,td{padding:11px 8px}
+  /* La primera columna se queda quieta: es el número de la pieza, y sin él
+     los kilos de la derecha no dicen de qué son. */
+  .scroll table th:first-child,.scroll table td:first-child{
+    position:sticky;left:0;background:var(--card);z-index:1;
+    box-shadow:1px 0 0 var(--line)}
+  [dir="rtl"] .scroll table th:first-child,[dir="rtl"] .scroll table td:first-child{
+    left:auto;right:0;box-shadow:-1px 0 0 var(--line)}
+}
+/* Dedos, no ratón: nada de lo que se toca baja de 44 píxeles. */
+@media (pointer:coarse){
+  nav a,.langbar a{min-height:44px;display:inline-flex;align-items:center}
+  button,.btn{min-height:46px}
+  button.ghost,.btn.ghost{min-height:44px;padding:11px 14px}
+  input,select,textarea{min-height:46px;font-size:16px}   /* 16px: el iPhone no hace zoom */
+  input[type=checkbox]{width:26px;height:26px}
+  td button,td .btn,td select,td input{min-height:42px}
+  /* El nombre de la casa, que es como se vuelve al principio: medía 39 px de
+     alto y 47 de ancho. Va en la barra de arriba y no dentro de `nav`, que es
+     lo que lo dejaba fuera de la regla. (La campana sí está dentro de `nav`
+     aquí, al revés que en la edición de carne, y por eso ya cumplía.) */
+  /* Solo el alto: el ancho ya eran 47 px y cumplía. Poniéndole además un
+     `min-width` se le quitaba el suelo que trae de fábrica —dentro de una
+     fila flexible, decir el mínimo a mano deja que encoja hasta ahí— y el
+     nombre se salía de su propia caja. */
+  a.brand{min-height:44px;display:inline-flex;flex-direction:column;
+    justify-content:center;
+    /* El ancho, con relleno y no con `min-width`. En árabe el nombre y el
+       cargo son cortos —«Ana» y «مدير»— y la caja se quedaba en 32 px. Un
+       `min-width` dentro de una fila flexible le quita el suelo que trae de
+       fábrica y deja que encoja hasta ahí; el relleno, en cambio, ensancha de
+       verdad. Y el margen negativo lo devuelve a su sitio, para que el nombre
+       siga cayendo en la misma vertical que el título de la pantalla. */
+    padding-inline:8px;margin-inline:-8px}
+  a{-webkit-tap-highlight-color:rgba(138,61,31,.15)}
+}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+img,svg,video{max-width:100%;height:auto}

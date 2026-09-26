@@ -1,0 +1,565 @@
+/* Los estilos de la portada y de las páginas públicas.
+ *
+ * Esto vivía dentro del HTML de cada pantalla. Se sacó aquí para que el
+ * navegador lo guarde una vez en vez de bajárselo entero en cada pestaña que
+ * se toca; el nombre con el que se pide lleva la huella de este contenido, así
+ * que al cambiarlo cambia el nombre y le llega a todo el mundo.
+ * Ver thegrill/web/estaticos.py.
+ */
+/* La portada va por su cuenta: es lo primero que ve alguien que no nos conoce,
+   y no tiene por qué parecerse a la pantalla de trabajo. Oscura, con la carne
+   de protagonista y sin cargar nada de fuera. */
+:root{
+  /* La web pública va como el programa: la manda el dispositivo. Quien tiene
+     el teléfono en claro ve claro y quien lo tiene en oscuro ve oscuro; que la
+     pantalla de entrar salga negra en un móvil en claro es lo que hace pensar
+     que te has equivocado de sitio. */
+  --ink:#1c1b19; --dim:#6b6862; --line:#e2e0db; --bg:#f6f6f4; --card:#fff;
+  --ember:#a8471f; --ember-soft:#f6e6dd; --ok:#2f6b3f; --bad:#a32020; --warn:#8a6a10;
+  --on-ember:#fff;                 /* lo que se lee encima del color de marca */
+  --veil:rgba(28,27,25,.55); --glow:rgba(168,71,31,.10);
+  --shadow:0 30px 60px -34px rgba(28,27,25,.35);
+  --shadow-soft:0 20px 50px -34px rgba(28,27,25,.30);
+  --header:rgba(246,246,244,.88);
+  --max:1120px; --radius:18px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --ink:#f4f1ec; --dim:#a9a29a; --line:#2a2521; --bg:#12100e; --card:#1a1714;
+    --ember:#e0703a; --ember-soft:#3a1f13; --ok:#7bc08d; --bad:#e88b8b; --warn:#e0bc63;
+    --on-ember:#160d07;
+    --veil:rgba(9,8,7,.72); --glow:rgba(224,112,58,.16);
+    --shadow:0 40px 80px -30px #000; --shadow-soft:0 30px 60px -30px #000;
+    --header:rgba(18,16,14,.86);
+  }
+}
+*{box-sizing:border-box}
+/* Y lo mismo por arriba para el navegador cuando es él quien mueve la página
+   —un enlace a una sección, el tabulador, o el teclado que sube el campo que
+   se está escribiendo—: `padding-bottom` en el cuerpo solo protege el final
+   del documento, y el botón de entrar no está al final, tiene debajo el pie y
+   los idiomas. Tumbado en una pantalla de 390 px de alto, el navegador lo
+   dejaba pegado al borde de abajo y el aviso de cookies encima: el botón
+   estaba, se veía a medias y no se podía pulsar. Con esto, cuando el
+   navegador acerca algo al borde de abajo deja libre lo que ocupa lo que
+   flota. */
+/* Y lo mismo por arriba. La cabecera va pegada, así que cuando el navegador
+   acerca algo —una ancla, el campo al que se salta con el tabulador, el botón
+   de entrar— lo deja justo debajo del borde... y la cabecera se le pone
+   encima. Con el zoom del 400 % la ventana mide 256 px y la cabecera 66: el
+   botón de entrar quedaba debajo de ella, visible a medias y sin poder
+   pulsarse. `--cabecera` la mide el navegador; el número de repuesto es para
+   quien llegue sin guiones. */
+html{scroll-behavior:smooth;scroll-padding-bottom:var(--flotante,220px);
+  scroll-padding-top:var(--cabecera,90px)}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+section{padding:96px 0;border-top:1px solid var(--line)}
+section:first-of-type{border-top:0}
+h1,h2,h3{letter-spacing:-.03em;line-height:1.08;margin:0;text-wrap:balance}
+/* Un titular no se mide en píxeles, se mide en líneas. A 68 px, dentro de la
+   columna de 533 px que le deja la maqueta de al lado, entraban quince letras
+   por línea y el titular salía a cuatro incluso en una pantalla de 1440: una
+   escalera, no una frase. A 50 px entran veintiuna y se lee de un vistazo. Y
+   `text-wrap:balance` reparte lo que quede para que la última línea no sea
+   una palabra suelta colgando. Esto se mide en los siete idiomas y no en
+   español: el francés y el alemán son un tercio más largos y son los que
+   deciden el tamaño. */
+h1{font-size:clamp(31px,4.6vw,50px);font-weight:760}
+h2{font-size:clamp(26px,3.4vw,40px);font-weight:720}
+h3{font-size:20px;font-weight:650;letter-spacing:-.01em}
+p{margin:0}
+/* El neerlandés y el alemán pegan palabras: «Verwerkingsverantwoordelijke»
+   mide 246 px y la tarjeta donde vive tiene 222. Sin esto la palabra se sale
+   de la tarjeta y se corta contra el borde, y como la tarjeta no enseña
+   barra, lo que se pierde no se sabe que está. `anywhere` y no `break-word`
+   a propósito: los dos parten la palabra cuando no queda otra, pero solo
+   `anywhere` se lo dice también al cálculo del ancho mínimo, que es lo que
+   deja encoger a una rejilla o a una tabla en vez de desbordarse. */
+p,li,td,th,dd,dt,label,figcaption,summary,h1,h2,h3,h4{overflow-wrap:anywhere}
+.kicker{display:inline-block;font-size:13px;font-weight:650;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ember);margin-bottom:18px}
+.lead{font-size:clamp(18px,2.1vw,22px);color:var(--dim);max-width:60ch;margin-top:22px}
+.muted{color:var(--dim)}
+
+/* --- cabecera */
+header{position:sticky;top:0;z-index:20;background:var(--header);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;gap:20px;padding-top:16px;padding-bottom:16px}
+.brand{font-weight:700;letter-spacing:-.02em;margin-inline-end:auto;display:flex;
+  align-items:center;gap:10px;white-space:nowrap;min-width:0}
+.brand span{width:10px;height:10px;border-radius:3px;background:var(--ember);
+  box-shadow:0 0 18px var(--ember);flex:none}
+/* «Contrôle des viandes» mide 176 px y con el botón de entrar al lado la
+   cabecera pedía 334 en una pantalla de 320: la página entera se deslizaba a
+   los lados. Los tamaños de abajo hacen que no llegue a pasar en ninguno de
+   los siete idiomas, pero eso es puntería y el octavo idioma la falla. Esto
+   es el seguro: el nombre puede encoger, y si un día no cabe se corta él con
+   sus tres puntos en vez de empujar la página. */
+.brand i{font-style:inherit;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* `wrap` no: si un día no caben, que encoja el nombre —que sabe cortarse
+   con tres puntos— y no que la barra se parta en dos filas. Una cabecera
+   pegajosa de dos filas se lleva un sexto de la pantalla y no se recupera. */
+header nav{display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
+header nav a{padding:8px 12px;border-radius:10px;text-decoration:none;font-size:15px;
+  color:var(--dim)}
+header nav a:hover{color:var(--ink);background:var(--card)}
+/* Entrar es lo único que queda en la cabecera, así que se ve: quien ya tiene
+   cuenta abre esto para entrar, no para leer la página otra vez. */
+header nav a.entrar{color:var(--ink);font-weight:650;font-size:16px;
+  border:1px solid var(--line);padding:10px 18px}
+header nav a.entrar:hover{border-color:var(--ember);color:var(--ember);background:transparent}
+
+/* --- botones */
+.btn{display:inline-block;padding:15px 26px;border-radius:12px;text-decoration:none;
+  font-weight:650;font-size:16px;font-family:inherit;border:1px solid transparent;
+  background:transparent;color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--ember);color:var(--on-ember);
+  box-shadow:0 10px 30px -16px var(--ember)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.ghost{border-color:var(--line);color:var(--ink)}
+.btn.ghost:hover{border-color:var(--dim)}
+.btn.small{padding:10px 16px;font-size:15px}
+.cta-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:34px;align-items:center}
+.badge{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--dim);
+  border:1px solid var(--line);padding:9px 14px;border-radius:999px}
+.badge b{color:var(--ok);font-weight:650}
+
+/* --- portada */
+.hero{padding:clamp(60px,9vw,120px) 0 84px;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:-40% 30% auto -20%;height:70vh;
+  background:radial-gradient(60% 60% at 30% 40%,var(--glow),transparent 70%);
+  pointer-events:none}
+.hero-grid{display:grid;gap:56px;grid-template-columns:1.05fr .95fr;align-items:center;
+  position:relative}
+/* Una casilla de rejilla no encoge por debajo de su contenido más ancho
+   mientras no se le diga. En alemán la tabla de la maqueta pide 322 px y en
+   un teléfono de 320 hay 238: la portada entera se ensanchaba a 380 px y el
+   titular, la entradilla y los botones se salían sesenta píxeles por la
+   derecha. Y no se veía, porque `.hero` recorta lo que sobra: en un móvil
+   alemán media frase estaba cortada y la página no enseñaba ni barra. */
+.hero-grid>*{min-width:0}
+
+/* --- la maqueta del turno: es la pantalla de verdad, con sus números */
+.mock{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:20px;box-shadow:var(--shadow)}
+.mock .bar{display:flex;gap:6px;margin-bottom:16px}
+.mock .bar i{width:10px;height:10px;border-radius:50%;background:var(--line)}
+.mock h4{margin:0 0 14px;font-size:14px;font-weight:650;color:var(--dim);
+  text-transform:uppercase;letter-spacing:.08em}
+.mock table{width:100%;border-collapse:collapse;font-size:14px}
+.mock th{text-align:start;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--dim);font-weight:600;padding:0 0 10px}
+.mock td{padding:11px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+/* Aire entre columnas. Sin él las cifras se tocaban y en un teléfono el «6»
+   de vendido y el «2» de lo que queda se leían «62»: un número que no existe,
+   en la maqueta que está para enseñar que aquí los números cuadran. */
+.mock th+th,.mock td+td{padding-inline-start:16px}
+/* Un número no se parte. «2 · 0,70» cortado en dos líneas deja un «2 ·»
+   suelto arriba que no significa nada; las cabeceras sí pueden doblarse,
+   que son etiquetas y se leen igual. */
+.mock td.n{white-space:nowrap}
+/* La cabecera va donde va su número. La regla decía `td.n` y las cabeceras
+   son `th`: se quedaban a la izquierda con sus cifras a la derecha, así que
+   «Vendido (POS)» salía encima de otra columna y el 6 debajo de nada. En una
+   maqueta que está para enseñar que aquí los números cuadran, es lo último
+   que puede pasar. */
+.mock .n{text-align:end}
+.mock .big{font-size:19px;font-weight:700;color:var(--ember)}
+.mock .tag{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;
+  font-weight:650;background:var(--ember-soft);color:var(--ember)}
+figcaption{color:var(--dim);font-size:14px;margin-top:14px}
+
+/* --- rejillas */
+.grid{display:grid;gap:20px}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:26px}
+.card h3{margin-bottom:10px}
+.card p{color:var(--dim);font-size:16px}
+/* --- el precio, que es a lo que viene medio mundo a esta web */
+.kpi b{display:block;font-size:40px;line-height:1.05;letter-spacing:-.02em}
+.kpi span{display:block;color:var(--dim);font-size:15px;margin-top:6px}
+.kpi .uni{display:inline;font-size:24px;font-weight:600;color:var(--dim)}
+/* El precio de antes, tachado y pequeño: se enseña para que se vea lo que se
+   ahorra, no para competir con el que se paga. */
+.kpi .antes{font-size:22px;color:var(--dim);font-weight:600;margin-inline-end:8px;
+  text-decoration-thickness:2px}
+.rebaja{display:inline-block;margin:0 0 20px;padding:10px 16px;border-radius:999px;
+  background:var(--ember-soft);color:var(--ember);font-weight:650}
+.card.anual{margin-top:20px}
+.card.anual p{color:var(--ink)}
+
+.step b{display:block;font-size:13px;font-weight:700;color:var(--ember);letter-spacing:.1em;
+  margin-bottom:14px}
+/* Los cuatro iconos venían pintados a mano con #e0703a, que es el naranja
+   del modo oscuro. En claro la marca es #a8471f, más oscuro, así que en la
+   misma tarjeta salían el «01» en un naranja y el dibujo de debajo en otro,
+   y el claro encima se queda corto de contraste contra la tarjeta blanca.
+   Un solo color, el de la casa, el que toque en cada tema. */
+.step svg{margin-bottom:16px;display:block;stroke:var(--ember)}
+.bullets svg{stroke:var(--ember)}
+
+/* --- la cuenta del día */
+.sum{display:grid;gap:0;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;background:var(--card)}
+.sum div{padding:28px 24px;border-inline-start:1px solid var(--line)}
+.sum div:first-child{border-inline-start:0}
+.sum small{display:block;color:var(--dim);font-size:13px;margin-bottom:10px;
+  text-transform:uppercase;letter-spacing:.06em}
+.sum b{font-size:clamp(26px,3.4vw,38px);font-weight:740;letter-spacing:-.03em;
+  font-variant-numeric:tabular-nums}
+.sum .gap b{color:var(--warn)}
+.sum .money b{color:var(--ember)}
+/* --- las fotos, si las hay */
+.shots{display:grid;gap:14px;grid-template-columns:repeat(3,1fr);margin-top:44px}
+.shots figure{margin:0;border:1px solid var(--line);border-radius:var(--radius);
+  overflow:hidden;background:var(--card)}
+.shots img{display:block;width:100%;height:260px;object-fit:cover}
+.shots figcaption{margin:0;padding:14px 18px;font-size:14px;color:var(--dim)}
+@media (max-width:760px){.shots{grid-template-columns:1fr}.shots img{height:220px}}
+
+/* --- lo que da al año */
+.year{margin-top:34px;border:1px solid var(--line);border-radius:var(--radius);
+  background:linear-gradient(180deg,var(--card),transparent);padding:34px 30px;
+  display:flex;gap:26px;align-items:flex-end;flex-wrap:wrap}
+.year small{display:block;color:var(--dim);font-size:13px;margin-bottom:8px;
+  text-transform:uppercase;letter-spacing:.06em}
+.year b{font-size:clamp(38px,6vw,64px);font-weight:760;letter-spacing:-.04em;
+  color:var(--ember);font-variant-numeric:tabular-nums;line-height:1}
+.year p{color:var(--dim);font-size:16px;max-width:34ch;padding-bottom:6px}
+
+/* --- el detalle */
+.facts{display:grid;gap:1px;grid-template-columns:repeat(3,1fr);background:var(--line);
+  border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-top:44px}
+.facts div{background:var(--card);padding:26px 24px}
+.facts h3{font-size:17px;margin-bottom:8px}
+.facts h3 span{color:var(--ember);font-variant-numeric:tabular-nums;
+  font-size:13px;letter-spacing:.08em;margin-inline-end:9px}
+.facts p{color:var(--dim);font-size:15px}
+.bullets{list-style:none;padding:0;margin:0;display:grid;gap:14px}
+.bullets li{display:flex;gap:13px;color:var(--dim);font-size:16px;align-items:flex-start}
+.bullets svg{flex:none;margin-top:4px}
+
+/* --- preguntas */
+details{border-bottom:1px solid var(--line);padding:22px 0}
+details summary{cursor:pointer;font-weight:620;font-size:18px;list-style:none;
+  display:flex;justify-content:space-between;gap:20px;align-items:center}
+details summary::-webkit-details-marker{display:none}
+details summary::after{content:"+";color:var(--ember);font-size:24px;line-height:1}
+details[open] summary::after{content:"−"}
+details p{color:var(--dim);margin-top:14px;max-width:72ch}
+
+/* --- cierre */
+.final{text-align:center;background:
+  radial-gradient(70% 120% at 50% 0%,var(--glow),transparent 70%)}
+.final .cta-row{justify-content:center}
+footer{border-top:1px solid var(--line);padding:44px 0;color:var(--dim);font-size:14px}
+footer .wrap{display:flex;gap:20px;flex-wrap:wrap;align-items:center}
+footer nav{display:flex;gap:16px;flex-wrap:wrap;margin-inline-start:auto}
+footer a{text-decoration:none}
+footer a:hover{color:var(--ink)}
+.langs{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.langs a{font-size:13px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;
+  text-decoration:none;color:var(--dim)}
+.langs a.on{border-color:var(--ember);color:var(--ember)}
+
+/* --- la barra de pedir acceso, abajo */
+#pidebarra{position:fixed;z-index:25;inset:auto 0 0 0;background:var(--header);
+  backdrop-filter:blur(10px);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom)}
+#pidebarra[hidden]{display:none}
+#pidebarra .wrap{display:flex;gap:16px;align-items:center;justify-content:space-between;
+  padding-top:12px;padding-bottom:12px}
+#pidebarra span{color:var(--dim);font-size:14px}
+#pidebarra .btn{white-space:nowrap}
+@media (max-width:620px){
+  #pidebarra span{display:none}      /* en un teléfono, el botón y ya */
+  #pidebarra .btn{width:100%;text-align:center}
+}
+/* Tumbado hay ancho de sobra y falta alto. Una barra pegada abajo y el aviso
+   de cookies encima se comían la mitad de una pantalla de 390 px, y lo que
+   quedaba tapado era el botón de entrar: no es que estorbara, es que no se
+   podía pulsar. Con tan poco alto, el botón de la página y el pie bastan. */
+@media (max-height:520px){
+  #pidebarra{display:none}
+}
+
+/* --- aviso de cookies */
+#cookiebar{position:fixed;z-index:30;max-width:var(--max);
+  inset:auto max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom))
+        max(16px,env(safe-area-inset-left));
+  margin:0 auto;background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:16px 18px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:14px;
+  color:var(--dim);box-shadow:var(--shadow-soft)}
+/* Sin esto, el `display:flex` de arriba le gana al atributo `hidden` y el
+   aviso no se va al pulsar: el botón hacía su trabajo y no se notaba. */
+#cookiebar[hidden]{display:none}
+#cookiebar a{color:var(--ember)}
+#cookiebar button{min-height:44px}
+/* El texto llevaba `flex:1`, que es `flex:1 1 0`: parte de cero, así que
+   nunca «no cabe» y el `flex-wrap` de arriba no llegaba a saltar nunca. En
+   una pantalla de 320 el aviso se quedaba en una columna de 200 px al lado
+   del botón —trece líneas en alemán, el aviso ocupando la pantalla entera—.
+   Con un ancho de partida de 260 px, cuando no caben los dos el botón se va
+   abajo él solo, que es lo que se espera de un aviso en un teléfono. */
+#cookiebar>div{flex:1 1 260px}
+@media (max-width:560px){
+  #cookiebar form,#cookiebar button{width:100%}
+  #cookiebar button{text-align:center}
+}
+/* El aviso no puede comerse la pantalla. Con el zoom del 400 % —que es lo que
+   usa quien ve poco: 1280 px vistos a 320— la ventana se queda en 256 px de
+   alto, y este aviso medía 206 en alemán y en húngaro. El ochenta por ciento
+   de la pantalla, en un aviso. Debajo no quedaba nada: ni la portada, ni el
+   botón de entrar, ni el de pedir acceso. Y para quitarlo hay que encontrar su
+   botón dentro de ese ochenta por ciento.
+
+   Con el tope, el aviso se queda en un tercio y se desliza por dentro si el
+   texto es largo: se lee entero igual, pero sin tapar la casa. El tercio es el
+   mismo número que se usa para el hueco de abajo, así que lo que había escrito
+   al final de la página se sigue leyendo. */
+@media (max-height:620px){
+  #cookiebar{max-height:33vh;overflow-y:auto;overscroll-behavior:contain;
+    padding:10px 12px;gap:10px;font-size:13px;line-height:1.35}
+  #cookiebar button{min-height:40px;padding:8px 14px}
+}
+/* El aviso flota sobre la página, así que hay que dejarle su hueco al final:
+   si no, tapa lo último que hay escrito y en un teléfono eso son cinco o seis
+   líneas que no se pueden leer hasta darle a «entendido». En una portada, lo
+   último de la página es el pie con los idiomas y la puerta de entrar.
+   Los 150 px que había escritos a mano valían para el aviso de una sola fila
+   de antes. Apilado en un teléfono mide 206 en alemán, en francés, en
+   neerlandés y en húngaro: dejaba el pie tapado en cuatro idiomas de siete.
+   Los números de aquí abajo son el suelo, para quien llegue sin guiones; con
+   guiones manda `--flotante`, que lo mide el navegador y sale exacto en el
+   idioma que sea, incluido el octavo que todavía no está escrito. */
+body:has(#cookiebar:not([hidden])){padding-bottom:var(--flotante,220px)}
+@media (min-width:760px){
+  body:has(#cookiebar:not([hidden])){padding-bottom:var(--flotante,110px)}
+}
+/* Lo mismo con la barra de pedir acceso: flota, así que hay que dejarle su
+   hueco o tapa el pie —los idiomas y la puerta de entrar—. */
+body:has(#pidebarra:not([hidden])){padding-bottom:var(--flotante,88px)}
+body:has(#cookiebar:not([hidden])):has(#pidebarra:not([hidden])){
+  padding-bottom:var(--flotante,320px)}
+
+/* De ancho a estrecho, y en ese orden. Dos bloques que se cumplen a la vez
+   —en un móvil de 412 px se cumplen los tres— los resuelve el navegador por
+   el que va después, no por el más específico. Estando el de 900 px el
+   último, ganaba él: la regla de «una sola columna en el móvil» estaba
+   escrita y no se aplicaba nunca, y el detalle salía a dos columnas con
+   títulos partidos en tres líneas en una pantalla de teléfono. */
+/* Los saltos a cada sección se van aquí, y no a 760 como estaban. Debajo de
+   este ancho los seis enlaces no le caben a la barra: se partía en dos filas
+   —la cabecera pegajosa pasaba de 80 px a 126, un sexto de la pantalla
+   ocupado antes de leer una palabra— y el nombre del programa salía cortado.
+   El ancho está medido, no elegido a ojo, y en los siete idiomas: en inglés
+   caben desde 901 px, en español desde 951, en neerlandés desde 911 y en
+   francés desde 1061, que es el que manda. Los cien redondos dejan sitio para
+   el idioma que venga. Perderlos no cuesta nada: el pie los lleva todos. */
+@media (max-width:1100px){
+  header nav a.jump{display:none}
+}
+@media (max-width:900px){
+  .hero-grid,.g3,.g4,.g2{grid-template-columns:1fr}
+  .sum{grid-template-columns:repeat(2,1fr)}
+  .sum div:nth-child(3){border-inline-start:0}
+  .facts{grid-template-columns:repeat(2,1fr)}
+  .year{gap:18px}
+  section{padding:68px 0}
+}
+@media (max-width:760px){
+  /* Los saltos a cada sección ya se han quitado arriba, a 900. Aquí solo se
+     aprieta lo que queda: la página se lee de arriba abajo y en un móvil la
+     cabecera es la marca, entrar y el botón. Esconderlo todo dejaría sin
+     puerta a quien ya tiene cuenta, que es justamente quien abre esto desde
+     el teléfono. */
+  header nav{gap:2px}
+  header nav a{padding:10px}
+}
+@media (max-width:620px){
+  .facts{grid-template-columns:1fr}
+  .sum{grid-template-columns:1fr}
+  .sum div{border-inline-start:0}
+  /* La cabecera, en una sola fila. Con cinco enlaces y la marca no cabía nada
+     y se iba a tres filas: 126 px de cabecera pegajosa, un tercio de la
+     pantalla de un teléfono ocupada antes de leer una palabra. Aquí se deja
+     lo que se usa desde el móvil —entrar, y el botón— y lo demás se busca en
+     el pie, que los lleva todos; a la portada se vuelve por la marca. */
+  header nav a.menor{display:none}
+  /* Aquí la cabecera se estrechaba a 16 px, y a 400 px a 12, para que la
+     marca y los dos botones cupieran en una fila. Ya no hace falta: desde que
+     los saltos de sección se van al pie, en la barra solo quedan la marca y
+     «entrar», y en una pantalla de 320 px les sobran noventa. Devolverle los
+     24 px del resto de la página no es un capricho de aire: es que la marca
+     vuelve a caer en la misma vertical que el titular que tiene debajo. Dos
+     márgenes distintos en la misma columna se ven aunque no se sepan medir. */
+  header .wrap{gap:8px;padding-top:12px;padding-bottom:12px}
+  header nav{flex-wrap:nowrap;gap:2px}
+  .brand{font-size:15px;gap:7px}
+  .brand span{width:8px;height:8px}
+  header nav a{font-size:13px;padding:8px 8px}
+  header nav a.btn{padding:9px 12px}
+  /* Cuatro columnas de números en 300 px: la maqueta necesita respirar. */
+  .mock{padding:16px}
+  .mock table{font-size:13px}
+  .mock th+th,.mock td+td{padding-inline-start:12px}
+  .mock th{font-size:10px;letter-spacing:.04em}
+}
+/* Y los teléfonos estrechos de verdad, que siguen siendo muchos. Aquí se
+   encoge la letra, no el margen: la letra encogida se lee igual, el margen
+   encogido deja la primera letra debajo del redondeo del cristal. */
+@media (max-width:400px){
+  .brand{font-size:14px}
+  header .wrap{gap:6px}
+  header nav a{font-size:12px;padding:8px 6px}
+  header nav a.btn{padding:9px 10px}
+  /* «Se connecter» dentro de su recuadro con 18 px a cada lado dejaba la
+     cabecera francesa pidiendo 334 px en una pantalla de 320. Estos siete
+     píxeles por lado son los que faltaban, y se los quita el botón, que es
+     de los dos el que puede darlos: el nombre del programa no. */
+  header nav a.entrar{font-size:14px;padding:9px 11px}
+}
+/* Y el escalón de abajo del todo: el iPhone pequeño, los Android baratos que
+   hay en una cocina y el 360 de medio mundo. Aquí el que no cabe es el
+   francés: «Contrôle des viandes» pide 161 px de letra y con los tamaños de
+   arriba solo le quedaban 139, así que el nombre del programa salía cortado
+   con tres puntos. Los veintidós que faltaban se sacan de donde no se leen
+   —el margen de la página, el cuadradito de la marca, los huecos, el relleno
+   del botón— y no del nombre, que es lo único que dice dónde está uno.
+   El corte está en 365 y no en un número redondo porque el redondo no es el
+   que manda: con la letra de 14 px de arriba el francés deja de caber por
+   debajo de 342 px, y de 342 a 365 va el margen que se deja a propósito. La
+   letra del sistema no mide igual en un iPhone que en un Android, y lo que
+   entra justo en la prueba no entra en la mitad de los teléfonos. */
+@media (max-width:365px){
+  /* Los 24 px de aire a los lados bajan a 16 en toda la página, cabecera y
+     texto a la vez, para que la marca y el titular sigan cayendo en la misma
+     vertical. Dieciséis es lo que usan Android e iOS de margen, y sobra para
+     que la primera letra no se meta debajo del redondeo del cristal. */
+  .wrap{padding-inline:16px}
+  .brand{font-size:13px;gap:4px}
+  .brand span{width:6px;height:6px;border-radius:2px}
+  header nav a.entrar{font-size:13px;padding:9px 8px}
+  header .wrap{gap:4px}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* --- Lo que hace falta para las páginas de dentro de la web pública: precios,
+   cookies, solicitar acceso y entrar. Mismo color y misma letra que la
+   portada, porque son la misma casa: que la pantalla de entrar parezca de otro
+   programa es lo que hace dudar a quien está a punto de escribir su contraseña. */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:22px 24px;margin-bottom:18px}
+.card h2,.card h3{margin-bottom:10px}
+/* Dos arreglos en una línea.
+   Uno: `minmax(240px,1fr)` promete una columna de 240 px aunque no haya 240.
+   Dentro de una tarjeta, en una pantalla de 320, el hueco son 222 y la
+   rejilla se salía 18 px por la derecha, recortados sin aviso porque la
+   tarjeta los tapa. `min(240px,100%)` pide lo mismo pero con el techo del
+   sitio que hay: 240 cuando los hay, y lo que quepa cuando no.
+   Y dos: llamándose `.grid` a secas, esta regla pisaba a `.g3`, `.g4` y `.g2`
+   de la portada, que están escritas más arriba y valen lo mismo, así que las
+   secciones que pedían tres o cuatro columnas salían con las que decidiera
+   `auto-fit`. Atada a `.inner` —precios, cookies, entrar y solicitar acceso—,
+   cada una manda en su casa. */
+.inner .grid{gap:18px;
+  grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))}
+label{display:block;margin:18px 0 6px;font-size:15px;font-weight:600}
+label .req{color:var(--bad)}
+input,select,textarea{width:100%;padding:13px 14px;font:inherit;color:var(--ink);
+  background:var(--bg);border:1px solid var(--line);border-radius:12px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--ember);outline-offset:1px}
+input[type=checkbox]{width:24px;height:24px;vertical-align:middle}
+button{font-family:inherit}
+button:not(.btn){display:inline-block;padding:15px 26px;border-radius:12px;border:0;
+  font:inherit;font-weight:650;background:var(--ember);color:var(--on-ember);cursor:pointer}
+button.wide{width:100%;margin-top:20px}
+.help{color:var(--dim);font-size:14px;margin-top:6px}
+.err{color:var(--bad);font-size:14px;margin-top:6px}
+.banner{padding:14px 16px;border-radius:12px;margin-bottom:18px;font-size:15px;
+  border:1px solid var(--line)}
+.banner.ok{background:color-mix(in srgb,var(--ok) 10%,transparent);color:var(--ok);
+  border-color:color-mix(in srgb,var(--ok) 32%,transparent)}
+.banner.bad{background:color-mix(in srgb,var(--bad) 10%,transparent);color:var(--bad);
+  border-color:color-mix(in srgb,var(--bad) 32%,transparent)}
+.banner.warn{background:color-mix(in srgb,var(--warn) 10%,transparent);color:var(--warn);
+  border-color:color-mix(in srgb,var(--warn) 32%,transparent)}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:600;
+  border:1px solid var(--line);color:var(--dim)}
+.tag.ok{color:var(--ok)} .tag.warn{color:var(--warn)} .tag.bad{color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:start;padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--dim);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+tr:last-child td{border-bottom:0}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.num{text-align:end;font-variant-numeric:tabular-nums;white-space:nowrap}
+.code{font-family:ui-monospace,Menlo,Consolas,monospace;background:var(--bg);
+  border:1px solid var(--line);padding:4px 10px;border-radius:8px;letter-spacing:.06em}
+details summary{cursor:pointer;color:var(--dim)}
+.langbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.langbar a{padding:9px 14px;border:1px solid var(--line);border-radius:999px;
+  text-decoration:none;font-size:14px;color:var(--ink)}
+.langbar a.on{border-color:var(--ember);color:var(--ember);font-weight:650}
+/* Solo arriba y abajo: el atajo `padding` de cuatro valores pisaba los 24 px
+   laterales que pone `.wrap` y dejaba precios, cookies y solicitar acceso con
+   el texto pegado al borde de la pantalla. En un móvil eso no es un detalle
+   de gusto: la primera letra de cada línea queda debajo del redondeo del
+   cristal y cuesta leer. */
+.inner{padding-block:52px 96px}
+.inner h1{font-size:clamp(30px,4.6vw,46px);margin-bottom:10px}
+.inner .sub{color:var(--dim);margin-bottom:28px;font-size:17px}
+a.back{display:inline-block;margin-bottom:22px;color:var(--dim);text-decoration:none;
+  font-size:15px}
+a.back:hover{color:var(--ember)}
+[hidden]{display:none !important}
+
+/* --- Ventanas emergentes sin JavaScript. Se abren con el enlace (#entrar) y
+   se cierran con la equis o pulsando fuera. Así funcionan igual en un teléfono
+   viejo, con los guiones desactivados y detrás de la política de seguridad,
+   que es donde una ventana emergente de las de siempre se queda muerta. */
+.modal{position:fixed;inset:0;z-index:40;display:none;padding:20px;
+  align-items:center;justify-content:center}
+.modal:target{display:flex}
+.modal .veil{position:absolute;inset:0;background:var(--veil);
+  backdrop-filter:blur(3px)}
+.modal .box{position:relative;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);padding:26px 26px 24px;width:min(460px,100%);
+  max-height:88vh;overflow:auto;box-shadow:var(--shadow)}
+.modal .box.wide{width:min(620px,100%)}
+.modal h2{font-size:26px;margin-bottom:6px}
+.modal .close{position:absolute;top:10px;inset-inline-end:12px;font-size:26px;
+  line-height:1;text-decoration:none;color:var(--dim);padding:8px 10px;border-radius:10px}
+.modal .close:hover{color:var(--ink);background:var(--bg)}
+@media (max-width:520px){
+  .modal{padding:0;align-items:flex-end}
+  .modal .box{width:100%;border-radius:18px 18px 0 0;max-height:92vh;
+    padding-bottom:max(24px,env(safe-area-inset-bottom))}
+}
+/* Dedos, no ratón: lo mismo que dentro del programa. */
+@media (pointer:coarse){
+  header nav a,.langbar a,.btn,button{min-height:46px;display:inline-flex;
+    align-items:center;justify-content:center}
+  input,select,textarea{min-height:46px;font-size:16px}
+  /* Faltaban estos cuatro, y son de los que más se pulsan desde un teléfono.
+     Medidos: los enlaces del pie salían de 22 px de alto y la marca de 21,
+     por debajo incluso de los 24 que exige la norma (WCAG 2.2, 2.5.8); el
+     elegir idioma del pie, 35; abrir una pregunta, 29. Un dedo pide 44 y con
+     guante de cámara más. Los de aquí abajo ya son caja —la marca y el
+     desplegable llevan su `flex`, los otros dos se lo ponen—, así que basta
+     con darles alto: la cabecera no crece, porque el botón de entrar ya la
+     dejaba en 46. */
+  .brand,details summary{min-height:46px}
+  footer nav a,.langs a,a.back{min-height:46px;display:inline-flex;
+    align-items:center}
+  /* Y de ancho también: «entrar» en el pie se quedaba en 42 px porque es
+     texto corto y sin relleno. Los dos que faltaban no se notan y el dedo
+     sí los nota. */
+  footer nav a{min-width:44px;justify-content:center}
+}

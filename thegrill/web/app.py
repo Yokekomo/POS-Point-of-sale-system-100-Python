@@ -29,9 +29,9 @@ from thegrill.models import (Alert, Attachment, ConsumptionMode, CountPeriod, Co
                              RecipeKind, RecipeLine, Restaurant, Role, Rotation,
                              Storage, TemplateField, Unit, User)
 
-from thegrill.web import (auth, butchery, caducidad, cifras, costing, exacto, i18n,
-                          impuestos, inventory, jornada, money, pesos, rangos,
-                          seguridad, service, sheets, tracing, waste)
+from thegrill.web import (auth, butchery, caducidad, cifras, costing, estaticos,
+                          exacto, i18n, impuestos, inventory, jornada, money,
+                          pesos, rangos, seguridad, service, sheets, tracing, waste)
 from thegrill.web.seed import seed_templates
 
 # [00979] Las zonas horarias que existen, para el desplegable de la configuración y
@@ -51,6 +51,8 @@ app = FastAPI(title="Plataforma de gestión de cocina")
 # [00981] Las mismas cabeceras que la otra edición. Esta no tenía ninguna, y sus
 # plantillas escribían `<script nonce="">`: parecía que había política.
 seguridad.enganchar(app)
+# [01854] Y los estilos, fuera del HTML, igual que en la otra edición.
+estaticos.enganchar(app, templates)
 
 
 # --------------------------------------------------------------- utilidades

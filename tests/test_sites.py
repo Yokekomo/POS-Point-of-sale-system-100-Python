@@ -1185,10 +1185,12 @@ class TestReport:
         db.create_all()
         with TestClient(meatapp.app, follow_redirects=False, headers=SPANISH) as client:
             signup(client)
+            from conftest import con_lo_de_fuera
             pagina = client.get("/parte")
             assert pagina.status_code == 200
             assert "Parte de carne del día" in pagina.text
-            assert "@media print" in pagina.text           # sale igual en papel
+            # En papel sale igual: la regla está en la hoja que enlaza la página.
+            assert "@media print" in con_lo_de_fuera(client, pagina.text)
             assert client.get("/parte?fecha=2026-01-15").status_code == 200
             assert client.get("/parte?fecha=nada").status_code == 200   # no revienta
 
