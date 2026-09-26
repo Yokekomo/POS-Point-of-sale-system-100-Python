@@ -135,7 +135,10 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
     que marca nuestros guiones para que el navegador no ejecute otros.
     """
     lang = ctx.pop("lang", None) or lang_for(request, session, user)
-    base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
+    # [01894] Mezclado, distinto en cada pantalla: el token no cambia en toda la
+    # sesión y el proxy comprime el HTML, así que repetirlo tal cual es lo que
+    # deja sacarlo midiendo cuánto encoge la respuesta. Ver `auth.enmascarar`.
+    base = {"user": user, "csrf": auth.enmascarar(auth_session.csrf) if auth_session else "",
             # [00982] El día de trabajo de la casa, no el del servidor.
             "today": jornada.hoy(session, user.restaurant_id if user else None).isoformat(),
             # [00983] El número de esta respuesta, que es lo que marca nuestros

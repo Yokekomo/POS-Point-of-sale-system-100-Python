@@ -105,3 +105,48 @@ def test_csrf_and_role_guards(session):
         auth.require_manager(luis)
     with pytest.raises(auth.PermissionDenied):
         auth.same_restaurant(luis, rest.id + 99)
+
+
+# ------------------------------------- el token, distinto en cada pantalla
+def test_the_form_token_is_written_differently_on_every_screen():
+    """El token no cambia en toda la sesión, pero no se escribe dos veces igual.
+
+    Un secreto fijo repetido en cada pantalla, comprimido junto con texto que
+    viene de fuera y servido por HTTPS, son las tres condiciones de BREACH: se
+    mide cuánto encoge la respuesta y el secreto sale letra a letra. El proxy
+    comprime el HTML —y tiene que hacerlo: son veinticuatro kilobytes que en la
+    cámara son cinco—, así que lo que se quita es la repetición.
+
+    Lo que se comprueba es la propiedad que mata al medidor: de lo escrito no
+    se puede sacar ni un trozo del token.
+    """
+    token = "abcdefghij-KLMNOP_0123456789"
+    vistas = {auth.enmascarar(token) for _ in range(200)}
+    assert len(vistas) == 200, "dos pantallas escribieron lo mismo"
+    for escrito in vistas:
+        assert auth.desenmascarar(escrito) == token       # y vuelve el de siempre
+        for largo in (4, 6, 8):
+            for i in range(len(token) - largo):
+                assert token[i:i + largo] not in escrito
+
+
+def test_the_token_still_works_masked_or_not(tmp_path):
+    """Sin mezclar también entra: en la cola de un teléfono puede haber uno viejo."""
+    db.init_engine(f"sqlite:///{tmp_path/'t.db'}")
+    db.create_all()
+    with db.session_scope() as session:
+        _, ana = auth.create_restaurant(session, "Casa", "ana@casa.com", "Ana",
+                                        "clave-larga-1")
+        _, sesion = auth.start_session(session, ana)
+        auth.check_csrf(sesion, auth.enmascarar(sesion.csrf))     # el de hoy
+        auth.check_csrf(sesion, sesion.csrf)                      # el de la cola vieja
+        for malo in ("", None, "inventado", "!!!!", "a", auth.enmascarar("otra-cosa")):
+            with pytest.raises(auth.PermissionDenied):
+                auth.check_csrf(sesion, malo)
+
+
+def test_unmasking_rubbish_never_blows_up():
+    """Lo que llega de fuera no siempre es un token: no puede reventar la pantalla."""
+    for basura in ("", "a", "!!!", "====", "a" * 3, "\x00\x01", "ñ", "AAAA", "_-_-"):
+        assert auth.desenmascarar(basura) in (None, "") or isinstance(
+            auth.desenmascarar(basura), str)

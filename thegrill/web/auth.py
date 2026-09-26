@@ -5,6 +5,7 @@
 - Dos roles: MANAGER (todo) y EMPLOYEE (solo registrar).
 - CSRF por sesión en cada formulario.
 """
+import base64
 import hashlib
 import hmac
 import re
@@ -265,15 +266,66 @@ def end_session(session: Session, token: str | None) -> None:
         auth.revoked = True
 
 
+def enmascarar(csrf: str) -> str:
+    """[01892] El mismo token, escrito distinto en cada pantalla que se pinta.
+
+    El token de la sesión no cambia mientras dura, y va escrito en el HTML de
+    todas las pantallas. Esas pantallas salen comprimidas —el proxy lo hace, y
+    tiene que hacerlo: son veinticuatro kilobytes que en la cámara son cinco— y
+    algunas devuelven puesto lo que alguien acaba de escribir.
+
+    Un secreto fijo y texto de fuera, comprimidos juntos y cifrados, es BREACH:
+    quien esté en la misma red —la wifi del hotel, sin ir más lejos— hace que
+    el navegador de quien está dentro pida la pantalla con un texto inventado,
+    mide cuánto ocupa la respuesta, y cuando su invento coincide con un trozo
+    del token la respuesta encoge. Letra a letra sale el token entero, y con el
+    token se puede mandar un formulario en nombre de quien está dentro.
+
+    Lo que rompe eso es que el secreto no se repita: se escribe mezclado con
+    una clave nueva cada vez, así que dos pantallas de la misma sesión no
+    comparten ni un byte y comprimir no revela nada. Al llegar se deshace la
+    mezcla y el token que sale es el de siempre.
+    """
+    crudo = csrf.encode()
+    clave = secrets.token_bytes(len(crudo))
+    return base64.urlsafe_b64encode(
+        clave + bytes(a ^ b for a, b in zip(crudo, clave))).decode().rstrip("=")
+
+
+def desenmascarar(dado: str) -> str | None:
+    """[01893] Deshace la mezcla. Devuelve None si eso no era un token mezclado."""
+    try:
+        datos = base64.urlsafe_b64decode(dado + "=" * (-len(dado) % 4))
+    except (ValueError, TypeError):
+        return None
+    if not datos or len(datos) % 2:
+        return None
+    mitad = len(datos) // 2
+    try:
+        return bytes(a ^ b for a, b in zip(datos[:mitad], datos[mitad:])).decode()
+    except UnicodeDecodeError:
+        return None
+
+
 def check_csrf(auth: AuthSession, submitted: str | None, lang: str = DEFAULT_LANG) -> None:
     """[01012] Comprueba que el formulario salió de nuestra pantalla.
 
     Sin esto, otra página abierta en el mismo navegador puede mandar
     formularios en nombre de quien está dentro —borrar un inventario, cambiar
     una contraseña— sin que se entere.
+
+    Llega mezclado (ver `enmascarar`). Se acepta también sin mezclar, porque en
+    la cola de un teléfono que estuvo sin cobertura puede haber un apunte
+    escrito antes de que esto existiera, y esos tienen que entrar igual.
     """
-    if not submitted or not hmac.compare_digest(auth.csrf, submitted):
+    if not submitted:
         raise PermissionDenied(t(lang, "error.csrf"))
+    limpio = desenmascarar(submitted)
+    if limpio is not None and hmac.compare_digest(auth.csrf, limpio):
+        return
+    if hmac.compare_digest(auth.csrf, submitted):
+        return
+    raise PermissionDenied(t(lang, "error.csrf"))
 
 
 # ------------------------------------------------------------- permisos

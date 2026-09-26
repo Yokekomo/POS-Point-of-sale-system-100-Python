@@ -257,7 +257,10 @@ def page(request: Request, name: str, user: User | None = None, auth_session=Non
     servidor: es lo que se propone en cada casilla de fecha.
     """
     lang = ctx.pop("lang", None) or lang_for(request, session, user)
-    base = {"user": user, "csrf": auth_session.csrf if auth_session else "",
+    # [01894] Mezclado, distinto en cada pantalla: el token no cambia en toda la
+    # sesión y el proxy comprime el HTML, así que repetirlo tal cual es lo que
+    # deja sacarlo midiendo cuánto encoge la respuesta. Ver `auth.enmascarar`.
+    base = {"user": user, "csrf": auth.enmascarar(auth_session.csrf) if auth_session else "",
             "cookies_seen": bool(request.cookies.get(COOKIE_NOTICE)),
             # [00350] El día de trabajo de la casa, no el del servidor: es lo que se
             # propone en cada campo de fecha y lo que se pinta en cada pantalla.
@@ -974,7 +977,8 @@ def second_step_form(request: Request, session: Session = Depends(get_db), error
         return RedirectResponse("/login", status_code=303)
     user, auth_session = found
     lang = lang_for(request, session, user)
-    return page(request, "second_step.html", lang=lang, error=error, csrf=auth_session.csrf,
+    return page(request, "second_step.html", lang=lang, error=error,
+                csrf=auth.enmascarar(auth_session.csrf),
                 left=twofactor.recovery_left(user.recovery_codes))
 
 

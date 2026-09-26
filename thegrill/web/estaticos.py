@@ -44,16 +44,19 @@ UN_RATO = "public, max-age=3600"
 
 NOMBRE = re.compile(r"^(?P<base>[a-z0-9_-]+)\.(?P<huella>[0-9a-f]{12})(?P<ext>\.css|\.js)$")
 
-# [01886] Comprimido, y **solo aquí**. Un estilo y un guion son iguales para todo el
-# mundo: no llevan el token del formulario ni nada que haya escrito nadie, así
-# que comprimirlos no le enseña nada a quien mira el cable. El HTML sí lleva las
-# dos cosas a la vez —el token y lo que se acaba de teclear—, y comprimir eso es
-# la receta de BREACH: quien puede meter texto en la pantalla mide cuánto
-# encoge la respuesta y va sacando el token letra a letra. Por eso el HTML se
-# sirve tal cual y estos ficheros no.
+# [01886] Comprimido aquí dentro, y no por el proxy de delante. No es lo mismo: el
+# proxy comprime lo que le llega sin guardarlo, o sea en **cada** petición de
+# cada persona; aquí se comprime una vez al leer el fichero y se sirven los
+# mismos bytes siempre. Y el proxy no vuelve a tocar lo que ya viene
+# comprimido, así que no se hace dos veces.
 #
-# Se comprime una vez, al leerlo, y no en cada petición: son los mismos bytes
-# siempre. Nivel 9 porque se paga una vez y se ahorra en todas.
+# El HTML sí lo comprime el proxy —son veinticuatro kilobytes por pantalla que
+# en la cámara son cinco, y eso no se regala—. Que eso sea seguro no depende de
+# aquí: depende de que el token del formulario no se escriba dos veces igual
+# (ver `auth.enmascarar`). Un estilo no lleva token ni lleva nada que haya
+# escrito nadie, así que este fichero no tiene ese problema de ninguna manera.
+#
+# Nivel 9 porque se paga una vez y se ahorra en todas.
 NIVEL = 9
 
 _guardado: dict[str, tuple[float, str, bytes, bytes]] = {}   # nombre → (mtime, huella, bytes, apretado)

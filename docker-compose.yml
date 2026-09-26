@@ -96,6 +96,37 @@ services:
           sleep 86400
         done
 
+  # [01895] La limpieza de datos personales, todos los días, por el mismo motivo
+  # que la copia: estaba escrita como una línea de `cron` que hay que acordarse
+  # de pegar en cada servidor, y la que no se pega no se echa de menos nunca.
+  # Solo que esta no es una precaución: el RGPD art. 5.1.e dice que lo personal
+  # no se guarda más de lo que hace falta, y quien responde de eso es la casa.
+  #
+  # Se lleva las solicitudes que no llegaron a cuenta, los números de envío, las
+  # novedades, las sesiones caducadas, los avisos ya leídos y los partes de
+  # fallo —que llevan el correo de quien los mandó—. **Lo de la carne no lo
+  # toca**: las recepciones, los despieces, las pesadas, las mermas y el libro
+  # de firmas se quedan, que es lo que obligan el (UE) 931/2011 y el (CE)
+  # 852/2004 y lo que el propio RGPD excluye en el art. 17.3.b.
+  limpieza:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GRILL_DB: postgresql+psycopg://grill:${POSTGRES_PASSWORD}@db:5432/carnes
+    entrypoint: ["sh", "-c"]
+    # La primera al arrancar, como la copia: si algo está mal puesto se ve en el
+    # primer minuto y no dentro de un día.
+    command:
+      - |
+        while true; do
+          python -m thegrill.cli --db "$$GRILL_DB" purgar-solicitudes || \
+            echo "LA LIMPIEZA HA FALLADO $$(date -u +%FT%TZ)"
+          sleep 86400
+        done
+
   proxy:
     image: caddy:2-alpine
     restart: unless-stopped

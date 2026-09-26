@@ -206,7 +206,8 @@ y guardarlo.
   del derecho de supresión justo lo que hay que conservar por ley. Queda escrito
   quién lo hizo y cuándo. **Díselo a tus clientes**: es lo que tienen que poder
   contestar el día que se lo pida un empleado suyo.
-- **La limpieza diaria en un cron**, para no guardar datos personales de más.
+- **La limpieza diaria viene puesta** —su propio contenedor en el
+  `docker-compose.yml`, como la copia—, para no guardar datos personales de más.
   Se lleva las solicitudes que no llegaron a cuenta (180 días), los números de
   envío (30), las novedades (7), **las sesiones caducadas** (7), **los avisos ya
   leídos** (90) y **los partes de fallo** (365, que llevan el correo de quien
@@ -216,8 +217,12 @@ y guardarlo.
   **Lo de la carne no lo toca nada de esto.** Las recepciones, los despieces,
   las pesadas, las mermas, los inventarios y el libro de firmas se quedan: eso
   es lo que hay que conservar y es lo que pide una inspección.
+  No hay que poner nada: sube con el resto. Estaba escrita aquí como una línea
+  de `cron` que había que acordarse de pegar en cada servidor, y la que no se
+  pega no se echa de menos nunca —solo que esta no es una precaución, es el
+  RGPD art. 5.1.e—. Si alguna vez hace falta a mano:
   ```
-  0 4 * * *  docker compose exec -T app sh -c 'python -m thegrill.cli --db "$GRILL_DB" purgar-solicitudes'
+  docker compose exec -T app sh -c 'python -m thegrill.cli --db "$GRILL_DB" purgar-solicitudes'
   ```
 - **Vigilancia**: que alguien te avise si la web deja de responder. Uptime
   Kuma en la misma máquina, o el comprobador gratuito de cualquiera.

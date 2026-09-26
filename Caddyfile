@@ -1,6 +1,15 @@
 # HTTPS automático con Let's Encrypt, y nada más. La aplicación ya pone sus
 # propias cabeceras de seguridad; aquí no se pisan.
 {$DOMINIO} {
+	# El HTML comprimido: veinticuatro kilobytes por pantalla que se quedan
+	# en cinco, y en una cámara con una raya de cobertura eso se nota. Es
+	# seguro porque el token del formulario va mezclado y distinto en cada
+	# pantalla (thegrill/web/auth.py, `enmascarar`): un secreto que se repite
+	# dentro de una respuesta comprimida se saca midiendo cuánto encoge.
+	# Si alguna vez se quita esa mezcla, hay que quitar esto también.
+	#
+	# El estilo y el guion ya vienen comprimidos de la aplicación —una sola
+	# vez, no en cada petición— y Caddy no los vuelve a tocar.
 	encode gzip zstd
 
 	# Que la aplicación sepa que se está sirviendo por HTTPS: de eso depende
