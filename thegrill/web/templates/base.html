@@ -220,7 +220,14 @@ nav{display:flex;flex-wrap:wrap;gap:2px;align-items:center}
      fila flexible, decir el mínimo a mano deja que encoja hasta ahí— y el
      nombre se salía de su propia caja. */
   a.brand{min-height:44px;display:inline-flex;flex-direction:column;
-    justify-content:center}
+    justify-content:center;
+    /* El ancho, con relleno y no con `min-width`. En árabe el nombre y el
+       cargo son cortos —«Ana» y «مدير»— y la caja se quedaba en 32 px. Un
+       `min-width` dentro de una fila flexible le quita el suelo que trae de
+       fábrica y deja que encoja hasta ahí; el relleno, en cambio, ensancha de
+       verdad. Y el margen negativo lo devuelve a su sitio, para que el nombre
+       siga cayendo en la misma vertical que el título de la pantalla. */
+    padding-inline:8px;margin-inline:-8px}
   a{-webkit-tap-highlight-color:rgba(138,61,31,.15)}
 }
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
