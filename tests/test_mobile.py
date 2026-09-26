@@ -635,7 +635,25 @@ def test_a_delivery_is_booked_one_piece_at_a_time_with_its_label(browser):
     # hasta en una máquina normal con carga—.
     with page.expect_navigation(timeout=60000):
         page.click("form[action='/recepcion'] button[type=submit]")
-    page.wait_for_selector(".banner", timeout=60000)
+    try:
+        page.wait_for_selector(".banner", timeout=60000)
+    except Exception as agotado:
+        # Aquí no vale con «se agotó el tiempo»: eso no dice si el muelle no
+        # contestó o si contestó y no dijo nada. Lo que decide el caso es una
+        # sola pregunta —¿está la pieza en la base?—, y la respuesta cambia por
+        # completo a dónde hay que mirar: si está, lo que falta es el aviso; si
+        # no está, el alta no llegó a hacerse. Se pregunta y se cuenta, con la
+        # dirección y lo que se lee en la pantalla, porque esto falla en un
+        # servidor al que no se puede entrar a mirar.
+        with db.session_scope() as session:
+            guardada = session.query(Primal).filter_by(serial="9300").first() is not None
+        raise AssertionError(
+            "después de dar de alta la pieza no salió ningún aviso.\n"
+            f"  ¿está la pieza en la base?  {'sí' if guardada else 'NO'}\n"
+            f"  dirección: {page.url}\n"
+            f"  título: {page.title()!r}\n"
+            f"  lo que se lee: {page.inner_text('body')[:300]!r}"
+        ) from agotado
     # Y se mira **cuál** de los avisos ha salido. Esperando directamente al
     # verde, una pieza rechazada —un número repetido, un peso que no cuadra—
     # dejaba la prueba esperando hasta agotar el tiempo, y el parte decía
