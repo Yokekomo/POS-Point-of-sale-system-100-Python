@@ -141,6 +141,102 @@
 {% endif %}
 </div>
 
+{% if can("platform") and mercados is defined %}
+{# [01762] El configurador de la tarifa, aquí y no en la consola de cuentas.
+
+   En la consola se mira quién paga y quién no, que es otra cabeza y otro
+   momento. Lo que se **configura** —cuánto cuesta, en qué moneda, en qué
+   mercado, con qué oferta— va en configuración, que es donde se viene a
+   cambiar cómo funciona esto.
+
+   Los siete mercados se ven juntos arriba a propósito: si hubiera que abrirlos
+   de uno en uno, nadie se enteraría de que el de Australia lleva medio año con
+   el precio de partida. #}
+<h2 id="tarifa">{{ t("adm.pricing") }}</h2>
+<div class="card">
+<p class="help" style="margin-top:0">{{ t("adm.pricing_help") }}</p>
+
+<div class="scroll"><table>
+<tr><th>{{ t("price.market") }}</th><th class="num">{{ t("adm.price_outlet") }}</th>
+    <th class="num">{{ t("adm.price_extra") }}</th><th class="num">{{ t("price.yearly") }}</th>
+    <th>{{ t("adm.sale") }}</th><th></th></tr>
+{% for p in tarifas %}
+<tr {% if p.mercado == mercado %}style="font-weight:600"{% endif %}>
+  <td>{{ t("mercado." ~ p.mercado) }}</td>
+  <td class="num">{{ "%.10g"|format(p.normal) }} {{ p.currency }}</td>
+  <td class="num">{% if p.extra %}{{ "%.10g"|format(p.extra) }} {{ p.currency }}{% else %}—{% endif %}</td>
+  <td class="num">{% if p.yearly %}{{ "%.10g"|format(p.yearly) }} {{ p.currency }}{% else %}—{% endif %}</td>
+  <td>{% if p.on_sale %}<span class="tag ok">−{{ p.discount_pct }} %
+        {%- if p.until %} · {{ p.until }}{% endif %}</span>{% else %}—{% endif %}</td>
+  <td><a class="btn ghost" style="padding:4px 10px"
+         href="/configuracion?mercado={{ p.mercado }}#tarifa">{{ t("common.save") }}</a></td>
+</tr>
+{% endfor %}
+</table></div>
+
+<form method="post" action="/admin/tarifa" style="margin-top:16px">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="volver" value="configuracion">
+  <div class="grid">
+    <div><label for="t_mercado">{{ t("price.market") }}</label>
+      <select id="t_mercado" name="mercado">
+        {% for codigo in mercados %}
+        <option value="{{ codigo }}" {% if codigo == mercado %}selected{% endif %}
+          >{{ t("mercado." ~ codigo) }}</option>
+        {% endfor %}
+      </select></div>
+    <div><label for="t_per_outlet">{{ t("adm.price_outlet") }}</label>
+      <input id="t_per_outlet" name="per_outlet" inputmode="decimal" required
+             value="{{ "%.10g"|format(tarifa.per_outlet or 149) }}"></div>
+    <div><label for="t_extra_outlet">{{ t("adm.price_extra") }}</label>
+      <input id="t_extra_outlet" name="extra_outlet" inputmode="decimal"
+             placeholder="{{ t("adm.price_extra_ph") }}"
+             value="{{ "%.10g"|format(tarifa.extra_outlet) if tarifa.extra_outlet else "" }}"></div>
+    <div><label for="t_currency">{{ t("settings.currency") }}</label>
+      <select id="t_currency" name="currency">
+        {% for code, simbolo in monedas.items() %}
+        <option value="{{ code }}" {% if code == tarifa.currency %}selected{% endif %}
+          >{{ code }} · {{ simbolo }}</option>
+        {% endfor %}
+      </select></div>
+  </div>
+
+  <h3 style="font-size:15px;margin:20px 0 4px">{{ t("adm.sale") }}</h3>
+  <label class="casilla" for="t_sale_on">
+    <input id="t_sale_on" name="sale_on" type="checkbox" value="1"
+           {% if tarifa.sale_on %}checked{% endif %}>
+    <span>{{ t("adm.sale_on") }}</span></label>
+  <div class="help">{{ t("adm.sale_help") }}</div>
+  <div class="grid" style="margin-top:12px">
+    <div><label for="t_sale_price">{{ t("adm.sale_price") }}</label>
+      <input id="t_sale_price" name="sale_price" inputmode="decimal"
+             value="{{ "%.10g"|format(tarifa.sale_price) if tarifa.sale_price else "" }}"></div>
+    <div><label for="t_sale_label">{{ t("adm.sale_label") }}</label>
+      <input id="t_sale_label" name="sale_label" placeholder="{{ t("price.month_offer") }}"
+             value="{{ tarifa.sale_label or "" }}"></div>
+    <div><label for="t_sale_until">{{ t("adm.sale_until") }}</label>
+      <input id="t_sale_until" name="sale_until" type="date"
+             value="{{ tarifa.sale_until.isoformat() if tarifa.sale_until else "" }}"></div>
+  </div>
+  {# Sin fecha, la oferta llega a fin de mes y se renueva sola: la que hay que
+     acordarse de renovar se queda apagada, y la que hay que acordarse de quitar
+     se queda puesta para siempre. #}
+  <div class="help">{{ t("adm.sale_until_help") }}</div>
+
+  <div class="grid" style="margin-top:16px">
+    <div><label class="casilla" for="t_yearly_on">
+      <input id="t_yearly_on" name="yearly_on" type="checkbox" value="1"
+             {% if tarifa.yearly_on %}checked{% endif %}>
+      <span>{{ t("price.yearly") }}</span></label></div>
+    <div><label for="t_yearly_months">{{ t("adm.yearly_months") }}</label>
+      <input id="t_yearly_months" name="yearly_months" inputmode="decimal"
+             value="{{ "%.10g"|format(tarifa.yearly_months or 10) }}"></div>
+  </div>
+  <button class="wide" style="margin-top:16px" type="submit">{{ t("common.save") }}</button>
+</form>
+</div>
+{% endif %}
+
 <h2>{{ t("pass.title") }}</h2>
 <div class="card">
 <form method="post" action="/configuracion/contrasena">

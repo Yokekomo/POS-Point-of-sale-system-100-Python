@@ -876,15 +876,17 @@ def test_the_owner_sets_the_price_the_sales_site_shows(client):
     quitarla el día que los haya es una decisión de negocio; si exige tocar el
     programa, no se hace cuando toca sino cuando hay un rato.
     """
-    # De partida, noventa y nueve euros y sin rebaja.
+    # De partida, el precio de España: ciento cuarenta y nueve, con la oferta
+    # del mes puesta a la mitad. El navegador de estas pruebas habla español,
+    # así que `/precios` le enseña el de España sin que nadie elija nada.
     publico = client.get("/precios").text
-    assert f'<b>{tarifa.POR_DEFECTO:g} <span class="uni">€</span></b>' in publico
-    assert "Oferta de lanzamiento" not in publico
+    assert f'<s class="antes">{tarifa.MERCADOS["ES"].por_local:g}</s>' in publico
 
     como_dueno(client)
     token = csrf_from(client.get("/admin").text)
     assert client.post("/admin/tarifa", data={
-        "csrf": token, "currency": "EUR", "per_outlet": "99", "extra_outlet": "79",
+        "csrf": token, "mercado": "ES", "currency": "EUR",
+        "per_outlet": "99", "extra_outlet": "79",
         "sale_on": "1", "sale_price": "69", "sale_label": "Precio de fundador",
         "yearly_on": "1", "yearly_months": "10"}).status_code == 303
 
@@ -902,11 +904,12 @@ def test_a_discount_that_is_not_a_discount_is_refused(client):
     como_dueno(client)
     token = csrf_from(client.get("/admin").text)
     respuesta = client.post("/admin/tarifa", data={
-        "csrf": token, "currency": "EUR", "per_outlet": "99",
+        "csrf": token, "mercado": "ES", "currency": "EUR", "per_outlet": "99",
         "sale_on": "1", "sale_price": "120"})
     assert respuesta.status_code == 303
     assert "error=" in respuesta.headers["location"]
-    assert f'<b>{tarifa.POR_DEFECTO:g} <span class="uni">€</span></b>' in client.get("/precios").text
+    # No se guardó nada: sigue el precio de partida de España.
+    assert f'<s class="antes">{tarifa.MERCADOS["ES"].por_local:g}</s>' in client.get("/precios").text
 
 
 def test_a_discount_with_a_date_switches_itself_off(client):
@@ -917,13 +920,14 @@ def test_a_discount_with_a_date_switches_itself_off(client):
     token = csrf_from(client.get("/admin").text)
     hasta = HOY + timedelta(days=30)
     assert client.post("/admin/tarifa", data={
-        "csrf": token, "currency": "EUR", "per_outlet": "99", "sale_on": "1",
-        "sale_price": "69", "sale_until": hasta.isoformat()}).status_code == 303
+        "csrf": token, "mercado": "ES", "currency": "EUR", "per_outlet": "99",
+        "sale_on": "1", "sale_price": "69",
+        "sale_until": hasta.isoformat()}).status_code == 303
 
     with db.session_scope() as s:
-        assert tarifa.publicada(s, on=hasta).price == 69.0          # el último día, sí
-        assert tarifa.publicada(s, on=hasta + timedelta(days=1)).price == 99.0
-        assert not tarifa.publicada(s, on=hasta + timedelta(days=1)).on_sale
+        assert tarifa.publicada(s, "ES", on=hasta).price == 69.0    # el último día, sí
+        assert tarifa.publicada(s, "ES", on=hasta + timedelta(days=1)).price == 99.0
+        assert not tarifa.publicada(s, "ES", on=hasta + timedelta(days=1)).on_sale
 
 
 def test_the_price_is_only_the_shop_window(client):

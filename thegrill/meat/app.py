@@ -778,12 +778,36 @@ def cookies_page(request: Request, session: Session = Depends(get_db)):
                 retention_days=privacy.RETENTION_DAYS)
 
 
+MERCADO_COOKIE = "grill_mercado"
+
+
 @app.get("/precios", response_class=HTMLResponse)
-def pricing(request: Request, session: Session = Depends(get_db)):
-    """[00208] La pantalla de precios, para quien todavía no es cliente."""
-    return page(request, "public_pricing.html", lang=lang_for(request, session),
-                precio=tarifa.publicada(session), moneda_de=money.simbolo,
-                trial_days=billing.TRIAL_DAYS, retention_days=privacy.RETENTION_DAYS)
+def pricing(request: Request, session: Session = Depends(get_db), mercado: str = ""):
+    """[00208] La pantalla de precios, para quien todavía no es cliente.
+
+    Con el precio de su mercado. Antes era uno solo para todo el planeta: 149 €
+    al asador de Burgos y los mismos 149 € al grupo hotelero de Dubái, donde un
+    precio bajo descalifica antes de que nadie lea lo que hace el programa.
+
+    Cuál toca se decide por lo que esa persona haya elegido, y si no, por su
+    idioma. **Nunca por la dirección de red**: ese dato se equivoca con
+    cualquier red de empresa, y enseñar un precio distinto según dónde pareces
+    estar, sin poder cambiarlo, es lo que uno no quiere que le hagan. Por eso el
+    selector está siempre a la vista y lo elegido se recuerda.
+    """
+    lang = lang_for(request, session)
+    elegido = mercado or request.cookies.get(MERCADO_COOKIE, "")
+    cual = tarifa.de_donde(elegido=elegido, lang=lang)
+    respuesta = page(request, "public_pricing.html", lang=lang,
+                     precio=tarifa.publicada(session, cual), moneda_de=money.simbolo,
+                     mercados=tarifa.MERCADOS, mercado=cual,
+                     trial_days=billing.TRIAL_DAYS,
+                     retention_days=privacy.RETENTION_DAYS)
+    if mercado and tarifa.es_mercado(mercado):
+        # Un año: es una preferencia de escaparate, no un dato de nadie.
+        respuesta.set_cookie(MERCADO_COOKIE, cual.upper(), max_age=365 * 86400,
+                             samesite="lax", httponly=False, path="/")
+    return respuesta
 
 
 @app.get("/solicitar", response_class=HTMLResponse)
@@ -2611,14 +2635,24 @@ def tracing_page(request: Request, ctx=Depends(needs(perms.STOCK)),
 # ====================================================== LA PLATAFORMA
 @app.get("/admin", response_class=HTMLResponse)
 def admin_home(request: Request, ctx=Depends(require_owner),
-               session: Session = Depends(get_db), done: str = "", error: str = ""):
-    """[00295] La consola del dueño: solicitudes, casas, el recibo del mes y la tarifa."""
+               session: Session = Depends(get_db), done: str = "", error: str = "",
+               mercado: str = ""):
+    """[00295] La consola del dueño: solicitudes, casas, el recibo del mes y la tarifa.
+
+    La tarifa se edita **de un mercado cada vez**, y debajo se ven los siete de
+    un vistazo: si no se ven juntos, nadie se entera de que el de Australia
+    lleva medio año con el precio de partida.
+    """
     user, auth_session = ctx
+    cual = mercado if tarifa.es_mercado(mercado) else tarifa.MERCADO_POR_DEFECTO
+    mercado = cual
     rows = billing.requests(session)
     privacy.note_access(session, user, len(rows))     # mirar datos deja huella
     return page(request, "admin.html", user, auth_session, session, done=done,
-                error=error, tarifa=tarifa.fila(session),
-                precio=tarifa.publicada(session), monedas=money.MONEDAS,
+                error=error, tarifa=tarifa.fila(session, mercado),
+                precio=tarifa.publicada(session, mercado),
+                mercados=tarifa.MERCADOS, mercado=cual, monedas=money.MONEDAS,
+                tarifas=[tarifa.publicada(session, m) for m in tarifa.MERCADOS],
                 requests=privacy.readable(rows),
                 accounts=billing.accounts(session),
                 groups=billing.grouped(session),
@@ -2661,14 +2695,26 @@ def group_payment(request: Request, group: str = Form(...), action: str = Form("
     return RedirectResponse("/admin?done=1", status_code=303)
 
 
+def _vuelta(volver: str, mercado: str, aviso: str) -> str:
+    """[01761] A qué pantalla se vuelve después de tocar la tarifa.
+
+    La misma de la que se salió: el configurador vive en la configuración del
+    dueño y la consola de cuentas también la enseña. Solo se admiten esas dos a
+    propósito —nada de devolver a donde diga un formulario—, que si no esto es
+    una redirección abierta a donde le apetezca a quien la escriba.
+    """
+    donde = "/configuracion" if volver == "configuracion" else "/admin"
+    return f"{donde}?{aviso}&mercado={quote(mercado)}#tarifa"
+
+
 @app.post("/admin/tarifa")
 def save_pricing(request: Request, currency: str = Form("EUR"),
                  per_outlet: str = Form(""), extra_outlet: str = Form(""),
                  sale_on: str = Form(""), sale_price: str = Form(""),
                  sale_label: str = Form(""), sale_until: str = Form(""),
                  yearly_on: str = Form(""), yearly_months: str = Form("10"),
-                 csrf: str = Form(""), ctx=Depends(require_owner),
-                 session: Session = Depends(get_db)):
+                 mercado: str = Form(""), volver: str = Form(""), csrf: str = Form(""),
+                 ctx=Depends(require_owner), session: Session = Depends(get_db)):
     """[00297] El precio de la web, cambiado sin desplegar nada.
 
     Es lo que permite salir con una rebaja de fundador y quitarla el día que
@@ -2679,18 +2725,25 @@ def save_pricing(request: Request, currency: str = Form("EUR"),
     try:
         hasta = date.fromisoformat(sale_until) if sale_until.strip() else None
     except ValueError:
-        return RedirectResponse("/admin?error=fecha#tarifa", status_code=303)
+        return RedirectResponse(_vuelta(volver, mercado, "error=fecha"),
+                                status_code=303)
     try:
         tarifa.guardar(
-            session, user, currency=currency,
+            # Sin mercado escrito, el de partida: así un formulario viejo —o una
+            # llamada de antes de que hubiera mercados— sigue guardando donde
+            # guardaba, en vez de fallar. Un mercado inventado sí es error.
+            session, user, mercado=mercado or tarifa.MERCADO_POR_DEFECTO,
+            currency=currency,
             per_outlet=_eur(per_outlet, 0.0) or 0.0,
             extra_outlet=_eur(extra_outlet),
             sale_on=bool(sale_on), sale_price=_eur(sale_price),
             sale_label=sale_label, sale_until=hasta,
             yearly_on=bool(yearly_on), yearly_months=_num(yearly_months, 10.0) or 10.0)
     except tarifa.TarifaError as e:
-        return RedirectResponse(f"/admin?error={quote(str(e))}#tarifa", status_code=303)
-    return RedirectResponse("/admin?done=1#tarifa", status_code=303)
+        return RedirectResponse(
+            _vuelta(volver, mercado, f"error={quote(str(e))}"), status_code=303)
+    return RedirectResponse(_vuelta(volver, mercado, "done=1"),
+                            status_code=303)
 
 
 @app.post("/admin/solicitud/{request_id}/borrar")
@@ -3016,7 +3069,7 @@ def news_api(request: Request, desde: int = 0, ctx=Depends(require_user),
 @app.get("/configuracion", response_class=HTMLResponse)
 def settings_page(request: Request, ctx=Depends(require_user),
                   session: Session = Depends(get_db), saved: int = 0, changed: int = 0,
-                  off: int = 0, error: str = ""):
+                  off: int = 0, error: str = "", mercado: str = ""):
     # [00409] Sin `codes`: por la barra de direcciones no entran ni salen los códigos
     # de repuesto. Los pinta el POST que los crea, una vez y ahí se acabó.
     """[00315] La configuración de la casa: idioma, moneda, horario y temperaturas.
@@ -3031,15 +3084,31 @@ def settings_page(request: Request, ctx=Depends(require_user),
         user.totp_secret = twofactor.new_secret()
         session.flush()
     return _settings(request, user, auth_session, session, saved=bool(saved),
-                     changed=bool(changed), off=bool(off), error=error)
+                     changed=bool(changed), off=bool(off), error=error,
+                     mercado=mercado)
 
 
 def _settings(request: Request, user, auth_session, session, saved: bool = False,
               changed: bool = False, off: bool = False, error: str = "",
-              codes: list | None = None):
-    """[00316] La pantalla de configuración, que se pinta desde el GET y desde el POST."""
+              codes: list | None = None, mercado: str = ""):
+    """[00316] La pantalla de configuración, que se pinta desde el GET y desde el POST.
+
+    Y, para el dueño de la plataforma, el configurador de la tarifa: los siete
+    mercados de un vistazo y el que se esté tocando, editable ahí mismo. Estaba
+    en la consola de cuentas, que es donde se mira quién paga y quién no —otra
+    cabeza—: lo que se configura va en configuración.
+    """
     restaurant = session.get(Restaurant, user.restaurant_id)
+    cual = mercado if tarifa.es_mercado(mercado) else tarifa.MERCADO_POR_DEFECTO
+    del_dueño = {}
+    if user.role == Role.OWNER:
+        del_dueño = {"tarifa": tarifa.fila(session, cual),
+                     "precio": tarifa.publicada(session, cual),
+                     "tarifas": [tarifa.publicada(session, m) for m in tarifa.MERCADOS],
+                     "mercados": tarifa.MERCADOS, "mercado": cual,
+                     "monedas": money.MONEDAS, "trial_days": billing.TRIAL_DAYS}
     return page(request, "settings.html", user, auth_session, session,
+                **del_dueño,
                 restaurant=restaurant, saved=saved, changed=changed,
                 off=off, error=error, pos_modes=list(PosMatch),
                 currencies=money.MONEDAS,

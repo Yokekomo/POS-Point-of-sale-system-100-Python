@@ -1389,6 +1389,17 @@ class Tarifa(Base):
     __tablename__ = "tarifas"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # [01752] A qué mercado es este precio.
+    #
+    # Había una sola fila: un precio y una moneda para España, Dubái y Nueva
+    # York. Con veinticinco monedas en el programa, el escaparate enseñaba una.
+    # Y no es un detalle de presentación: 149 € es caro en Buenos Aires y es
+    # regalado en Riad, donde un precio bajo directamente descalifica.
+    #
+    # Las filas viejas no lo llevan: una fila sin mercado es la del mercado de
+    # partida, y así una base que ya está funcionando no se queda sin precio al
+    # actualizar.
+    mercado: Mapped[str | None] = mapped_column(String(8), index=True)
     currency: Mapped[str] = mapped_column(String(3), default="EUR")
     # [00775] Lo que cuesta un local al mes, y lo que cuesta cada local a partir del
     # segundo: un grupo con obrador y tres locales no paga cuatro veces lo

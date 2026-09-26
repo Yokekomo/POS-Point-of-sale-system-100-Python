@@ -9,10 +9,34 @@
 {# [01573] El precio sale de la consola, no del código: una rebaja de fundador tiene
    que poder encenderse y apagarse el día que haga falta, y eso no puede
    depender de un despliegue. #}
+{# [01759] El selector de mercado. Va arriba y siempre a la vista, no escondido.
+
+   El precio cambia según dónde esté la casa —149 € en España y 349 $ en el
+   Golfo, donde un precio bajo descalifica— y quien entra tiene que poder verlo
+   y cambiarlo. Lo que no se hace es decidirlo por la dirección de red: ese dato
+   se equivoca con cualquier red de empresa, y enseñar un precio distinto según
+   dónde pareces estar, sin poder tocarlo, es lo que uno no quiere que le hagan.
+
+   Es un formulario de verdad, con su botón, para que funcione sin guiones: en
+   un móvil viejo de cocina eso no es una rareza. #}
+<form method="get" action="/precios" class="card rowflex" style="align-items:flex-end;gap:10px">
+  <div style="flex:1;min-width:200px">
+    <label for="mercado">{{ t("price.market") }}</label>
+    <select id="mercado" name="mercado">
+      {% for codigo in mercados %}
+      <option value="{{ codigo }}" {% if codigo == mercado %}selected{% endif %}>
+        {{ t("mercado." ~ codigo) }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button class="ghost">{{ t("common.save") }}</button>
+  <div class="help" style="flex-basis:100%">{{ t("price.market_help") }}</div>
+</form>
+
 {% set mon = moneda_de(precio.currency) %}
 {% if precio.on_sale %}
 <div class="rebaja">
-  <b>{{ precio.label or t("price.sale") }}</b>
+  <b>{{ precio.label or t("price.month_offer") }}</b>
   {% if precio.discount_pct %} · −{{ precio.discount_pct }} %{% endif %}
   {% if precio.until %} · {{ t("price.sale_until", date=precio.until) }}{% endif %}
 </div>

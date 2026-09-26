@@ -56,12 +56,40 @@
 <h2 id="tarifa">{{ t("adm.pricing") }}</h2>
 <div class="card">
 <p class="help" style="margin-top:0">{{ t("adm.pricing_help") }}</p>
-<form method="post" action="/admin/tarifa">
+{# [01760] Los siete mercados de un vistazo, antes de editar ninguno.
+   Sin esta tabla nadie se entera de que el de Australia lleva medio año con el
+   precio de partida, porque para verlo habría que abrir los siete de uno en uno. #}
+<div class="scroll"><table>
+<tr><th>{{ t("price.market") }}</th><th class="num">{{ t("adm.price_outlet") }}</th>
+    <th class="num">{{ t("adm.price_extra") }}</th><th class="num">{{ t("price.yearly") }}</th>
+    <th>{{ t("adm.sale") }}</th><th></th></tr>
+{% for p in tarifas %}
+<tr {% if p.mercado == mercado %}style="font-weight:600"{% endif %}>
+  <td>{{ t("mercado." ~ p.mercado) }}</td>
+  <td class="num">{{ "%.10g"|format(p.normal) }} {{ p.currency }}</td>
+  <td class="num">{% if p.extra %}{{ "%.10g"|format(p.extra) }} {{ p.currency }}{% else %}—{% endif %}</td>
+  <td class="num">{% if p.yearly %}{{ "%.10g"|format(p.yearly) }} {{ p.currency }}{% else %}—{% endif %}</td>
+  <td>{% if p.on_sale %}<span class="tag ok">−{{ p.discount_pct }} %
+        {%- if p.until %} · {{ p.until }}{% endif %}</span>{% else %}—{% endif %}</td>
+  <td><a class="btn ghost" style="padding:4px 10px"
+         href="/admin?mercado={{ p.mercado }}#tarifa">{{ t("common.save") }}</a></td>
+</tr>
+{% endfor %}
+</table></div>
+
+<form method="post" action="/admin/tarifa" style="margin-top:16px">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <div class="grid">
+    <div><label for="mercado">{{ t("price.market") }}</label>
+      <select id="mercado" name="mercado">
+        {% for codigo in mercados %}
+        <option value="{{ codigo }}" {% if codigo == mercado %}selected{% endif %}
+          >{{ t("mercado." ~ codigo) }}</option>
+        {% endfor %}
+      </select></div>
     <div><label for="per_outlet">{{ t("adm.price_outlet") }}</label>
       <input id="per_outlet" name="per_outlet" inputmode="decimal" required
-             value="{{ "%.10g"|format(tarifa.per_outlet or 99) }}"></div>
+             value="{{ "%.10g"|format(tarifa.per_outlet or 149) }}"></div>
     <div><label for="extra_outlet">{{ t("adm.price_extra") }}</label>
       <input id="extra_outlet" name="extra_outlet" inputmode="decimal"
              placeholder="{{ t("adm.price_extra_ph") }}"
