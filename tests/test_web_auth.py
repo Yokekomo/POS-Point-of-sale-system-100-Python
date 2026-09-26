@@ -96,8 +96,8 @@ def test_csrf_and_role_guards(session):
     rest, manager = auth.create_restaurant(session, "Casa Pepe", "ana@casa.com", "Ana", "clave-larga-1")
     luis = auth.join_restaurant(session, rest.join_code, "luis@casa.com", "Luis", "clave-larga-2")
     _, auth_session = auth.start_session(session, manager)
-    auth.check_csrf(auth_session, auth_session.csrf)
-    for bad in (None, "", "otro"):
+    auth.check_csrf(auth_session, auth.enmascarar(auth_session.csrf))
+    for bad in (None, "", "otro", auth_session.csrf):
         with pytest.raises(auth.PermissionDenied):
             auth.check_csrf(auth_session, bad)
     auth.require_manager(manager)
@@ -130,17 +130,25 @@ def test_the_form_token_is_written_differently_on_every_screen():
                 assert token[i:i + largo] not in escrito
 
 
-def test_the_token_still_works_masked_or_not(tmp_path):
-    """Sin mezclar también entra: en la cola de un teléfono puede haber uno viejo."""
+def test_only_the_masked_token_gets_in(tmp_path):
+    """Mezclado y nada más. Ni siquiera el token pelado de esa misma sesión.
+
+    Hubo un rato en que el pelado también entraba, por si en la cola de un
+    teléfono sin cobertura quedaba un apunte de antes. El motivo era falso: la
+    cola no manda el token que guardó, lo cambia por el de la pantalla de ahora
+    antes de salir. Y una puerta que hoy nadie puede empujar —el pelado ya no
+    se escribe en ninguna pantalla— sigue siendo una puerta el día que alguien
+    vuelva a escribirlo sin darse cuenta.
+    """
     db.init_engine(f"sqlite:///{tmp_path/'t.db'}")
     db.create_all()
     with db.session_scope() as session:
         _, ana = auth.create_restaurant(session, "Casa", "ana@casa.com", "Ana",
                                         "clave-larga-1")
         _, sesion = auth.start_session(session, ana)
-        auth.check_csrf(sesion, auth.enmascarar(sesion.csrf))     # el de hoy
-        auth.check_csrf(sesion, sesion.csrf)                      # el de la cola vieja
-        for malo in ("", None, "inventado", "!!!!", "a", auth.enmascarar("otra-cosa")):
+        auth.check_csrf(sesion, auth.enmascarar(sesion.csrf))     # el único que entra
+        for malo in ("", None, "inventado", "!!!!", "a", sesion.csrf,
+                     auth.enmascarar("otra-cosa")):
             with pytest.raises(auth.PermissionDenied):
                 auth.check_csrf(sesion, malo)
 

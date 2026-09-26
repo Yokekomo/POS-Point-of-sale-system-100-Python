@@ -314,18 +314,24 @@ def check_csrf(auth: AuthSession, submitted: str | None, lang: str = DEFAULT_LAN
     formularios en nombre de quien está dentro —borrar un inventario, cambiar
     una contraseña— sin que se entere.
 
-    Llega mezclado (ver `enmascarar`). Se acepta también sin mezclar, porque en
-    la cola de un teléfono que estuvo sin cobertura puede haber un apunte
-    escrito antes de que esto existiera, y esos tienen que entrar igual.
+    Llega siempre mezclado (ver `enmascarar`), y **solo** mezclado. Hubo un rato
+    en que esto aceptaba también el token pelado, por si en la cola de un
+    teléfono sin cobertura quedaba un apunte escrito antes; ese motivo era
+    falso: la cola no manda el token que guardó, lo cambia por el de la
+    pantalla de ahora antes de salir (`carne.js`, `mandar`). Lo único que se
+    quedaba fuera al cerrar la puerta es una pantalla abierta desde antes de un
+    despliegue, que recibe la pantalla de error en su idioma, con el enlace de
+    vuelta, y se arregla recargando.
+
+    Y se cierra aunque hoy no se pueda abrir —el token pelado no se escribe ya
+    en ninguna pantalla, así que nadie lo tiene—, porque una comprobación de
+    seguridad con un «o como antes» permanente deja de comprobar nada el día
+    que alguien vuelva a escribirlo en alguna parte sin darse cuenta. De eso se
+    encarga además la guardia de `test_web_auth`.
     """
-    if not submitted:
+    limpio = desenmascarar(submitted) if submitted else None
+    if limpio is None or not hmac.compare_digest(auth.csrf, limpio):
         raise PermissionDenied(t(lang, "error.csrf"))
-    limpio = desenmascarar(submitted)
-    if limpio is not None and hmac.compare_digest(auth.csrf, limpio):
-        return
-    if hmac.compare_digest(auth.csrf, submitted):
-        return
-    raise PermissionDenied(t(lang, "error.csrf"))
 
 
 # ------------------------------------------------------------- permisos

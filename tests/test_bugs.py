@@ -420,3 +420,48 @@ def test_a_piece_without_its_label_photo_says_so_on_the_screen(client, tmp_path,
     muelle = client.get("/recepcion").text
     assert sinfoto not in muelle                # ya tiene su etiqueta
     assert i18n.t("es", "m.rec.photo_seen") in muelle
+
+
+
+def test_the_raw_token_is_never_written_on_any_screen(client):
+    """Ninguna pantalla puede llevar el token pelado, ni escondido en un guion.
+
+    Esta es la guardia de verdad. Cerrar la puerta en `check_csrf` no sirve de
+    nada si mañana alguien escribe el token sin mezclar en una plantilla nueva,
+    en una respuesta de las que lee el guion o en una pantalla de error: el
+    secreto vuelve a repetirse dentro de una respuesta comprimida y la defensa
+    se cae sin que falle nada.
+
+    Se recorren las pantallas de trabajo y se exige que el token que hay en la
+    base no aparezca en ninguna, ni entero ni a trozos.
+    """
+    from thegrill import db
+    from thegrill.models import AuthSession
+    from thegrill.web import auth
+
+    with db.session_scope() as session:
+        pelado = session.query(AuthSession).filter_by(revoked=False).one().csrf
+
+    pantallas = ["/hoy", "/carne", "/maduracion", "/descongelado", "/recepcion",
+                 "/despiece", "/merma", "/inventario", "/traslados", "/ventas",
+                 "/parte", "/fallo", "/equipo", "/cuenta", "/no-existe-esta"]
+    visto = 0
+    for direccion in pantallas:
+        respuesta = client.get(direccion)
+        if respuesta.status_code in (303, 302):
+            respuesta = client.get(respuesta.headers["location"])
+        texto = respuesta.text
+        assert pelado not in texto, f"{direccion} lleva el token pelado"
+        for largo in (8, 12):
+            for i in range(0, len(pelado) - largo):
+                assert pelado[i:i + largo] not in texto, f"{direccion} lleva un trozo"
+        visto += 1
+    assert visto == len(pantallas)
+
+    # Y lo que sí va escrito vale para guardar: la guardia no puede pasar
+    # simplemente porque las pantallas hayan dejado de traer token.
+    muelle = client.get("/recepcion").text
+    escrito = re.search(r'name="csrf" value="([^"]+)"', muelle).group(1)
+    with db.session_scope() as session:
+        sesion = session.query(AuthSession).filter_by(revoked=False).one()
+        auth.check_csrf(sesion, escrito)
