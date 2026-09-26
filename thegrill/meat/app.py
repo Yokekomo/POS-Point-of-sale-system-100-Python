@@ -1027,7 +1027,14 @@ async def _recibir(request, user, auth_session, session, form, lang):
             arrival=llegada, arrival_c=grados, frozen_on_arrival=al_arcon,
             slaughter_date=date.fromisoformat(fecha_sac) if fecha_sac else None,
             pack_date=date.fromisoformat(envasado) if envasado else None))
+    # [01682] La cámara, que se escribía y se tiraba. `receive_primals` la
+    # acepta y la guarda desde siempre, pero aquí no se le pasaba: el camión
+    # entraba sin decir dónde se había metido. Y no se notaba, porque «chamber»
+    # está en DEL_CAMION y el formulario volvía a pintarse con la cámara
+    # puesta: el carnicero la escribía, la veía quedarse, y no se guardaba
+    # nada. Un campo que finge que ha guardado es peor que un campo que falta.
     created = meat.receive_primals(session, user, lot, rows, lang=lang,
+                                   chamber=(form.get("chamber") or "").strip() or None,
                                    received=_cuando(form, session, user))
     # [00374] La foto de la etiqueta viaja con la pieza, en el mismo envío: se hace
     # al coger la bolsa, antes de teclear nada, que es cuando la etiqueta

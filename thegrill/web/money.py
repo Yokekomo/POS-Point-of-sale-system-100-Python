@@ -25,7 +25,20 @@ MONEDAS: dict[str, str] = {
     "BRL": "R$",
     "AUD": "A$",
     "CAD": "C$",
+    # El Golfo. Estaba el dirham y faltaban las demás, así que una casa de
+    # Riad no podía ni elegir su moneda en la configuración. El riyal
+    # saudí, el catarí y el dinar de Kuwait, Baréin y Omán se escriben con
+    # su código: el símbolo en árabe no lo pinta igual todo el mundo, y un
+    # código de tres letras no se confunde nunca.
+    # Ojo con los tres últimos: KWD, BHD y OMR llevan **tres** decimales,
+    # y este programa cuenta en céntimos (dos). Hasta que eso se mire con
+    # calma, en esas tres monedas los costes salen redondeados al fils.
     "AED": "AED",
+    "SAR": "SAR",
+    "QAR": "QAR",
+    "KWD": "KWD",
+    "BHD": "BHD",
+    "OMR": "OMR",
     "MAD": "MAD",
     "HUF": "Ft",
     "PLN": "zł",
