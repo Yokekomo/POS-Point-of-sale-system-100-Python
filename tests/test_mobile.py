@@ -66,14 +66,18 @@ def servidor(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def browser(servidor):
-    """Un solo navegador para todas: dos a la vez no se llevan bien."""
-    import os
+    """Un solo navegador para todas: dos a la vez no se llevan bien.
+
+    Cuál y de dónde lo decide `conftest.abre_navegador`, que además sabe la
+    diferencia entre «aquí no hay navegador» —se salta— y «esto es el servidor
+    de integración» —se cae—. Antes se buscaba en una sola ruta escrita a mano,
+    y donde no estuviera, estas cuarenta y seis pruebas se saltaban calladas.
+    """
+    from conftest import abre_navegador
 
     base, playwright_module = servidor
-    if not os.path.exists(CHROMIUM):
-        pytest.skip("no hay navegador instalado en esta máquina")
     with playwright_module.sync_playwright() as pw:
-        chromium = pw.chromium.launch(executable_path=CHROMIUM)
+        chromium = abre_navegador(pw)
         yield base, chromium
         chromium.close()
 

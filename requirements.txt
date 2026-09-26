@@ -17,6 +17,14 @@ tzdata>=2024.1
 # desarrollo
 pytest>=8
 httpx>=0.27              # cliente de pruebas
+# Playwright —el navegador con el que se miden las pantallas— no está aquí a
+# propósito. De este fichero sale `requirements.lock`, y el lock es lo que se
+# instala en el servidor: meterlo aquí le añadiría cuarenta megas a la imagen
+# para algo que no se usa en producción. Se instala aparte donde hace falta:
+# en el servidor de integración lo hace `.github/workflows/pruebas.yml`, y en
+# un ordenador basta con `pip install playwright && playwright install
+# chromium`. Sin él, las pruebas de pantalla se saltan solas; en el servidor
+# de integración, en cambio, se caen, que es lo que hay que hacer allí.
 
 # fases posteriores (importadores e informes), aún no usadas por el código:
 # pdfplumber             # leer PDFs del POS

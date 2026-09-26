@@ -39,10 +39,6 @@ from thegrill import bench, db
 from scripts.portada import AIRE_PANTALLA, AIRE_TARJETA, DEDO, DEDOS, MEDIDA
 
 HOY = date(2026, 9, 20)
-CHROMIUM = "/opt/pw-browsers/chromium-1243/chrome-linux64/chrome"
-if not os.path.exists(CHROMIUM):
-    CHROMIUM = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
-
 # Los que peor caben, que son los que encontraron todo. El español y el inglés
 # no están a propósito: si un fallo sale en ellos, sale también en estos.
 DUROS = ("de", "fr", "nl", "ar")
@@ -121,12 +117,18 @@ def _idioma(codigo: str) -> None:
 
 @pytest.fixture(scope="module")
 def navegador(casa):
+    """El navegador con el que se mide.
+
+    Dónde buscarlo, y qué hacer si no está, lo decide `conftest.abre_navegador`:
+    en el ordenador de alguien se salta, y en el servidor de integración se
+    cae. Estas cinco pruebas saltándose calladas es exactamente el verde falso
+    que no puede pasar.
+    """
+    from conftest import abre_navegador
     from playwright.sync_api import sync_playwright
 
-    if not os.path.exists(CHROMIUM):
-        pytest.skip("no hay navegador instalado en esta máquina")
     with sync_playwright() as pw:
-        nav = pw.chromium.launch(executable_path=CHROMIUM)
+        nav = abre_navegador(pw)
         yield nav
         nav.close()
 

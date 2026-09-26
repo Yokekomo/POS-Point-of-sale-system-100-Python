@@ -1,0 +1,44 @@
+# Las pruebas, en cada empujón, sin que nadie se acuerde de lanzarlas.
+#
+# El repaso de maqueta dejó una guardia en `tests/test_maqueta.py` que mide la
+# portada y las pantallas de trabajo en los cuatro idiomas que peor caben. Esa
+# guardia solo sirve si se dispara sola: dejarla en un «acuérdate de escribir
+# pytest» es dejarla en nada, que es exactamente el fallo que venía a tapar.
+#
+# Aquí se instala Chromium a propósito. Las pruebas de pantalla se saltan solas
+# cuando no hay navegador —en el ordenador de alguien eso está bien—, pero aquí
+# `CI` va puesto y entonces se caen en vez de saltarse: un verde que no ha
+# medido nada es peor que un rojo, porque el rojo se arregla.
+name: Pruebas
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # La misma versión que la imagen que se despliega: una suite verde en
+      # 3.11 y un programa que corre en 3.12 no dicen lo mismo.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar lo que hace falta
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install playwright
+
+      # `--with-deps` trae también las bibliotecas del sistema que Chromium
+      # necesita y que una imagen de servidor no lleva.
+      - name: Instalar el navegador
+        run: playwright install --with-deps chromium
+
+      - name: Pasar la suite
+        run: pytest tests/ -q
