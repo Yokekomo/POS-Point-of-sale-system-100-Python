@@ -96,6 +96,19 @@ def _cuenta(url: str) -> dict:
                         text(f"SELECT count(*) FROM {tabla}")).scalar_one()
                 except Exception:          # noqa: BLE001 — tabla que aún no existe
                     numeros[nombre] = None
+            # [01860] Cuántas fotos dice la base que hay. Es el número contra el que se
+            # comprueba lo que se ha metido de verdad en la copia: sin él, una
+            # copia sin una sola etiqueta sale igual de bien que una completa.
+            esperadas = 0
+            for tabla, columna in (("primals", "photo_ref"),
+                                   ("attachments", "stored_path")):
+                try:
+                    esperadas += conexion.execute(text(
+                        f"SELECT count(*) FROM {tabla} WHERE {columna} IS NOT NULL "
+                        f"AND {columna} <> ''")).scalar_one()
+                except Exception:          # noqa: BLE001 — tabla que aún no existe
+                    pass
+            numeros["con_foto"] = esperadas
         motor.dispose()
     except Exception as porque:            # noqa: BLE001
         numeros["error"] = str(porque)
@@ -168,6 +181,23 @@ def hacer(db_url: str, destino: str | os.PathLike, fotos_dir: str | os.PathLike 
         if guardadas:
             (trabajo / LISTA).write_text("\n".join(guardadas) + "\n", encoding="utf-8")
 
+        contenido = _cuenta(db_url)
+        # [01861] Lo que dice la base que hay contra lo que se ha metido de verdad.
+        #
+        # Una errata en la ruta de las fotos —`subidaS` en vez de `subidas`, o
+        # un volumen que no se montó— hacía una copia que salía **bien**: base
+        # entera, cero fotos, y a dormir. Todas las noches. El día que haga
+        # falta una etiqueta, la etiqueta no está, y para entonces las treinta
+        # copias de atrás tampoco la tienen. Una copia a la que le falta lo que
+        # pide una inspección no es una copia a medias: es una copia que
+        # engaña, porque ocupa sitio y tranquiliza.
+        esperadas = contenido.get("con_foto") or 0
+        if esperadas and not cuantas:
+            raise CopiaError(
+                f"la base dice que hay {esperadas} fotos y en «{fotos}» no hay "
+                "ninguna. O la carpeta está mal escrita, o el volumen no está "
+                "montado. No se hace una copia sin las etiquetas.")
+
         manifiesto = {
             "formato": FORMATO,
             "fotos_en": ALMACEN,
@@ -176,7 +206,8 @@ def hacer(db_url: str, destino: str | os.PathLike, fotos_dir: str | os.PathLike 
             "base": clase,
             "fichero": dentro,
             "fotos": cuantas,
-            "contenido": _cuenta(db_url),
+            "fotos_esperadas": esperadas,
+            "contenido": contenido,
         }
         (trabajo / MANIFIESTO).write_text(
             json.dumps(manifiesto, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -217,9 +248,25 @@ def _al_almacen(fotos: pathlib.Path | None,
         return []
     almacen.mkdir(parents=True, exist_ok=True)
     listas: list[str] = []
+    dentro = fotos.resolve()
     for fichero in sorted(fotos.rglob("*")):
-        if not fichero.is_file() or fichero.is_symlink():
+        if not fichero.is_file():
             continue
+        # [01863] Un enlace se copia por lo que apunta, no se salta.
+        #
+        # Se saltaban, y con razón a medias: un enlace puede apuntar a
+        # cualquier sitio de la máquina y una copia no puede llevarse el
+        # `/etc/passwd` del servidor porque alguien lo dejara ahí. Pero
+        # saltárselo **en silencio** es lo otro: una foto que sí está en la
+        # cámara y no entra en la copia, y nadie se entera. Una copia de
+        # seguridad se lleva lo que hay dentro del fichero; lo que no puede
+        # llevarse es lo que está fuera de la carpeta, y eso se dice.
+        if fichero.is_symlink() and not str(fichero.resolve()).startswith(
+                str(dentro) + os.sep):
+            raise CopiaError(
+                f"«{fichero.relative_to(fotos)}» es un enlace a algo de fuera de "
+                f"«{fotos}». Una copia se lleva lo que hay en esa carpeta, no lo "
+                "que haya al otro lado del enlace: quita el enlace o trae la foto.")
         relativa = fichero.relative_to(fotos)
         listas.append(relativa.as_posix())
         destino = almacen / relativa
@@ -330,21 +377,41 @@ def restaurar(paquete: str | os.PathLike, db_url: str,
             _restaurar_postgres(trabajo / BASE_SQL, db_url)
 
         if fotos_dir:
+            # [01862] Las fotos se montan enteras **al lado** y solo al final se cambian
+            # por las de ahora.
+            #
+            # Antes se borraba la carpeta primero y se iba copiando encima. Si
+            # a mitad faltaba una foto en el almacén, la restauración se paraba
+            # y lo decía —bien— pero ya se había llevado por delante lo que
+            # había: se entraba con tres etiquetas y se salía con dos y un
+            # error. La herramienta a la que se recurre cuando ya ha pasado
+            # algo no puede ser la que remate. O entra todo, o no se toca nada.
             destino = pathlib.Path(fotos_dir)
+            montaje = destino.with_name(destino.name + ".a-medias")
+            if montaje.exists():
+                shutil.rmtree(montaje)
+            montaje.mkdir(parents=True)
             dentro = trabajo / FOTOS
+            try:
+                if dentro.is_dir():
+                    # [01837] Una copia del formato 1: las fotos venían dentro del
+                    # paquete. Se siguen restaurando, que una copia vieja tiene
+                    # que poder abrirse el día que haga falta.
+                    shutil.rmtree(montaje)
+                    shutil.copytree(dentro, montaje)
+                elif (trabajo / LISTA).is_file():
+                    lista = [l for l in (trabajo / LISTA).read_text(encoding="utf-8")
+                             .splitlines() if l.strip()]
+                    _del_almacen(lista, pathlib.Path(paquete).parent / ALMACEN, montaje)
+            except Exception:
+                shutil.rmtree(montaje, ignore_errors=True)
+                raise
+            viejas = destino.with_name(destino.name + ".de-antes")
+            shutil.rmtree(viejas, ignore_errors=True)
             if destino.exists():
-                shutil.rmtree(destino)
-            destino.mkdir(parents=True, exist_ok=True)
-            if dentro.is_dir():
-                # [01837] Una copia del formato 1: las fotos venían dentro del paquete.
-                # Se siguen restaurando, que una copia vieja tiene que poder
-                # abrirse el día que haga falta.
-                shutil.rmtree(destino)
-                shutil.copytree(dentro, destino)
-            elif (trabajo / LISTA).is_file():
-                lista = [l for l in (trabajo / LISTA).read_text(encoding="utf-8")
-                         .splitlines() if l.strip()]
-                _del_almacen(lista, pathlib.Path(paquete).parent / ALMACEN, destino)
+                destino.replace(viejas)
+            montaje.replace(destino)
+            shutil.rmtree(viejas, ignore_errors=True)
     return manifiesto
 
 

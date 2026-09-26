@@ -310,3 +310,73 @@ def test_keeping_zero_means_never_deleting(casa):
 def test_a_database_that_is_not_there_says_so(tmp_path):
     with pytest.raises(copia.CopiaError, match="no encuentro"):
         copia.hacer(f"sqlite:///{tmp_path/'no-existe.db'}", tmp_path / "copias")
+
+
+# ================================= lo que la copia no puede hacer en silencio
+#
+# Tres averías de la misma familia, y las tres se ven solo el día que hace
+# falta la copia, que es el peor día para verlas.
+def test_a_backup_with_no_labels_at_all_is_not_a_backup(casa):
+    """Una errata en la ruta de las fotos hacía una copia que salía bien.
+
+    Base entera, cero fotos, y a dormir. Todas las noches, treinta noches. El
+    día que un inspector pide la etiqueta de una pieza, la etiqueta no está, y
+    para entonces las treinta copias de atrás tampoco la tienen.
+    """
+    carpeta, url, _, fotos = casa
+    with db.session_scope() as s:
+        # La base dice que esta pieza tiene foto: es lo que hay que cumplir.
+        s.query(Primal).first().photo_ref = str(fotos / "1" / "2026-09-20" / "etiqueta.jpg")
+
+    with pytest.raises(copia.CopiaError, match="no hay ninguna"):
+        copia.hacer(url, carpeta / "copias", carpeta / "subidaS")    # la errata
+    assert list((carpeta / "copias").glob("*.tar.gz")) == [], \
+        "se llegó a escribir un paquete sin etiquetas"
+
+    # Y con la carpeta buena, la misma copia sale sin quejarse.
+    dentro = copia.leer_manifiesto(copia.hacer(url, carpeta / "copias", fotos))
+    assert dentro["fotos"] == 1 and dentro["fotos_esperadas"] == 1
+
+
+def test_a_restore_that_cannot_finish_does_not_take_the_photos_with_it(casa):
+    """La herramienta a la que se recurre cuando ya ha pasado algo no remata.
+
+    Se borraba la carpeta primero y se copiaba encima. Si a mitad faltaba una
+    foto en el almacén, la restauración se paraba y lo decía —bien—, pero ya
+    se había llevado por delante lo que había: se entraba con tres etiquetas y
+    se salía con dos y un error, y sin manera de volver.
+    """
+    carpeta, url, _, fotos = casa
+    for n in range(2):
+        (fotos / "1" / "2026-09-20" / f"otra{n}.jpg").write_bytes(b"\xff\xd8" + bytes([n]))
+    tenia = {f.relative_to(fotos).as_posix(): f.read_bytes()
+             for f in fotos.rglob("*") if f.is_file()}
+    assert len(tenia) == 3
+
+    paquete = copia.hacer(url, carpeta / "copias", fotos)
+    # Alguien se lleva una foto del almacén: un disco con un sector malo, un
+    # `rsync` a medias, lo que sea.
+    (carpeta / "copias" / copia.ALMACEN / "1" / "2026-09-20" / "otra0.jpg").unlink()
+
+    with pytest.raises(copia.CopiaError, match="almacén"):
+        copia.restaurar(paquete, url, fotos)
+
+    ahora = {f.relative_to(fotos).as_posix(): f.read_bytes()
+             for f in fotos.rglob("*") if f.is_file()}
+    assert ahora == tenia, "la restauración se llevó por delante lo que había"
+
+
+def test_a_photo_that_is_a_link_to_somewhere_else_is_said_out_loud(casa):
+    """Se saltaban los enlaces, y en silencio: una foto que está y no entra.
+
+    Saltarse lo que apunta fuera de la carpeta está bien —una copia no se
+    lleva el `/etc/passwd` del servidor porque alguien dejara ahí un enlace—.
+    Lo que no vale es no decirlo.
+    """
+    carpeta, url, _, fotos = casa
+    fuera = carpeta / "en-otro-disco.jpg"
+    fuera.write_bytes(b"\xff\xd8-esta-esta-fuera")
+    (fotos / "1" / "2026-09-20" / "enlazada.jpg").symlink_to(fuera)
+
+    with pytest.raises(copia.CopiaError, match="enlace"):
+        copia.hacer(url, carpeta / "copias", fotos)
