@@ -16,7 +16,9 @@
     {% else %}
     <form method="post" action="/manager/equipo/{{ u.id }}/rol" class="rowflex" style="margin:0">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <select name="role" style="width:auto">
+      {# [01741] Cuatro desplegables de nivel, uno por persona, todos iguales y sin
+         nombre. Con el nombre dentro se sabe a quién se le está cambiando. #}
+      <select name="role" style="width:auto" aria-label="{{ t('team.role') }} · {{ u.name }}">
         {% for r in roles %}
         <option value="{{ r.value }}" {% if u.role == r %}selected{% endif %}>{{ t("role." ~ r.value) }}</option>
         {% endfor %}
@@ -30,7 +32,12 @@
   <td>{% if u.id != user.id %}
     <form method="post" action="/manager/equipo/{{ u.id }}/contrasena" class="rowflex" style="margin:0">
       <input type="hidden" name="csrf" value="{{ csrf }}">
+      {# [01743] Con el nombre de la persona dentro: son cuatro casillas de contraseña
+         iguales, una por fila, y el `placeholder` no es un nombre —desaparece al
+         escribir y muchos lectores no lo leen—. Cambiarle la contraseña a quien
+         no es no se arregla luego. #}
       <input name="password" type="text" autocomplete="off" style="max-width:150px"
+             aria-label="{{ t('pass.new') }} · {{ u.name }}"
              placeholder="{{ t('pass.new') }}" required>
       <button class="ghost" style="padding:6px 12px">{{ t("pass.reset") }}</button>
     </form>
@@ -53,8 +60,8 @@
 <p class="help">{{ t("pass.reset_help") }}</p>
 {# [01588] Por qué no hay una columna que enseñe la contraseña de cada uno. #}
 <p class="help">{{ t("pass.no_peek") }}</p>
-{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if done %}<div class="banner ok" role="status">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 
 
 <h2>{{ t("team.new_user") }}</h2>

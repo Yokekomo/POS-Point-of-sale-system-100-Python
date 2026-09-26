@@ -2,8 +2,8 @@
 {% block public %}
 <h1>{{ t("pub.f.title") }}</h1>
 <p class="sub">{{ t("pub.f.sub") }}</p>
-{% if sent %}<div class="banner ok">{{ t("pub.f.sent") }}</div>{% endif %}
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if sent %}<div class="banner ok" role="status">{{ t("pub.f.sent") }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 
 <div class="card">
 <form method="post" action="/solicitar">

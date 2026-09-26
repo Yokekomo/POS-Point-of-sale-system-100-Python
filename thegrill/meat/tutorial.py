@@ -22,11 +22,22 @@ class Guia:
     pasos: list
 
 
-def visto(session: Session, user: User, pantalla: str, version: int) -> bool:
-    """[00683] Si esa persona ya vio ese tutorial en esa versión o más nueva."""
+def visto(session: Session, user: User, pantalla: str, version: int,
+          pasos: int = 0) -> bool:
+    """[00683] Si esa persona ya vio ese tutorial entero, en esa versión o más nueva.
+
+    «Entero» es la palabra nueva. Antes bastaba con que hubiera una fila, y una
+    fila la escribía también el día en que la pantalla estaba vacía y no se
+    pudo enseñar nada. Ahora se compara con cuántos pasos se enseñaron de
+    verdad: si hoy tocan más de los que se vieron aquel día, el tutorial vuelve.
+    """
     row = (session.query(TourVisto)
            .filter_by(user_id=user.id, pantalla=pantalla).first())
-    return row is not None and (row.version or 0) >= version
+    if row is None or (row.version or 0) < version:
+        return False
+    # Las filas de antes de este arreglo no llevan el número. Se respetan: a
+    # quien ya lo vio no se le vuelve a sacar el tutorial por una migración.
+    return row.pasos is None or row.pasos >= pasos
 
 
 def para(session: Session, user: User | None, ruta: str, lang: str,
@@ -42,7 +53,8 @@ def para(session: Session, user: User | None, ruta: str, lang: str,
     tour = tours.de_ruta(ruta)
     if tour is None:
         return None
-    if not forzar and visto(session, user, tour.pantalla, tour.version):
+    if not forzar and visto(session, user, tour.pantalla, tour.version,
+                            len(tours.pasos_para(tour, user.role))):
         return None
     # [00686] El filtro por nivel se hace aquí, y lo que se quita no sale de esta
     # función: ni al HTML ni al JSON. Quien no ve dinero no recibe el paso que
@@ -55,7 +67,8 @@ def para(session: Session, user: User | None, ruta: str, lang: str,
     return Guia(pantalla=tour.pantalla, version=tour.version, pasos=pasos)
 
 
-def marcar(session: Session, user: User, pantalla: str, completo: bool = True) -> TourVisto:
+def marcar(session: Session, user: User, pantalla: str, completo: bool = True,
+           pasos: int | None = None) -> TourVisto:
     """[00685] Apunta que esta persona ya lo vio. La versión la pone el servidor.
 
     La manda el navegador, así que el número de versión no se cree: se coge
@@ -73,6 +86,11 @@ def marcar(session: Session, user: User, pantalla: str, completo: bool = True) -
         session.add(row)
     row.version = tour.version
     row.completo = bool(completo)
+    # Cuántos se enseñaron. Se queda con el mayor: si un día se vieron dos y
+    # otro día solo uno porque la pantalla estaba más vacía, lo que vale es que
+    # esa persona ya vio los dos.
+    if pasos is not None:
+        row.pasos = max(int(pasos), row.pasos or 0)
     row.fecha = datetime.utcnow()
     session.flush()
     return row

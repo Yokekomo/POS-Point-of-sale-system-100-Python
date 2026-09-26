@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block title %}{{ t("acct.title") }}{% endblock %}
 {% block body %}
 <h1>{{ t("acct.title") }}</h1>
-<div class="banner bad">
+<div class="banner bad" role="alert" tabindex="-1">
   {% if restaurant.billing and restaurant.billing.value == "CANCELLED" %}{{ t("acct.cancelled") }}
   {% elif can("team") %}{{ t("acct.blocked_manager") }}
   {% else %}{{ t("acct.blocked_staff") }}{% endif %}

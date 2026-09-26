@@ -2,8 +2,8 @@
 {% block body %}
 <h1>{{ t("sale.title") }}</h1>
 <p class="sub">{{ t("sale.sub") }}</p>
-{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if done %}<div class="banner ok" role="status">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 
 <p class="sub">{{ t("sale.two_ways") }}</p>
 
@@ -42,7 +42,7 @@
   <div class="muted" style="margin-top:8px">{{ t("sale.file_columns") }}:
     {% for campo, columna in parsed.columns.items() %}<b>{{ columna }}</b>{% if not loop.last %} · {% endif %}{% endfor %}
     {% if parsed.skipped %} · {{ t("sale.skipped", n=parsed.skipped) }}{% endif %}</div>
-  {% for aviso in parsed.warnings %}<div class="banner warn">{{ aviso }}</div>{% endfor %}
+  {% for aviso in parsed.warnings %}<div class="banner warn" role="alert">{{ aviso }}</div>{% endfor %}
 </div>
 
 <div class="card scroll">
@@ -100,10 +100,17 @@
     <td class="muted">{{ m.pos_code or "" }}</td>
     <td>{{ m.pos_name }}</td>
     <td class="muted">{{ m.recipe.name }}</td>
+    {# [01739] El nombre del plato va dentro de la casilla, no solo en la celda de al
+       lado. Para un lector de pantalla, cuatro campos seguidos sin etiqueta son
+       cuatro cuadros vacíos idénticos: rellenar el parte del día a ciegas era
+       imposible. La etiqueta se construye con el texto que ya está en la
+       cabecera de la columna más el plato de esa fila. #}
     <td class="num"><input name="units:{{ m.pos_name }}" type="text" inputmode="decimal"
+        aria-label="{{ t('sale.units') }} · {{ m.pos_name }}"
         style="max-width:120px"></td>
     <td class="num">{% if m.recipe.by_weight %}
         <input name="grams:{{ m.pos_name }}" type="text" inputmode="decimal"
+               aria-label="{{ t('sale.grams') }} · {{ m.pos_name }}"
                style="max-width:120px">
         <div class="muted">{% if m.recipe.price_per_kg %}{{ t("m.menu.price_kg") }}
           {{ "%.2f"|format(m.recipe.price_per_kg) }}{% endif %}</div>

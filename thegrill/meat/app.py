@@ -11,6 +11,7 @@ Corre por su cuenta, con su propia base de datos:
 """
 import json
 import logging
+import random
 import os
 from urllib.parse import quote, urlsplit
 from datetime import date, datetime, timedelta, timezone
@@ -19,6 +20,8 @@ from dataclasses import fields, is_dataclass
 from types import SimpleNamespace
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
                                RedirectResponse, Response)
 from fastapi.staticfiles import StaticFiles
@@ -591,6 +594,105 @@ async def redirect_handler(request: Request, exc: HTTPException):
                                        "can": lambda capability: False,
                                        "here": request.url.path},
                                       status_code=exc.status_code)
+
+
+def _pantalla_de_error(request: Request, codigo: int, detalle: str):
+    """[01718] La pantalla de error, en el idioma de quien está delante.
+
+    Sale de `redirect_handler` para que la puedan usar también los fallos que
+    no son `HTTPException`: el texto se pinta igual, lo único que cambia es de
+    dónde viene.
+    """
+    user = None
+    try:
+        with db.session_scope() as sesion:
+            encontrado = current(request, sesion)
+            if encontrado is not None:
+                lang = lang_for(request, sesion, encontrado[0])
+                user = encontrado[0]
+            else:
+                lang = lang_for(request)
+    except Exception:                                    # noqa: BLE001
+        lang = lang_for(request)
+    # [01719] Volver a donde se estaba, no a la portada: el que se equivoca en una
+    # casilla quiere la misma pantalla, no empezar de cero.
+    volver = request.headers.get("referer") or ""
+    if not volver.startswith(str(request.base_url).rstrip("/")):
+        volver = "/"
+    return templates.TemplateResponse(request, "error.html",
+                                      {"user": user, "csrf": "", "unread": 0,
+                                       "t": i18n.translator(lang), "lang": lang,
+                                       "dir": i18n.direction(lang), "languages": i18n.LANGUAGES,
+                                       "code": codigo, "detail": detalle,
+                                       "volver": volver,
+                                       "nonce": getattr(request.state, "nonce", ""),
+                                       "can": lambda capability: False,
+                                       "here": request.url.path},
+                                      status_code=codigo)
+
+
+# [01727] El mismo manejador, también para el `HTTPException` de Starlette.
+#
+# El enrutador levanta el suyo —`starlette.exceptions.HTTPException`, que es el
+# padre del de FastAPI— cuando una dirección no existe, y ese no encajaba con el
+# manejador de arriba: `/pieza/ZZZ` o un marcador viejo devolvían
+# `{"detail":"Not Found"}` en inglés, sin la marca y sin botón de volver, a
+# alguien que está trabajando en árabe o en húngaro. Los errores que levanta el
+# propio programa sí salían bien; era solo la puerta de entrada.
+async def router_handler(request: Request, exc: StarletteHTTPException):
+    """[01729] El error del enrutador, pintado como los nuestros y en su idioma.
+
+    Starlette pone de su cosecha un `detail` en inglés —«Not Found», «Method Not
+    Allowed»—. Se vacía a propósito: con el detalle en blanco, el manejador de
+    arriba pone el texto traducido que ya existe para cada código, que es lo que
+    tiene que leer quien teclea mal una dirección o abre un marcador viejo.
+    """
+    return await redirect_handler(
+        request, HTTPException(status_code=exc.status_code,
+                               detail="", headers=getattr(exc, "headers", None)))
+
+
+app.add_exception_handler(StarletteHTTPException, router_handler)
+
+
+@app.exception_handler(RequestValidationError)
+async def missing_field_handler(request: Request, exc: RequestValidationError):
+    """[01720] Falta una casilla: se dice en la pantalla, no con un JSON en inglés.
+
+    Sin esto, FastAPI contesta con su propio cuerpo —`{"detail":[{"type":
+    "missing","loc":["body","serial"]...}]}`, 422 y en inglés— a cualquiera de
+    los siete idiomas. Quien está en el muelle con guantes ve un trozo de
+    código y no sabe que lo único que pasa es que se dejó un número.
+
+    Y hay un motivo de más: la cola del teléfono aparta a «sin mandar» todo lo
+    que llega con 4xx, así que ese JSON acababa siendo lo que una persona abría
+    para ver por qué no había entrado su recuento.
+    """
+    return _pantalla_de_error(request, 400, "")
+
+
+@app.exception_handler(Exception)
+async def unexpected_handler(request: Request, exc: Exception):
+    """[01721] El fallo que no habíamos previsto, contado como se cuenta lo demás.
+
+    Antes esto salía por el suelo del framework: «Internal Server Error», 21
+    bytes de texto plano, en inglés, sin la marca, sin botón de volver y sin
+    nada que darle a quien lo atiende. Igual para el húngaro que para el
+    español. Era una llamada garantizada, siempre.
+
+    Lo que cambia, además de la pantalla, es que el fallo **se numera**. El
+    número sale en pantalla y el mismo número encabeza la traza en el registro
+    del servidor: cuando alguien dice «me ha salido el 4417», eso es todo lo
+    que hace falta para ir a mirar qué pasó. Sin él, atender un parte de fallo
+    empieza por un interrogatorio.
+
+    El número es corto a propósito: se dicta por teléfono y se escribe en un
+    papel con un guante puesto. Cuatro cifras se repiten, y no pasa nada: lo
+    que las hace únicas es la hora que va al lado en el registro.
+    """
+    numero = f"{random.randint(1000, 9999)}"
+    logging.exception("FALLO %s en %s %s", numero, request.method, request.url.path)
+    return _pantalla_de_error(request, 500, f"#{numero}")
 
 
 # ============================================================== ACCESO
@@ -2767,6 +2869,12 @@ def close_alert(alert_id: int, request: Request, resolution: str = Form(...),
     try:
         service.acknowledge_alert(session, user, alert_id, resolution,
                                   lang=lang_for(request, session, user))
+    except PermissionError:
+        # [01716] Un aviso de otra casa. `service.acknowledge_alert` levanta
+        # `PermissionError`, que no estaba en esta lista, así que salía por el
+        # suelo del framework como «Internal Server Error» en inglés. Se
+        # contesta lo mismo que las demás puertas: eso no existe.
+        raise HTTPException(status_code=404, detail="") from None
     except (ValueError, service.ValidationError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from None
     return RedirectResponse("/manager/alertas", status_code=303)
@@ -3152,7 +3260,13 @@ def report_bug(request: Request, message: str = Form(...), kind: str = Form("fal
     sede = sites.of_user(session, user)
     try:
         hecho = bugs.report(session, user, message, screen=screen, kind=kind, email=email,
-                            lang=lang, site=sede.name if sede else "")
+                            lang=lang, site=sede.name if sede else "",
+                            # [01717] La versión que tenía puesta quien lo cuenta. El
+                            # parámetro estaba desde el principio y no se pasaba
+                            # nunca, así que ante cada parte había que preguntar
+                            # lo primero: «¿tienes lo de hoy o lo de hace tres
+                            # semanas?». Ahora viene escrito.
+                            version=version.actual())
     except bugs.BugError as e:
         return RedirectResponse(f"/fallo?error={e}", status_code=303)
     dicho = i18n.t(lang, "bug.done" if hecho.mailed else "bug.done_local",
@@ -3475,7 +3589,7 @@ button:hover{filter:brightness(1.08)}</style></head><body><div>
 
 @app.post("/tour/visto")
 def tour_seen(request: Request, pantalla: str = Form(...), completo: str = Form("1"),
-              csrf: str = Form(""), ctx=Depends(require_user),
+              pasos: str = Form(""), csrf: str = Form(""), ctx=Depends(require_user),
               session: Session = Depends(get_db)):
     """[00334] «Ya he visto el tutorial de esta pantalla».
 
@@ -3486,7 +3600,8 @@ def tour_seen(request: Request, pantalla: str = Form(...), completo: str = Form(
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     try:
-        tutorial.marcar(session, user, pantalla, completo=completo not in ("", "0"))
+        tutorial.marcar(session, user, pantalla, completo=completo not in ("", "0"),
+                        pasos=int(pasos) if pasos.isdigit() else None)
     except KeyError:
         raise HTTPException(status_code=404, detail="") from None
     return JSONResponse({"ok": True})

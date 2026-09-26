@@ -2,8 +2,8 @@
 {% block body %}
 <h1>{{ t("bug.title") }}</h1>
 <p class="sub">{{ t("bug.sub") }}</p>
-{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if done %}<div class="banner ok" role="status">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 
 <div class="card">
   <form method="post" action="/fallo">

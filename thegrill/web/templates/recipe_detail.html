@@ -8,7 +8,7 @@
 </p>
 
 {% if not cost.complete %}
-<div class="banner bad">{{ t("rec.missing_price", items=cost.missing | join(", ")) }}</div>
+<div class="banner bad" role="alert" tabindex="-1">{{ t("rec.missing_price", items=cost.missing | join(", ")) }}</div>
 {% endif %}
 
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
@@ -91,7 +91,7 @@
      arriba, así que la casilla cambia de nombre al elegir: el nombre es lo
      que dice en qué unidad viene, y si se mezclaran se guardaría mil veces
      más o mil veces menos sin que nadie lo viera. #}
-  <div class="banner warn" id="pesarliquidos" hidden>{{ t("ing.liquids_weigh") }}</div>
+  <div class="banner warn" role="alert" id="pesarliquidos" hidden>{{ t("ing.liquids_weigh") }}</div>
   <label for="qty" id="qtyetiqueta">{{ t("rec.net_qty") }}</label>
   <input id="qty" name="qty" type="text" inputmode="decimal" required>
   <small class="eco muted" data-eco aria-live="polite"></small>

@@ -2,7 +2,7 @@
 {% block body %}
 <h1>{{ t("sale.title") }}</h1>
 <p class="sub">{{ t("sale.sub") }}</p>
-{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if done %}<div class="banner ok" role="status">{{ done }}</div>{% endif %}
 
 {% if mapping %}
 <div class="card">

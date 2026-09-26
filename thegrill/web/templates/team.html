@@ -2,8 +2,8 @@
 {% endblock %}
 {% block body %}
 <h1>{{ t("team.title") }}</h1>
-{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if done %}<div class="banner ok" role="status">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 <p class="sub">{{ t("team.sub") }} <span class="code">{{ restaurant.join_code }}</span></p>
 <div class="card scroll">
 <table>

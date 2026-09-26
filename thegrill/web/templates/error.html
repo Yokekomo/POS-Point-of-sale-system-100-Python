@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block title %}{{ t("error.title", code=code) }}{% endblock %}
 {% block body %}
 <h1>{{ t("error.title", code=code) }}</h1>
-<div class="banner bad">{{ detail }}</div>
+<div class="banner bad" role="alert" tabindex="-1">{{ detail }}</div>
 {# [01591] De vuelta a la pantalla en la que se estaba, que es lo que se quiere: el que
    se equivoca en una casilla no quiere empezar de cero en la portada. #}
 <a class="btn" href="{{ volver or "/" }}">{{ t("common.back") }}</a>

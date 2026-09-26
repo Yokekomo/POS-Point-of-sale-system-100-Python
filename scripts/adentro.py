@@ -213,18 +213,29 @@ def _mide(pg, base: str, ruta: str):
     return firme
 
 
-def _contexto(nav, ancho: int):
-    """Teléfono con dedo por debajo de 500; de ahí para arriba, pantalla y ratón."""
+def _contexto(nav, ancho: int, tema: str = "light"):
+    """Teléfono con dedo por debajo de 500; de ahí para arriba, pantalla y ratón.
+
+    **Y con tema.** Esto no lo tenía, y es el peor agujero que ha tenido esta
+    guardia: las 2.835 pantallas que se midieron de las dos ediciones se
+    midieron solo en claro, porque sin `color_scheme` el navegador abre en
+    claro y nadie lo nota. `scripts/portada.py` sí lo pasaba, pero solo mide
+    las páginas públicas. Resultado: el tema oscuro de dentro no se había
+    medido nunca, y la chapa roja de los avisos llevaba ahí un contraste de
+    2,47 : 1 —la norma pide 4,5— en todas las pantallas de la casa.
+
+    Una guardia que da verde sin haber mirado es peor que no tenerla.
+    """
     telefono = ancho < 500
     return nav.new_context(
         viewport={"width": ancho, "height": 900}, device_scale_factor=1,
-        has_touch=ancho < 900,
+        color_scheme=tema, has_touch=ancho < 900,
         user_agent=("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
                     "AppleWebKit/605.1.15") if telefono else None)
 
 
 def recorre(nav, base: str, idiomas, anchos, pantallas, oficios, exámenes,
-            edicion: str = "carne"):
+            edicion: str = "carne", temas=("light", "dark")):
     """Todas las pantallas, por oficio, ancho e idioma."""
     cuenta: collections.Counter = collections.Counter()
     detalle: dict[str, set[str]] = collections.defaultdict(set)
@@ -239,14 +250,15 @@ def recorre(nav, base: str, idiomas, anchos, pantallas, oficios, exámenes,
         for oficio in oficios:
             correo, _papel = OFICIOS[oficio]
             for ancho in anchos:
-                ctx = _contexto(nav, ancho)
+              for tema in temas:
+                ctx = _contexto(nav, ancho, tema)
                 pg = ctx.new_page()
                 if not _entra(pg, base, correo, edicion):
-                    apunta("no se pudo entrar", f"{idioma} {oficio} {ancho}")
+                    apunta("no se pudo entrar", f"{idioma} {oficio} {ancho} {tema}")
                     ctx.close()
                     continue
                 for ruta in pantallas:
-                    dónde = f"{idioma} {oficio} {ancho} {ruta}"
+                    dónde = f"{idioma} {oficio} {ancho} {tema} {ruta}"
                     if "maqueta" in exámenes:
                         r = _mide(pg, base, ruta)
                         if r is None:

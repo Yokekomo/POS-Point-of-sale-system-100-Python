@@ -2,8 +2,8 @@
 {% block body %}
 <h1>{{ t("m.ext.title") }}</h1>
 <p class="sub">{{ t("m.ext.sub") }}</p>
-{% if saved %}<div class="banner ok">{{ t("m.ext.saved") }}</div>{% endif %}
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if saved %}<div class="banner ok" role="status">{{ t("m.ext.saved") }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 
 <div class="card scroll">
 <table>

@@ -357,5 +357,24 @@ img,svg,video{max-width:100%;height:auto}
   document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
 })();
 </script>
+
+<script nonce="{{ nonce }}">
+// [01738] El cartel rojo se lleva el foco, y por eso se oye.
+//
+// Hasta hoy, al fallar algo salía el cartel arriba y el foco se iba —por el
+// `autofocus` de la plantilla— al primer campo, que está **por debajo** del
+// cartel. Quien no ve la pantalla no se enteraba de nada: volvía a teclear lo
+// mismo sin saber qué había pasado. Y el `role="alert"` por sí solo no basta,
+// porque un cartel que ya está en la página cuando se carga no siempre se
+// anuncia.
+//
+// Solo el rojo, y solo el primero: el verde se anuncia con `role="status"` y no
+// tiene por qué robarle el sitio a nadie.
+(function () {
+  var malo = document.querySelector(".banner.bad[tabindex]");
+  if (!malo || malo.hidden) return;
+  try { malo.focus({preventScroll: false}); } catch (e) { malo.focus(); }
+})();
+</script>
 </body>
 </html>

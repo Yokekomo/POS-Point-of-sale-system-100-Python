@@ -3,8 +3,8 @@
 {% block body %}
 <h1>{{ t("m.rec.title") }}</h1>
 <p class="sub">{{ t("m.rec.sub") }}</p>
-{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if done %}<div class="banner ok" role="status">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 
 <div class="card">
 {# [01577] Multipart: la foto de la etiqueta viaja con la pieza, en el mismo envío. #}
@@ -103,7 +103,15 @@
     <p class="help">{{ t("m.rec.photo_first_help") }}</p>
     <input type="file" name="foto" accept="image/*" capture="environment" id="lafoto" hidden>
     <div class="rowflex" style="gap:10px;align-items:center;flex-wrap:wrap">
-      <label class="btn ghost" for="lafoto" id="botonfoto">{{ t("m.rec.photo_add") }}</label>
+      {# [01736] Con `tabindex` y con teclado. Era una `<label>` apuntando a un
+         `<input type="file" hidden>`: la etiqueta no recibe foco y el campo está
+         oculto, así que recorriendo la pantalla con el tabulador no se llegaba
+         nunca —setenta paradas y ninguna era esta—. Quien no usa ratón no podía
+         adjuntar la foto de la etiqueta, que es la prueba de trazabilidad de la
+         pieza. Con `role="button"` se anuncia por lo que es, y con el teclado se
+         abre igual que con el dedo. #}
+      <label class="btn ghost" for="lafoto" id="botonfoto" role="button"
+             tabindex="0">{{ t("m.rec.photo_add") }}</label>
       <span class="muted" id="fotodicho" hidden></span>
     </div>
     <div id="fotovista" hidden><a class="fotoetq" href="#" id="fotoenlace"><img id="fotoimg"
@@ -221,6 +229,20 @@
   }
   if (comoLlega) { comoLlega.addEventListener("change", mirarLlegada); mirarLlegada(); }
 
+  // [01737] Intro y espacio abren el selector de foto, como en cualquier botón.
+  // La etiqueta ya lleva `tabindex="0"` para que el tabulador pase por ella;
+  // esto es lo que hace que sirva de algo llegar. Va en el guion y no como
+  // `onkeydown=` en el HTML porque la política de contenido no deja atributos
+  // de evento, y eso está bien: no se toca.
+  if (boton) {
+    boton.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " " || ev.key === "Spacebar") {
+        ev.preventDefault();
+        campo.click();
+      }
+    });
+  }
+
   if (!campo || !vista) return;
   campo.addEventListener("change", function () {
     if (!campo.files || !campo.files.length) return;
@@ -236,7 +258,7 @@
 
 <h2>{{ t("m.rec.recent") }}</h2>
 <p class="help">{{ t("m.rec.photo_help") }}</p>
-{% if foto %}<div class="banner bad">{{ foto }}</div>{% endif %}
+{% if foto %}<div class="banner bad" role="alert" tabindex="-1">{{ foto }}</div>{% endif %}
 <div class="card">
 <div class="lista-piezas">
 {% for p in recent %}

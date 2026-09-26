@@ -1360,6 +1360,19 @@ class TourVisto(TenantMixin, Base):
     pantalla: Mapped[str] = mapped_column(String(32), index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
     completo: Mapped[bool] = mapped_column(Boolean, default=True)   # falso: lo saltó
+    # [01724] Cuántos pasos se llegaron a enseñar de verdad.
+    #
+    # El tutorial quita los pasos cuyo elemento no está en la página —un día sin
+    # piezas que pesar no puede dejarlo a medias— y luego se apuntaba entero. El
+    # efecto era el contrario del buscado: en una casa nueva, el tutorial del
+    # inventario y el de traslados se quemaban el día que no había ni inventario
+    # ni traslados, y el de maduración salía con un paso de dos y se daba por
+    # completo, perdiendo para siempre justo el que explica que lo que se
+    # aprovecha lleva coste y lo que se tira no.
+    #
+    # Guardando cuántos se enseñaron, `visto()` puede compararlos con los que
+    # tocan hoy: si entonces se vieron menos de los que hay ahora, vuelve.
+    pasos: Mapped[int | None] = mapped_column(Integer)
     fecha: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

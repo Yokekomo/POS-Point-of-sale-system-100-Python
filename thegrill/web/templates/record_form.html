@@ -5,22 +5,22 @@
 
 {% if sent %}
   {% if result.alerts %}
-    <div class="banner bad"><b>{{ t("form.saved_with_alert") }}</b>
+    <div class="banner bad" role="alert" tabindex="-1"><b>{{ t("form.saved_with_alert") }}</b>
       <ul style="margin:8px 0 0;padding-inline-start:18px">
       {% for a in result.alerts %}<li>{{ a.message }}</li>{% endfor %}
       </ul>
       {{ t("form.saved_with_alert_help") }}
     </div>
   {% else %}
-    <div class="banner ok">{{ t("form.saved") }}</div>
+    <div class="banner ok" role="status">{{ t("form.saved") }}</div>
   {% endif %}
-  {% for pe in photo_errors %}<div class="banner warn">{{ pe }}</div>{% endfor %}
+  {% for pe in photo_errors %}<div class="banner warn" role="alert">{{ pe }}</div>{% endfor %}
   <div class="rowflex">
     <a class="btn" href="/app/registro/{{ tpl.code }}">{{ t("form.another") }}</a>
     <a class="btn ghost" href="/app">{{ t("common.back") }}</a>
   </div>
 {% else %}
-  {% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+  {% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
   <div class="card">
   <form method="post" action="/app/registro/{{ tpl.code }}" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="{{ csrf }}">

@@ -2,7 +2,7 @@
 {% block body %}
 <h1>{{ t("bug.admin") }}</h1>
 <p class="sub">{{ t("bug.admin_sub") }}</p>
-{% if not mailed %}<div class="banner warn">{{ t("bug.no_mail_admin") }}</div>{% endif %}
+{% if not mailed %}<div class="banner warn" role="alert">{{ t("bug.no_mail_admin") }}</div>{% endif %}
 
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
   {% for s in states %}

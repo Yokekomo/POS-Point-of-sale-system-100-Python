@@ -3,8 +3,8 @@
 {% block body %}
 <h1>{{ t("m.tr.title") }}</h1>
 <p class="sub">{{ t("m.tr.sub") }}</p>
-{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if done %}<div class="banner ok" role="status">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 {% if mine %}<p class="help">{{ t("m.tr.mine", site=mine.name) }}</p>{% endif %}
 
 <div class="card scroll">

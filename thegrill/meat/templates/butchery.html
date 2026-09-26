@@ -4,16 +4,16 @@
 <h1>{{ t("m.tg.title") }}</h1>
 <p class="sub">{{ t("m.tg.sub") }}</p>
 {% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
-{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if done %}<div class="banner ok" role="status">{{ done }}</div>{% endif %}
 {% if issues %}
-<div class="banner warn"><b>{{ t("m.tg.warnings") }}</b>
+<div class="banner warn" role="alert"><b>{{ t("m.tg.warnings") }}</b>
   <ul style="margin:6px 0 0;padding-inline-start:18px">
     {% for i in issues %}<li>{{ i }}</li>{% endfor %}</ul></div>
 {% endif %}
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 
 {% if not articles %}
-<div class="banner warn">{{ t("m.cut.no_articles") }} <a href="/cortes">{{ t("m.nav.cuts") }}</a></div>
+<div class="banner warn" role="alert">{{ t("m.cut.no_articles") }} <a href="/cortes">{{ t("m.nav.cuts") }}</a></div>
 {% endif %}
 
 <div class="card">
@@ -41,7 +41,7 @@
   {# [01555] Las que están en la cámara pero todavía no valen nada no salen en la
      lista. Decirlo evita el rato de buscar una pieza que sabes que entró. #}
   {% if sin_precio %}
-  <div class="banner warn">{{ t("m.home.no_price", n=sin_precio) }}{% if can("money") %}
+  <div class="banner warn" role="alert">{{ t("m.home.no_price", n=sin_precio) }}{% if can("money") %}
     <a href="/recepcion/precios">{{ t("m.price.nav") }}</a>{% endif %}</div>
   {% endif %}
   {% if primals %}
@@ -238,6 +238,17 @@
     var nuevo = bloques[bloques.length - 1].cloneNode(true);
     var indice = bloques.length;
     nuevo.setAttribute("data-corte", indice);
+    // [01733] El eco de kilos, otra vez en el bloque nuevo.
+    //
+    // `cloneNode` copia también la marca `data-eco-puesto="1"`, y la función que
+    // engancha el eco se salta todo lo que la lleve. Así, del cuarto corte en
+    // adelante no había eco ni aviso: escribías 94350 y nadie te decía que
+    // sobraba un cero, que es un error de diez veces y es justo para lo que
+    // está el eco. Despiezar un primal en cuatro o más cortes es lo normal.
+    nuevo.querySelectorAll("[data-eco-puesto]").forEach(function (campo) {
+      campo.removeAttribute("data-eco-puesto");
+    });
+    nuevo.querySelectorAll(".eco").forEach(function (e) { e.textContent = ""; });
     nuevo.querySelectorAll("input, select").forEach(function (campo) {
       if (campo.name) campo.name = campo.name.replace(/:\d+$/, ":" + indice);
       if (campo.type === "checkbox") { campo.checked = false; }
@@ -247,6 +258,7 @@
     var mas = nuevo.querySelector("details");
     if (mas) mas.open = false;
     caja.appendChild(nuevo);
+    if (window.eco) window.eco.enganchar(nuevo);
     atar(nuevo);
     nuevo.querySelector("input").focus();
     if (caja.querySelectorAll(".corte").length >= tope) {

@@ -229,7 +229,16 @@ PLANTILLAS = {
 
 
 def test_every_step_points_at_something_that_exists_on_its_screen(client):
-    """Un paso que ilumina un elemento que no está deja el tutorial cojo."""
+    """Un paso que ilumina un elemento que no está deja el tutorial cojo.
+
+    Esto caza un selector renombrado o un elemento quitado, que es lo que más
+    pasa. Lo que **no** puede ver es un `data-tour` metido dentro de un
+    `{% if %}`: está en el fichero y no está en la pantalla hasta que la casa
+    tiene una hoja de inventario abierta o piezas esperando precio. Eso es
+    legítimo, y lo que hay que garantizar entonces —que el tutorial no se dé
+    por visto el día que no se pudo enseñar— lo comprueba
+    `test_a_tutorial_that_could_not_be_shown_is_not_burned`, con navegador.
+    """
     assert sorted(PLANTILLAS) == sorted(tours.TOURS), "falta decir qué plantilla dibuja qué"
     raiz = helpers.__file__.rsplit("/tests/", 1)[0] + "/thegrill/"
     huerfanos = []
@@ -483,3 +492,156 @@ def test_the_tutorial_does_not_break_the_wall_the_page_puts_up(browser):
         assert quejas == [], quejas[:4]
     finally:
         context.close()
+
+
+# ============================================ que no se gaste el que no se vio
+# Tres fallos de la misma raíz, encontrados midiendo una casa nueva y vacía:
+#
+# 1. Si ninguno de los elementos que el tutorial ilumina está en la página —no
+#    hay inventario abierto, no hay nada que trasladar—, se apuntaba como visto
+#    y no volvía nunca. En una casa nueva se quemaban así dos tutoriales
+#    enteros el primer día, sin que los viera nadie.
+# 2. Si estaban algunos pero no todos, salía recortado y se apuntaba completo
+#    igual. En `/maduracion` se perdía para siempre el paso que explica que lo
+#    aprovechado lleva coste y lo tirado no.
+# 3. «Saltar» y «Entendido» se apuntaban los dos como terminado, aunque la
+#    columna `completo` lleva desde el principio el comentario «falso: lo saltó».
+
+def de_cero(correo: str, pantalla: str) -> None:
+    """Freno de contraseñas a cero y ese tutorial sin ver.
+
+    Las pruebas de este fichero comparten servidor y base: sin esto, una prueba
+    de más arriba deja el tutorial ya marcado y la de abajo mide otra cosa.
+    """
+    from thegrill.meat import security
+
+    with db.session_scope() as session:
+        # Con la sesión: el freno tiene una parte en memoria y otra en la base,
+        # y sin la segunda los intentos acumulados del módulo siguen contando.
+        security.reset(session=session)
+        if pantalla:
+            quien = session.query(User).filter_by(email=correo).one()
+            (session.query(TourVisto)
+             .filter_by(user_id=quien.id, pantalla=pantalla).delete())
+
+
+def test_a_tutorial_that_could_not_be_shown_is_not_burned(browser):
+    """Un día sin nada que enseñar no puede gastar el tutorial de esa pantalla."""
+    base, chromium = browser
+    context = telefono(chromium)
+    try:
+        de_cero("paco0@banco.com", "merma")
+        page = context.new_page()
+        entra(page, base, correo="paco0@banco.com")
+        # Se le quitan a la página los anclajes del tutorial, tachándolos del
+        # HTML antes de que llegue al navegador. Es exactamente lo que pasa
+        # cuando la pantalla está vacía: el `{% if %}` no los dibuja. Se hace
+        # así y no con un guion porque el del tutorial va en línea y corre
+        # antes de que ningún guion nuestro pueda tocar nada.
+        def sin_anclajes(ruta):
+            respuesta = ruta.fetch()
+            # Solo fuera de los `<script>`: dentro está la cadena
+            # `'[data-tour="'` con la que el guion busca los anclajes, y
+            # renombrarla también dejaría el tutorial funcionando igual —que es
+            # justo el agujero en el que cayó la primera versión de esta prueba.
+            trozos = re.split(r"(<script\b.*?</script>)", respuesta.text(), flags=re.S)
+            cuerpo = "".join(t if t.startswith("<script")
+                             else t.replace('data-tour="', 'data-nada="')
+                             for t in trozos)
+            ruta.fulfill(response=respuesta, body=cuerpo)
+
+        page.route("**/merma", sin_anclajes)
+        page.goto(f"{base}/merma")
+        page.wait_for_timeout(700)
+        assert page.locator(".driver-popover").count() == 0, "salió sin sus anclajes"
+
+        with db.session_scope() as session:
+            paco = session.query(User).filter_by(email="paco0@banco.com").one()
+            fila = (session.query(TourVisto)
+                    .filter_by(user_id=paco.id, pantalla="merma").first())
+        assert fila is None, "se dio por visto un tutorial que no se pudo enseñar"
+    finally:
+        context.close()
+
+
+def test_skipping_is_written_down_as_skipping(browser):
+    """La columna existe desde el principio y nunca se escribía en falso."""
+    base, chromium = browser
+    context = telefono(chromium)
+    try:
+        de_cero("ana0@banco.com", "despiece")
+        page = context.new_page()
+        entra(page, base, correo="ana0@banco.com")
+        page.goto(f"{base}/despiece")            # cuatro pasos: hay dónde saltar
+        page.wait_for_selector(".driver-popover", state="visible", timeout=5000)
+        page.locator(".driver-popover-close-btn").click()   # saltar en el primero
+        page.wait_for_timeout(500)
+
+        with db.session_scope() as session:
+            ana = session.query(User).filter_by(email="ana0@banco.com").one()
+            fila = (session.query(TourVisto)
+                    .filter_by(user_id=ana.id, pantalla="despiece").one())
+        assert fila.completo is False, "saltar se apuntó como terminado"
+    finally:
+        context.close()
+
+
+def test_finishing_is_written_down_as_finishing(browser):
+    """Y quien llega al final sí lo ha visto entero: no se le llama saltador."""
+    base, chromium = browser
+    context = telefono(chromium)
+    try:
+        de_cero("ana0@banco.com", "trazabilidad")
+        page = context.new_page()
+        entra(page, base, correo="ana0@banco.com")
+        page.goto(f"{base}/trazabilidad")        # un solo paso: el primero es el último
+        page.wait_for_selector(".driver-popover", state="visible", timeout=5000)
+        page.locator(".driver-popover-footer button").last.click()   # «Entendido»
+        page.wait_for_timeout(500)
+
+        with db.session_scope() as session:
+            ana = session.query(User).filter_by(email="ana0@banco.com").one()
+            fila = (session.query(TourVisto)
+                    .filter_by(user_id=ana.id, pantalla="trazabilidad").one())
+        assert fila.completo is True, "terminarlo se apuntó como saltado"
+        assert fila.pasos == 1
+    finally:
+        context.close()
+
+
+def test_a_tutorial_shown_short_comes_back_when_the_screen_is_fuller(client):
+    """Lo de `/maduracion`: un paso de dos, apuntado como completo, perdido.
+
+    Se prueba contra la función y no con el navegador porque lo que decide es
+    el servidor: con los dos pasos que tocan y solo uno visto, tiene que volver
+    a mandarlo. Antes le bastaba con que existiera la fila.
+    """
+    helpers.signup(client)
+    with db.session_scope() as session:
+        ana = session.query(User).filter_by(role=Role.MANAGER).first()
+        tour = tours.TOURS["maduracion"]
+        cuantos = len(tours.pasos_para(tour, ana.role))
+        assert cuantos >= 2, "esta prueba necesita un tutorial de dos o más pasos"
+
+        tutorial.marcar(session, ana, "maduracion", completo=True, pasos=1)
+        assert not tutorial.visto(session, ana, "maduracion", tour.version, cuantos), \
+            "se dio por visto entero un tutorial que salió recortado"
+        assert tutorial.para(session, ana, "/maduracion", "es") is not None
+
+        tutorial.marcar(session, ana, "maduracion", completo=True, pasos=cuantos)
+        assert tutorial.visto(session, ana, "maduracion", tour.version, cuantos)
+        assert tutorial.para(session, ana, "/maduracion", "es") is None
+
+
+def test_an_old_row_without_the_count_is_left_alone(client):
+    """A quien ya lo vio no se le saca otra vez por una actualización."""
+    helpers.signup(client)
+    with db.session_scope() as session:
+        ana = session.query(User).filter_by(role=Role.MANAGER).first()
+        tour = tours.TOURS["maduracion"]
+        tutorial.marcar(session, ana, "maduracion")
+        fila = (session.query(TourVisto)
+                .filter_by(user_id=ana.id, pantalla="maduracion").one())
+        fila.pasos = None                 # como las filas de antes del arreglo
+        session.flush()
+        assert tutorial.visto(session, ana, "maduracion", tour.version, 99)

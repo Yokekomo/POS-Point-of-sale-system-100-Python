@@ -3,7 +3,7 @@
 <p class="muted"><a href="/">&larr; {{ t("app.title") }}</a></p>
 <h1>{{ t("signup.title") }}</h1>
 <p class="sub">{{ t("signup.sub") }}</p>
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 <div class="card">
 <form method="post" action="/signup">
   <label for="restaurant">{{ t("signup.restaurant_name") }}</label>

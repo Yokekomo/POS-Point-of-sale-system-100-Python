@@ -6,7 +6,7 @@
 
 {% if can("team") %}
   {% if trial_left is not none %}
-  <div class="banner warn">
+  <div class="banner warn" role="alert">
     {% if trial_left > 0 %}<b>{{ t("acct.trial_left", days=trial_left) }}</b>
     {% elif trial_left == 0 %}<b>{{ t("acct.trial_last") }}</b>
     {% else %}<b>{{ t("acct.trial_over") }}</b>{% endif %}
@@ -23,9 +23,9 @@
     </form>
   </details>
   {% elif restaurant.billing and restaurant.billing.value == "SETUP" %}
-  <div class="banner warn">{{ t("acct.needs_payment") }}</div>
+  <div class="banner warn" role="alert">{{ t("acct.needs_payment") }}</div>
   {% elif restaurant.needs_attention %}
-  <div class="banner bad">{{ t("acct.blocked_manager") }}</div>
+  <div class="banner bad" role="alert" tabindex="-1">{{ t("acct.blocked_manager") }}</div>
   {% endif %}
 {% endif %}
 
@@ -58,7 +58,7 @@
   </div>
 </div>
 {% else %}
-<div class="banner ok">{{ t("m.home.nothing") }}</div>
+<div class="banner ok" role="status">{{ t("m.home.nothing") }}</div>
 {% endif %}
 
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">

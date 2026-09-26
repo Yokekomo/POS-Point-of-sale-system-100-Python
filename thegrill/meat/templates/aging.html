@@ -31,8 +31,8 @@
 <h1>{{ t("m.ag.page") }}</h1>
 <p class="sub">{{ t("m.ag.page_sub") }}</p>
 {% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
-{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if done %}<div class="banner ok" role="status">{{ done }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 
 {% if weighed %}
 <div class="card">
@@ -180,7 +180,7 @@
 </div>
 {% endif %}
 <div class="card">
-<div class="banner ok" id="sinred" hidden></div>
+<div class="banner ok" role="status" id="sinred" hidden></div>
 <p class="help">{{ t("off.help") }}</p>
 <form method="post" action="/maduracion/conteo" data-keep="maduracion-{{ today }}" data-cola>
   <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -197,7 +197,10 @@
     <td class="num">{{ l.days }}</td>
     <td class="num">{{ "%.3f"|format(l.yesterday_kg) }}
         {% if l.last_weighed %}<div class="muted">{{ l.last_weighed }}</div>{% endif %}</td>
+    {# [01740] Con el número de la pieza dentro: si no, son once casillas de peso
+       idénticas y sin nombre, y no hay forma de saber cuál se está pesando. #}
     <td class="num"><input name="g:{{ l.serial }}" inputmode="numeric" data-peso
+        aria-label="{{ t('m.rec.kg_g') }} · {{ l.serial }}"
         style="max-width:110px"
         {% if l.kg is not none %}placeholder="{{ (l.kg * 1000) | round | int }}"{% endif %}>
         <small class="eco muted" data-eco aria-live="polite"></small></td>
@@ -274,13 +277,16 @@
           <th class="num">{{ t("m.tg.value_index") }}</th></tr>
       {% for i in [0, 1, 2] %}
       <tr>
-        <td><select name="item:{{ i }}" style="max-width:220px">
+        <td><select name="item:{{ i }}" style="max-width:220px"
+                aria-label="{{ t('m.tg.article') }} {{ i + 1 }}">
             <option value="">—</option>
             {% for a in articles %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
           </select></td>
-        <td><input name="part_g:{{ i }}" inputmode="numeric" data-peso style="max-width:100px">
+        <td><input name="part_g:{{ i }}" inputmode="numeric" data-peso style="max-width:100px"
+                aria-label="{{ t('m.ag.removed_kg_g') }} {{ i + 1 }}">
             <small class="eco muted" data-eco aria-live="polite"></small></td>
-        <td><input name="index:{{ i }}" inputmode="decimal" placeholder="0,25" style="max-width:90px"></td>
+        <td><input name="index:{{ i }}" inputmode="decimal" placeholder="0,25" style="max-width:90px"
+                aria-label="{{ t('m.tg.value_index') }} {{ i + 1 }}"></td>
       </tr>
       {% endfor %}
       </table></div>

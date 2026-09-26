@@ -92,7 +92,7 @@
   {{ peso("qty_g", requerido=true, id="qty") }}
   {% else %}
   {% if ing.unit.value == "L" and not ing.grams_per_unit %}
-  <div class="banner warn">{{ t("ing.liquids_weigh") }}</div>
+  <div class="banner warn" role="alert">{{ t("ing.liquids_weigh") }}</div>
   {% endif %}
   <label for="qty">{{ t("ing.qty") }} ({{ ing.unit.value }})</label>
   <input id="qty" name="qty" type="text" inputmode="decimal" required>

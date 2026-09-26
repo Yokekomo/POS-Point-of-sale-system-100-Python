@@ -2,7 +2,7 @@
 {% block body %}
 <h1>{{ t("tfa.title") }}</h1>
 <p class="sub">{{ t("tfa.sub") }}</p>
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 <div class="card">
 <form method="post" action="/acceso/verificacion">
   <input type="hidden" name="csrf" value="{{ csrf }}">

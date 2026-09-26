@@ -14,7 +14,7 @@
 </form>
 </div>
 
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 {% if matches %}
 <div class="card">
   {% for p in matches %}
@@ -221,7 +221,7 @@
 {# [01609] Los cortes salen revueltos: de cuál de las tres piezas salió este filete no
    lo sabe nadie. Lo que se puede decir es qué parte del despiece es de esta, y
    es lo que se le apunta. #}
-<div class="banner warn">{{ t("trace.share", pct="%.10g"|format(h.butchery.share_pct),
+<div class="banner warn" role="alert">{{ t("trace.share", pct="%.10g"|format(h.butchery.share_pct),
                             n=h.butchery.shared_with|length + 1) }}</div>
 {% endif %}
 

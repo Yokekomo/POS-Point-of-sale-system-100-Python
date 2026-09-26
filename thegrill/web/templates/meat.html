@@ -6,8 +6,8 @@
   <a href="/merma">{{ t("waste.title") }}</a></p>
 
 {% if closed %}
-  {% if closed == "0" %}<div class="banner ok">{{ t("meat.all_good") }}</div>
-  {% else %}<div class="banner warn">{{ closed }}</div>{% endif %}
+  {% if closed == "0" %}<div class="banner ok" role="status">{{ t("meat.all_good") }}</div>
+  {% else %}<div class="banner warn" role="alert">{{ closed }}</div>{% endif %}
 {% endif %}
 
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">

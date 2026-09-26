@@ -9,11 +9,11 @@
     {% endif %}{{ plate.pos_name }}
   {% else %}<span class="tag warn">{{ t("m.menu.unpaired") }}</span>
     {{ t("m.menu.unpaired_help") }}{% endif %}</p>
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 {% if plate.missing_price %}
-<div class="banner bad">{{ t("m.plate.no_price") }} {{ plate.missing_price | join(" · ") }}</div>
+<div class="banner bad" role="alert" tabindex="-1">{{ t("m.plate.no_price") }} {{ plate.missing_price | join(" · ") }}</div>
 {% endif %}
-{% if not plate.extras %}<div class="banner warn">{{ t("m.plate.no_extras") }}</div>{% endif %}
+{% if not plate.extras %}<div class="banner warn" role="alert">{{ t("m.plate.no_extras") }}</div>{% endif %}
 
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
   <div class="kpi"><b>{{ "%.4f"|format(plate.cost) }} <span class="uni">{{ moneda }}</span></b><span>{{ t("m.plate.total") }}</span></div>

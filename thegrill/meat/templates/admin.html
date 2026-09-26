@@ -4,7 +4,7 @@
 {# [01535] Lo que la última actualización de la base no pudo poner. Va lo primero y en
    rojo: mientras esto esté aquí, hay casas trabajando con una base que no
    tiene la forma que el programa espera. #}
-<div class="banner bad">
+<div class="banner bad" role="alert" tabindex="-1">
   <b>{{ t("admin.migration") }}</b>
   <ul style="margin:8px 0 0;padding-left:18px">
   {% for p in migracion %}
@@ -17,12 +17,12 @@
 <h1>{{ t("adm.title") }}</h1>
 <p class="sub">{{ t("adm.sub") }}</p>
 <p class="muted"><a href="/admin/fallos">{{ t("bug.admin") }}</a></p>
-{% if done %}<div class="banner ok">{{ t("adm.saved") }}</div>{% endif %}
-{% if not mail_ready %}<div class="banner warn">{{ t("adm.mail_off") }}</div>{% endif %}
-{% if not encryption_on %}<div class="banner bad">{{ t("priv.encryption_off") }}</div>
-{% else %}<div class="banner ok">{{ t("priv.encryption_on") }}</div>{% endif %}
+{% if done %}<div class="banner ok" role="status">{{ t("adm.saved") }}</div>{% endif %}
+{% if not mail_ready %}<div class="banner warn" role="alert">{{ t("adm.mail_off") }}</div>{% endif %}
+{% if not encryption_on %}<div class="banner bad" role="alert" tabindex="-1">{{ t("priv.encryption_off") }}</div>
+{% else %}<div class="banner ok" role="status">{{ t("priv.encryption_on") }}</div>{% endif %}
 
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 
 {# [01674] La página que explica el recorrido de una pieza, dibujado. Va aquí arriba
    porque su trabajo es que esté a mano el día que alguien pregunta «¿y esto
@@ -217,7 +217,7 @@
       {# [01695] Cancelada aquí y todavía cobrando allí. Va en rojo y con lo que hay
          que hacer escrito, porque cada mes que pase es un recibo a alguien que ya
          se fue y que habrá que devolver. #}
-      <div class="banner bad" style="margin-top:8px">{{ t("adm.charge_open") }}</div>
+      <div class="banner bad" role="alert" tabindex="-1" style="margin-top:8px">{{ t("adm.charge_open") }}</div>
       {% endif %}
       {% if a.restaurant.billing_note %}<div class="muted">{{ a.restaurant.billing_note }}</div>{% endif %}
     </div>

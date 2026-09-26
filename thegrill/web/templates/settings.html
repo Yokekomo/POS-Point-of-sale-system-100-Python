@@ -7,10 +7,10 @@
    arreglo que no se ha bajado y un arreglo que no funciona se parecen
    demasiado. #}
 <p class="help">{{ t("settings.version") }}: <code>{{ version }}</code></p>
-{% if saved %}<div class="banner ok">{{ t("settings.saved") }}</div>{% endif %}
-{% if changed %}<div class="banner ok">{{ t("pass.changed") }}</div>{% endif %}
-{% if off %}<div class="banner ok">{{ t("tfa.off") }}</div>{% endif %}
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if saved %}<div class="banner ok" role="status">{{ t("settings.saved") }}</div>{% endif %}
+{% if changed %}<div class="banner ok" role="status">{{ t("pass.changed") }}</div>{% endif %}
+{% if off %}<div class="banner ok" role="status">{{ t("tfa.off") }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 {% if codes %}
 <div class="card">
   <b>{{ t("tfa.codes") }}</b>
@@ -117,7 +117,7 @@
 <h2>{{ t("tfa.title") }}</h2>
 <div class="card">
 {% if user.totp_enabled %}
-  <div class="banner ok">{{ t("tfa.on") }}</div>
+  <div class="banner ok" role="status">{{ t("tfa.on") }}</div>
   {% if tfa_left is defined %}<p class="help">{{ t("tfa.recovery_left", n=tfa_left) }}</p>{% endif %}
   <form method="post" action="/configuracion/2fa/quitar">
     <input type="hidden" name="csrf" value="{{ csrf }}">

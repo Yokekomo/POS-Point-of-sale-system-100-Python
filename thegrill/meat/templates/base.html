@@ -15,11 +15,18 @@
 :root{
   --bg:#f6f6f4; --card:#fff; --ink:#1c1b19; --muted:#6b6862; --line:#e2e0db;
   --accent:#8a3d1f; --accent-ink:#fff; --ok:#2f6b3f; --warn:#8a6a10; --bad:#a32020;
+  /* [01734] Lo que se escribe ENCIMA del rojo. En claro el rojo es oscuro y la letra
+     va blanca. En oscuro el rojo es un rosa claro, y ahí el blanco daba 2,47 : 1
+     —la norma pide 4,5 para 11 px— en la chapa de avisos de todas las pantallas
+     de la casa. Se midió tarde porque la guardia abría el navegador sin tema y
+     el tema oscuro de dentro no se había mirado nunca. */
+  --bad-ink:#fff;
   --okbg:#e8f2ea; --warnbg:#fbf2dc; --badbg:#fae9e9; --radius:12px;
 }
 @media (prefers-color-scheme:dark){
   :root{--bg:#171614; --card:#211f1d; --ink:#f0eeea; --muted:#a6a199; --line:#33302c;
         --accent:#d4753f; --accent-ink:#1a1512; --ok:#7bc08d; --warn:#e0bc63; --bad:#e88b8b;
+        --bad-ink:#1a1512;
         --okbg:#1e2b21; --warnbg:#2e2718; --badbg:#2e1c1c;}
 }
 *{box-sizing:border-box}
@@ -190,7 +197,7 @@ input[type=file]{padding:9px}
   padding:4px 10px;border-radius:8px;letter-spacing:.08em;font-weight:650}
 .bell{position:relative;white-space:nowrap}
 .badge{display:inline-block;min-width:19px;padding:1px 6px;border-radius:999px;background:var(--bad);
-  color:#fff;font-size:11px;font-weight:700;text-align:center;vertical-align:1px;margin-left:2px}
+  color:var(--bad-ink);font-size:11px;font-weight:700;text-align:center;vertical-align:1px;margin-left:2px}
 .badge[hidden]{display:none}
 [hidden]{display:none !important}   /* que ninguna regla nuestra le gane a `hidden` */
 .notif{border-left:3px solid var(--line);padding:10px 14px;margin-bottom:12px;border-radius:0 10px 10px 0}
@@ -503,7 +510,7 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
 [dir="rtl"] .side a.item.on{box-shadow:inset -3px 0 0 var(--accent)}
 .side .foot{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
 .side form{margin:0}
-.side .count{margin-inline-start:auto;background:var(--bad);color:#fff;border-radius:999px;
+.side .count{margin-inline-start:auto;background:var(--bad);color:var(--bad-ink);border-radius:999px;
   font-size:11px;font-weight:700;padding:1px 7px}
 .body{flex:1;min-width:0;display:flex;flex-direction:column}
 /* Un hijo de una caja flexible crece hasta lo que mida su contenido si no se
@@ -542,6 +549,15 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
   .tabs a.on{color:var(--accent);background:var(--bg)}
   .tabs a b{font-size:18px;font-weight:600;line-height:1}
   main{padding-bottom:96px !important}
+  /* [01735] Y lo mismo por arriba: la barra de pestañas es fija, así que cuando el
+     navegador baja la página para enseñar el campo que acaba de recibir el foco,
+     lo deja **debajo** de la barra y no se ve nada. Con el teclado, en el móvil,
+     quedaban tapados del todo el número del primal en la recepción, el serial y
+     el botón de entrada del inventario, y la fecha del parte de ventas: se
+     escribe un peso en una casilla que no se está viendo.
+     La portada ya lo tenía bien (`public_shell.html`); al armazón de dentro no
+     había llegado. Es la línea de al lado del relleno que ya estaba puesto. */
+  html{scroll-padding-bottom:104px}
   .topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;
     padding-top:max(10px,env(safe-area-inset-top));
     background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
@@ -690,7 +706,8 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
   {% endif %}
   {% if can("platform") %}<a class="item {{ 'on' if aqui == '/admin' }}" href="/admin">{{ t("adm.title") }}</a>{% endif %}
   <a class="item {{ 'on' if aqui == '/notificaciones' }}" href="/notificaciones">{{ t("nav.notifications") }}
-    <span class="count" id="navbadge{{ sitio }}" {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
+    <span class="count" id="navbadge{{ sitio }}" data-aviso-contador
+          {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
   <a class="item {{ 'on' if aqui == '/descargas' }}" href="/descargas">{{ t("nav.downloads") }}</a>
   <a class="item {{ 'on' if aqui == '/configuracion' }}" href="/configuracion">{{ t("nav.settings") }}</a>
   <a class="item" href="/fallo?desde={{ here }}">{{ t("bug.nav") }}</a>
@@ -710,7 +727,7 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
     <div class="topbar">
       <a class="brand" href="/hoy">{{ t("m.app.title") }}<small>{{ user.name }}</small></a>
       <a class="bell" href="/notificaciones">{{ t("nav.notifications") }}<span class="badge" id="navbadge"
-         {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
+         data-aviso-contador {% if not unread %}hidden{% endif %}>{{ unread }}</span></a>
     </div>
 {% endif %}
 <main>{% if user and tour_aqui %}
@@ -754,10 +771,13 @@ details.grp > summary:focus-visible{outline:2px solid var(--accent);outline-offs
   {% for ruta, icono, nombre, permiso in candidatas %}
     {% if cuenta.n < 4 and (not permiso or can(permiso)) %}
       {% set cuenta.n = cuenta.n + 1 %}
-      <a class="{{ 'on' if here == ruta }}" href="{{ ruta }}"><b>{{ icono }}</b><span>{{ nombre }}</span></a>
+      {# [01742] El símbolo va oculto al lector de pantalla: es adorno, y su palabra
+         está al lado. Sin esto, el lector anuncia «flecha blanca hacia abajo,
+         Recepción» y «trigrama del cielo, Más», cinco veces, en cada pantalla. #}
+      <a class="{{ 'on' if here == ruta }}" href="{{ ruta }}"><b aria-hidden="true">{{ icono }}</b><span>{{ nombre }}</span></a>
     {% endif %}
   {% endfor %}
-  <a href="#menu"><b>☰</b><span>{{ t("m.nav.more") }}</span></a>
+  <a href="#menu"><b aria-hidden="true">☰</b><span>{{ t("m.nav.more") }}</span></a>
 </nav>
 <div class="drawer" id="menu" role="dialog" aria-modal="true" aria-label="{{ t('m.nav.more') }}">
   <a class="veil" href="#" aria-label="{{ t('common.back') }}"></a>
@@ -943,6 +963,7 @@ if ("serviceWorker" in navigator) {
     espera: {{ t("off.waiting")|tojson }},
     reintento: {{ t("off.retrying")|tojson }},
     sinfoto: {{ t("m.rec.photo_offline")|tojson }},
+    sinsitio: {{ t("off.nospace")|tojson }},
     entrar: {{ t("off.login_again")|tojson }},
     reintentar: {{ t("off.resend")|tojson }},
     tirar: {{ t("off.discard")|tojson }}
@@ -951,9 +972,28 @@ if ("serviceWorker" in navigator) {
   function cola() {
     try { return JSON.parse(localStorage.getItem(COLA) || "[]"); } catch (e) { return []; }
   }
+  // [01713] Devuelve si de verdad quedó guardado. Antes esto era un `catch` vacío y
+  // la línea siguiente pintaba el panel con la lista que estaba en memoria: con
+  // el teléfono sin sitio, el apunte se perdía y la pantalla decía «Apuntado. Se
+  // manda solo». Un inventario de cuarenta piezas contado en la cámara se podía
+  // ir entero sin que nadie se enterara nunca. Y un móvil de cocina con dos mil
+  // fotos es exactamente el móvil al que le pasa.
+  //
+  // Si no cabe, se hace sitio con lo único que se puede tirar sin perder nada
+  // que no esté ya visto: los rechazados viejos, que una persona ya miró. Y si
+  // aun así no cabe, se dice que no cabe. Mentir aquí es lo caro.
   function guardarCola(lista) {
-    try { localStorage.setItem(COLA, JSON.stringify(lista)); } catch (e) {}
+    if (!escribirCola(COLA, lista)) {
+      try { localStorage.removeItem("grill_apartados"); } catch (e) {}
+      if (!escribirCola(COLA, lista)) { pintarContador(cola()); return false; }
+    }
     pintarContador(lista);
+    return true;
+  }
+
+  function escribirCola(clave, lista) {
+    try { localStorage.setItem(clave, JSON.stringify(lista)); return true; }
+    catch (e) { return false; }
   }
   function numero() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -1061,25 +1101,32 @@ if ("serviceWorker" in navigator) {
   }
 
   // ------------------------------------------------ lo escrito, en el aparato
-  var form = document.querySelector("form[data-keep]");
-  if (form) {
-    var clave = "cuenta:" + form.dataset.keep;
+  //
+  // [01730] En plural, y no en singular como estaba. `/traslados` tiene dos fichas
+  // —«mandar pieza» y «mandar corte»— y esto solo enganchaba la primera: lo
+  // escrito en la segunda se perdía al recargar, sin decir nada. La marca
+  // `data-keep` la llevan las dos desde el principio; lo que faltaba era
+  // mirarlas todas.
+  var form = null;                        // la primera, para el `localStorage.removeItem`
+  document.querySelectorAll("form[data-keep]").forEach(function (ficha) {
+    if (form === null) form = ficha;
+    var clave = "cuenta:" + ficha.dataset.keep;
     function leer() { try { return JSON.parse(localStorage.getItem(clave) || "{}"); }
                       catch (e) { return {}; } }
     var guardado = leer(), había = false;
     for (var nombre in guardado) {
-      var campo = form.elements[nombre];
+      var campo = ficha.elements[nombre];
       if (campo && !campo.value) { campo.value = guardado[nombre]; había = true; }
     }
     if (había) decir(textos.guardado, false);
-    form.addEventListener("input", function (ev) {
+    ficha.addEventListener("input", function (ev) {
       var campo = ev.target;
       if (!campo.name || campo.type === "hidden") return;
       var datos = leer();
       if (campo.value) { datos[campo.name] = campo.value; } else { delete datos[campo.name]; }
       try { localStorage.setItem(clave, JSON.stringify(datos)); } catch (e) {}
     });
-  }
+  });
 
   // --------------------------------------- guardar sin red: se apunta y sigue
   //
@@ -1135,7 +1182,14 @@ if ("serviceWorker" in navigator) {
       var lista = cola();
       lista.push({id: datos.envio, accion: formulario.getAttribute("action"),
                   datos: datos, cuando: Date.now(), intentos: 0});
-      guardarCola(lista);
+      if (!guardarCola(lista)) {
+        // [01714] No cabe en el teléfono. Lo que NO se hace aquí es vaciar el
+        // formulario: lo escrito es lo único que queda de ese pesaje, y se deja
+        // en la pantalla para que se pueda mandar en cuanto haya señal o
+        // apuntar en un papel. El aviso se queda puesto, sin contador.
+        decir(textos.sinsitio, true);
+        return;
+      }
       if (form && formulario === form) localStorage.removeItem("cuenta:" + form.dataset.keep);
       formulario.reset();
       // Un «apuntado» corto y se quita; si sigue sin haber señal, vuelve el
@@ -1268,7 +1322,10 @@ if ("serviceWorker" in navigator) {
   }
 
   function guardarApartados(lista) {
-    try { localStorage.setItem("grill_apartados", JSON.stringify(lista)); } catch (e) {}
+    // [01715] Aquí el `catch` vacío duele menos —lo apartado ya lo vio una persona—
+    // pero tampoco se da por guardado lo que no cupo: el contador se pinta con
+    // lo que hay de verdad en el disco.
+    escribirCola("grill_apartados", lista);
     pintarContador();
   }
 
@@ -1295,11 +1352,20 @@ if ("serviceWorker" in navigator) {
   // trabajo: al cerrar sesión se borraron, y su `activate` no se dispara otra
   // vez mientras el ayudante no cambie. Una vez por sesión del navegador, que
   // son quince peticiones y no hacen falta en cada pantalla.
+  // [01731] El candado va con el nombre de quien ha entrado, no a secas.
+  //
+  // Antes era una marca sin más, `grill_lleno`, que se ponía la primera vez y
+  // no se quitaba al salir. Como el ayudante tampoco cambia, su arranque no se
+  // vuelve a disparar solo: en un móvil que usan cuatro personas al día, el
+  // tercer turno ya no llenaba nada y esa persona se encontraba «Sin conexión»
+  // al abrir el despiece dentro de la cámara. Y no había nada en pantalla que
+  // explicara por qué a uno sí y a otro no.
   try {
-    if (!sessionStorage.getItem("grill_lleno") && navigator.serviceWorker &&
+    var candado = "grill_lleno:" + {{ (user.id if user else 0)|tojson }};
+    if (!sessionStorage.getItem(candado) && navigator.serviceWorker &&
         navigator.serviceWorker.controller) {
       navigator.serviceWorker.controller.postMessage({tipo: "llena"});
-      sessionStorage.setItem("grill_lleno", "1");
+      sessionStorage.setItem(candado, "1");
     }
   } catch (e) {}
 
@@ -1374,8 +1440,21 @@ if ("serviceWorker" in navigator) {
 // Refresca el contador de avisos sin recargar la página. Si la persona ha
 // autorizado los avisos del navegador, una alerta crítica salta a su pantalla.
 (function () {
+  // [01732] Los tres contadores, no solo el de la barra del móvil.
+  //
+  // Hay uno en la barra de abajo (`navbadge`), otro en la columna lateral
+  // (`navbadgeside`) y otro en el cajón. El refresco tocaba solo el primero, y
+  // ese está escondido justo en el ordenador y en la tablet en horizontal: el
+  // que lleva la casa miraba la pantalla del despacho todo el día con un número
+  // que no cambiaba hasta recargar.
+  var badges = [].slice.call(document.querySelectorAll("[data-aviso-contador]"));
   var badge = document.getElementById("navbadge");
-  if (!badge) return;
+  if (badge && badges.indexOf(badge) < 0) badges.push(badge);
+  if (!badges.length) return;
+  badge = {
+    set textContent(v) { badges.forEach(function (b) { b.textContent = v; }); },
+    set hidden(v) { badges.forEach(function (b) { b.hidden = v; }); }
+  };
   function remember(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
   function recall(key) { try { return Number(localStorage.getItem(key) || 0); } catch (e) { return 0; } }
   var lastSeen = recall("grill_last_notif");
@@ -1541,7 +1620,13 @@ if ("serviceWorker" in navigator) {
     return {element: '[data-tour="' + p.selector + '"]',
             popover: {title: p.titulo, description: p.texto}};
   });
-  if (!pasos.length) { apuntar(true); return; }
+  // [01725] Si no hay ni un paso que enseñar, **no se apunta nada**. Antes aquí
+  // ponía `apuntar(true)`, con la idea buena de que un día sin piezas que pesar
+  // no dejara el tutorial a medias. El efecto era el contrario: el tutorial del
+  // inventario se gastaba el día que no había inventario abierto, y faltaba el
+  // día que lo había —que es la operación más cara de equivocar del programa—.
+  // Sin apuntar nada, espera al día en que la pantalla tiene algo que enseñar.
+  if (!pasos.length) return;
 
   var apuntado = false;
   function apuntar(completo) {
@@ -1550,7 +1635,12 @@ if ("serviceWorker" in navigator) {
     if (apuntado) return;
     apuntado = true;
     var datos = {csrf: {{ csrf|tojson }}, pantalla: PANTALLA,
-                 completo: completo ? "1" : "0"};
+                 completo: completo ? "1" : "0",
+                 // Cuántos se enseñaron de verdad, que no siempre son los que
+                 // tiene el tutorial: los que no estaban en la página se
+                 // quitaron arriba. Con este número el servidor sabe si le
+                 // falta alguno por enseñar y lo saca otro día.
+                 pasos: String(pasos.length)};
     if (!navigator.onLine && window.cola) { window.cola.apuntar("/tour/visto", datos); return; }
     var cuerpo = new FormData();
     Object.keys(datos).forEach(function (k) { cuerpo.append(k, datos[k]); });
@@ -1580,8 +1670,16 @@ if ("serviceWorker" in navigator) {
     // «Entendido» o por tocar fuera. Con `onDestroyStarted` puesto, la
     // biblioteca deja el cierre en nuestras manos: por eso se llama a
     // `destroy()` aquí, que si no el globo se quedaría en la pantalla.
-    onDestroyStarted: function () { apuntar(true); guia.destroy(); },
-    onDestroyed: function () { apuntar(true); }
+    // [01726] Saltar no es terminar, y hasta hoy se apuntaban igual: los dos
+    // llamaban a `apuntar(true)`. La columna `completo` existe desde el
+    // principio, con el comentario «falso: lo saltó» al lado, y nunca se
+    // escribía en falso. Así el encargado no tenía forma de saber quién se
+    // saltó el tutorial de la pantalla que más se equivoca su gente.
+    //
+    // Que quede un paso por delante es lo que distingue una cosa de la otra:
+    // quien le da a «Entendido» en el último los ha visto todos.
+    onDestroyStarted: function () { apuntar(!guia.hasNextStep()); guia.destroy(); },
+    onDestroyed: function () { apuntar(!guia.hasNextStep()); }
   });
   guia.drive();
 })();
@@ -1639,6 +1737,25 @@ if ("serviceWorker" in navigator) {
     e.preventDefault();
     cerrar_ventana();
   });
+})();
+</script>
+
+<script nonce="{{ nonce }}">
+// [01738] El cartel rojo se lleva el foco, y por eso se oye.
+//
+// Hasta hoy, al fallar algo salía el cartel arriba y el foco se iba —por el
+// `autofocus` de la plantilla— al primer campo, que está **por debajo** del
+// cartel. Quien no ve la pantalla no se enteraba de nada: volvía a teclear lo
+// mismo sin saber qué había pasado. Y el `role="alert"` por sí solo no basta,
+// porque un cartel que ya está en la página cuando se carga no siempre se
+// anuncia.
+//
+// Solo el rojo, y solo el primero: el verde se anuncia con `role="status"` y no
+// tiene por qué robarle el sitio a nadie.
+(function () {
+  var malo = document.querySelector(".banner.bad[tabindex]");
+  if (!malo || malo.hidden) return;
+  try { malo.focus({preventScroll: false}); } catch (e) { malo.focus(); }
 })();
 </script>
 </body>

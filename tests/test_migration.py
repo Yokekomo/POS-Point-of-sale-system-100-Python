@@ -35,6 +35,7 @@ NUEVAS = {
     "bug_reports": ["note", "detail"],
     "despiece_cuts": ["by_weight"],
     "restaurants": ["subscription_open"],
+    "tours_vistos": ["pasos"],
 }
 
 

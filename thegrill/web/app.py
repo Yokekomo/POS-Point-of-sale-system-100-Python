@@ -8,10 +8,14 @@
 Todo va contra el restaurante del usuario: nadie ve datos de otro.
 """
 import os
+import logging
+import random
 import zoneinfo
 from datetime import date, datetime, timedelta
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.responses import (HTMLResponse, JSONResponse, PlainTextResponse,
                                RedirectResponse, Response)
 from fastapi.templating import Jinja2Templates
@@ -217,6 +221,46 @@ async def redirect_handler(request: Request, exc: HTTPException):
                                        "code": exc.status_code, "detail": detalle,
                                        "volver": volver},
                                       status_code=exc.status_code)
+
+
+# [01728] También el `HTTPException` de Starlette, que es el que levanta el
+# enrutador cuando una dirección no existe. Sin esto, teclear mal una dirección
+# devuelve `{"detail":"Not Found"}` en inglés.
+async def router_handler(request: Request, exc: StarletteHTTPException):
+    """[01729] El error del enrutador, pintado como los nuestros y en su idioma.
+
+    Starlette pone de su cosecha un `detail` en inglés —«Not Found», «Method Not
+    Allowed»—. Se vacía a propósito: con el detalle en blanco, el manejador de
+    arriba pone el texto traducido que ya existe para cada código, que es lo que
+    tiene que leer quien teclea mal una dirección o abre un marcador viejo.
+    """
+    return await redirect_handler(
+        request, HTTPException(status_code=exc.status_code,
+                               detail="", headers=getattr(exc, "headers", None)))
+
+
+app.add_exception_handler(StarletteHTTPException, router_handler)
+
+
+@app.exception_handler(RequestValidationError)
+async def missing_field_handler(request: Request, exc: RequestValidationError):
+    """[01722] Falta una casilla: se dice en pantalla, no con un JSON en inglés."""
+    return await redirect_handler(request, HTTPException(status_code=400, detail=""))
+
+
+@app.exception_handler(Exception)
+async def unexpected_handler(request: Request, exc: Exception):
+    """[01723] El fallo no previsto, con número, como en la edición de carne.
+
+    Sin esto sale «Internal Server Error»: 21 bytes de texto plano, en inglés y
+    sin nada que darle a quien lo atiende. El número sale en pantalla y encabeza
+    la traza del registro, que es todo lo que hace falta para ir a mirar qué
+    pasó cuando alguien dice «me ha salido el 4417».
+    """
+    numero = f"{random.randint(1000, 9999)}"
+    logging.exception("FALLO %s en %s %s", numero, request.method, request.url.path)
+    return await redirect_handler(request,
+                                  HTTPException(status_code=500, detail=f"#{numero}"))
 
 
 def set_lang_cookie(response: Response, lang: str) -> Response:

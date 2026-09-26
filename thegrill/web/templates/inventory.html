@@ -5,22 +5,22 @@
 <p class="sub">{{ t("inv.sub") }}</p>
 {% if site is defined and site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
 {% if month.done %}
-  <div class="banner ok">{{ t("inv.monthly_done", date=month.last_date) }}</div>
+  <div class="banner ok" role="status">{{ t("inv.monthly_done", date=month.last_date) }}</div>
 {% else %}
   <div class="banner {{ 'bad' if month.due_soon else 'warn' }}">
     {{ t("inv.monthly_pending", days=month.days_left) }}</div>
 {% endif %}
 <p class="muted">{{ t("inv.monthly_help") }}</p>
-{% if recuperada %}<div class="banner ok">{{ t("inv.recovered") }}</div>{% endif %}
+{% if recuperada %}<div class="banner ok" role="status">{{ t("inv.recovered") }}</div>{% endif %}
 {# [01594] El recado de lo último que se hizo. Antes esta pantalla usaba `done` como
    interruptor con texto fijo, así que cualquier mensaje que llegara aquí
    —«no se apuntaron dos líneas del recuento»— salía convertido en «pieza
    recuperada», que dice otra cosa. #}
-{% if done %}<div class="banner warn">{{ done }}</div>{% endif %}
+{% if done %}<div class="banner warn" role="alert">{{ done }}</div>{% endif %}
 
 {% if count %}
 <div class="card">
-<div class="banner ok" id="sinred" hidden></div>
+<div class="banner ok" role="status" id="sinred" hidden></div>
 <p class="help">{{ t("off.help") }}</p>
 <p class="help">{{ t("inv.together") }}</p>
 <form method="post" action="/inventario/contar" data-tour="contar"
@@ -84,7 +84,7 @@
   {% if last %}
   {% set gaps = last.lines | selectattr("outcome", "in", ["SHORT", "OVER", "NOT_FOUND", "UNKNOWN"]) | list %}
   <h2>{{ last.date }} · {{ t("inv.period." ~ last.period.value) }}</h2>
-  {% if not last.complete %}<div class="banner warn">{{ t("inv.partial_warn") }}</div>{% endif %}
+  {% if not last.complete %}<div class="banner warn" role="alert">{{ t("inv.partial_warn") }}</div>{% endif %}
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
     {% set contadas = last.lines | rejectattr("outcome", "equalto", "UNCOUNTED") | list %}
     <div class="kpi"><b>{{ last.lines | selectattr("outcome", "equalto", "MATCH") | list | length }}
@@ -172,7 +172,7 @@
   {# [01595] La cantidad va en gramos si el artículo se pesa, y en su unidad si se
      cuenta. Cuál es depende del artículo que se elija, así que la casilla
      cambia de nombre al elegirlo: el nombre es lo que dice la unidad. #}
-  <div class="banner warn" id="altaliquidos" hidden>{{ t("ing.liquids_weigh") }}</div>
+  <div class="banner warn" role="alert" id="altaliquidos" hidden>{{ t("ing.liquids_weigh") }}</div>
   <label for="akg" id="aqtyetiqueta">{{ t("ing.qty") }}</label>
   <input id="akg" name="g" type="text" inputmode="numeric" data-peso required>
   <small class="eco muted" data-eco aria-live="polite"></small>

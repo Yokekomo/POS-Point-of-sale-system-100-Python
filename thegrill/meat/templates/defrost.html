@@ -12,7 +12,7 @@
   <a href="/descongelado/recuento{% if shift %}?shift={{ shift }}{% endif %}"
      class="{{ 'on' if tab == 'recuento' }}">{{ t("m.df.count") }}</a>
 </div>
-{% if done %}<div class="banner ok">{{ done }}</div>{% endif %}
+{% if done %}<div class="banner ok" role="status">{{ done }}</div>{% endif %}
 {% if closed %}
 <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
   {% if can("money") %}
@@ -26,7 +26,7 @@
 </div>
 {% if closed.drip_kg %}<p class="help">{{ t("defrost.drip_help") }}</p>{% endif %}
 {% if closed.aging_pending %}
-<div class="banner warn">{{ t("m.ag.pending_tonight", n=closed.aging_pending|length,
+<div class="banner warn" role="alert">{{ t("m.ag.pending_tonight", n=closed.aging_pending|length,
     serials=closed.aging_pending[:6]|join(", ")) }}
   <div><a href="/maduracion">{{ t("m.ag.daily") }}</a></div></div>
 {% endif %}
@@ -55,7 +55,7 @@
 <p class="help">{{ t("m.df.loss_help") }}</p>
 {% endif %}
 {% endif %}
-{% if error %}<div class="banner bad">{{ error }}</div>{% endif %}
+{% if error %}<div class="banner bad" role="alert" tabindex="-1">{{ error }}</div>{% endif %}
 {% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
 {# [01565] El mes es cosa de los cierres: va donde se cierra. #}
 {% if tab == "recuento" and month is defined and month.shifts and can("money") %}
