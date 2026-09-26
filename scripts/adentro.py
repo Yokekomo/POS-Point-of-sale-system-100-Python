@@ -29,8 +29,14 @@ cambia de verdad y se vuelve a mirar.
 **Y el tutorial, dado por visto.** Quien lleva una semana trabajando no tiene
 la ventana de bienvenida encima. Medir con ella puesta es medir la ventana.
 
+**Y las dos ediciones.** El control de carnes y la plataforma de cocina
+comparten media casa —el mismo almacén, los mismos usuarios, los mismos
+registros— pero tienen su propio armazón y sus propias pantallas, así que un
+arreglo en una no le llega a la otra. Se elige con `--edicion`.
+
     python -m scripts.adentro                 # los siete idiomas, tres oficios
     python -m scripts.adentro --rapido        # es+en, un ancho, un oficio
+    python -m scripts.adentro --edicion cocina  # la plataforma genérica
     python -m scripts.adentro --oficios ana   # solo lo que ve quien lleva la casa
     python -m scripts.adentro --anchos 390    # como se trabaja: el teléfono
     python -m scripts.adentro --solo dedos    # lo que se pulsa, que es lo que más importa aquí
@@ -65,20 +71,32 @@ OFICIOS = {
 }
 
 # Donde se trabaja. Sin las públicas, que ya las mide `scripts.portada`, y sin
-# las que no son pantallas (la API, el latido, el icono).
-PANTALLAS = (
-    "/hoy", "/carne", "/recepcion", "/recepcion/precios", "/despiece", "/cortes",
-    "/maduracion", "/descongelado", "/descongelado/recuento", "/merma", "/inventario",
-    "/traslados", "/ventas", "/parte", "/cuadre", "/trazabilidad", "/carta",
-    "/ingredientes", "/notificaciones", "/cuenta", "/configuracion", "/descargas",
-    "/descargas/etiquetas", "/sedes", "/manager/equipo", "/manager/alertas",
-    "/admin", "/admin/fallos", "/fallo",
-)
+# las que no son pantallas (la API, el latido, el icono, la documentación que
+# se genera sola).
+PANTALLAS = {
+    "carne": (
+        "/hoy", "/carne", "/recepcion", "/recepcion/precios", "/despiece", "/cortes",
+        "/maduracion", "/descongelado", "/descongelado/recuento", "/merma", "/inventario",
+        "/traslados", "/ventas", "/parte", "/cuadre", "/trazabilidad", "/carta",
+        "/ingredientes", "/notificaciones", "/cuenta", "/configuracion", "/descargas",
+        "/descargas/etiquetas", "/sedes", "/manager/equipo", "/manager/alertas",
+        "/admin", "/admin/fallos", "/fallo",
+    ),
+    "cocina": (
+        "/app", "/app/mis-registros", "/carne", "/merma", "/inventario", "/ventas",
+        "/recetas", "/ingredientes", "/trazabilidad", "/notificaciones",
+        "/configuracion", "/descargas", "/manager", "/manager/registros",
+        "/manager/alertas", "/manager/equipo", "/manager/plantillas",
+    ),
+}
+# A dónde lleva entrar no es un sitio fijo: en la plataforma de cocina, quien
+# lleva la casa va al panel y quien está de turno va a su pantalla del día. Así
+# que no se espera una dirección, se espera dejar de estar en la de entrar.
 
 
 # --- la casa, servida --------------------------------------------------------
 
-def _levanta_casa():
+def _levanta_casa(edicion: str = "carne"):
     """Una casa con seis días de trabajo dentro, servida de verdad.
 
     Seis días y no treinta: bastan para que haya piezas en cámara, cortes
@@ -89,7 +107,10 @@ def _levanta_casa():
     import uvicorn
 
     from thegrill import bench, db
-    from thegrill.meat import app as meatapp
+    if edicion == "cocina":
+        from thegrill.web import app as programa
+    else:
+        from thegrill.meat import app as programa
 
     db.init_engine(f"sqlite:///{pathlib.Path(tempfile.mkdtemp()) / 'adentro.db'}")
     db.create_all()
@@ -98,7 +119,7 @@ def _levanta_casa():
     _tutorial_visto()
 
     puerto = _puerto_libre()
-    servidor = uvicorn.Server(uvicorn.Config(meatapp.app, host="127.0.0.1",
+    servidor = uvicorn.Server(uvicorn.Config(programa.app, host="127.0.0.1",
                                              port=puerto, log_level="error"))
     threading.Thread(target=servidor.run, daemon=True).start()
     for _ in range(300):
@@ -148,7 +169,7 @@ def _pon_idioma(idioma: str) -> None:
                 persona.language = idioma
 
 
-def _entra(pg, base: str, correo: str) -> bool:
+def _entra(pg, base: str, correo: str, edicion: str = "carne") -> bool:
     """Entrar como quien sea. Devuelve si se llegó a entrar."""
     from thegrill import bench
 
@@ -157,9 +178,10 @@ def _entra(pg, base: str, correo: str) -> bool:
     pg.fill("input[name=password]", bench.PASSWORD)
     pg.click("button[type=submit]")
     try:
-        pg.wait_for_url(f"{base}/hoy", timeout=15000)
+        pg.wait_for_url(lambda u: not str(u).rstrip("/").endswith("/login"), timeout=15000)
     except Exception:
         return False
+    pg.wait_for_load_state("networkidle")
     return True
 
 
@@ -201,7 +223,8 @@ def _contexto(nav, ancho: int):
                     "AppleWebKit/605.1.15") if telefono else None)
 
 
-def recorre(nav, base: str, idiomas, anchos, pantallas, oficios, exámenes):
+def recorre(nav, base: str, idiomas, anchos, pantallas, oficios, exámenes,
+            edicion: str = "carne"):
     """Todas las pantallas, por oficio, ancho e idioma."""
     cuenta: collections.Counter = collections.Counter()
     detalle: dict[str, set[str]] = collections.defaultdict(set)
@@ -218,7 +241,7 @@ def recorre(nav, base: str, idiomas, anchos, pantallas, oficios, exámenes):
             for ancho in anchos:
                 ctx = _contexto(nav, ancho)
                 pg = ctx.new_page()
-                if not _entra(pg, base, correo):
+                if not _entra(pg, base, correo, edicion):
                     apunta("no se pudo entrar", f"{idioma} {oficio} {ancho}")
                     ctx.close()
                     continue
@@ -297,6 +320,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--idiomas", default="", help="cuáles, separados por comas (todos)")
     p.add_argument("--anchos", default="", help="cuáles, separados por comas (todos)")
     p.add_argument("--pantallas", default="", help="cuáles, separadas por comas (todas)")
+    p.add_argument("--edicion", choices=("carne", "cocina"), default="carne",
+                   help="control de carnes (por defecto) o plataforma de cocina")
     p.add_argument("--oficios", default="", help="ana, paco, leo (los tres)")
     p.add_argument("--solo", choices=("maqueta", "contraste", "dedos"), default=None,
                    help="un examen de los tres")
@@ -306,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
 
     idiomas = _lista(args.idiomas, IDIOMAS)
     anchos = _lista(args.anchos, ANCHOS, entero=True)
-    pantallas = _lista(args.pantallas, PANTALLAS)
+    pantallas = _lista(args.pantallas, PANTALLAS[args.edicion])
     oficios = [o for o in _lista(args.oficios, OFICIOS) if o in OFICIOS]
     if not oficios:
         print("  Oficios: ana, paco o leo.")
@@ -318,19 +343,20 @@ def main(argv: list[str] | None = None) -> int:
     exámenes = {args.solo} if args.solo else {"maqueta", "contraste", "dedos"}
 
     print()
-    print(f"  Pantallas de dentro: {len(pantallas)} pantallas × {len(anchos)} anchos × "
-          f"{len(idiomas)} idiomas × {len(oficios)} oficios")
+    print(f"  Pantallas de dentro ({args.edicion}): {len(pantallas)} pantallas × "
+          f"{len(anchos)} anchos × {len(idiomas)} idiomas × {len(oficios)} oficios")
     print("  Montando la casa…")
     arranca = time.monotonic()
 
-    base, servidor = _levanta_casa()
+    base, servidor = _levanta_casa(args.edicion)
     try:
         from playwright.sync_api import sync_playwright
         with sync_playwright() as pw:
             nav = _navegador(pw)
             try:
                 parte, vistas, saltadas = recorre(nav, base, idiomas, anchos,
-                                                  pantallas, oficios, exámenes)
+                                                  pantallas, oficios, exámenes,
+                                                  args.edicion)
             finally:
                 nav.close()
     finally:

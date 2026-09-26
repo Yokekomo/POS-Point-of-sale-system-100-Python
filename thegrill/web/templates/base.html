@@ -171,15 +171,25 @@ input[type=file]{padding:9px}
 nav{display:flex;flex-wrap:wrap;gap:2px;align-items:center}
 @media (max-width:760px){
   header.top{position:static}                 /* la barra no se come la pantalla */
-  .topwrap{padding:10px 12px;gap:8px;flex-wrap:nowrap;align-items:flex-start}
+  /* Y la barra de arriba con el mismo margen que el texto de debajo: con 12
+     aquí y 14 ahí, el nombre de la casa no caía en la misma vertical que el
+     título de la pantalla. Dos márgenes distintos en la misma columna se ven
+     aunque no se sepan medir. La barra de enlaces se desliza sola, así que
+     los dos píxeles no le quitan nada. */
+  .topwrap{padding:10px 14px;gap:8px;flex-wrap:nowrap;align-items:flex-start}
   .brand{font-size:15px}
   .brand small{font-size:11px}
   nav{order:3;width:100%;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;
       -webkit-overflow-scrolling:touch;padding-bottom:4px;scrollbar-width:none}
   nav::-webkit-scrollbar{display:none}
   nav a{flex:0 0 auto;white-space:nowrap;font-size:15px;padding:10px 12px}
-  main{padding:14px max(12px,env(safe-area-inset-right))
-       max(56px,calc(40px + env(safe-area-inset-bottom))) max(12px,env(safe-area-inset-left))}
+  /* Catorce y no doce, lo mismo que en la edición de carne. Dos píxeles no se
+     discuten a ojo, pero por debajo de catorce la primera letra de cada línea
+     se mete bajo el redondeo del cristal en un teléfono de los de ahora. Lo
+     que se estrechaba para dejarle sitio a las tablas ya no hace falta: las
+     anchas van en su propio carril, que se desliza aparte. */
+  main{padding:14px max(14px,env(safe-area-inset-right))
+       max(56px,calc(40px + env(safe-area-inset-bottom))) max(14px,env(safe-area-inset-left))}
   h1{font-size:20px}
   .card{padding:13px}
   .grid{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
@@ -201,6 +211,16 @@ nav{display:flex;flex-wrap:wrap;gap:2px;align-items:center}
   input,select,textarea{min-height:46px;font-size:16px}   /* 16px: el iPhone no hace zoom */
   input[type=checkbox]{width:26px;height:26px}
   td button,td .btn,td select,td input{min-height:42px}
+  /* El nombre de la casa, que es como se vuelve al principio: medía 39 px de
+     alto y 47 de ancho. Va en la barra de arriba y no dentro de `nav`, que es
+     lo que lo dejaba fuera de la regla. (La campana sí está dentro de `nav`
+     aquí, al revés que en la edición de carne, y por eso ya cumplía.) */
+  /* Solo el alto: el ancho ya eran 47 px y cumplía. Poniéndole además un
+     `min-width` se le quitaba el suelo que trae de fábrica —dentro de una
+     fila flexible, decir el mínimo a mano deja que encoja hasta ahí— y el
+     nombre se salía de su propia caja. */
+  a.brand{min-height:44px;display:inline-flex;flex-direction:column;
+    justify-content:center}
   a{-webkit-tap-highlight-color:rgba(138,61,31,.15)}
 }
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
