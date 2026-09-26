@@ -142,6 +142,59 @@ def note_access(session: Session, actor: User, count: int) -> None:
         audit(session, actor, "requests", "READ", f"{count} solicitudes")
 
 
+# ------------------------------------------- lo que no hay que guardar tanto
+#
+# [01874] Lo que caduca, y en cuántos días.
+#
+# La ley de la carne obliga a guardar la trazabilidad —qué pieza, de qué
+# matadero, quién la tocó— y eso no se borra nunca. Pero al lado de eso había
+# tres cosas creciendo para siempre que no son trazabilidad de nada y llevan
+# dentro datos de personas: las sesiones caducadas, los avisos ya leídos y los
+# partes de fallo con el correo de quien los mandó. El RGPD, artículo 5.1.e,
+# dice que los datos personales no se guardan más de lo que hagan falta, y
+# «para siempre» nunca es lo que hace falta.
+#
+# Los plazos, y por qué cada uno:
+SESIONES_DIAS = 7        # una sesión caducada hace una semana no sirve ni de rastro
+AVISOS_DIAS = 90         # un aviso leído hace tres meses no avisa de nada
+FALLOS_DIAS = 365        # un parte de fallo se guarda el tiempo de arreglarlo
+
+
+def limpiar_lo_viejo(session: Session, ahora: datetime | None = None) -> dict:
+    """[01875] Barre lo que ya no hace falta guardar. **No toca la trazabilidad.**
+
+    Devuelve cuántas filas se ha llevado de cada cosa, para poder ponerlo en
+    la salida de la tarea y saber que de verdad corrió.
+    """
+    from thegrill.models import AuthSession, BugReport, Notification
+
+    ahora = ahora or datetime.utcnow()
+    fuera = {}
+
+    # Las sesiones: las caducadas y las cerradas. La sesión guarda además el
+    # último recado que se enseñó —el cuadre de un despiece, la pesada— así que
+    # no es solo un número: es trabajo de la casa colgando de una fila muerta.
+    limite = ahora - timedelta(days=SESIONES_DIAS)
+    fuera["sesiones"] = (session.query(AuthSession)
+                         .filter(AuthSession.expires_at < limite)
+                         .delete(synchronize_session=False))
+
+    # Los avisos ya leídos. Los que nadie ha abierto se quedan: todavía avisan.
+    limite = ahora - timedelta(days=AVISOS_DIAS)
+    fuera["avisos"] = (session.query(Notification)
+                       .filter(Notification.read_at.isnot(None),
+                               Notification.read_at < limite)
+                       .delete(synchronize_session=False))
+
+    # Los partes de fallo, que llevan el correo de quien los mandó.
+    limite = ahora - timedelta(days=FALLOS_DIAS)
+    fuera["fallos"] = (session.query(BugReport)
+                       .filter(BugReport.created_at < limite)
+                       .delete(synchronize_session=False))
+    session.flush()
+    return fuera
+
+
 # --------------------------------------------- la persona que deja la casa
 def olvidar_a(session: Session, actor: User, quien: User) -> None:
     """[01870] Un cocinero se va: se le borra lo suyo y se queda lo de la carne.

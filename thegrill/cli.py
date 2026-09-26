@@ -93,7 +93,7 @@ def main(argv=None):
     b.add_argument("--auditar", action="store_true",
                    help="no monta nada: audita lo que ya hay en esa base")
     g = sub.add_parser("purgar-solicitudes",
-                       help="borra las solicitudes viejas que no llegaron a cuenta")
+                       help="borra lo que ya no hay que guardar (nada de trazabilidad)")
     g.add_argument("--dias", type=int, default=180)
     c = sub.add_parser("copia", help="copia de seguridad: la base y las fotos de etiqueta")
     c.add_argument("--a", default="backups", help="carpeta donde dejarla")
@@ -147,6 +147,14 @@ def main(argv=None):
             print(f"borrados {security.forget_old_submissions(session)} números de envío")
             # [00062] Y las novedades de la semana pasada, que ya no avisan de nada.
             print(f"borradas {novedades.olvidar_viejas(session)} novedades")
+            # [01876] Y lo que crecía para siempre sin ser trazabilidad de nada: las
+            # sesiones caducadas —que llevan colgando el último recado que se
+            # enseñó—, los avisos ya leídos y los partes de fallo con el correo
+            # de quien los mandó. Lo de la carne no se toca.
+            barrido = privacy.limpiar_lo_viejo(session)
+            print(f"borradas {barrido['sesiones']} sesiones caducadas, "
+                  f"{barrido['avisos']} avisos leídos y "
+                  f"{barrido['fallos']} partes de fallo viejos")
     elif args.cmd == "copia":
         # [01709] La copia no toca la base: la lee. Por eso va antes de `create_all`,
         # que crearía tablas vacías en una base que todavía no existe y dejaría

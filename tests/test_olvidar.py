@@ -163,3 +163,84 @@ def test_the_screen_only_offers_it_once_they_are_out(casa):
 
     luis, _ = _un_cocinero()                     # este ya está de baja
     assert f"/manager/equipo/{luis}/olvidar" in casa.get("/manager/equipo").text
+
+
+# ================================ lo que crecía para siempre sin ser prueba
+#
+# La ley de la carne obliga a guardar la trazabilidad y eso no se borra nunca.
+# Al lado de eso había tres cosas creciendo sin fin que no son trazabilidad de
+# nada y llevan datos de personas dentro: las sesiones caducadas —que arrastran
+# el último recado que se enseñó, o sea, trabajo de la casa colgando de una
+# fila muerta—, los avisos ya leídos y los partes de fallo con el correo de
+# quien los mandó. El RGPD 5.1.e dice que eso no se guarda más de lo que haga
+# falta, y «para siempre» nunca es lo que hace falta.
+def _viejo(cuantos_dias: int):
+    from datetime import datetime, timedelta
+    return datetime.utcnow() - timedelta(days=cuantos_dias)
+
+
+def test_the_old_sessions_the_read_notices_and_the_bug_reports_go(casa):
+    from thegrill.models import BugReport, Notification
+    from thegrill.models import AlertSeverity, NotificationKind
+
+    with db.session_scope() as s:
+        quien = s.query(User).filter_by(email="albano@marina.com").one()
+        s.add(AuthSession(token_hash="caducada", csrf="x", user_id=quien.id,
+                          expires_at=_viejo(30), flash="el cuadre del despiece"))
+        s.add(Notification(restaurant_id=quien.restaurant_id, user_id=quien.id,
+                           kind=NotificationKind.ALERT, severity=AlertSeverity.WARNING,
+                           title="viejo", body="leído hace meses",
+                           read_at=_viejo(200)))
+        s.add(BugReport(restaurant_id=quien.restaurant_id, user_id=quien.id,
+                        email="luis@marina.com", screen="/hoy", message="se rompió",
+                        created_at=_viejo(500)))
+
+    with db.session_scope() as s:
+        fuera = privacy.limpiar_lo_viejo(s)
+    assert fuera == {"sesiones": 1, "avisos": 1, "fallos": 1}, fuera
+    with db.session_scope() as s:
+        assert s.query(AuthSession).filter_by(token_hash="caducada").count() == 0
+        assert s.query(Notification).filter_by(title="viejo").count() == 0
+        assert s.query(BugReport).filter_by(email="luis@marina.com").count() == 0
+
+
+def test_what_still_matters_is_not_swept(casa):
+    """La sesión de quien está dentro, el aviso sin leer y el fallo de ayer."""
+    from thegrill.models import AlertSeverity, BugReport, Notification, NotificationKind
+
+    with db.session_scope() as s:
+        quien = s.query(User).filter_by(email="albano@marina.com").one()
+        s.add(Notification(restaurant_id=quien.restaurant_id, user_id=quien.id,
+                           kind=NotificationKind.ALERT, severity=AlertSeverity.CRITICAL,
+                           title="sin leer", body="la cámara a nueve grados",
+                           created_at=_viejo(400)))
+        s.add(BugReport(restaurant_id=quien.restaurant_id, user_id=quien.id,
+                        email="eva@marina.com", screen="/hoy", message="de ayer",
+                        created_at=_viejo(1)))
+        abiertas = s.query(AuthSession).count()
+
+    with db.session_scope() as s:
+        privacy.limpiar_lo_viejo(s)
+    with db.session_scope() as s:
+        # Un aviso que nadie ha abierto sigue avisando, tenga la edad que tenga.
+        assert s.query(Notification).filter_by(title="sin leer").count() == 1
+        assert s.query(BugReport).filter_by(message="de ayer").count() == 1
+        assert s.query(AuthSession).count() == abiertas, "echó a quien estaba dentro"
+    assert casa.get("/hoy").status_code == 200, "el jefe se ha quedado fuera"
+
+
+def test_the_meat_is_never_swept(casa):
+    """Lo que pide una inspección no lo borra ninguna tarea de limpieza."""
+    from thegrill.models import AuditLog, PrimalWeighing
+
+    luis, _ = _un_cocinero()
+    with db.session_scope() as s:
+        piezas = s.query(Primal).count()
+        pesadas = s.query(PrimalWeighing).count()
+        firmas = s.query(AuditLog).count()
+    with db.session_scope() as s:
+        privacy.limpiar_lo_viejo(s)
+    with db.session_scope() as s:
+        assert s.query(Primal).count() == piezas
+        assert s.query(PrimalWeighing).count() == pesadas
+        assert s.query(AuditLog).count() == firmas

@@ -206,7 +206,16 @@ y guardarlo.
   del derecho de supresión justo lo que hay que conservar por ley. Queda escrito
   quién lo hizo y cuándo. **Díselo a tus clientes**: es lo que tienen que poder
   contestar el día que se lo pida un empleado suyo.
-- **Purga de solicitudes en un cron**, para no guardar datos personales de más:
+- **La limpieza diaria en un cron**, para no guardar datos personales de más.
+  Se lleva las solicitudes que no llegaron a cuenta (180 días), los números de
+  envío (30), las novedades (7), **las sesiones caducadas** (7), **los avisos ya
+  leídos** (90) y **los partes de fallo** (365, que llevan el correo de quien
+  los mandó). Un aviso que nadie ha abierto no se toca, tenga la edad que
+  tenga: todavía avisa.
+
+  **Lo de la carne no lo toca nada de esto.** Las recepciones, los despieces,
+  las pesadas, las mermas, los inventarios y el libro de firmas se quedan: eso
+  es lo que hay que conservar y es lo que pide una inspección.
   ```
   0 4 * * *  docker compose exec -T app sh -c 'python -m thegrill.cli --db "$GRILL_DB" purgar-solicitudes'
   ```
