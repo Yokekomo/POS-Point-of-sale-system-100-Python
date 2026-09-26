@@ -15,7 +15,8 @@ from fastapi.testclient import TestClient
 from thegrill import db
 from thegrill.meat import app as meatapp
 from thegrill.meat import billing, gateway
-from thegrill.models import Billing, GatewayEvent, Plan, Restaurant, Role, User
+from thegrill.models import (AuditLog, Billing, GatewayEvent, Plan, Restaurant,
+                             Role, User)
 
 SECRETO = "whsec_prueba"
 SPANISH = {"accept-language": "es"}
@@ -210,3 +211,121 @@ def test_without_the_secret_the_door_says_it_is_not_set_up(tmp_path, monkeypatch
         r = c.post("/pasarela/stripe", content=b"{}",
                    headers={"stripe-signature": "t=1,v1=x"})
         assert r.status_code == 503
+
+
+# ============================================ cancelar aquí y allí (blq. 2)
+# Dos agujeros de la misma cosa, y los dos cuestan dinero de otro:
+#
+# 1. `_paid` ponía la cuenta en activo sin mirar en qué estado estaba, así que
+#    un recibo que llegara después de la baja —el último prorrateo, el
+#    reintento de uno viejo— resucitaba la casa: dentro otra vez y pagando.
+# 2. cancelar aquí no tocaba la pasarela: la suscripción seguía viva y la
+#    tarjeta se pasaba el mes siguiente, y el siguiente.
+
+
+def test_a_paid_invoice_never_brings_a_cancelled_house_back(casa):
+    """Una baja la deshace una persona, no un aviso del banco."""
+    s, rest, ana = casa
+    rest.billing = Billing.CANCELLED
+    rest.cancelled_at = datetime.utcnow()
+    s.flush()
+    fin = int(datetime(2026, 11, 30).timestamp())
+    payload = evento("invoice.paid", {"customer": "cus_marina", "number": "F-2026-40",
+                                      "period_end": fin})
+    result = gateway.apply(s, payload, firmado(payload))
+
+    assert rest.billing == Billing.CANCELLED, "un recibo resucitó una casa cancelada"
+    assert result.ignored, "se aplicó sin decir que no se aplicaba"
+    # Y queda escrito, porque es dinero que hay que devolver.
+    assert rest.subscription_open is True
+    apuntes = [a.action for a in s.query(AuditLog).all()]
+    assert "PAID_AFTER_CANCEL" in apuntes
+
+
+def test_cancelling_here_stops_the_charge_over_there(casa):
+    """La mitad que faltaba: la casa se va y deja de pagar."""
+    s, rest, ana = casa
+    llamadas = []
+
+    def pasarela(restaurante):
+        llamadas.append(restaurante.payment_ref)
+        return True, "parada: sub_1"
+
+    billing.cancel(s, ana, rest, "nos mudamos", para_el_cobro=pasarela)
+
+    assert llamadas == ["cus_marina"], "canceló sin tocar la pasarela"
+    assert rest.billing == Billing.CANCELLED
+    assert not rest.subscription_open
+
+
+def test_a_gateway_that_does_not_answer_never_holds_a_cancellation(casa):
+    """Nadie se queda atrapado porque un servidor de otro esté caído."""
+    s, rest, ana = casa
+    billing.cancel(s, ana, rest, None,
+                   para_el_cobro=lambda r: (False, "la pasarela no contestó"))
+
+    assert rest.billing == Billing.CANCELLED, "una avería nuestra retuvo al cliente"
+    assert rest.subscription_open is True, "se dio por parado un cobro que sigue vivo"
+    apuntes = [a.action for a in s.query(AuditLog).all()]
+    assert "CHARGE_OPEN" in apuntes, "el dueño no se iba a enterar"
+
+
+def test_without_a_key_the_charge_is_never_reported_as_stopped(casa, monkeypatch):
+    """Sin clave no se puede parar nada, y eso se dice en vez de suponerlo."""
+    monkeypatch.delenv("STRIPE_SECRET_KEY", raising=False)
+    parado, porque = gateway.stop_subscription(rest_con_ref("cus_x"))
+    assert not parado and "STRIPE_SECRET_KEY" in porque
+
+
+def test_a_house_that_never_paid_has_nothing_to_stop(casa):
+    """Sin referencia no hay suscripción: no es un fallo, es que no hay nada."""
+    parado, _ = gateway.stop_subscription(rest_con_ref(None))
+    assert parado
+
+
+def test_every_live_subscription_of_the_customer_is_cancelled(casa, monkeypatch):
+    """Una casa puede tener más de una; las muertas no se tocan."""
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_prueba")
+    hechas = []
+
+    def falsa(method, path, params=None):
+        hechas.append((method, path))
+        if method == "GET":
+            return {"data": [{"id": "sub_viva", "status": "active"},
+                             {"id": "sub_otra", "status": "trialing"},
+                             {"id": "sub_muerta", "status": "canceled"}]}
+        return {"status": "canceled"}
+
+    monkeypatch.setattr(gateway, "_pide", falsa)
+    parado, porque = gateway.stop_subscription(rest_con_ref("cus_marina"))
+
+    assert parado, porque
+    assert ("DELETE", "/subscriptions/sub_viva") in hechas
+    assert ("DELETE", "/subscriptions/sub_otra") in hechas
+    assert ("DELETE", "/subscriptions/sub_muerta") not in hechas
+
+
+def test_a_subscription_that_survives_the_call_is_not_reported_as_stopped(casa, monkeypatch):
+    """Si la pasarela dice que sigue viva, sigue viva. No se da por bueno."""
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_prueba")
+    monkeypatch.setattr(gateway, "_pide",
+                        lambda m, p, params=None: {"status": "active"})
+    parado, porque = gateway.stop_subscription(rest_con_ref("sub_terca"))
+    assert not parado and "sub_terca" in porque
+
+
+def test_the_gateway_blowing_up_is_never_an_exception_here(casa, monkeypatch):
+    """Quien llama está cancelando su cuenta: esto no puede levantar nada."""
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_prueba")
+
+    def revienta(method, path, params=None):
+        raise OSError("la red se fue")
+
+    monkeypatch.setattr(gateway, "_pide", revienta)
+    parado, porque = gateway.stop_subscription(rest_con_ref("sub_1"))
+    assert not parado and "la red se fue" in porque
+
+
+def rest_con_ref(ref):
+    """Una casa de mentira con —o sin— referencia en la pasarela."""
+    return Restaurant(name="X", slug="x", payment_ref=ref)

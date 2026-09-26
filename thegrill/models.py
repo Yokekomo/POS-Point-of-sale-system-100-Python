@@ -263,6 +263,15 @@ class Restaurant(Base):
     billing_note: Mapped[str | None] = mapped_column(Text)        # por qué se bloqueó, o qué falta
     trial_ends: Mapped[date | None] = mapped_column(Date)         # hasta cuándo dura la prueba
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # [01688] Cancelada aquí y todavía cobrando allí.
+    # Cancelar en el programa no para la suscripción en la pasarela: eso es una
+    # llamada a su API, y una llamada puede fallar —sin clave configurada, sin
+    # red, con la pasarela caída—. Cuando no se puede confirmar que el cobro
+    # quedó parado, esto se queda en `True` y sale en rojo en la consola del
+    # dueño hasta que alguien lo pare. Lo que no puede pasar es que la casa
+    # cancele, se le diga que sí, y su tarjeta se siga pasando cada mes sin que
+    # nadie lo sepa.
+    subscription_open: Mapped[bool | None] = mapped_column(Boolean, default=False)
     # [00741] --- el método de pago: lo guarda la pasarela, aquí solo su referencia.
     # En esta plataforma no entra un número de tarjeta: ni se pide ni se guarda.
     payment_provider: Mapped[str | None] = mapped_column(String(32))

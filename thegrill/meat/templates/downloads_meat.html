@@ -3,6 +3,18 @@
 <h1>{{ t("dl.title") }}</h1>
 <p class="sub">{{ t("dl.sub") }}</p>
 {% if site %}<p class="help">{{ t("m.tr.only_here", site=site.name) }}</p>{% endif %}
+{# [01686] Lo primero, y separado de lo demás: las hojas de abajo son rejillas en
+   blanco para imprimir; esto son los datos de la casa. Se parecen en el botón y
+   no se parecen en nada más. #}
+{% if can("team") %}
+<div class="card">
+  <div class="rowflex">
+    <div style="flex:1"><b>{{ t("dl.mine") }}</b>
+      <div class="muted">{{ t("dl.mine_help") }}</div></div>
+    <a class="btn" href="/descargas/mis-datos.xlsx">{{ t("dl.download") }}</a>
+  </div>
+</div>
+{% endif %}
 <div class="card">
   <div class="rowflex">
     <div style="flex:1"><b>{{ t("dl.all_in_one") }}</b>

@@ -34,6 +34,7 @@ NUEVAS = {
     "shift_closures": ["site_key"],
     "bug_reports": ["note", "detail"],
     "despiece_cuts": ["by_weight"],
+    "restaurants": ["subscription_open"],
 }
 
 

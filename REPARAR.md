@@ -98,8 +98,10 @@ Ordenado por lo que más daño hace, no por lo que más fácil es.
       `rangos.py`, y con dos niveles que no se confunden: lo **imposible** no se
       guarda y la pantalla dice el rango que esperaba; lo que es **verdad y está
       mal** —refrigerado a 12 °C— se guarda tal cual, porque es la prueba, y
-      sale hoy en los avisos del manager. Los límites de norma son los del
-      Reglamento (CE) 853/2004.
+      sale hoy en los avisos del manager. Los defectos de llegada —5 °C y
+      −12 °C— son de la casa, no de una ley: el Reglamento (CE) 852/2004 no
+      trae ninguna cifra de temperatura y las del 853/2004 obligan al matadero
+      (su art. 1(5)(a) lo deja fuera del comercio al por menor).
 - [x] **Los kilos salen con punto decimal en los siete idiomas.** Una casa
       española leía «9.400 kg» y entendía nueve mil cuatrocientos. Arreglado en
       dos sitios y no en doscientas plantillas: el filtro `format` de Jinja

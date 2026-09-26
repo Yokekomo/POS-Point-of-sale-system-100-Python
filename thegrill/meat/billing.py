@@ -21,6 +21,10 @@ from thegrill.models import (AccessRequest, AuditLog, Billing, Plan, RequestStat
                              Restaurant, Role, User)
 from thegrill.web import auth, exacto
 
+# [01694] Cómo se llama la pasarela en lo que queda escrito. Se escribe aquí y no
+# se importa de `gateway` porque `gateway` importa este módulo.
+PROVEEDOR = "stripe"
+
 TRIAL_DAYS = 15        # quince días de prueba, sin cobrar
 
 
@@ -204,17 +208,46 @@ def attach_payment_method(session: Session, actor: User, restaurant: Restaurant,
 
 
 def cancel(session: Session, actor: User, restaurant: Restaurant,
-           reason: str | None = None, on: date | None = None) -> Restaurant:
-    """[00430] Cancela la cuenta. Durante la prueba no se cobra nada."""
+           reason: str | None = None, on: date | None = None,
+           para_el_cobro=None) -> Restaurant:
+    """[00430] Cancela la cuenta. Durante la prueba no se cobra nada.
+
+    Y para el cobro en la pasarela, que es la mitad que faltaba. Poner la casa
+    en `CANCELLED` la deja fuera del programa, pero la suscripción seguía viva
+    en la pasarela: la tarjeta se pasaba el mes siguiente, y el siguiente, a
+    alguien que ya se había ido. Eso no es un descuido de facturación, es
+    cobrar por algo que no se está dando.
+
+    La baja no depende de que la pasarela conteste. Si no se puede confirmar
+    que el cobro quedó parado, la casa queda cancelada igual y se enciende
+    `subscription_open`, que sale en rojo en la consola del dueño hasta que se
+    pare a mano. Al revés —no dejar cancelar si la pasarela está caída— sería
+    retener a un cliente por una avería nuestra.
+
+    `para_el_cobro` se puede sustituir en las pruebas: así se prueba sin salir
+    a internet, que es lo único que no se puede probar de verdad aquí.
+    """
+    # [01692] Aquí dentro y no arriba: `gateway` importa este módulo, y al revés
+    # sería un círculo. Es la única llamada que va en esa dirección.
+    if para_el_cobro is None:
+        from thegrill.meat.gateway import stop_subscription as para_el_cobro
+
     today = on or date.today()
     en_prueba = restaurant.billing == Billing.TRIAL and (
         restaurant.trial_ends is None or today <= restaurant.trial_ends)
     restaurant.billing = Billing.CANCELLED
     restaurant.cancelled_at = datetime.utcnow()
     restaurant.billing_note = reason or None
+
+    parado, porque = para_el_cobro(restaurant)
+    restaurant.subscription_open = not parado
+
     audit(session, actor, restaurant.id, restaurant.slug, "CANCELLED",
           ("en prueba, sin cobrar" if en_prueba else "fuera de prueba") +
-          (f" · {reason}" if reason else ""))
+          (f" · {reason}" if reason else "") + f" · {PROVEEDOR}: {porque}")
+    if not parado:
+        # [01693] El dueño tiene que verlo sin buscarlo: es dinero de otro.
+        audit(session, actor, restaurant.id, restaurant.slug, "CHARGE_OPEN", porque)
     return restaurant
 
 

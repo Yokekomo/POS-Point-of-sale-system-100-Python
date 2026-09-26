@@ -1,5 +1,6 @@
 """[00056] CLI mínima: crear la base de datos y lanzar la cadena."""
 import argparse
+import os
 from datetime import date
 
 from thegrill import db, version
@@ -94,6 +95,18 @@ def main(argv=None):
     g = sub.add_parser("purgar-solicitudes",
                        help="borra las solicitudes viejas que no llegaron a cuenta")
     g.add_argument("--dias", type=int, default=180)
+    c = sub.add_parser("copia", help="copia de seguridad: la base y las fotos de etiqueta")
+    c.add_argument("--a", default="backups", help="carpeta donde dejarla")
+    c.add_argument("--fotos", default=os.environ.get("GRILL_UPLOAD_DIR", "uploads"),
+                   help="carpeta de las fotos de etiqueta")
+    c.add_argument("--guardar", type=int, default=30,
+                   help="cuántas copias se quedan; 0 para no borrar ninguna")
+    v_ = sub.add_parser("restaurar", help="vuelve de una copia. MACHACA lo que haya")
+    v_.add_argument("fichero", help="el paquete .tar.gz de la copia")
+    v_.add_argument("--fotos", default=os.environ.get("GRILL_UPLOAD_DIR", "uploads"),
+                    help="carpeta de las fotos de etiqueta")
+    v_.add_argument("--si", action="store_true",
+                    help="sin esto no hace nada: restaurar borra lo que hay ahora")
     args = p.parse_args(argv)
 
     db.init_engine(args.db)
@@ -134,9 +147,50 @@ def main(argv=None):
             print(f"borrados {security.forget_old_submissions(session)} números de envío")
             # [00062] Y las novedades de la semana pasada, que ya no avisan de nada.
             print(f"borradas {novedades.olvidar_viejas(session)} novedades")
+    elif args.cmd == "copia":
+        # [01709] La copia no toca la base: la lee. Por eso va antes de `create_all`,
+        # que crearía tablas vacías en una base que todavía no existe y dejaría
+        # una copia de la nada con toda la pinta de estar bien.
+        from thegrill import copia as copias
+        try:
+            paquete = copias.hacer(args.db, args.a, args.fotos)
+        except copias.CopiaError as porque:
+            print(porque)
+            return 1
+        dentro = copias.leer_manifiesto(paquete)
+        tamano = paquete.stat().st_size / (1024 * 1024)
+        print(f"copia hecha: {paquete}  ({tamano:.1f} MB)")
+        print(f"  versión {dentro['version']} · base {dentro['base']} · "
+              f"{dentro['fotos']} fotos")
+        print("  dentro: " + " · ".join(f"{k} {v}" for k, v in dentro["contenido"].items()))
+        borradas = copias.limpiar(args.a, args.guardar)
+        if borradas:
+            print(f"  y se han borrado {len(borradas)} copias viejas")
+    elif args.cmd == "restaurar":
+        from thegrill import copia as copias
+        try:
+            dentro = copias.leer_manifiesto(args.fichero)
+        except copias.CopiaError as porque:
+            print(porque)
+            return 1
+        print(f"copia del {dentro['hecha']} · versión {dentro['version']} · "
+              f"{dentro['fotos']} fotos")
+        print("  dentro: " + " · ".join(f"{k} {v}" for k, v in dentro["contenido"].items()))
+        if not args.si:
+            # [01710] Restaurar borra lo que hay ahora. Se enseña primero qué trae la
+            # copia y se pide volver a escribirlo con `--si`: nadie restaura por
+            # error una base de hace tres semanas encima de la de hoy.
+            print()
+            print("  Esto MACHACA la base de datos y las fotos que haya ahora.")
+            print(f"  Si es lo que quieres, repite la orden con --si")
+            return 1
+        try:
+            copias.restaurar(args.fichero, args.db, args.fotos)
+        except copias.CopiaError as porque:
+            print(porque)
+            return 1
+        print("restaurada en", args.db)
     elif args.cmd == "demo":
-        import os
-
         from thegrill import bench
         from thegrill.models import Restaurant
 

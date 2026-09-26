@@ -15,6 +15,18 @@
   {% endif %}
 </div>
 {% endif %}
+{% if can("team") %}
+{# [01687] La única pantalla que ve una casa parada. El enlace tiene que estar
+   aquí: en `/descargas` no entra: la manda a esta. Los papeles de la casa son
+   suyos y hay que poder llevárselos justo ahora, que es cuando hacen falta. #}
+<div class="card">
+  <div class="rowflex">
+    <div style="flex:1"><b>{{ t("dl.mine") }}</b>
+      <div class="muted">{{ t("dl.mine_help") }}</div></div>
+    <a class="btn" href="/descargas/mis-datos.xlsx">{{ t("dl.download") }}</a>
+  </div>
+</div>
+{% endif %}
 <form method="post" action="/logout" style="margin:0">
   <button class="ghost">{{ t("nav.logout") }}</button>
 </form>

@@ -36,6 +36,10 @@ services:
       GRILL_SMTP_PASSWORD: ${GRILL_SMTP_PASSWORD:-}
       GRILL_MAIL_FROM: ${GRILL_MAIL_FROM:-}
       GRILL_MAIL_TO: ${GRILL_MAIL_TO:-}
+      # Las dos claves de la pasarela: una comprueba lo que nos manda y la otra
+      # firma lo que le mandamos. La segunda es la que para el cobro al cancelar.
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       # Las fotos de las etiquetas viven en disco, no en la base. Sin este
       # volumen se iban con el contenedor: un `docker compose up --build`
       # —o sea, cada actualización— se llevaba por delante todas las fotos
@@ -46,8 +50,51 @@ services:
       GRILL_UPLOAD_DIR: /app/subidas
     volumes:
       - fotos:/app/subidas
+      # Solo para poder restaurar desde aquí; quien las escribe es `copias`.
+      - copias:/copias
     expose:
       - "8000"
+
+  # [01711] La copia de seguridad, todos los días, sin que nadie se acuerde.
+  #
+  # Va en su propio contenedor y no en una tarea del servidor a propósito: una
+  # tarea de `cron` en la máquina de fuera es una cosa más que hay que acordarse
+  # de poner al montar cada servidor, y la que no se pone no se echa de menos
+  # hasta el día que hace falta. Así la copia viene con el programa.
+  #
+  # Se lleva la base Y las fotos de las etiquetas, que están en el otro volumen
+  # y son la prueba de qué matadero y qué lote traía cada pieza.
+  #
+  # Y el volumen de las copias está montado también en `app`, para poder
+  # restaurar desde el mismo contenedor donde corre el programa:
+  #   docker compose exec app sh -c 'python -m thegrill.cli --db "$GRILL_DB" \
+  #       restaurar /copias/carnes-AAAAMMDD-HHMMSS.tar.gz --fotos /app/subidas --si'
+  copias:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GRILL_DB: postgresql+psycopg://grill:${POSTGRES_PASSWORD}@db:5432/carnes
+      GRILL_UPLOAD_DIR: /app/subidas
+      # Cuántas se guardan. Una diaria y treinta copias es un mes hacia atrás,
+      # que es lo que hace falta para volver de algo que nadie vio el mismo día.
+      GUARDAR: ${COPIAS_GUARDAR:-30}
+    volumes:
+      - fotos:/app/subidas:ro
+      - copias:/copias
+    entrypoint: ["sh", "-c"]
+    # La primera se hace al arrancar y no a las 24 horas: así, si algo está mal
+    # configurado, se ve en el primer minuto y no dentro de un día.
+    command:
+      - |
+        while true; do
+          python -m thegrill.cli --db "$$GRILL_DB" copia \
+            --a /copias --fotos /app/subidas --guardar "$$GUARDAR" || \
+            echo "LA COPIA HA FALLADO $$(date -u +%FT%TZ)"
+          sleep 86400
+        done
 
   proxy:
     image: caddy:2-alpine
@@ -66,5 +113,6 @@ services:
 volumes:
   datos-db:
   fotos:
+  copias:
   caddy-datos:
   caddy-config:

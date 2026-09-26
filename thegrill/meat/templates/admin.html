@@ -213,6 +213,12 @@
         {% if a.restaurant.monthly_fee %}<span class="muted">· {{ "%.2f"|format(a.restaurant.monthly_fee) }}</span>{% endif %}
         {% if a.restaurant.paid_until %}<span class="muted">· {{ t("adm.paid_until") | lower }} {{ a.restaurant.paid_until }}</span>{% endif %}
       </div>
+      {% if a.restaurant.subscription_open %}
+      {# [01695] Cancelada aquí y todavía cobrando allí. Va en rojo y con lo que hay
+         que hacer escrito, porque cada mes que pase es un recibo a alguien que ya
+         se fue y que habrá que devolver. #}
+      <div class="banner bad" style="margin-top:8px">{{ t("adm.charge_open") }}</div>
+      {% endif %}
       {% if a.restaurant.billing_note %}<div class="muted">{{ a.restaurant.billing_note }}</div>{% endif %}
     </div>
   </div>

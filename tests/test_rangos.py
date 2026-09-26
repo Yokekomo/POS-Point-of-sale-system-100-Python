@@ -105,7 +105,15 @@ def test_the_manager_sees_it_the_same_day(client):
 
 
 def test_frozen_that_arrives_above_minus_twelve_is_not_frozen(client):
-    """De serie el techo del congelado es −12, que es lo que pide el 853/2004.
+    """De serie el techo del congelado es −12. No sale de ninguna norma, y aun así.
+
+    Se creía que era «lo que pide el 853/2004». No lo es: ese reglamento no
+    trae ninguna cifra para congelar —solo «sin demora injustificada»— y además
+    su artículo 1(5)(a) lo deja fuera del comercio al por menor, o sea fuera de
+    un restaurante. El número lo pone la casa en su plan de autocontrol.
+
+    Lo que sí es cierto pase lo que pase, y es lo que se comprueba aquí: a −2 °C
+    una pieza no está congelada.
 
     El techo es lo que importa: por encima de ahí la carne no está congelada.
     El suelo no es una norma —más frío nunca es un peligro— y está mucho más

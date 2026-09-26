@@ -27,8 +27,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from thegrill import config, db, version
-from thegrill.meat import (billing, bugs, gateway, mailer, novedades, perms, privacy,
-                           security, tarifa, tours, tutorial)
+from thegrill.meat import (billing, bugs, exportar, gateway, mailer, novedades, perms,
+                           privacy, security, tarifa, tours, tutorial)
 from thegrill.meat import service as meat
 from thegrill.meat import sheets_meat
 from thegrill.models import (AccessRequest, Alert, Billing, ConsumptionMode, CountPeriod,
@@ -154,6 +154,31 @@ def require_manager_user(request: Request, session: Session = Depends(get_db)):
     if user.role != Role.MANAGER:
         raise HTTPException(status_code=403,
                             detail=i18n.t(lang_for(request, session, user), "error.managers_only"))
+    return user, auth_session
+
+
+def require_manager_even_blocked(request: Request, session: Session = Depends(get_db)):
+    """[01684] Quien lleva la casa, aunque la casa esté bloqueada o dada de baja.
+
+    Es la única puerta del programa que se abre con la cuenta cerrada, y tiene
+    que serlo. `require_user` manda a `/cuenta` a la casa bloqueada, que es lo
+    correcto para todo lo demás —una cuenta sin pagar no trabaja—, pero aplicado
+    a los datos significa que el cliente pierde el mismo día sus recepciones,
+    sus despieces y sus inventarios: los papeles que le piden en una inspección
+    y que la ley le obliga a él a poder enseñar. Retenerlos no es una palanca de
+    cobro, es quedarse con algo que no es nuestro.
+
+    Sigue haciendo falta ser el manager de esa casa y haber entrado: no se abre
+    la mano en quién, solo en cuándo.
+    """
+    found = current(request, session)
+    if found is None:
+        raise HTTPException(status_code=303, headers={"Location": "/login"})
+    user, auth_session = found
+    if user.role != Role.MANAGER:
+        raise HTTPException(
+            status_code=403,
+            detail=i18n.t(lang_for(request, session, user), "error.managers_only"))
     return user, auth_session
 
 
@@ -3233,6 +3258,27 @@ def label_sheet(request: Request, ctx=Depends(require_user),
     user, auth_session = ctx
     return page(request, "labels.html", user, auth_session, session,
                 recortar=bool(recortar))
+
+
+@app.get("/descargas/mis-datos.xlsx")
+def download_my_data(request: Request, ctx=Depends(require_manager_even_blocked),
+                     session: Session = Depends(get_db)):
+    """[01685] Todo lo que ha escrito la casa, en un libro de Excel.
+
+    Va deliberadamente por delante de `/descargas/{code}.xlsx`, que atrapa
+    cualquier nombre: registrada después, esta pantalla no existiría.
+
+    Y va con `require_manager_even_blocked` y no con la puerta de siempre por lo
+    que explica esa función: es lo que el cliente se lleva, y tiene que poder
+    llevárselo justamente el día en que ya no es cliente.
+    """
+    user, _ = ctx
+    restaurant = session.get(Restaurant, user.restaurant_id)
+    lang = lang_for(request, session, user)
+    payload = exportar.libro(session, user.restaurant_id, lang)
+    nombre = exportar.nombre_fichero(restaurant.name if restaurant else "", date.today())
+    return Response(payload, media_type=XLSX_MEDIA, headers={
+        "Content-Disposition": f'attachment; filename="{nombre}"'})
 
 
 @app.get("/descargas/{code}.xlsx")

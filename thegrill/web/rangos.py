@@ -17,11 +17,18 @@ que **guardarlo**, porque es la prueba de que ese camión vino caliente, y hay
 que avisar al responsable el mismo día. Rechazarlo sería borrar la única
 anotación que importa.
 
-Las bandas de llegada las pone la casa. Las que trae de serie cumplen el
-Reglamento (CE) 853/2004 y en refrigerado van por debajo —5 °C frente a los
-7 °C de la norma—, que es como tiene que ser: la norma es el suelo y no el
-objetivo. Los límites de lo imposible no vienen de ninguna ley: vienen de lo
-que cabe en una cámara y de lo que marca un termómetro de sonda.
+Las bandas de llegada las pone la casa, y conviene decir de dónde salen las
+que trae de serie: **no de una ley**. El Reglamento (CE) 852/2004, que es el que
+le aplica a un restaurante, no contiene ni una sola cifra de temperatura; las
+del 853/2004 —3 °C para despojos, 7 °C para el resto— obligan al matadero, y su
+artículo 1(5)(a) dice expresamente que ese reglamento no se aplica al comercio
+al por menor. Quien fija el número es el plan de autocontrol de la casa, con su
+guía sectorial y su norma nacional delante.
+
+Así que 5 °C y −12 °C son lo que son: defectos prudentes, más estrictos que
+cualquier cifra que se encuentre por ahí, y puestos para que la casa los apriete
+o los afloje en su configuración. Los límites de lo imposible tampoco vienen de
+ninguna ley: vienen de lo que cabe en una cámara y de lo que marca una sonda.
 """
 from __future__ import annotations
 
@@ -50,13 +57,16 @@ PIEZA_PESADA = 80.0              # más que esto ya no lo sube una persona
 # esto se apunta igual —es la prueba de que ese camión vino como vino— y sale
 # en los avisos del manager el mismo día.
 #
-# Refrigerado a 5 °C es **más estricto** que el 7 °C que exige el Reglamento
-# (CE) 853/2004, y eso es como debe ser: la norma es el mínimo, no el objetivo.
+# Refrigerado a 5 °C: por debajo de cualquier cifra que se encuentre escrita
+# —el 7 °C del 853/2004 obliga al matadero, no a la casa— y cómodo de cumplir
+# con una cámara que funcione.
 #
-# Y congelado hasta −12 °C, que es lo que pide el 853/2004 para la carne
-# congelada. El número importa por lo que significa: a cero grados una pieza
-# no está congelada, está descongelándose, y aceptarla sin avisar es firmar
-# que llegó bien.
+# Y congelado hasta −12 °C. Ese número **no sale de ninguna norma**: ni el
+# 852/2004 ni el 853/2004 dan una cifra para congelar, y Australia lo dice con
+# todas las letras —«frozen hard», y el número lo pacta la casa con su
+# proveedor—. Está aquí por lo que significa: a cero grados una pieza no está
+# congelada, está descongelándose, y aceptarla sin avisar es firmar que llegó
+# bien.
 # El suelo del congelado no es una norma: es un detector de sondas rotas. En
 # congelado, más frío nunca es un peligro —lo que estropea la carne es que
 # suba, no que baje—, y un contenedor va a −18 o −22 °C de serie. Con el suelo

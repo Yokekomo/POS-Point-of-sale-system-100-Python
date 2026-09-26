@@ -35,6 +35,10 @@ from thegrill.web.i18n import t
 
 TOLERANCE_SECONDS = 300      # un evento con más de cinco minutos no se acepta
 PROVIDER = "stripe"
+API = "https://api.stripe.com/v1"
+PLAZO_SEGUNDOS = 10          # lo que se espera a la pasarela antes de darla por muda
+# Los estados en los que una suscripción ya no cobra nada.
+MUERTAS = ("canceled", "incomplete_expired")
 
 
 class GatewayError(ValueError):
@@ -66,6 +70,82 @@ def secret() -> str | None:
     se bloquea a nadie por lo que diga un mensaje que puede mandar cualquiera.
     """
     return os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip() or None
+
+
+def api_key() -> str | None:
+    """[01689] La clave con la que se le habla a la pasarela, si está puesta.
+
+    Es distinta de la de arriba: aquella comprueba lo que la pasarela nos manda
+    y esta firma lo que le mandamos nosotros. Sin ella no se puede parar una
+    suscripción, y eso hay que decirlo en vez de dar por hecho que se paró.
+    """
+    return os.environ.get("STRIPE_SECRET_KEY", "").strip() or None
+
+
+def _pide(method: str, path: str, params: dict | None = None) -> dict:
+    """[01690] Una llamada a la pasarela. La única salida a internet del programa.
+
+    A propósito con `urllib` y sin librería de la pasarela: lo que se le pide
+    son dos direcciones, y una dependencia más en la imagen por eso no se paga.
+    Con plazo, porque una pasarela que no contesta no puede dejar colgada la
+    pantalla de una persona que está cancelando su cuenta.
+    """
+    import urllib.parse
+    import urllib.request
+
+    url = f"{API}{path}"
+    cuerpo = None
+    if params and method == "GET":
+        url = f"{url}?{urllib.parse.urlencode(params)}"
+    elif params:
+        cuerpo = urllib.parse.urlencode(params).encode()
+    peticion = urllib.request.Request(
+        url, data=cuerpo, method=method,
+        headers={"Authorization": f"Bearer {api_key()}",
+                 "Content-Type": "application/x-www-form-urlencoded"})
+    with urllib.request.urlopen(peticion, timeout=PLAZO_SEGUNDOS) as respuesta:
+        return json.loads(respuesta.read().decode() or "{}")
+
+
+def stop_subscription(restaurant: Restaurant) -> tuple[bool, str]:
+    """[01691] Para el cobro en la pasarela. Dice si quedó parado y qué pasó.
+
+    **Nunca levanta una excepción.** Quien llama a esto es una persona que está
+    cancelando su cuenta, y su cancelación no puede depender de que la pasarela
+    conteste: se cancela igual, y si el cobro no se pudo parar queda marcado
+    para que lo pare el dueño a mano. Al revés —cancelar aquí solo si allí
+    responde— dejaría a una casa sin poder irse porque un servidor de otro está
+    caído.
+
+    La referencia que guardamos puede ser la del cliente o la de la suscripción,
+    porque `_find` acepta las dos. Se distinguen por el prefijo, que es de la
+    propia pasarela: `sub_` una suscripción, cualquier otra cosa un cliente, y
+    entonces hay que preguntar cuáles tiene vivas.
+    """
+    referencia = (restaurant.payment_ref or "").strip()
+    if not referencia:
+        return True, "sin suscripción que parar"
+    if not api_key():
+        return False, "falta STRIPE_SECRET_KEY: hay que parar el cobro a mano"
+    try:
+        if referencia.startswith("sub_"):
+            suscripciones = [referencia]
+        else:
+            listado = _pide("GET", "/subscriptions",
+                            {"customer": referencia, "status": "all", "limit": 100})
+            suscripciones = [s["id"] for s in (listado.get("data") or [])
+                             if s.get("status") not in MUERTAS and s.get("id")]
+        if not suscripciones:
+            return True, "no quedaba ninguna suscripción viva"
+        paradas = []
+        for uno in suscripciones:
+            estado = _pide("DELETE", f"/subscriptions/{uno}").get("status")
+            if estado not in MUERTAS:
+                return False, f"{uno} sigue en «{estado}»"
+            paradas.append(uno)
+        return True, "parada: " + ", ".join(paradas)
+    except Exception as porque:                      # noqa: BLE001 — cualquier fallo
+        return False, f"la pasarela no confirmó la baja: {porque}"
 
 
 # ------------------------------------------------------------------- firma
@@ -177,7 +257,25 @@ def _int(value) -> int:
 
 # ------------------------------------------------------- qué hace cada uno
 def _paid(session: Session, restaurant: Restaurant, data: dict, result: Applied) -> None:
-    """[00466] Recibo cobrado: la cuenta queda al día hasta el final del periodo."""
+    """[00466] Recibo cobrado: la cuenta queda al día hasta el final del periodo.
+
+    Salvo que la casa se haya dado de baja. Un recibo puede llegar después de
+    la cancelación —el último prorrateo, un reintento de uno viejo, un aviso
+    que se quedó en la cola— y hasta hoy cualquiera de ellos volvía a poner la
+    cuenta en activo: la casa se encontraba dentro otra vez, sin haberlo
+    pedido, y volviendo a pagar. Una baja la deshace una persona, no un aviso.
+
+    Y no se calla: que se cobre a una casa cancelada es dinero que casi seguro
+    hay que devolver, así que se queda escrito y con aviso para el dueño.
+    """
+    if restaurant.billing == Billing.CANCELLED:
+        result.ignored = "casa cancelada: un recibo no la reactiva"
+        billing.audit(session, _platform(session), restaurant.id, restaurant.slug,
+                      "PAID_AFTER_CANCEL",
+                      f"{PROVIDER}: cobro sobre una casa cancelada, "
+                      f"{data.get('number') or data.get('id') or ''}".strip())
+        restaurant.subscription_open = True
+        return
     hasta = _period_end(data)
     billing.mark_paid(session, _platform(session), restaurant, until=hasta,
                       note=f"{PROVIDER}: {data.get('number') or data.get('id') or ''}".strip())

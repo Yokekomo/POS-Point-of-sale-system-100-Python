@@ -113,8 +113,41 @@ y guardarlo.
 
 ### Lo que hay que dejar montado antes de abrir
 
-- **Copias de seguridad diarias de la base de datos, y una restauración
-  probada.** Una copia que nunca se ha restaurado no es una copia.
+- **Copias de seguridad diarias.** Ya vienen montadas: el servicio `copias` de
+  `docker-compose.yml` hace una al arrancar y otra cada veinticuatro horas, y
+  guarda las treinta últimas (`COPIAS_GUARDAR` en el `.env` lo cambia). Cada
+  copia se lleva la base **y las fotos de las etiquetas**, que están en otro
+  volumen y son la prueba de qué matadero y qué lote traía cada pieza.
+
+  Ver qué copias hay y de cuándo son:
+  ```
+  docker compose exec app ls -lh /copias
+  ```
+  A mano, sin esperar a mañana:
+  ```
+  docker compose exec app sh -c 'python -m thegrill.cli --db "$GRILL_DB" \
+      copia --a /copias --fotos /app/subidas'
+  ```
+  **Y volver de una, que es lo que de verdad hay que haber probado.** Sin `--si`
+  no toca nada: enseña de cuándo es la copia y cuántas casas y cuántas piezas
+  trae, y se para. Con `--si` machaca la base y las fotos que haya ahora:
+  ```
+  docker compose exec app sh -c 'python -m thegrill.cli --db "$GRILL_DB" \
+      restaurar /copias/carnes-AAAAMMDD-HHMMSS.tar.gz --fotos /app/subidas'
+  docker compose restart app     # después de restaurar con --si
+  ```
+  **Prueba la vuelta antes de abrir al público, y repítela cada pocos meses.**
+  Una copia que nunca se ha restaurado no es una copia: es un fichero que ocupa
+  sitio y tranquiliza. Lo que sí está probado en cada despliegue es el código
+  que las hace y las restaura (`tests/test_copia.py` borra una casa entera,
+  vuelve de la copia y comprueba que la carne, los nombres y las fotos están);
+  lo que solo puedes probar tú es tu servidor.
+
+  **Y sácalas de esa máquina.** El volumen `copias` vive en el mismo disco que
+  la base: sirve para volver de un borrado o de una actualización que salió
+  mal, y **no sirve para nada si lo que se pierde es la máquina**. Copia esa
+  carpeta a otro sitio —otro proveedor, un disco de casa— con lo que tengas a
+  mano (`rsync`, `rclone`, `restic`).
 - **La clave `GRILL_DATA_KEY` guardada aparte.** Si se pierde, los datos de
   contacto cifrados no se recuperan.
 - **Purga de solicitudes en un cron**, para no guardar datos personales de más:
