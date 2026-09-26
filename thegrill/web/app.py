@@ -13,7 +13,7 @@ import random
 import zoneinfo
 from datetime import date, datetime, timedelta
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import Depends, FastAPI, Form, HTTPException, Path, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.responses import (HTMLResponse, JSONResponse, PlainTextResponse,
@@ -526,7 +526,7 @@ def manager_alerts(request: Request, ctx=Depends(require_manager_user),
 
 
 @app.post("/manager/alertas/{alert_id}/cerrar")
-def close_alert(alert_id: int, request: Request, resolution: str = Form(...), csrf: str = Form(""),
+def close_alert(alert_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, resolution: str = Form(...), csrf: str = Form(""),
                 ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     """[00930] Cierra un aviso diciendo cómo se resolvió."""
     user, auth_session = ctx
@@ -589,7 +589,7 @@ def create_template(request: Request, name: str = Form(...), category: str = For
 
 
 @app.post("/manager/plantillas/{tpl_id}/activar")
-def toggle_template(tpl_id: int, request: Request, csrf: str = Form(""),
+def toggle_template(tpl_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, csrf: str = Form(""),
                     ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     """[00933] Pone o quita una hoja del día a día."""
     user, auth_session = ctx
@@ -617,7 +617,7 @@ def manager_team(request: Request, ctx=Depends(require_manager_user),
 
 
 @app.post("/manager/equipo/{user_id}/rol")
-def change_role(user_id: int, request: Request, role: str = Form(...), csrf: str = Form(""),
+def change_role(user_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, role: str = Form(...), csrf: str = Form(""),
                 ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     """[00935] Cambia el nivel de una persona."""
     user, auth_session = ctx
@@ -636,7 +636,7 @@ def change_role(user_id: int, request: Request, role: str = Form(...), csrf: str
 
 
 @app.post("/manager/equipo/{user_id}/activar")
-def toggle_user(user_id: int, request: Request, csrf: str = Form(""),
+def toggle_user(user_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, csrf: str = Form(""),
                 ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     """[00936] Da de alta o de baja a una persona."""
     user, auth_session = ctx
@@ -698,7 +698,7 @@ def create_ingredient(request: Request, name: str = Form(...), unit: str = Form(
 
 
 @app.get("/ingredientes/{ingredient_id}", response_class=HTMLResponse)
-def ingredient_detail(ingredient_id: int, request: Request, ctx=Depends(require_user),
+def ingredient_detail(ingredient_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, ctx=Depends(require_user),
                       session: Session = Depends(get_db)):
     """[00940] La ficha de un ingrediente: sus artículos, lo que queda y a cómo sale."""
     user, auth_session = ctx
@@ -711,7 +711,7 @@ def ingredient_detail(ingredient_id: int, request: Request, ctx=Depends(require_
 
 
 @app.post("/ingredientes/{ingredient_id}/gramos")
-def set_grams_per_unit(ingredient_id: int, request: Request,
+def set_grams_per_unit(ingredient_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request,
                        grams_per_unit: str = Form(""), csrf: str = Form(""),
                        ctx=Depends(require_manager_user),
                        session: Session = Depends(get_db)):
@@ -740,7 +740,7 @@ def set_grams_per_unit(ingredient_id: int, request: Request,
 
 
 @app.post("/ingredientes/{ingredient_id}/articulo")
-def add_item(ingredient_id: int, request: Request, name: str = Form(...), brand: str = Form(""),
+def add_item(ingredient_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, name: str = Form(...), brand: str = Form(""),
              supplier: str = Form(""), csrf: str = Form(""), ctx=Depends(require_manager_user),
              session: Session = Depends(get_db)):
     """[00942] Da de alta un artículo de compra de ese ingrediente.
@@ -759,7 +759,7 @@ def add_item(ingredient_id: int, request: Request, name: str = Form(...), brand:
 
 
 @app.post("/ingredientes/{ingredient_id}/entrada")
-def add_lot(ingredient_id: int, request: Request, item_id: int = Form(...),
+def add_lot(ingredient_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, item_id: int = Form(..., ge=1, le=exacto.TOPE_ID),
             qty_g: str = Form(""), qty: str = Form(""),
             unit_cost: str = Form(...), expiry: str = Form(...),
             lot_code: str = Form(""), csrf: str = Form(""), ctx=Depends(require_user),
@@ -906,7 +906,7 @@ def recover_piece(request: Request, serial: str = Form(...), g: str = Form(""),
 
 
 @app.post("/inventario/alta")
-def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(...),
+def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(..., ge=1, le=exacto.TOPE_ID),
                 g: str = Form(""), kg: str = Form(""),
                 unit_cost: str = Form(...), expiry: str = Form(...),
                 note: str = Form(""), csrf: str = Form(""),
@@ -1118,7 +1118,7 @@ def add_recipe_line(code: str, request: Request, component: str = Form(...),
 
 
 @app.post("/recetas/{code}/linea/{line_id}/borrar")
-def delete_recipe_line(code: str, line_id: int, request: Request, csrf: str = Form(""),
+def delete_recipe_line(code: str, line_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, csrf: str = Form(""),
                        ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     """[00961] Quita una línea de una receta."""
     user, auth_session = ctx
@@ -1146,7 +1146,7 @@ def sales_page(request: Request, ctx=Depends(require_user),
 
 
 @app.post("/ventas/mapeo")
-def map_pos_product(request: Request, pos_name: str = Form(...), recipe_id: int = Form(...),
+def map_pos_product(request: Request, pos_name: str = Form(...), recipe_id: int = Form(..., ge=1, le=exacto.TOPE_ID),
                     pos_code: str = Form(""), csrf: str = Form(""),
                     ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     """[00963] Empareja un artículo de la caja con una receta.
@@ -1351,7 +1351,7 @@ def change_my_password(request: Request, current: str = Form(...), new: str = Fo
 
 
 @app.post("/manager/equipo/{user_id}/contrasena")
-def reset_team_password(user_id: int, request: Request, password: str = Form(...),
+def reset_team_password(user_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, password: str = Form(...),
                         csrf: str = Form(""), ctx=Depends(require_manager_user),
                         session: Session = Depends(get_db)):
     """[00972] El manager le pone una nueva a su gente, que es quien la ha olvidado."""
@@ -1403,7 +1403,7 @@ def notifications_feed(request: Request, ctx=Depends(require_user),
 
 
 @app.get("/foto/{attachment_id}")
-def serve_photo(attachment_id: int, request: Request, ctx=Depends(require_user),
+def serve_photo(attachment_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, ctx=Depends(require_user),
                 session: Session = Depends(get_db)):
     """[00975] Una foto solo se sirve a gente del mismo restaurante."""
     user, _ = ctx

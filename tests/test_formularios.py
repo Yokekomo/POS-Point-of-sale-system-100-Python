@@ -340,3 +340,88 @@ def test_a_count_line_that_cannot_be_written_is_said_out_loud(client):
         linea = next((l for l in hoja.lines if l.serial == "8070"), None)
         if linea is not None:
             assert linea.counted_kg is None, "se apuntó un peso que no se entendía"
+
+
+# ------------------------------- el número que no cabe, y el que no es número
+def test_a_sheet_of_paper_in_the_site_box_does_not_take_the_inventory_down(client):
+    """Abrir inventario leía la sede con `int()` a pelo, y fuera del `try`.
+
+    Cualquier cosa que no fuera un número —una fecha pegada en la casilla
+    equivocada, el nombre del obrador escrito a mano— no daba «esa sede no
+    está»: tumbaba la pantalla con un error del servidor, con el inventario a
+    medio abrir. Es la misma enfermedad del «4 C» de la temperatura, en una
+    ruta que no se había barrido.
+    """
+    duro = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH,
+                      raise_server_exceptions=False)
+    duro.cookies = client.cookies
+    token = csrf_from(client.get("/inventario").text)
+    for basura in ("obrador", "2026-13-45", "-4", "1,5", "abc"):
+        r = duro.post("/inventario/abrir",
+                      data={"csrf": token, "site": basura, "period": "MONTHLY"})
+        assert r.status_code < 500, f"«{basura}» tumbó la pantalla: {r.status_code}"
+
+
+def test_an_identifier_that_does_not_fit_in_the_database_is_not_an_identifier(client):
+    """Cuarenta nueves no son un identificador grande: no son un identificador.
+
+    Python no tiene techo para sus enteros, así que el número pasaba entero
+    hasta el conector de la base, y el que avisaba era él: reventando la
+    pantalla al ir a buscar una fila que no puede existir. La respuesta
+    correcta es la misma que para lo que no existe.
+    """
+    duro = TestClient(meatapp.app, follow_redirects=False, headers=SPANISH,
+                      raise_server_exceptions=False)
+    duro.cookies = client.cookies
+    token = csrf_from(client.get("/carta").text)
+    enorme = "9" * 40
+    r = duro.post("/carta/nuevo", data={"csrf": token, "name": "Chuleton",
+                                        "cut_id": enorme, "grams": "300"})
+    assert r.status_code < 500, f"por la casilla: {r.status_code}"
+
+    r = duro.post(f"/manager/equipo/{enorme}/activar", data={"csrf": token})
+    assert r.status_code < 500, f"por la dirección: {r.status_code}"
+
+
+def test_no_route_takes_a_raw_identifier():
+    """La guardia: una ruta nueva con `x_id: int` a secas vuelve a abrir el agujero.
+
+    Se arregló en las cuarenta y tantas que había; lo que mantiene esto
+    cerrado es que la número cuarenta y cinco no pueda escribirse sin el tope.
+
+    Se lee el árbol del programa y no el texto: lo que importa es si el
+    parámetro de una **ruta** lleva su límite, y eso no se ve con una
+    expresión regular sin equivocarse con los ayudantes de dentro.
+    """
+    import ast
+    import pathlib
+
+    raiz = pathlib.Path(__file__).resolve().parents[1]
+    sueltos = []
+    for fichero in (raiz / "thegrill/meat/app.py", raiz / "thegrill/web/app.py"):
+        arbol = ast.parse(fichero.read_text())
+        for nodo in ast.walk(arbol):
+            if not isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            es_ruta = any("app." in ast.unparse(d) and "(" in ast.unparse(d)
+                          for d in nodo.decorator_list)
+            if not es_ruta:
+                continue
+            args = nodo.args
+            todos = list(zip(args.args[-len(args.defaults):] if args.defaults else [],
+                             args.defaults))
+            todos += list(zip(args.kwonlyargs, args.kw_defaults))
+            sin_defecto = args.args[:len(args.args) - len(args.defaults)]
+            for arg in sin_defecto:
+                if arg.arg.endswith("_id") and arg.annotation and \
+                        ast.unparse(arg.annotation) == "int":
+                    sueltos.append(f"{fichero.name} {nodo.name}({arg.arg}) sin tope")
+            for arg, defecto in todos:
+                if not arg.arg.endswith("_id") or not arg.annotation:
+                    continue
+                if ast.unparse(arg.annotation) != "int":
+                    continue
+                texto = ast.unparse(defecto) if defecto is not None else ""
+                if "TOPE_ID" not in texto:
+                    sueltos.append(f"{fichero.name} {nodo.name}({arg.arg}) = {texto or 'sin defecto'}")
+    assert not sueltos, "identificadores de ruta sin tope:\n" + "\n".join(sueltos)

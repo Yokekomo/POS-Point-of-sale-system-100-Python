@@ -34,6 +34,13 @@ from math import gcd
 
 CENTIMOS = 100          # un euro
 GRAMOS = 1000           # un kilo
+
+# [01898] Lo más grande que cabe en un entero de la base. Un número mayor no es un
+# identificador grande: no es un identificador, porque no puede haber ninguna
+# fila con ese número. Importa porque el desbordamiento no lo avisa Python
+# —sus enteros no tienen techo— sino el conector, al ir a buscarlo, y lo avisa
+# reventando la pantalla.
+TOPE_ID = 2**63 - 1
 GRAMOS_DECIMALES = 3    # las cifras que da una báscula de cocina
 CENTIMOS_DECIMALES = 2  # las que da el dinero
 
@@ -407,3 +414,26 @@ def enganchar(session_class) -> None:
             _cuadrar(objeto)
         for objeto in session.dirty:
             _cuadrar(objeto)
+
+
+def identificador(raw: object) -> int | None:
+    """[01899] El número de fila que viene de fuera, o nada. No levanta nunca.
+
+    Lo que llega por un formulario o por la dirección es texto, y de ahí sale
+    un identificador solo si es un número entero, positivo y que cabe en la
+    base. Cualquier otra cosa —una fecha en la casilla de la sede, el nombre
+    del obrador, cuarenta nueves— no es un identificador que no existe: es
+    algo que no es un identificador, y la respuesta correcta es la misma que
+    para lo que no existe, no un error del servidor.
+
+    Se devuelve `None` y quien llama decide: casi siempre, «eso no está».
+    """
+    if raw is None or isinstance(raw, bool):
+        return None
+    if isinstance(raw, int):
+        return raw if 1 <= raw <= TOPE_ID else None
+    texto = str(raw).strip()
+    if not texto.isdigit():          # ni signos, ni espacios, ni decimales
+        return None
+    numero = int(texto)
+    return numero if 1 <= numero <= TOPE_ID else None

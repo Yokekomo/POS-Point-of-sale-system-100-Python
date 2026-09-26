@@ -20,7 +20,7 @@ import zoneinfo
 from dataclasses import fields, is_dataclass
 from types import SimpleNamespace
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import Depends, FastAPI, Form, HTTPException, Path, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
@@ -1848,7 +1848,7 @@ def aging_trim(request: Request, ctx=Depends(needs(perms.AGE)),
             if not item or not kg:
                 continue
             partes.append(aging.TrimPart(
-                item_id=int(item), kg=kg,
+                item_id=exacto.identificador(item), kg=kg,
                 value_index=_num(form.get(f"index:{i}"), aging.TRIM_VALUE_INDEX)
                 or aging.TRIM_VALUE_INDEX))
         result = aging.trim(session, user, (form.get("serial") or "").strip(),
@@ -2023,7 +2023,7 @@ def create_site(request: Request, name: str = Form(...), kind: str = Form("OUTLE
 
 
 @app.post("/sedes/{site_id}/estado")
-def toggle_site(site_id: int, request: Request, csrf: str = Form(""),
+def toggle_site(site_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, csrf: str = Form(""),
                 ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
     """[00262] Abre o cierra una sede."""
     user, auth_session = ctx
@@ -2037,7 +2037,7 @@ def toggle_site(site_id: int, request: Request, csrf: str = Form(""),
 
 
 @app.get("/sedes/{site_id}/minimos", response_class=HTMLResponse)
-def site_pars_page(site_id: int, request: Request, ctx=Depends(needs(perms.TEAM)),
+def site_pars_page(site_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, ctx=Depends(needs(perms.TEAM)),
                    session: Session = Depends(get_db), done: str = "", error: str = ""):
     """[00263] Los mínimos de esa sede: lo que la casa dice, y lo que allí es distinto."""
     user, auth_session = ctx
@@ -2054,7 +2054,7 @@ def site_pars_page(site_id: int, request: Request, ctx=Depends(needs(perms.TEAM)
 
 
 @app.post("/sedes/{site_id}/minimos", response_class=HTMLResponse)
-def save_site_pars(site_id: int, request: Request, ctx=Depends(needs(perms.TEAM)),
+def save_site_pars(site_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, ctx=Depends(needs(perms.TEAM)),
                    form: FormData = Depends(el_formulario),
                    session: Session = Depends(get_db)):
     """[00264] Guarda de una vez lo que esa sede quiere tener siempre. Vacío es «lo de la casa»."""
@@ -2078,7 +2078,7 @@ def save_site_pars(site_id: int, request: Request, ctx=Depends(needs(perms.TEAM)
 
 
 @app.post("/manager/equipo/{user_id}/sede")
-def change_site(user_id: int, request: Request, site: str = Form(""), csrf: str = Form(""),
+def change_site(user_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, site: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
     """[00265] A qué sede pertenece esa persona. Sin sede, ve la casa entera.
 
@@ -2095,7 +2095,7 @@ def change_site(user_id: int, request: Request, site: str = Form(""), csrf: str 
     if target.id == user.id or not perms.can_manage(user, target):
         raise HTTPException(status_code=403, detail=i18n.t(lang, "pass.not_yours"))
     try:
-        sites.assign(session, user, target, int(site) if site.strip() else None)
+        sites.assign(session, user, target, exacto.identificador(site))
     except (sites.SiteError, ValueError) as e:
         return RedirectResponse(f"/sedes?error={e}", status_code=303)
     return RedirectResponse("/sedes", status_code=303)
@@ -2136,7 +2136,7 @@ def new_cut(request: Request, name: str = Form(...), min_stock: str = Form(""),
 
 
 @app.post("/cortes/{cut_id}/articulo")
-def new_article(cut_id: int, request: Request, name: str = Form(...),
+def new_article(cut_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, name: str = Form(...),
                 supplier: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(needs(perms.CATALOGUE)), session: Session = Depends(get_db)):
     """[00268] Da de alta un artículo de compra de ese corte."""
@@ -2162,7 +2162,7 @@ def menu_page(request: Request, ctx=Depends(needs(perms.MENU)),
 
 
 @app.post("/carta/nuevo")
-def new_dish(request: Request, name: str = Form(...), cut_id: int = Form(...),
+def new_dish(request: Request, name: str = Form(...), cut_id: int = Form(..., ge=1, le=exacto.TOPE_ID),
              grams: str = Form(...), sale_price: str = Form(""), vat_pct: str = Form("0"),
              pos_code: str = Form(""), pos_name: str = Form(""),
              by_weight: str = Form(""), price_per_kg: str = Form(""), csrf: str = Form(""),
@@ -2213,7 +2213,7 @@ def new_extra(request: Request, name: str = Form(...), unit: str = Form("KG"),
 
 
 @app.post("/ingredientes/{ingredient_id}/coste")
-def update_extra_cost(ingredient_id: int, request: Request, cost: str = Form(...),
+def update_extra_cost(ingredient_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, cost: str = Form(...),
                       portion: str = Form(""), csrf: str = Form(""),
                       ctx=Depends(needs(perms.MENU)),
                       session: Session = Depends(get_db)):
@@ -2254,7 +2254,7 @@ def plate_page(code: str, request: Request, ctx=Depends(needs(perms.MENU)),
 
 
 @app.post("/carta/{code}/linea")
-def add_plate_line(code: str, request: Request, ingredient_id: int = Form(...),
+def add_plate_line(code: str, request: Request, ingredient_id: int = Form(..., ge=1, le=exacto.TOPE_ID),
                    qty: str = Form(...), waste_pct: str = Form("0"), csrf: str = Form(""),
                    ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
     """[00276] Añade un ingrediente al plato, con su cantidad y su merma."""
@@ -2271,7 +2271,7 @@ def add_plate_line(code: str, request: Request, ingredient_id: int = Form(...),
 
 
 @app.post("/carta/{code}/linea/{line_id}/quitar")
-def remove_plate_line(code: str, line_id: int, request: Request, csrf: str = Form(""),
+def remove_plate_line(code: str, line_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, csrf: str = Form(""),
                       ctx=Depends(needs(perms.MENU)), session: Session = Depends(get_db)):
     """[00277] Quita un ingrediente del plato."""
     user, auth_session = ctx
@@ -2406,7 +2406,7 @@ def import_sales(request: Request, ctx=Depends(needs(perms.MENU)),
         result = costing.consume_sales(
             session, user, sales,
             on=(date.fromisoformat(on) if on else _cuando(form, session, user)),
-            lang=lang, site_id=int(sede) if sede else None)
+            lang=lang, site_id=exacto.identificador(sede))
     except ValueError as e:
         return _sales(request, user, auth_session, session, error=_dicho(e, lang_for(request, session, user)))
     summary = i18n.t(lang, "sale.done", n=result.lines, cost=f"{result.cost:.2f}")
@@ -2458,7 +2458,12 @@ def open_inventory(request: Request, period: str = Form("MONTHLY"), site: str = 
     user, auth_session = ctx
     _guard(request, session, user, auth_session, csrf)
     mia = sites.of_user(session, user)
-    elegida = int(site) if site.strip() else None
+    # [01900] La sede se lee como identificador y no con `int()` a pelo. Aquí iba
+    # fuera del `try`, así que cualquier cosa que no fuera un número —una fecha
+    # pegada en la casilla equivocada, el nombre del obrador— no daba «esa sede
+    # no está»: tumbaba la pantalla entera con un error del servidor, con el
+    # inventario a medio abrir.
+    elegida = exacto.identificador(site)
     try:
         inventory.open_count(session, user,
                              CountPeriod[period] if period in CountPeriod.__members__
@@ -2578,7 +2583,7 @@ def recover_piece(request: Request, serial: str = Form(...), g: str = Form(""),
 
 
 @app.post("/inventario/alta")
-def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(...),
+def adopt_piece(request: Request, serial: str = Form(...), item_id: int = Form(..., ge=1, le=exacto.TOPE_ID),
                 g: str = Form(""), kg: str = Form(""),
                 unit_cost: float = Form(...), expiry: str = Form(...),
                 note: str = Form(""), csrf: str = Form(""),
@@ -2636,8 +2641,8 @@ def record_waste(request: Request, g: str = Form(""), kg: str = Form(""),
         result = waste.record(
             session, user, kg=pesos.de_dos(g, kg, 0.0) or 0.0,
             serial=serial.strip() or None,
-            ingredient_id=int(ingredient_id) if ingredient_id.strip() else None,
-            pieces=int(pieces) if pieces.strip() else None,
+            ingredient_id=exacto.identificador(ingredient_id),
+            pieces=int(_num(pieces, 0) or 0) or None,
             reason=reason.strip() or None, on=_cuando(cuando, session, user),
             lang=lang_for(request, session, user))
     except (waste.WasteError, ValueError) as e:
@@ -2834,7 +2839,7 @@ def save_pricing(request: Request, currency: str = Form("EUR"),
 
 
 @app.post("/admin/solicitud/{request_id}/borrar")
-def erase_request(request_id: int, request: Request, csrf: str = Form(""),
+def erase_request(request_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, csrf: str = Form(""),
                   ctx=Depends(require_owner), session: Session = Depends(get_db)):
     """[00298] Derecho de supresión: se borra la solicitud y queda que se borró."""
     user, auth_session = ctx
@@ -2844,7 +2849,7 @@ def erase_request(request_id: int, request: Request, csrf: str = Form(""),
 
 
 @app.get("/admin/solicitud/{request_id}/datos")
-def export_request(request_id: int, request: Request, ctx=Depends(require_owner),
+def export_request(request_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, ctx=Depends(require_owner),
                    session: Session = Depends(get_db)):
     """[00299] Derecho de portabilidad: todo lo que guardamos de esa persona."""
     user, auth_session = ctx
@@ -2866,7 +2871,7 @@ def purge_requests(request: Request, csrf: str = Form(""), ctx=Depends(require_o
 
 
 @app.post("/admin/solicitud/{request_id}/estado")
-def set_request_status(request_id: int, request: Request, status: str = Form(...),
+def set_request_status(request_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, status: str = Form(...),
                        csrf: str = Form(""), ctx=Depends(require_owner),
                        session: Session = Depends(get_db)):
     """[00301] El dueño de la plataforma atiende o rechaza una solicitud de acceso."""
@@ -2912,7 +2917,7 @@ def create_account(request: Request, ctx=Depends(require_owner),
 
 
 @app.post("/admin/casa/{restaurant_id}/pago")
-def set_billing(restaurant_id: int, request: Request, action: str = Form(...),
+def set_billing(restaurant_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, action: str = Form(...),
                 note: str = Form(""), paid_until: str = Form(""), csrf: str = Form(""),
                 ctx=Depends(require_owner), session: Session = Depends(get_db)):
     """[00303] La pestaña del recibo: pagado, fallado o bloqueado."""
@@ -2938,7 +2943,7 @@ def set_billing(restaurant_id: int, request: Request, action: str = Form(...),
 
 
 @app.post("/admin/casa/{restaurant_id}/pasarela")
-def attach_payment(restaurant_id: int, request: Request, provider: str = Form("stripe"),
+def attach_payment(restaurant_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, provider: str = Form("stripe"),
                    reference: str = Form(...), brand: str = Form(""), last4: str = Form(""),
                    expiry: str = Form(""), csrf: str = Form(""),
                    ctx=Depends(require_owner), session: Session = Depends(get_db)):
@@ -2958,7 +2963,7 @@ def attach_payment(restaurant_id: int, request: Request, provider: str = Form("s
 
 
 @app.post("/admin/casa/{restaurant_id}/cancelar")
-def cancel_account(restaurant_id: int, request: Request, reason: str = Form(""),
+def cancel_account(restaurant_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, reason: str = Form(""),
                    csrf: str = Form(""), ctx=Depends(require_owner),
                    session: Session = Depends(get_db)):
     """[00305] El dueño de la plataforma cancela una casa, diciendo por qué."""
@@ -2996,7 +3001,7 @@ def alerts_page(request: Request, ctx=Depends(require_manager_user),
 
 
 @app.post("/manager/alertas/{alert_id}/cerrar")
-def close_alert(alert_id: int, request: Request, resolution: str = Form(...),
+def close_alert(alert_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, resolution: str = Form(...),
                 csrf: str = Form(""), ctx=Depends(require_manager_user),
                 session: Session = Depends(get_db)):
     """[00307] Cierra un aviso diciendo cómo se resolvió.
@@ -3054,7 +3059,7 @@ def create_team_user(request: Request, name: str = Form(...), email: str = Form(
 
 
 @app.post("/manager/equipo/{user_id}/rol")
-def change_role(user_id: int, request: Request, role: str = Form(...), csrf: str = Form(""),
+def change_role(user_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, role: str = Form(...), csrf: str = Form(""),
                 ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     """[00310] Cambia el nivel de una persona.
 
@@ -3080,7 +3085,7 @@ def change_role(user_id: int, request: Request, role: str = Form(...), csrf: str
 
 
 @app.post("/manager/equipo/{user_id}/activar")
-def toggle_user(user_id: int, request: Request, csrf: str = Form(""),
+def toggle_user(user_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, csrf: str = Form(""),
                 ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     """[00311] Da de alta o de baja a una persona. A uno mismo, no."""
     user, auth_session = ctx
@@ -3096,7 +3101,7 @@ def toggle_user(user_id: int, request: Request, csrf: str = Form(""),
 
 
 @app.post("/manager/equipo/{user_id}/olvidar")
-def forget_user(user_id: int, request: Request, csrf: str = Form(""),
+def forget_user(user_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, csrf: str = Form(""),
                 ctx=Depends(require_manager_user), session: Session = Depends(get_db)):
     """[01872] Esa persona ya no trabaja aquí: se le borra lo suyo.
 
@@ -3371,7 +3376,7 @@ def disable_second_step(request: Request, password: str = Form(...), csrf: str =
 
 
 @app.post("/manager/equipo/{user_id}/2fa")
-def clear_team_second_step(user_id: int, request: Request, csrf: str = Form(""),
+def clear_team_second_step(user_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, csrf: str = Form(""),
                            ctx=Depends(needs(perms.TEAM)), session: Session = Depends(get_db)):
     """[00321] Quien pierde el teléfono no puede quedarse fuera para siempre."""
     user, auth_session = ctx
@@ -3394,7 +3399,7 @@ def clear_team_second_step(user_id: int, request: Request, csrf: str = Form(""),
 
 
 @app.post("/manager/equipo/{user_id}/contrasena")
-def reset_team_password(user_id: int, request: Request, password: str = Form(...),
+def reset_team_password(user_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, password: str = Form(...),
                         csrf: str = Form(""), ctx=Depends(needs(perms.TEAM)),
                         session: Session = Depends(get_db)):
     """[00322] El manager le pone una nueva a su gente, que es quien la ha olvidado."""
@@ -3467,7 +3472,7 @@ def bugs_page(request: Request, ctx=Depends(needs(perms.PLATFORM)),
 
 
 @app.post("/admin/fallos/{report_id}/estado")
-def set_bug_status(report_id: int, request: Request, estado: str = Form(...),
+def set_bug_status(report_id: int = Path(ge=1, le=exacto.TOPE_ID), *, request: Request, estado: str = Form(...),
                    note: str = Form(""), csrf: str = Form(""),
                    ctx=Depends(needs(perms.PLATFORM)), session: Session = Depends(get_db)):
     """[00326] El dueño de la plataforma marca en qué anda un parte de fallo."""
