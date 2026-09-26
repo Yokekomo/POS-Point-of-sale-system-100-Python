@@ -279,12 +279,13 @@ def _un_aviso_sin_leer() -> None:
     en verde y no ha mirado justo lo que se rompió. Es el mismo fallo, un piso
     más abajo.
     """
-    from thegrill.models import AlertSeverity, Notification, User
+    from thegrill.models import (AlertSeverity, Notification, NotificationKind,
+                             User)
 
     with db.session_scope() as session:
         ana = session.query(User).filter_by(email="ana0@banco.com").one()
         session.add(Notification(restaurant_id=ana.restaurant_id, user_id=ana.id,
-                                 kind="prueba", severity=AlertSeverity.CRITICAL,
+                                 kind=NotificationKind.ALERT, severity=AlertSeverity.CRITICAL,
                                  title="aviso de prueba", body="para que salga la chapa"))
 
 

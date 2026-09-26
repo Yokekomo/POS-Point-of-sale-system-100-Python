@@ -68,16 +68,32 @@ def _texto(html: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", limpio)).strip()
 
 
-@meatapp.app.get("/reventar-a-proposito")
-def _reventar():
-    """Una ruta que revienta. Es la única forma de probar esto de verdad."""
-    raise RuntimeError("esto es la prueba, no un fallo")
+ROTA = "/reventar-a-proposito"
+
+
+@pytest.fixture(autouse=True)
+def ruta_que_revienta():
+    """Una ruta que revienta, puesta solo mientras dura esta prueba.
+
+    Es la única forma de provocar un fallo no previsto de verdad. Y se quita al
+    terminar, que es la parte que hay que hacer bien: registrada al importar el
+    módulo se quedaba pegada a la aplicación durante toda la suite, y
+    `tests/test_bench.py`, que abre todas las pantallas del programa una por
+    una, se la encontraba y daba ocho fallos que no tenían nada que ver.
+    """
+    @meatapp.app.get(ROTA)
+    def _reventar():
+        raise RuntimeError("esto es la prueba, no un fallo")
+
+    yield
+    meatapp.app.router.routes[:] = [r for r in meatapp.app.router.routes
+                                    if getattr(r, "path", None) != ROTA]
 
 
 # ------------------------------------------------------ el fallo no previsto
 @pytest.mark.parametrize("lang", ["es", "hu", "ar"])
 def test_an_unexpected_failure_is_a_page_and_not_twenty_one_bytes(casa, lang):
-    r = cliente(lang).get("/reventar-a-proposito")
+    r = cliente(lang).get(ROTA)
 
     assert r.status_code == 500
     assert r.headers["content-type"].startswith("text/html"), "salió el suelo del framework"
@@ -91,7 +107,7 @@ def test_the_number_on_screen_is_the_number_in_the_log(casa, caplog):
     """De nada sirve el número si no se puede buscar."""
     logging.disable(logging.NOTSET)
     with caplog.at_level(logging.ERROR):
-        r = cliente().get("/reventar-a-proposito")
+        r = cliente().get(ROTA)
     numero = re.search(r"#(\d{4})", _texto(r.text)).group(1)
     assert any(f"FALLO {numero}" in linea.getMessage() for linea in caplog.records), \
         f"el {numero} no aparece en el registro: no hay por dónde empezar a mirar"
@@ -99,7 +115,7 @@ def test_the_number_on_screen_is_the_number_in_the_log(casa, caplog):
 
 def test_the_page_speaks_the_language_of_whoever_is_in_front(casa):
     """Un fallo en húngaro no se cuenta en inglés."""
-    assert "hiba" in _texto(cliente("hu").get("/reventar-a-proposito").text)
+    assert "hiba" in _texto(cliente("hu").get(ROTA).text)
 
 
 # ------------------------------------------------------- la casilla que falta

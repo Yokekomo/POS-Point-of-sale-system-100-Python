@@ -117,6 +117,7 @@ def _levanta_casa(edicion: str = "carne"):
     with db.session_scope() as session:
         bench.build(session, days=6, seed=5, until=HOY)
     _tutorial_visto()
+    _un_aviso_sin_leer()
 
     puerto = _puerto_libre()
     servidor = uvicorn.Server(uvicorn.Config(programa.app, host="127.0.0.1",
@@ -129,6 +130,30 @@ def _levanta_casa(edicion: str = "carne"):
     else:
         raise RuntimeError("el servidor de pruebas no llegó a arrancar")
     return f"http://127.0.0.1:{puerto}", servidor
+
+
+def _un_aviso_sin_leer() -> None:
+    """[01745] Un aviso sin leer para cada persona, antes de empezar a medir.
+
+    Esto no es adorno. La chapa roja del contador de avisos va `hidden` cuando
+    no hay nada sin leer, y **lo que está oculto no se mide**: la casa del banco
+    no deja ninguno sin leer, así que este repaso pasaba por encima de la chapa
+    sin verla nunca. Y ahí era justamente donde el contraste del tema oscuro
+    estaba por debajo de la norma.
+
+    Es la misma lección que la del tema: un repaso que no puede ver lo que falla
+    da verde por no mirar, y eso es peor que no tenerlo.
+    """
+    from thegrill import db
+    from thegrill.models import (AlertSeverity, Notification, NotificationKind,
+                             User)
+
+    with db.session_scope() as session:
+        for persona in session.query(User).all():
+            session.add(Notification(
+                restaurant_id=persona.restaurant_id, user_id=persona.id,
+                kind=NotificationKind.ALERT, severity=AlertSeverity.CRITICAL,
+                title="aviso de repaso", body="para que salga la chapa del contador"))
 
 
 def _tutorial_visto() -> None:
@@ -308,7 +333,14 @@ def recorre(nav, base: str, idiomas, anchos, pantallas, oficios, exámenes,
                                      else "más pequeño de lo que pide un dedo")
                             apunta(clave, f"{dónde} · {m['que'][:30]} "
                                           f"«{m['texto']}» {m['ancho']}x{m['alto']}")
-                    if "contraste" in exámenes:
+                    # [01744] El contraste **una sola vez por tema**, no por cada idioma,
+                    # ancho y oficio. No depende de ninguna de esas tres cosas: los
+                    # colores los pone el tema y nada más. Medirlo en el bucle de
+                    # dentro multiplicaba el trabajo por sesenta y tres y hacía que
+                    # el repaso no terminara nunca —`portada.py` ya lo tenía bien
+                    # separado desde el principio; aquí se había colado dentro—.
+                    if ("contraste" in exámenes and idioma == idiomas[0]
+                            and ancho == anchos[0] and oficio == oficios[0]):
                         for m in pg.evaluate(CONTRASTE):
                             apunta("contraste por debajo de la norma",
                                    f"{dónde} · {m['que'][:28]} «{m['texto'][:20]}» "
