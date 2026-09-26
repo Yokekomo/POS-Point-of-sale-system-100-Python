@@ -72,3 +72,32 @@ def test_what_is_written_down_is_what_is_taken_out():
         queda = sum(l.kg for l in salida.remaining)
         peor = max(peor, abs((hay - pedido) - queda))
     assert peor < 1e-6, f"el papel y el almacén se separan {peor:.10g} kg"
+
+
+# --------------------------------------------- empate exacto entre dos cajas
+def test_a_tie_goes_to_the_lot_that_was_entered_first():
+    """Doce cajas del mismo palé: misma caducidad, misma entrada.
+
+    El número del lote viaja como texto, y en texto el 10 va antes que el 9.
+    La cola salía «1, 10, 11, 12, 2…» y se abría antes la caja que llegó
+    después. La cuenta cuadra igual; lo que no cuadra es qué número acaba en
+    el plato cuando alguien pregunta de dónde salió.
+    """
+    iguales = [Lot("beef", str(n), date(2026, 9, 20), 1.0, 7.0, received=date(2026, 9, 1))
+               for n in range(1, 13)]
+    from thegrill.engine.fefo import order_fefo, order_fifo
+    esperado = [str(n) for n in range(1, 13)]
+    assert [l.lot_id for l in order_fefo(iguales)] == esperado
+    assert [l.lot_id for l in order_fifo(iguales)] == esperado
+    # y quien consume saca de la primera caja, no de la décima
+    assert consume(iguales, "beef", 1.0).consumptions[0].lot_id == "1"
+
+
+def test_lots_with_letters_still_sort_without_blowing_up():
+    """No todos los números de lote son números: el orden sigue siendo firme."""
+    from thegrill.engine.fefo import order_fefo
+    mezcla = [Lot("beef", x, date(2026, 9, 20), 1.0, 7.0, received=date(2026, 9, 1))
+              for x in ("B-2", "10", "A-1", "9")]
+    salida = [l.lot_id for l in order_fefo(mezcla)]
+    assert salida == ["9", "10", "A-1", "B-2"]       # los números antes, y en orden
+    assert order_fefo(list(reversed(mezcla))) == order_fefo(mezcla)   # no depende de cómo entren

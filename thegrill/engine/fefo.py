@@ -58,14 +58,27 @@ class FefoResult:
         return round(sum(c.kg for c in self.consumptions), 6)
 
 
+def _antiguedad(lot_id: str) -> tuple[int, int, str]:
+    """[01884] El desempate final: el número que se dio de alta antes.
+
+    `lot_id` viaja como texto, y ordenar números escritos como texto los pone
+    en orden de diccionario: el 10 antes que el 9. Con dos lotes de la misma
+    caducidad y la misma entrada —el caso corriente de dos cajas del mismo
+    palé— la cola salía «1, 10, 11, 12, 2, 3…» y se servía antes la caja que
+    llegó después. No cambia la cuenta, pero sí qué caja se abre y qué número
+    acaba en el plato, que es justo lo que hay que poder contar luego.
+    """
+    return (0, int(lot_id), "") if lot_id.lstrip("-").isdigit() else (1, 0, lot_id)
+
+
 def order_fefo(lots: list[Lot]) -> list[Lot]:
     """[00108] Antes lo que antes caduca; a igual caducidad, lo que antes entró."""
-    return sorted(lots, key=lambda l: (l.expiry, l.received or date.min, l.lot_id))
+    return sorted(lots, key=lambda l: (l.expiry, l.received or date.min, _antiguedad(l.lot_id)))
 
 
 def order_fifo(lots: list[Lot]) -> list[Lot]:
     """[00109] Antes lo que antes entró; a igual entrada, lo que antes caduca."""
-    return sorted(lots, key=lambda l: (l.received or date.min, l.expiry, l.lot_id))
+    return sorted(lots, key=lambda l: (l.received or date.min, l.expiry, _antiguedad(l.lot_id)))
 
 
 def order_by(lots: list[Lot], rotation: str = "FEFO") -> list[Lot]:

@@ -122,6 +122,22 @@ def test_fifo_takes_what_came_in_first(ctx):
     assert [l.id for l in costing.rotation_order(s, rest.id, sal)] == [primero.id, segundo.id]
 
 
+def test_twelve_identical_boxes_leave_in_the_order_they_were_entered(ctx):
+    """Un palé de doce cajas: misma caducidad, misma entrada, mismo artículo.
+
+    La cola ordenaba por el número de lote escrito como texto, así que iba
+    «1, 10, 11, 12, 2…»: se abría antes la caja doce que la dos. El inspector
+    no pregunta cuánto, pregunta cuál.
+    """
+    s, rest, ana, _ = ctx
+    picada = madre(s, rest, "Picada")
+    item = articulo(s, rest, picada, "Caja de 5 kg")
+    altas = [costing.receive(s, ana, item, qty=5, unit_cost=8.0,
+                             expiry=HOY + timedelta(days=6), received=HOY, on=HOY).id
+             for _ in range(12)]
+    assert [l.id for l in costing.rotation_order(s, rest.id, picada)] == altas
+
+
 # ------------------------------------------------------------------ consumo
 def build_burger(s, rest, ana):
     """chunk beef (dos marcas) → Beef for burger → patty → burger → Cheese burger"""
