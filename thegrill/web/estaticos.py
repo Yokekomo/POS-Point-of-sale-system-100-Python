@@ -19,11 +19,12 @@ nombre nuevo y lo viejo no se sirve a nadie más.
 """
 from __future__ import annotations
 
+import gzip
 import hashlib
 import pathlib
 import re
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from fastapi.responses import Response
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent / "estatico"
@@ -43,7 +44,19 @@ UN_RATO = "public, max-age=3600"
 
 NOMBRE = re.compile(r"^(?P<base>[a-z0-9_-]+)\.(?P<huella>[0-9a-f]{12})(?P<ext>\.css|\.js)$")
 
-_guardado: dict[str, tuple[float, str, bytes]] = {}      # nombre → (mtime, huella, bytes)
+# [01886] Comprimido, y **solo aquí**. Un estilo y un guion son iguales para todo el
+# mundo: no llevan el token del formulario ni nada que haya escrito nadie, así
+# que comprimirlos no le enseña nada a quien mira el cable. El HTML sí lleva las
+# dos cosas a la vez —el token y lo que se acaba de teclear—, y comprimir eso es
+# la receta de BREACH: quien puede meter texto en la pantalla mide cuánto
+# encoge la respuesta y va sacando el token letra a letra. Por eso el HTML se
+# sirve tal cual y estos ficheros no.
+#
+# Se comprime una vez, al leerlo, y no en cada petición: son los mismos bytes
+# siempre. Nivel 9 porque se paga una vez y se ahorra en todas.
+NIVEL = 9
+
+_guardado: dict[str, tuple[float, str, bytes, bytes]] = {}   # nombre → (mtime, huella, bytes, apretado)
 
 
 class NoEstá(FileNotFoundError):
@@ -66,8 +79,19 @@ def _leer(nombre: str) -> tuple[str, bytes]:
     tenía = _guardado.get(nombre)
     if tenía is None or tenía[0] != marca:
         datos = camino.read_bytes()
-        _guardado[nombre] = (marca, hashlib.sha256(datos).hexdigest()[:12], datos)
-    return _guardado[nombre][1], _guardado[nombre][2]
+        # mtime=0 para que el fichero comprimido salga igual byte a byte en cada
+        # arranque: si llevara la hora, dos servidores del mismo despliegue
+        # darían dos ETags distintos para el mismo estilo.
+        apretado = gzip.compress(datos, NIVEL, mtime=0)
+        _guardado[nombre] = (marca, hashlib.sha256(datos).hexdigest()[:12], datos, apretado)
+    guardado = _guardado[nombre]
+    return guardado[1], guardado[2]
+
+
+def _apretado(nombre: str) -> bytes:
+    """[01887] Los mismos bytes, comprimidos una sola vez."""
+    _leer(nombre)
+    return _guardado[nombre][3]
 
 
 def url(nombre: str) -> str:
@@ -77,7 +101,30 @@ def url(nombre: str) -> str:
     return f"/estatico/{base}.{huella}{punto}{ext}"
 
 
-def responder(fichero: str) -> Response:
+def quiere_apretado(cabecera: str | None) -> bool:
+    """[01888] Si quien pide sabe descomprimir. Todos saben, pero se pregunta igual."""
+    return "gzip" in (cabecera or "").lower()
+
+
+def ya_lo_tiene(cabecera: str | None, huella: str) -> bool:
+    """[01889] Si el navegador ya tiene esta versión, por su ETag.
+
+    `If-None-Match` puede traer varios y puede traer el débil de delante
+    (`W/"..."`), así que se parte y se compara la huella pelada. Un `*` es
+    «cualquiera que tengas», y lo que hay es esta.
+    """
+    for trozo in (cabecera or "").split(","):
+        trozo = trozo.strip()
+        if trozo == "*":
+            return True
+        if trozo.startswith("W/"):
+            trozo = trozo[2:]
+        if trozo.strip('"') == huella:
+            return True
+    return False
+
+
+def responder(fichero: str, acepta: str | None = None, tiene: str | None = None) -> Response:
     """[01850] Sirve uno de estos ficheros. Nada más: aquí no hay nada de nadie."""
     partes = NOMBRE.match(fichero)
     if partes is None:
@@ -87,9 +134,21 @@ def responder(fichero: str) -> Response:
         huella, datos = _leer(nombre)
     except NoEstá:
         raise HTTPException(status_code=404, detail="") from None
-    return Response(datos, media_type=TIPOS[partes["ext"]], headers={
+    cabeceras = {
         "Cache-Control": PARA_SIEMPRE if partes["huella"] == huella else UN_RATO,
-        "ETag": f'"{huella}"'})
+        "ETag": f'"{huella}"',
+        # [01890] Sin esto, una caché compartida —la del hotel, la del operador— se
+        # queda con la copia comprimida y se la da a quien no la pidió.
+        "Vary": "Accept-Encoding"}
+    # [01891] Ya lo tiene: se le dice que sí y no se le manda nada. Pasa con la huella
+    # vieja, la que solo dura una hora: sin esto, el móvil del carnicero se
+    # rebajaba los cuarenta kilobytes enteros cada hora para recibir lo mismo.
+    if ya_lo_tiene(tiene, huella):
+        return Response(status_code=304, headers=cabeceras)
+    if quiere_apretado(acepta):
+        cabeceras["Content-Encoding"] = "gzip"
+        return Response(_apretado(nombre), media_type=TIPOS[partes["ext"]], headers=cabeceras)
+    return Response(datos, media_type=TIPOS[partes["ext"]], headers=cabeceras)
 
 
 def enganchar(app, plantillas) -> None:
@@ -103,6 +162,7 @@ def enganchar(app, plantillas) -> None:
     plantillas.env.globals["estatico"] = url
 
     @app.get("/estatico/{fichero}", include_in_schema=False)
-    def estatico(fichero: str):                              # noqa: ANN202
+    def estatico(fichero: str, request: Request):            # noqa: ANN202
         """[01852] Un estilo o un guion, con su año de caducidad puesto."""
-        return responder(fichero)
+        return responder(fichero, request.headers.get("accept-encoding"),
+                         request.headers.get("if-none-match"))

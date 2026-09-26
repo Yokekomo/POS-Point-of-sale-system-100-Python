@@ -167,3 +167,75 @@ def test_the_kitchen_edition_got_the_same(tmp_path, monkeypatch):
         assert "<style>" not in html
         assert estaticos.url("cocina.css") in html
         assert c.get(estaticos.url("cocina.css")).status_code == 200
+
+
+# ------------------------------------------------ lo que de verdad va por el cable
+def test_the_style_and_the_script_travel_squeezed(client):
+    """Sacarlos fuera sirve de poco si van crudos por el cable.
+
+    Ochenta y siete kilobytes de estilo y guion salían sin comprimir: el móvil
+    con una raya se los bajaba enteros. Comprimidos son treinta, y son los
+    mismos bytes: se comprime una vez al leerlos, no en cada petición.
+    """
+    pantalla = client.get("/recepcion").text
+    direcciones = re.findall(r'(?:href|src)="(/estatico/[^"]+)"', pantalla)
+    assert direcciones, "la pantalla no enlaza nada de fuera"
+    crudo = apretado = 0
+    for direccion in direcciones:
+        entero = client.get(direccion, headers={"accept-encoding": "identity"})
+        corto = client.get(direccion, headers={"accept-encoding": "gzip"})
+        assert corto.headers["content-encoding"] == "gzip"
+        # Sin esto, la caché del hotel le da la copia comprimida a quien no la pidió.
+        assert corto.headers["vary"] == "Accept-Encoding"
+        assert corto.text == entero.text          # los mismos bytes al llegar
+        crudo += int(entero.headers["content-length"])
+        apretado += int(corto.headers["content-length"])
+    assert apretado < crudo * 0.45, f"{crudo} -> {apretado} bytes"
+
+
+def test_the_html_is_not_squeezed_and_that_is_on_purpose(client):
+    """El HTML lleva el token del formulario y lo que acaba de teclear alguien.
+
+    Comprimir las dos cosas juntas es la receta de BREACH: quien puede meter
+    texto en la pantalla mide cuánto encoge la respuesta y va sacando el token
+    letra a letra. Un estilo no lleva ni lo uno ni lo otro, y por eso ese sí.
+    """
+    pantalla = client.get("/recepcion", headers={"accept-encoding": "gzip, br"})
+    assert "content-encoding" not in pantalla.headers
+    assert 'name="csrf"' in pantalla.text          # el secreto que no se comprime
+
+
+def test_what_the_browser_already_has_is_not_sent_again(client):
+    """La huella vieja solo dura una hora: sin un 304, cada hora se baja entera."""
+    direccion = estaticos.url("carne.css")
+    etag = client.get(direccion).headers["etag"]
+    assert etag
+
+    for cabecera in (etag, f"W/{etag}", "*", f'"otra-cosa", {etag}'):
+        vuelta = client.get(direccion, headers={"if-none-match": cabecera})
+        assert vuelta.status_code == 304, cabecera
+        assert not vuelta.content
+        assert vuelta.headers["etag"] == etag
+
+    # Y el que tiene otra versión sí se la baja.
+    otra = client.get(direccion, headers={"if-none-match": '"aaaaaaaaaaaa"'})
+    assert otra.status_code == 200 and len(otra.content) > 20_000
+
+
+def test_the_squeezed_copy_is_the_same_on_every_server(tmp_path, monkeypatch):
+    """Dos servidores del mismo despliegue tienen que dar los mismos bytes.
+
+    El formato lleva un hueco para la hora. Si se dejara puesta, el mismo
+    estilo saldría distinto en cada arranque y las cachés de por medio no
+    podrían darlo por el mismo.
+    """
+    carpeta = tmp_path / "estatico"
+    carpeta.mkdir()
+    (carpeta / "prueba.css").write_text("body{color:#111}\n" * 200)
+    monkeypatch.setattr(estaticos, "RAIZ", carpeta)
+    monkeypatch.setattr(estaticos, "_guardado", {})
+    uno = estaticos._apretado("prueba.css")
+    monkeypatch.setattr(estaticos, "_guardado", {})
+    otro = estaticos._apretado("prueba.css")
+    assert uno == otro
+    assert gzip.decompress(uno) == (carpeta / "prueba.css").read_bytes()
